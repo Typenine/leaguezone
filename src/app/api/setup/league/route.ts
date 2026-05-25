@@ -68,8 +68,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[setup/league] Error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to save league';
+    const isDbMissing = message.includes('DATABASE_URL') || message.includes('POSTGRES_URL');
     return NextResponse.json(
-      { error: 'Failed to save league' },
+      { error: isDbMissing ? 'No database configured. Add a DATABASE_URL environment variable in your Vercel project settings, then redeploy.' : message },
       { status: 500 }
     );
   }

@@ -47,8 +47,8 @@ export default function SetupCheck({ children }: { children: React.ReactNode }) 
     );
   }
 
-  // Show landing page if setup not complete
-  if (!setupComplete) {
+  // Show landing page if setup not complete — but always let /setup pages through
+  if (!setupComplete && !pathname?.startsWith('/setup')) {
     return <LandingPage />;
   }
 
