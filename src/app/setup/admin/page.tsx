@@ -61,6 +61,13 @@ export default function SetupAdminPage() {
     }
   };
 
+  const fillTestDefaults = () => {
+    setEmail('admin@test.local');
+    setDisplayName('Test Admin');
+    setPin(['1','2','3','4','5','6']);
+    setConfirmPin(['1','2','3','4','5','6']);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -156,6 +163,18 @@ export default function SetupAdminPage() {
           <p className="text-[var(--muted)]">
             Create your administrator login
           </p>
+        </div>
+
+        {/* Testing shortcut */}
+        <div className="mb-4 p-3 rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface)] flex items-center justify-between gap-3">
+          <p className="text-xs text-[var(--muted)]">Just testing? Use placeholder credentials.</p>
+          <button
+            type="button"
+            onClick={fillTestDefaults}
+            className="text-xs px-3 py-1.5 rounded border border-[var(--accent)] text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] transition-colors shrink-0"
+          >
+            Fill test defaults
+          </button>
         </div>
 
         <Card className="p-6">
