@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import LandingPage from '@/app/(landing)/page';
+import LandingPage from '@/components/LandingPage';
 
 /**
  * Client component that checks if setup is complete.
