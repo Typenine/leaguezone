@@ -3,11 +3,12 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 
 import Navbar from "@/components/layout/navbar";
 import Footer from "@/components/layout/footer";
 import SetupCheck from "@/components/SetupCheck";
-import { getLeagueIdsFromDb } from "@/lib/server/league-config";
+import { getLeagueIdsFromDb, getLeagueBranding } from "@/lib/server/league-config";
 import { discoverLeagueChain } from "@/lib/utils/sleeper-api";
 
 const geistSans = Geist({
@@ -30,14 +31,34 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read the active league cookie so multi-league sites show the right data.
+  const cookieJar = await cookies();
+  const activeLeagueId = cookieJar.get('active_league_id')?.value || undefined;
+
   // Fetch league IDs server-side so client components can read them from
   // window.__LEAGUE_CONFIG__ without an extra round-trip.
   let leagueConfig = { current: '', previous: {} as Record<string, string> };
   try {
-    leagueConfig = await getLeagueIdsFromDb();
+    leagueConfig = await getLeagueIdsFromDb(activeLeagueId);
   } catch {
     // If DB isn't ready yet (e.g. pre-setup), leave config empty — pages will
     // show their own empty/setup states.
+  }
+
+  // Fetch branding for the active league (colors, logo, name).
+  let branding = {
+    name: '',
+    shortName: null as string | null,
+    logoUrl: null as string | null,
+    primaryColor: null as string | null,
+    secondaryColor: null as string | null,
+    rulesContent: null as string | null,
+    rulesFileKey: null as string | null,
+  };
+  try {
+    branding = await getLeagueBranding(activeLeagueId);
+  } catch {
+    // Non-fatal
   }
 
   // If no previous seasons were explicitly saved (e.g. user only entered the
@@ -60,6 +81,14 @@ export default async function RootLayout({
   const leagueConfigJson = JSON.stringify({
     currentLeagueId: leagueConfig.current,
     previousLeagueIds,
+  });
+
+  const leagueBrandingJson = JSON.stringify({
+    name: branding.name,
+    shortName: branding.shortName,
+    logoUrl: branding.logoUrl,
+    primaryColor: branding.primaryColor,
+    secondaryColor: branding.secondaryColor,
   });
 
   return (
@@ -85,6 +114,20 @@ export default async function RootLayout({
             __html: `window.__LEAGUE_CONFIG__ = ${leagueConfigJson};`,
           }}
         />
+        {/* League branding injected for client-side access */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__LEAGUE_BRANDING__ = ${leagueBrandingJson};`,
+          }}
+        />
+        {/* Inject league primary color as CSS variable override when configured */}
+        {branding.primaryColor && (
+          <style
+            dangerouslySetInnerHTML={{
+              __html: `:root { --accent: ${branding.primaryColor}; }`,
+            }}
+          />
+        )}
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}

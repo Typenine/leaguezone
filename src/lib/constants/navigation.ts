@@ -18,7 +18,7 @@ export const DRAFT_VIEW_IDS = ['next', 'past', 'team-prospect-draftboard'] as co
 export const DRAFT_NEXT_TAB_IDS = ['order'] as const;
 
 export const USER_NAV_CONFIG: UserNavItem[] = [
-  { id: 'home', label: 'Home', href: '/' },
+  { id: 'home', label: 'Home', href: '/home' },
   {
     id: 'league',
     label: 'League',

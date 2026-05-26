@@ -122,7 +122,7 @@ export async function PUT(req: NextRequest) {
     if (message) {
       const webhookUrl = process.env.DISCORD_TRADE_BLOCK_WEBHOOK_URL;
       if (webhookUrl) {
-        const tradeBlockUrl = baseUrl ? `${baseUrl}/trades/block` : 'https://eastvswest.win/trades/block';
+        const tradeBlockUrl = baseUrl ? `${baseUrl}/trades/block` : `${process.env.SITE_URL ?? ''}/trades/block`;
         const urlSuffix = `\n\n${tradeBlockUrl}`;
         const descriptionText = message.endsWith(urlSuffix)
           ? message.slice(0, -urlSuffix.length).trim()

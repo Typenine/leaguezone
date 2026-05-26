@@ -222,7 +222,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Link href="/" className="font-bold text-xl">
+              <Link href="/home" className="font-bold text-xl">
                 {leagueName ?? 'Fantasy League'}
               </Link>
             </div>

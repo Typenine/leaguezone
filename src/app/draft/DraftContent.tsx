@@ -50,6 +50,133 @@ type SleeperDraftSettings = {
   rounds?: number;
 };
 
+// Threshold: only show countdown if draft is > 24 hours away
+const DRAFT_COUNTDOWN_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
+function isDraftDateMeaningful(date: Date): boolean {
+  try {
+    const now = Date.now();
+    const diff = date.getTime() - now;
+    return Number.isFinite(diff) && diff > DRAFT_COUNTDOWN_THRESHOLD_MS;
+  } catch {
+    return false;
+  }
+}
+
+// ── Draft date suggestion form ────────────────────────────────────────────────
+function DraftSuggestForm({ isLoggedIn, isAdmin }: { isLoggedIn: boolean; isAdmin: boolean }) {
+  const [suggestions, setSuggestions] = useState<Array<{ id: string; teamName: string; date: string; notes?: string; approvedAt?: string }>>([]);
+  const [date, setDate] = useState('');
+  const [notes, setNotes] = useState('');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    fetch('/api/draft/suggest').then(r => r.json()).then(d => {
+      if (Array.isArray(d.suggestions)) setSuggestions(d.suggestions);
+    }).catch(() => {});
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!date) { setMsg('Please select a date and time'); setStatus('error'); return; }
+    setStatus('saving');
+    const res = await fetch('/api/draft/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, notes }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setStatus('ok');
+      setMsg('Suggestion submitted!');
+      setDate('');
+      setNotes('');
+      if (Array.isArray(data.suggestions)) setSuggestions(data.suggestions);
+    } else {
+      setStatus('error');
+      setMsg(data?.error || 'Failed to submit suggestion');
+    }
+  };
+
+  const handleApprove = async (suggId: string, suggDate: string) => {
+    const res = await fetch('/api/draft/suggest/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: suggId, date: suggDate }),
+    });
+    const data = await res.json();
+    if (res.ok && Array.isArray(data.suggestions)) setSuggestions(data.suggestions);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Draft Date Suggestions</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {suggestions.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-[var(--text)]">Suggested dates:</p>
+            <ul className="space-y-2">
+              {suggestions.map((s) => (
+                <li key={s.id} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-sm">
+                  <div>
+                    <span className="font-medium text-[var(--text)]">{new Date(s.date).toLocaleString()}</span>
+                    <span className="text-[var(--muted)] ml-2">by {s.teamName}</span>
+                    {s.notes && <p className="text-xs text-[var(--muted)] mt-0.5">{s.notes}</p>}
+                    {s.approvedAt && <span className="text-xs text-green-500 ml-2">Approved</span>}
+                  </div>
+                  {isAdmin && !s.approvedAt && (
+                    <Button size="sm" variant="secondary" onClick={() => handleApprove(s.id, s.date)}>
+                      Approve
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {isLoggedIn ? (
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <Label htmlFor="draft-suggest-date">Suggest a Date &amp; Time</Label>
+              <input
+                id="draft-suggest-date"
+                type="datetime-local"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] focus:border-[var(--accent)] focus:outline-none text-sm"
+              />
+            </div>
+            <div>
+              <Label htmlFor="draft-suggest-notes">Notes (optional)</Label>
+              <input
+                id="draft-suggest-notes"
+                type="text"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="e.g. Saturday works best for me"
+                maxLength={200}
+                className="w-full px-3 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] focus:border-[var(--accent)] focus:outline-none text-sm"
+              />
+            </div>
+            {msg && (
+              <p className={`text-sm ${status === 'ok' ? 'text-green-500' : 'text-red-400'}`}>{msg}</p>
+            )}
+            <Button type="submit" disabled={status === 'saving'}>
+              {status === 'saving' ? 'Submitting…' : 'Submit Suggestion'}
+            </Button>
+          </form>
+        ) : (
+          <p className="text-sm text-[var(--muted)]">Sign in to suggest a draft date.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // Suggestions section will use EmptyState (no mock content)
 
 export default function DraftContent() {
@@ -68,6 +195,7 @@ export default function DraftContent() {
   const loadedYearsRef = useRef<Set<string>>(new Set());
   const [draftView, setDraftView] = useState<'teams' | 'linear'>('teams');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const outerTabParam = searchParams?.get('view') || '';
   const nextTabParam = searchParams?.get('next') || '';
@@ -88,6 +216,7 @@ export default function DraftContent() {
 
   useEffect(() => {
     fetch('/api/admin-login').then(r => r.json()).then(j => setIsAdmin(Boolean(j?.isAdmin))).catch(() => setIsAdmin(false));
+    fetch('/api/auth/me').then(r => r.json()).then(j => setIsLoggedIn(Boolean(j?.authenticated))).catch(() => setIsLoggedIn(false));
   }, []);
 
   // Removed local classNames helper – primitives use tokenized styles
@@ -247,29 +376,51 @@ export default function DraftContent() {
             {
               id: 'next',
               label: 'Next Draft',
-              content: (
-                <div className="space-y-6">
-                  <CountdownTimer
-                    targetDate={IMPORTANT_DATES.NEXT_DRAFT}
-                    title="Countdown to Draft Day"
-                    className="mb-2"
-                  />
-                  <div className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Draft Info</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-[var(--muted)] mb-4">
-                          Draft details will be configured by the league commissioner. Use the calendar button to add the draft to your calendar.
-                        </p>
-                        <Button onClick={handleAddToCalendar} variant="primary">Add to Calendar (.ics)</Button>
-                      </CardContent>
-                    </Card>
-                    <DraftOrderView />
+              content: (() => {
+                const draftDateConfirmed = isDraftDateMeaningful(IMPORTANT_DATES.NEXT_DRAFT);
+                return (
+                  <div className="space-y-6">
+                    {draftDateConfirmed ? (
+                      <CountdownTimer
+                        targetDate={IMPORTANT_DATES.NEXT_DRAFT}
+                        title="Countdown to Draft Day"
+                        className="mb-2"
+                      />
+                    ) : (
+                      <Card>
+                        <CardContent>
+                          <div className="flex items-center gap-3 py-2">
+                            <span className="text-3xl">📅</span>
+                            <div>
+                              <p className="font-semibold text-[var(--text)]">Draft Date TBD</p>
+                              <p className="text-sm text-[var(--muted)]">
+                                No draft date has been confirmed yet. Use the suggestion form below to propose a date.
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    <div className="space-y-4">
+                      {draftDateConfirmed && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Draft Info</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-[var(--muted)] mb-4">
+                              Draft details configured by the commissioner. Add to your calendar so you don&apos;t miss it.
+                            </p>
+                            <Button onClick={handleAddToCalendar} variant="primary">Add to Calendar (.ics)</Button>
+                          </CardContent>
+                        </Card>
+                      )}
+                      <DraftSuggestForm isLoggedIn={isLoggedIn} isAdmin={isAdmin} />
+                      <DraftOrderView />
+                    </div>
                   </div>
-                </div>
-              ),
+                );
+              })(),
             },
             {
               id: 'past',

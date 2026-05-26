@@ -28,7 +28,7 @@ export type ManualTrade = {
   updatedAt?: string;
 };
 
-const BLOB_PATH = 'evw/manual_trades.json';
+const BLOB_PATH = 'league/manual_trades.json';
 
 async function loadAll(): Promise<ManualTrade[]> {
   // R2 primary

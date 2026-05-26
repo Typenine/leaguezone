@@ -531,7 +531,7 @@ export async function GET(req: NextRequest) {
   const seasonScopedLeagueId = process.env[`SLEEPER_LEAGUE_ID_${CURRENT_SEASON}`];
   const leagueId = process.env.SLEEPER_LEAGUE_ID || seasonScopedLeagueId;
   const webhookUrl = process.env.DISCORD_TRADES_WEBHOOK_URL;
-  const siteUrl = process.env.SITE_URL || 'https://eastvswest.football';
+  const siteUrl = process.env.SITE_URL || '';
 
   if (!leagueId) {
     return NextResponse.json({ error: 'SLEEPER_LEAGUE_ID not configured' }, { status: 500 });

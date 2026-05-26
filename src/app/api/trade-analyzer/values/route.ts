@@ -45,7 +45,7 @@ const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 async function fetchFantasyCalc(): Promise<FantasyCalcPlayer[]> {
   const url = 'https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1';
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'EastVWest/1.0' },
+    headers: { 'User-Agent': 'FantasyLeagueApp/1.0' },
     signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) throw new Error(`FantasyCalc ${res.status}`);

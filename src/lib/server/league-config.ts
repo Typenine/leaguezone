@@ -19,7 +19,28 @@ export interface LeagueIdsConfig {
   previous: Record<string, string>;
 }
 
-export async function getLeagueIdsFromDb(): Promise<LeagueIdsConfig> {
+export interface LeagueSummary {
+  id: string;
+  slug: string;
+  name: string;
+  shortName: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  foundedYear: number | null;
+}
+
+export interface LeagueBranding {
+  name: string;
+  shortName: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  rulesContent: string | null;
+  rulesFileKey: string | null;
+}
+
+export async function getLeagueIdsFromDb(leagueId?: string): Promise<LeagueIdsConfig> {
   // Explicit env var takes priority — supports traditional Vercel deployments.
   if (process.env.SLEEPER_LEAGUE_ID) {
     return { current: process.env.SLEEPER_LEAGUE_ID, previous: {} };
@@ -27,13 +48,21 @@ export async function getLeagueIdsFromDb(): Promise<LeagueIdsConfig> {
 
   try {
     const db = getDb();
-    const res = await db.execute(sql`
-      SELECT id, sleeper_league_id, sleeper_league_ids
-      FROM leagues
-      WHERE setup_completed = true
-      ORDER BY created_at DESC
-      LIMIT 1
-    `);
+    const res = leagueId
+      ? await db.execute(sql`
+          SELECT id, sleeper_league_id, sleeper_league_ids
+          FROM leagues
+          WHERE setup_completed = true
+            AND id = ${leagueId}::uuid
+          LIMIT 1
+        `)
+      : await db.execute(sql`
+          SELECT id, sleeper_league_id, sleeper_league_ids
+          FROM leagues
+          WHERE setup_completed = true
+          ORDER BY created_at DESC
+          LIMIT 1
+        `);
     const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
 
     const current = (row?.sleeper_league_id as string) || '';
@@ -78,5 +107,73 @@ export async function getLeagueIdsFromDb(): Promise<LeagueIdsConfig> {
     return { current, previous };
   } catch {
     return { current: '', previous: {} };
+  }
+}
+
+export async function getAllLeagues(): Promise<LeagueSummary[]> {
+  try {
+    const db = getDb();
+    const res = await db.execute(sql`
+      SELECT id, slug, name, short_name, logo_url, primary_color, secondary_color, founded_year
+      FROM leagues
+      WHERE setup_completed = true
+      ORDER BY created_at ASC
+    `);
+    const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
+    return rows.map((r) => ({
+      id: r.id as string,
+      slug: (r.slug as string) || '',
+      name: (r.name as string) || '',
+      shortName: (r.short_name as string | null) ?? null,
+      logoUrl: (r.logo_url as string | null) ?? null,
+      primaryColor: (r.primary_color as string | null) ?? null,
+      secondaryColor: (r.secondary_color as string | null) ?? null,
+      foundedYear: (r.founded_year as number | null) ?? null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getLeagueBranding(leagueId?: string): Promise<LeagueBranding> {
+  const fallback: LeagueBranding = {
+    name: '',
+    shortName: null,
+    logoUrl: null,
+    primaryColor: null,
+    secondaryColor: null,
+    rulesContent: null,
+    rulesFileKey: null,
+  };
+  try {
+    const db = getDb();
+    const res = leagueId
+      ? await db.execute(sql`
+          SELECT name, short_name, logo_url, primary_color, secondary_color, rules_content, rules_file_key
+          FROM leagues
+          WHERE setup_completed = true
+            AND id = ${leagueId}::uuid
+          LIMIT 1
+        `)
+      : await db.execute(sql`
+          SELECT name, short_name, logo_url, primary_color, secondary_color, rules_content, rules_file_key
+          FROM leagues
+          WHERE setup_completed = true
+          ORDER BY created_at DESC
+          LIMIT 1
+        `);
+    const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+    if (!row) return fallback;
+    return {
+      name: (row.name as string) || '',
+      shortName: (row.short_name as string | null) ?? null,
+      logoUrl: (row.logo_url as string | null) ?? null,
+      primaryColor: (row.primary_color as string | null) ?? null,
+      secondaryColor: (row.secondary_color as string | null) ?? null,
+      rulesContent: (row.rules_content as string | null) ?? null,
+      rulesFileKey: (row.rules_file_key as string | null) ?? null,
+    };
+  } catch {
+    return fallback;
   }
 }
