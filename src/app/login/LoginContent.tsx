@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
@@ -18,11 +18,12 @@ function LoginContent() {
   const search = useSearchParams();
   const router = useRouter();
   const initialTab: Tab = search?.get('mode') === 'commish' ? 'commish' : 'team';
+  const preselectedTeam = search?.get('team') || null;
 
   const [tab, setTab] = useState<Tab>(initialTab);
 
   // Team login state
-  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(preselectedTeam);
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +90,7 @@ function LoginContent() {
         <Link href="/" aria-label="Website home">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/assets/teams/East v West Logos/Official East v. West Logo.png"
+            src="/assets/teams/East v West Logos/EvW Clancy logo.png"
             alt="League logo"
             className="w-20 h-20 object-contain"
           />
@@ -110,7 +111,7 @@ function LoginContent() {
                   : 'bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--text)]'
               }`}
             >
-              {t === 'team' ? '🏈 Team Login' : '🏆 Commish Login'}
+              {t === 'team' ? 'ðŸˆ Team Login' : 'ðŸ† Commish Login'}
             </button>
           ))}
         </div>
@@ -118,7 +119,7 @@ function LoginContent() {
 
       <Card>
         <CardContent className="pt-6">
-          {/* ── Team Login ── */}
+          {/* â”€â”€ Team Login â”€â”€ */}
           {tab === 'team' && (
             <div className="space-y-6">
               <div>
@@ -169,7 +170,7 @@ function LoginContent() {
 
               <div className="flex items-center gap-3">
                 <Button onClick={handleTeamLogin} disabled={!selectedTeam || !pin || loading} variant="primary">
-                  {loading ? 'Signing in…' : 'Sign In'}
+                  {loading ? 'Signing inâ€¦' : 'Sign In'}
                 </Button>
                 <Button onClick={() => { setSelectedTeam(null); setPin(''); setError(null); }} variant="ghost">
                   Reset
@@ -178,7 +179,7 @@ function LoginContent() {
             </div>
           )}
 
-          {/* ── Commish Login ── */}
+          {/* â”€â”€ Commish Login â”€â”€ */}
           {tab === 'commish' && (
             <div className="max-w-sm mx-auto space-y-4 py-4">
               <p className="text-sm text-[var(--muted)] text-center">
@@ -205,7 +206,7 @@ function LoginContent() {
                 disabled={!commishPin || commishLoading}
                 className="w-full"
               >
-                {commishLoading ? 'Verifying…' : 'Enter Commish Mode'}
+                {commishLoading ? 'Verifyingâ€¦' : 'Enter Commish Mode'}
               </Button>
             </div>
           )}
@@ -216,7 +217,7 @@ function LoginContent() {
       <p className="text-center text-xs text-[var(--muted)] mt-6">
         Site admin?{' '}
         <Link href="/super-admin/login" className="text-amber-500 hover:underline font-medium">
-          Enter Admin Mode →
+          Enter Admin Mode â†’
         </Link>
       </p>
     </div>
@@ -224,3 +225,5 @@ function LoginContent() {
 }
 
 export default LoginContent;
+
+

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-function LogoutButton() {
+export function LogoutButton() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -28,7 +28,7 @@ function LogoutButton() {
   );
 }
 
-interface SwitchLeagueButtonProps {
+export interface SwitchLeagueButtonProps {
   leagueId: string;
   leagueName: string;
   destination?: string;
@@ -36,7 +36,7 @@ interface SwitchLeagueButtonProps {
   variant?: 'primary' | 'secondary';
 }
 
-function SwitchLeagueButton({
+export function SwitchLeagueButton({
   leagueId,
   destination = '/home',
   label = 'Enter League',
@@ -56,6 +56,8 @@ function SwitchLeagueButton({
         window.location.href = res.url;
       } else if (res.ok) {
         window.location.href = destination;
+      } else {
+        setLoading(false);
       }
     } catch {
       setLoading(false);
@@ -74,6 +76,3 @@ function SwitchLeagueButton({
     </button>
   );
 }
-
-const SuperAdminClient = { LogoutButton, SwitchLeagueButton };
-export default SuperAdminClient;

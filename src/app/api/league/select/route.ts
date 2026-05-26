@@ -12,7 +12,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/', req.url));
   }
 
-  const res = NextResponse.redirect(new URL('/home', req.url));
+  const next = req.nextUrl.searchParams.get('next') || '/home';
+  const destination = next.startsWith('/') ? next : '/home';
+  const res = NextResponse.redirect(new URL(destination, req.url));
   res.cookies.set('active_league_id', id, {
     httpOnly: false, // readable client-side for navbar
     sameSite: 'lax',

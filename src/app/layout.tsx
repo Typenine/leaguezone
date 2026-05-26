@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
@@ -25,8 +25,8 @@ export const metadata: Metadata = {
   title: "Fantasy Football League",
   description: "Dynasty fantasy football league management",
   icons: {
-    icon: '/assets/teams/East v West Logos/Official East v. West Logo.png',
-    apple: '/assets/teams/East v West Logos/Official East v. West Logo.png',
+    icon: '/assets/teams/East v West Logos/EvW Clancy logo.png',
+    apple: '/assets/teams/East v West Logos/EvW Clancy logo.png',
   },
 };
 
@@ -45,7 +45,7 @@ export default async function RootLayout({
   try {
     leagueConfig = await getLeagueIdsFromDb(activeLeagueId);
   } catch {
-    // If DB isn't ready yet (e.g. pre-setup), leave config empty — pages will
+    // If DB isn't ready yet (e.g. pre-setup), leave config empty â€” pages will
     // show their own empty/setup states.
   }
 
@@ -73,12 +73,12 @@ export default async function RootLayout({
   if (leagueConfig.current && Object.keys(previousLeagueIds).length === 0) {
     try {
       const chain = await discoverLeagueChain(leagueConfig.current);
-      // chain includes current season — extract only previous entries
+      // chain includes current season â€” extract only previous entries
       previousLeagueIds = Object.fromEntries(
         Object.entries(chain).filter(([, id]) => id !== leagueConfig.current)
       );
     } catch {
-      // Non-fatal — history pages will just show only current season
+      // Non-fatal â€” history pages will just show only current season
     }
   }
 
@@ -98,7 +98,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Pre-hydration theme setter — avoids flash */}
+        {/* Pre-hydration theme setter â€” avoids flash */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(() => { try {
@@ -150,3 +150,5 @@ export default async function RootLayout({
     </html>
   );
 }
+
+

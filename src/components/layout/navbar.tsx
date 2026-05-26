@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -241,16 +241,16 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <div className="flex items-center gap-2 flex-shrink-0">
-              {/* League logo — always visible, links to website hub (/) */}
+              {/* League logo â€” always visible, links to website hub (/) */}
               <Link href="/" aria-label="Website home" className="flex-shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={leagueLogoUrl || '/assets/teams/East v West Logos/Official East v. West Logo.png'}
+                  src={leagueLogoUrl || '/assets/teams/East v West Logos/EvW Clancy logo.png'}
                   alt="League logo"
                   className="h-9 w-9 rounded-lg object-contain"
                 />
               </Link>
-              {/* League name — links to league home (/home) */}
+              {/* League name â€” links to league home (/home) */}
               <Link href="/home" className="font-bold text-xl leading-none">
                 {leagueName ?? 'Fantasy League'}
               </Link>
@@ -291,7 +291,7 @@ export default function Navbar() {
                         onFocus={() => setDesktopMenuOpen(item.id)}
                       >
                         {item.label}
-                        <span className="text-xs">▾</span>
+                        <span className="text-xs">â–¾</span>
                       </Button>
 
                       <div
@@ -328,7 +328,7 @@ export default function Navbar() {
                                     onClick={() => setDesktopMenuOpen(null)}
                                   >
                                     <span>{child.label}</span>
-                                    <span aria-hidden="true">▸</span>
+                                    <span aria-hidden="true">â–¸</span>
                                   </Link>
 
                                   <div className="absolute left-full top-0 invisible opacity-0 pointer-events-none group-hover/submenu:visible group-hover/submenu:opacity-100 group-hover/submenu:pointer-events-auto transition-opacity duration-150">
@@ -378,7 +378,7 @@ export default function Navbar() {
                         <Image src={getTeamLogoPath(sessionTeam)} alt={sessionTeam} width={32} height={32} />
                       ) : (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src="/assets/teams/East v West Logos/Official East v. West Logo.png" alt="League logo" width={32} height={32} className="w-full h-full object-contain" />
+                        <img src="/assets/teams/East v West Logos/EvW Clancy logo.png" alt="League logo" width={32} height={32} className="w-full h-full object-contain" />
                       )}
                     </button>
                     {/* Site admin badge */}
@@ -395,7 +395,7 @@ export default function Navbar() {
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                             onClick={() => { setAccountMenuOpen(false); router.push('/super-admin'); }}
                           >
-                            🌐 Admin Dashboard
+                            ðŸŒ Admin Dashboard
                           </button>
                           <button
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm text-red-500"
@@ -481,7 +481,7 @@ export default function Navbar() {
                     aria-expanded={accountMenuOpen}
                     aria-haspopup="menu"
                   >
-                    Sign In <span aria-hidden="true" className="text-xs">▾</span>
+                    Sign In <span aria-hidden="true" className="text-xs">â–¾</span>
                   </Button>
                   {accountMenuOpen && (
                     <div className="absolute right-0 mt-2 w-44 league-surface border border-[var(--border)] rounded shadow-lg p-1 z-50">
@@ -490,14 +490,14 @@ export default function Navbar() {
                         className="block rounded px-3 py-2 text-sm hover:bg-[var(--surface-strong)] text-[var(--text)]"
                         onClick={() => setAccountMenuOpen(false)}
                       >
-                        🏈 Team Login
+                        ðŸˆ Team Login
                       </Link>
                       <Link
                         href="/login?mode=commish"
                         className="block rounded px-3 py-2 text-sm hover:bg-[var(--surface-strong)] text-[var(--text)]"
                         onClick={() => setAccountMenuOpen(false)}
                       >
-                        🏆 Commish Login
+                        ðŸ† Commish Login
                       </Link>
                       <div className="my-1 border-t border-[var(--border)]" />
                       <Link
@@ -505,7 +505,7 @@ export default function Navbar() {
                         className="block rounded px-3 py-2 text-sm hover:bg-[var(--surface-strong)] text-amber-500"
                         onClick={() => setAccountMenuOpen(false)}
                       >
-                        🌐 Admin Mode
+                        ðŸŒ Admin Mode
                       </Link>
                     </div>
                   )}
@@ -588,7 +588,7 @@ export default function Navbar() {
                   aria-expanded={expanded}
                 >
                   <span>{item.label}</span>
-                  <span aria-hidden="true">{expanded ? '▾' : '▸'}</span>
+                  <span aria-hidden="true">{expanded ? 'â–¾' : 'â–¸'}</span>
                 </button>
 
                 {expanded && (
@@ -632,7 +632,7 @@ export default function Navbar() {
                               aria-expanded={childExpanded}
                               aria-label={`Toggle ${child.label} submenu`}
                             >
-                              <span aria-hidden="true">{childExpanded ? '▾' : '▸'}</span>
+                              <span aria-hidden="true">{childExpanded ? 'â–¾' : 'â–¸'}</span>
                             </button>
                           </div>
 
@@ -680,7 +680,7 @@ export default function Navbar() {
                       <Image src={getTeamLogoPath(sessionTeam)} alt={sessionTeam} width={32} height={32} />
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src="/assets/teams/East v West Logos/Official East v. West Logo.png" alt="League logo" width={32} height={32} className="w-full h-full object-contain" />
+                      <img src="/assets/teams/East v West Logos/EvW Clancy logo.png" alt="League logo" width={32} height={32} className="w-full h-full object-contain" />
                     )}
                   </button>
                   {sessionTeam && (
@@ -808,7 +808,7 @@ export default function Navbar() {
             data-bwignore="true"
             pattern="[0-9]*"
             className="w-full league-surface border border-[var(--border)] rounded px-3 py-2"
-            placeholder="New PIN (4–12 digits)"
+            placeholder="New PIN (4â€“12 digits)"
             maxLength={12}
             ref={newPinRef}
             value={newPin}
@@ -837,3 +837,5 @@ export default function Navbar() {
     </>
   );
 }
+
+

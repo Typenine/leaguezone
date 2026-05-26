@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
+import { InviteButton } from './InviteButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -177,17 +178,19 @@ export default async function HomePage() {
                     {member.teamName}
                   </span>
 
-                  {!claimed && (
-                    <span className="ml-auto text-xs text-[var(--muted)] italic">Pending</span>
-                  )}
-                  {claimed && (
+                  {claimed ? (
                     <span
-                      className="ml-auto text-xs font-medium"
+                      className="text-xs font-medium"
                       style={{ color: accent }}
                     >
                       Active
                     </span>
+                  ) : (
+                    <span className="text-xs text-[var(--muted)] italic">Pending</span>
                   )}
+
+                  {/* Invite button — always visible so commissioners can re-send */}
+                  <InviteButton teamName={member.teamName} />
                 </li>
               );
             })}

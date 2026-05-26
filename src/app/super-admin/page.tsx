@@ -5,7 +5,7 @@ import { isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { getAllLeagues } from '@/lib/server/league-config';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
-import SuperAdminClient from './SuperAdminClient';
+import { LogoutButton, SwitchLeagueButton } from './SuperAdminClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,7 +65,7 @@ export default async function SuperAdminPage() {
           >
             ← Website Hub
           </Link>
-          <SuperAdminClient.LogoutButton />
+          <LogoutButton />
         </div>
       </div>
 
@@ -148,12 +148,12 @@ export default async function SuperAdminPage() {
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-2">
-                    <SuperAdminClient.SwitchLeagueButton
+                    <SwitchLeagueButton
                       leagueId={league.id}
                       leagueName={league.name}
                       destination="/home"
                     />
-                    <SuperAdminClient.SwitchLeagueButton
+                    <SwitchLeagueButton
                       leagueId={league.id}
                       leagueName={league.name}
                       destination="/settings"
