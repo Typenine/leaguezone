@@ -16,10 +16,7 @@ import Label from '@/components/ui/Label';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import { getTeamColors, getTeamColorStyle, getTeamLogoPath } from '@/lib/utils/team-utils';
-import { HomeIcon, TvIcon, FireIcon, MoonIcon, BookOpenIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
-import Input from '@/components/ui/Input';
-import Textarea from '@/components/ui/Textarea';
-import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/Table';
+import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react';
 import TeamProspectDraftboard from '@/components/draft/TeamProspectDraftboard';
@@ -74,10 +71,10 @@ export default function DraftContent() {
 
   const outerTabParam = searchParams?.get('view') || '';
   const nextTabParam = searchParams?.get('next') || '';
-  const activeOuterTab = outerTabParam === 'next' || outerTabParam === '2027' || outerTabParam === 'past' || outerTabParam === 'team-prospect-draftboard'
+  const activeOuterTab = outerTabParam === 'next' || outerTabParam === 'past' || outerTabParam === 'team-prospect-draftboard'
     ? outerTabParam
     : 'next';
-  const activeNextTab = nextTabParam === 'airbnb' || nextTabParam === 'travel' || nextTabParam === 'order' ? nextTabParam : 'airbnb';
+  const activeNextTab = nextTabParam === 'order' ? nextTabParam : 'order';
 
   const replaceDraftQuery = useCallback((updates: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams?.toString() || '');
@@ -95,40 +92,26 @@ export default function DraftContent() {
 
   // Removed local classNames helper – primitives use tokenized styles
 
-  // Download an ICS calendar file for the trip and draft
+  // Download an ICS calendar file for the next draft
   const handleAddToCalendar = () => {
     try {
       const formatICSDate = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-      // Trip window (Thursday 3 PM ET -> Sunday 11 AM ET)
-      const tripStart = new Date('2026-07-16T15:00:00-04:00');
-      const tripEnd = new Date('2026-07-19T11:00:00-04:00');
-      // Draft event (using league constant for start time)
       const draftStart = IMPORTANT_DATES.NEXT_DRAFT;
       const draftEnd = new Date(draftStart.getTime() + 2 * 60 * 60 * 1000); // 2 hours
-
       const now = new Date();
+      const year = draftStart.getFullYear();
       const ics = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//East v. West//Draft Trip//EN',
+        'PRODID:-//Fantasy League//Draft//EN',
         'CALSCALE:GREGORIAN',
         'METHOD:PUBLISH',
         'BEGIN:VEVENT',
-        `UID:evw-trip-2026@eastvwest`,
-        `DTSTAMP:${formatICSDate(now)}`,
-        `DTSTART:${formatICSDate(tripStart)}`,
-        `DTEND:${formatICSDate(tripEnd)}`,
-        'SUMMARY:East v. West Draft Trip',
-        'LOCATION:Somerset, Pennsylvania, United States',
-        'DESCRIPTION:Airbnb: https://www.airbnb.com/rooms/21559127',
-        'END:VEVENT',
-        'BEGIN:VEVENT',
-        `UID:evw-draft-2026@eastvwest`,
+        `UID:draft-${year}@fantasyleague`,
         `DTSTAMP:${formatICSDate(now)}`,
         `DTSTART:${formatICSDate(draftStart)}`,
         `DTEND:${formatICSDate(draftEnd)}`,
-        'SUMMARY:East v. West Rookie Draft',
-        'DESCRIPTION:Draft starts at 1:00 PM ET',
+        `SUMMARY:Fantasy League Rookie Draft ${year}`,
         'END:VEVENT',
         'END:VCALENDAR',
       ].join('\r\n');
@@ -137,259 +120,13 @@ export default function DraftContent() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'evw-draft-trip-2026.ics';
+      a.download = `draft-${year}.ics`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error('Failed to create calendar file', e);
-      alert('Could not generate calendar file.');
-    }
-  };
-
-  function TravelSubtab({ trip }: { trip: string }) {
-    const [items, setItems] = useState<Array<{
-      id: string; trip: string; entryType: 'arrival' | 'departure'; person: string; team?: string | null; airline?: string | null; flightNo?: string | null; airport?: string | null; dt?: string | null; seats?: number | null; canPickup?: boolean; canDropoff?: boolean; notes?: string | null; createdAt: string;
-    }>>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const empty = { person: '', team: '', airline: '', flightNo: '', airport: '', dt: '', seats: '', canPickup: false, canDropoff: false, notes: '' };
-    const [arrForm, setArrForm] = useState<typeof empty>({ ...empty });
-    const [depForm, setDepForm] = useState<typeof empty>({ ...empty });
-    const [submitting, setSubmitting] = useState<'arrival' | 'departure' | null>(null);
-
-    const load = useCallback(async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const r = await fetch(`/api/draft/travel?trip=${encodeURIComponent(trip)}`, { cache: 'no-store' });
-        if (!r.ok) throw new Error('Failed to load');
-        const j = await r.json();
-        setItems(Array.isArray(j) ? j : []);
-      } catch {
-        setError('Unable to load entries');
-      } finally {
-        setLoading(false);
-      }
-    }, [trip]);
-
-    useEffect(() => { load(); }, [load]);
-
-    const submit = async (entryType: 'arrival' | 'departure', formData: typeof empty) => {
-      if (!formData.person) return;
-      try {
-        setSubmitting(entryType);
-        const payload = {
-          trip,
-          entryType,
-          person: formData.person,
-          team: formData.team || null,
-          airline: formData.airline || null,
-          flightNo: formData.flightNo || null,
-          airport: formData.airport || null,
-          dt: formData.dt || null,
-          seats: formData.seats ? Number(formData.seats) : null,
-          canPickup: !!formData.canPickup,
-          canDropoff: !!formData.canDropoff,
-          notes: formData.notes || null,
-        };
-        const r = await fetch('/api/draft/travel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        const j = await r.json();
-        if (!r.ok) throw new Error(j?.error || 'Failed to submit');
-        if (entryType === 'arrival') setArrForm({ ...empty, canPickup: arrForm.canPickup, canDropoff: arrForm.canDropoff });
-        else setDepForm({ ...empty, canPickup: depForm.canPickup, canDropoff: depForm.canDropoff });
-        await load();
-      } catch {
-        alert('Failed to submit');
-      } finally {
-        setSubmitting(null);
-      }
-    };
-
-    const arrivals = items.filter(i => i.entryType === 'arrival');
-    const departures = items.filter(i => i.entryType === 'departure');
-
-    return (
-      <div className="space-y-6">
-        {loading ? (
-          <LoadingState message="Loading entries…" />
-        ) : error ? (
-          <ErrorState message={error} />
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="evw-surface">
-              <CardHeader>
-                <CardTitle>Arrivals</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <THead>
-                      <Tr>
-                        <Th>Name</Th>
-                        <Th>Team</Th>
-                        <Th>Date &amp; Time</Th>
-                        <Th>Airline</Th>
-                        <Th>Flight #</Th>
-                        <Th>Airport</Th>
-                        <Th>Seats</Th>
-                        <Th>Pickup</Th>
-                        <Th>Dropoff</Th>
-                        <Th>Notes</Th>
-                        <Th></Th>
-                      </Tr>
-                    </THead>
-                    <TBody>
-                      <Tr>
-                        <Td><Input placeholder="Name" value={arrForm.person} onChange={(e) => setArrForm({ ...arrForm, person: e.target.value })} /></Td>
-                        <Td><Input placeholder="Team" value={arrForm.team} onChange={(e) => setArrForm({ ...arrForm, team: e.target.value })} /></Td>
-                        <Td><Input type="datetime-local" value={arrForm.dt} onChange={(e) => setArrForm({ ...arrForm, dt: e.target.value })} /></Td>
-                        <Td><Input placeholder="Airline" value={arrForm.airline} onChange={(e) => setArrForm({ ...arrForm, airline: e.target.value })} /></Td>
-                        <Td><Input placeholder="Flight #" value={arrForm.flightNo} onChange={(e) => setArrForm({ ...arrForm, flightNo: e.target.value })} /></Td>
-                        <Td><Input placeholder="Airport" value={arrForm.airport} onChange={(e) => setArrForm({ ...arrForm, airport: e.target.value })} /></Td>
-                        <Td><Input type="number" min={0} value={arrForm.seats} onChange={(e) => setArrForm({ ...arrForm, seats: e.target.value })} /></Td>
-                        <Td><input type="checkbox" checked={arrForm.canPickup} onChange={(e) => setArrForm({ ...arrForm, canPickup: e.target.checked })} /></Td>
-                        <Td><input type="checkbox" checked={arrForm.canDropoff} onChange={(e) => setArrForm({ ...arrForm, canDropoff: e.target.checked })} /></Td>
-                        <Td><Textarea rows={1} value={arrForm.notes} onChange={(e) => setArrForm({ ...arrForm, notes: e.target.value })} /></Td>
-                        <Td className="whitespace-nowrap"><Button size="sm" disabled={submitting==='arrival' || !arrForm.person} onClick={() => submit('arrival', arrForm)}>{submitting==='arrival' ? 'Adding…' : 'Add'}</Button></Td>
-                      </Tr>
-                      {arrivals.length === 0 ? (
-                        <Tr><Td colSpan={11} className="text-sm text-[var(--muted)]">No arrivals yet</Td></Tr>
-                      ) : (
-                        arrivals.map((it) => (
-                          <Tr key={it.id}>
-                            <Td className="font-medium">{it.person}</Td>
-                            <Td>{it.team || '—'}</Td>
-                            <Td>{it.dt ? new Date(it.dt).toLocaleString() : '—'}</Td>
-                            <Td>{it.airline || '—'}</Td>
-                            <Td>{it.flightNo || '—'}</Td>
-                            <Td>{it.airport || '—'}</Td>
-                            <Td>{typeof it.seats === 'number' ? it.seats : '—'}</Td>
-                            <Td>{it.canPickup ? 'Yes' : '—'}</Td>
-                            <Td>{it.canDropoff ? 'Yes' : '—'}</Td>
-                            <Td className="max-w-[220px] truncate" title={it.notes || ''}>{it.notes || '—'}</Td>
-                            <Td />
-                          </Tr>
-                        ))
-                      )}
-                    </TBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="evw-surface">
-              <CardHeader>
-                <CardTitle>Departures</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <THead>
-                      <Tr>
-                        <Th>Name</Th>
-                        <Th>Team</Th>
-                        <Th>Date &amp; Time</Th>
-                        <Th>Airline</Th>
-                        <Th>Flight #</Th>
-                        <Th>Airport</Th>
-                        <Th>Seats</Th>
-                        <Th>Pickup</Th>
-                        <Th>Dropoff</Th>
-                        <Th>Notes</Th>
-                        <Th></Th>
-                      </Tr>
-                    </THead>
-                    <TBody>
-                      <Tr>
-                        <Td><Input placeholder="Name" value={depForm.person} onChange={(e) => setDepForm({ ...depForm, person: e.target.value })} /></Td>
-                        <Td><Input placeholder="Team" value={depForm.team} onChange={(e) => setDepForm({ ...depForm, team: e.target.value })} /></Td>
-                        <Td><Input type="datetime-local" value={depForm.dt} onChange={(e) => setDepForm({ ...depForm, dt: e.target.value })} /></Td>
-                        <Td><Input placeholder="Airline" value={depForm.airline} onChange={(e) => setDepForm({ ...depForm, airline: e.target.value })} /></Td>
-                        <Td><Input placeholder="Flight #" value={depForm.flightNo} onChange={(e) => setDepForm({ ...depForm, flightNo: e.target.value })} /></Td>
-                        <Td><Input placeholder="Airport" value={depForm.airport} onChange={(e) => setDepForm({ ...depForm, airport: e.target.value })} /></Td>
-                        <Td><Input type="number" min={0} value={depForm.seats} onChange={(e) => setDepForm({ ...depForm, seats: e.target.value })} /></Td>
-                        <Td><input type="checkbox" checked={depForm.canPickup} onChange={(e) => setDepForm({ ...depForm, canPickup: e.target.checked })} /></Td>
-                        <Td><input type="checkbox" checked={depForm.canDropoff} onChange={(e) => setDepForm({ ...depForm, canDropoff: e.target.checked })} /></Td>
-                        <Td><Textarea rows={1} value={depForm.notes} onChange={(e) => setDepForm({ ...depForm, notes: e.target.value })} /></Td>
-                        <Td className="whitespace-nowrap"><Button size="sm" disabled={submitting==='departure' || !depForm.person} onClick={() => submit('departure', depForm)}>{submitting==='departure' ? 'Adding…' : 'Add'}</Button></Td>
-                      </Tr>
-                      {departures.length === 0 ? (
-                        <Tr><Td colSpan={11} className="text-sm text-[var(--muted)]">No departures yet</Td></Tr>
-                      ) : (
-                        departures.map((it) => (
-                          <Tr key={it.id}>
-                            <Td className="font-medium">{it.person}</Td>
-                            <Td>{it.team || '—'}</Td>
-                            <Td>{it.dt ? new Date(it.dt).toLocaleString() : '—'}</Td>
-                            <Td>{it.airline || '—'}</Td>
-                            <Td>{it.flightNo || '—'}</Td>
-                            <Td>{it.airport || '—'}</Td>
-                            <Td>{typeof it.seats === 'number' ? it.seats : '—'}</Td>
-                            <Td>{it.canPickup ? 'Yes' : '—'}</Td>
-                            <Td>{it.canDropoff ? 'Yes' : '—'}</Td>
-                            <Td className="max-w-[220px] truncate" title={it.notes || ''}>{it.notes || '—'}</Td>
-                            <Td />
-                          </Tr>
-                        ))
-                      )}
-                    </TBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  const handleAddToCalendar2027 = () => {
-    try {
-      const formatICSDate = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-      const tripStart = new Date('2027-07-08T15:00:00-04:00');
-      const tripEnd = new Date('2027-07-11T11:00:00-04:00');
-      const draftStart = new Date('2027-07-10T13:00:00-04:00');
-      const draftEnd = new Date(draftStart.getTime() + 2 * 60 * 60 * 1000);
-      const now = new Date();
-      const ics = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//East v. West//Draft Trip//EN',
-        'CALSCALE:GREGORIAN',
-        'METHOD:PUBLISH',
-        'BEGIN:VEVENT',
-        `UID:evw-trip-2027@eastvwest`,
-        `DTSTAMP:${formatICSDate(now)}`,
-        `DTSTART:${formatICSDate(tripStart)}`,
-        `DTEND:${formatICSDate(tripEnd)}`,
-        'SUMMARY:East v. West Draft Trip',
-        'LOCATION:Denver, Colorado, United States',
-        'DESCRIPTION:Airbnb: https://www.airbnb.com/rooms/1260402684146301716',
-        'END:VEVENT',
-        'BEGIN:VEVENT',
-        `UID:evw-draft-2027@eastvwest`,
-        `DTSTAMP:${formatICSDate(now)}`,
-        `DTSTART:${formatICSDate(draftStart)}`,
-        `DTEND:${formatICSDate(draftEnd)}`,
-        'SUMMARY:East v. West Rookie Draft',
-        'DESCRIPTION:Draft starts at 1:00 PM ET',
-        'END:VEVENT',
-        'END:VCALENDAR',
-      ].join('\r\n');
-
-      const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'evw-draft-trip-2027.ics';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error('Failed to create 2027 calendar file', e);
       alert('Could not generate calendar file.');
     }
   };
@@ -503,7 +240,7 @@ export default function DraftContent() {
         <Tabs
           activeId={activeOuterTab}
           onChange={(id) => {
-            if (id === 'next') replaceDraftQuery({ view: 'next', next: activeNextTab || 'airbnb' });
+            if (id === 'next') replaceDraftQuery({ view: 'next', next: activeNextTab || 'order' });
             else replaceDraftQuery({ view: id, next: null });
           }}
           tabs={[
@@ -517,304 +254,20 @@ export default function DraftContent() {
                     title="Countdown to Draft Day"
                     className="mb-2"
                   />
-                  <Tabs
-                    activeId={activeNextTab}
-                    onChange={(id) => replaceDraftQuery({ view: 'next', next: id })}
-                    tabs={[
-                      {
-                        id: 'airbnb',
-                        label: 'Airbnb Info',
-                        content: (
-                          <div className="space-y-4">
-                            <Card>
-                              <CardHeader>
-                                <CardTitle>Next Draft: July 18, 2026</CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="grid gap-4">
-                                  <Card className="evw-surface">
-                                    <CardHeader>
-                                      <CardTitle>Airbnb Information</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                      <div className="space-y-4">
-                                        <div>
-                                          <h4 className="font-semibold text-[var(--text)]">Listing</h4>
-                                          <p className="font-medium">Not Your Typical Mountain Cabin - Must See Photos</p>
-                                          <a
-                                            href="https://www.airbnb.com/rooms/21559127?viralityEntryPoint=1&s=76&source_impression_id=p3_1751382164_P3PAwIqHxrQ87fn9"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-[var(--accent-strong)] hover:underline"
-                                            aria-label="View Airbnb listing in a new tab"
-                                          >
-                                            View on Airbnb
-                                          </a>
-                                        </div>
-                                        <div>
-                                          <h4 className="font-semibold text-[var(--text)]">Location</h4>
-                                          <p>Somerset, Pennsylvania, United States</p>
-                                        </div>
-                                        <div>
-                                          <h4 className="font-semibold text-[var(--text)]">Dates</h4>
-                                          <p>July 16-19, 2026 (Thursday-Sunday)</p>
-                                        </div>
-                                        <div>
-                                          <h4 className="font-semibold text-[var(--text)]">Notes</h4>
-                                          <ul className="list-disc pl-5">
-                                            <li>Check-in: 3:00 PM Thursday</li>
-                                            <li>Check-out: 11:00 AM Sunday</li>
-                                            <li>Draft starts at 1:00 PM ET on Saturday</li>
-                                            <li>Linens provided for all beds — please bring your own shower towels.</li>
-                                          </ul>
-                                        </div>
-
-                                        <div className="mt-2 pt-4 border-t border-[var(--border)]">
-                                          <h4 className="font-semibold text-[var(--text)] mb-2">Amenities</h4>
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="rounded-lg border border-[var(--border)] p-4">
-                                              <h5 className="font-semibold mb-2 flex items-center gap-2"><HomeIcon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />Kitchen</h5>
-                                              <ul className="list-disc pl-5 space-y-1 text-sm">
-                                                <li>Space where guests can cook their own meals</li>
-                                                <li>Refrigerator</li>
-                                                <li>Microwave</li>
-                                                <li>Cooking basics (pots and pans, oil, salt and pepper)</li>
-                                                <li>Dishes and silverware (bowls, chopsticks, plates, cups, etc.)</li>
-                                                <li>Mini fridge</li>
-                                                <li>Freezer</li>
-                                                <li>Dishwasher</li>
-                                                <li>Stove & Oven</li>
-                                                <li>Coffee makers (regular + Keurig)</li>
-                                                <li>Wine glasses</li>
-                                                <li>Toaster</li>
-                                                <li>Baking sheet</li>
-                                                <li>Blender</li>
-                                                <li>Barbecue utensils (grill tools, skewers, etc.)</li>
-                                                <li>Dining table</li>
-                                              </ul>
-                                            </div>
-                                            <div className="rounded-lg border border-[var(--border)] p-4">
-                                              <h5 className="font-semibold mb-2 flex items-center gap-2"><TvIcon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />Entertainment</h5>
-                                              <ul className="list-disc pl-5 space-y-1 text-sm">
-                                                <li>98&quot; Hi‑Def TV</li>
-                                                <li>Full bar area with mini fridge</li>
-                                                <li>Full-size arcade games</li>
-                                                <li>Dart board</li>
-                                                <li>Bubble hockey game</li>
-                                              </ul>
-                                            </div>
-                                            <div className="rounded-lg border border-[var(--border)] p-4">
-                                              <h5 className="font-semibold mb-2 flex items-center gap-2"><FireIcon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />Outdoor</h5>
-                                              <ul className="list-disc pl-5 space-y-1 text-sm">
-                                                <li>Fire pit</li>
-                                                <li>Outdoor furniture</li>
-                                                <li>Outdoor dining area</li>
-                                                <li>BBQ grill</li>
-                                                <li>Plenty of parking</li>
-                                              </ul>
-                                            </div>
-                                            <div className="rounded-lg border border-[var(--border)] p-4">
-                                              <h5 className="font-semibold mb-2 flex items-center gap-2"><MoonIcon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />Sleeping Arrangements</h5>
-                                              <ul className="list-disc pl-5 space-y-1 text-sm">
-                                                <li>5 bedrooms total</li>
-                                                <li>2 queen beds</li>
-                                                <li>1 king bed</li>
-                                                <li>2 bunk beds</li>
-                                                <li>1 sofa bed</li>
-                                                <li>2 single beds</li>
-                                              </ul>
-                                            </div>
-                                            <div className="rounded-lg border border-[var(--border)] p-4">
-                                              <h5 className="font-semibold mb-2 flex items-center gap-2"><HomeIcon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />Comfort & Utilities</h5>
-                                              <ul className="list-disc pl-5 space-y-1 text-sm">
-                                                <li>Washer &amp; dryer</li>
-                                                <li>Geothermal A/C</li>
-                                                <li>Wood fireplace &amp; geothermal heating</li>
-                                              </ul>
-                                            </div>
-                                            <div className="rounded-lg border border-[var(--border)] p-4 md:col-span-2">
-                                              <h5 className="font-semibold mb-2 flex items-center gap-2"><BookOpenIcon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />Loft</h5>
-                                              <p className="text-sm">
-                                                The upstairs loft area includes a library with many books and a large shuffleboard game.
-                                              </p>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div>
-                                          <Button onClick={handleAddToCalendar} variant="primary">Add to Calendar (.ics)</Button>
-                                        </div>
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </div>
-                        ),
-                      },
-                      {
-                        id: 'travel',
-                        label: 'Flights / Arrivals',
-                        content: (
-                          <TravelSubtab trip="2026" />
-                        ),
-                      },
-                      {
-                        id: 'order',
-                        label: 'Draft Order',
-                        content: (
-                          <DraftOrderView />
-                        ),
-                      },
-                    ]}
-                  />
-                </div>
-              ),
-            },
-            {
-              id: '2027',
-              label: '2027 Draft',
-              content: (
-                <div className="space-y-6">
-                  <CountdownTimer
-                    targetDate={new Date('2027-07-10T13:00:00-04:00')}
-                    title="Countdown to Draft Day"
-                    className="mb-2"
-                  />
-                  <Tabs
-                    tabs={[
-                      {
-                        id: 'airbnb-2027',
-                        label: 'Airbnb Info',
-                        content: (
-                          <div className="space-y-4">
-                            <Card>
-                              <CardHeader>
-                                <CardTitle>2027 Draft: July 10, 2027</CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="grid gap-4">
-                                  <Card className="evw-surface">
-                                    <CardHeader>
-                                      <CardTitle>Airbnb Information</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                      <div className="space-y-4">
-                                        <div>
-                                          <h4 className="font-semibold text-[var(--text)]">Listing</h4>
-                                          <p className="font-medium">Denver Airbnb</p>
-                                          <a
-                                            href="https://www.airbnb.com/rooms/1260402684146301716?adults=10&children=0&infants=0&pets=0&wishlist_item_id=11005650071920&check_in=2027-07-08&check_out=2027-07-11&source_impression_id=p3_1765135617_P3pwC3M86B1vG_Xa&previous_page_section_name=1000"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-[var(--accent-strong)] hover:underline"
-                                            aria-label="View Airbnb listing in a new tab"
-                                          >
-                                            View on Airbnb
-                                          </a>
-                                        </div>
-                                        <div>
-                                          <h4 className="font-semibold text-[var(--text)]">Location</h4>
-                                          <p>Denver, Colorado, United States</p>
-                                        </div>
-                                        <div>
-                                          <h4 className="font-semibold text-[var(--text)]">Dates</h4>
-                                          <p>July 8-11, 2027 (Thursday-Sunday)</p>
-                                        </div>
-                                        <div>
-                                          <h4 className="font-semibold text-[var(--text)]">Notes</h4>
-                                          <ul className="list-disc pl-5">
-                                            <li>Check-in: 3:00 PM Thursday</li>
-                                            <li>Check-out: 11:00 AM Sunday</li>
-                                            <li>Draft starts at 1:00 PM ET on Saturday</li>
-                                          </ul>
-                                        </div>
-
-                                        <div className="mt-2 pt-4 border-t border-[var(--border)]">
-                                          <h4 className="font-semibold text-[var(--text)] mb-2">Amenities</h4>
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="rounded-lg border border-[var(--border)] p-4">
-                                              <h5 className="font-semibold mb-2 flex items-center gap-2"><HomeIcon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />Kitchen</h5>
-                                              <ul className="list-disc pl-5 space-y-1 text-sm">
-                                                <li>Space where guests can cook their own meals</li>
-                                                <li>Refrigerator</li>
-                                                <li>Microwave</li>
-                                                <li>Cooking basics (pots and pans, oil, salt and pepper)</li>
-                                                <li>Dishes and silverware (bowls, chopsticks, plates, cups, etc.)</li>
-                                                <li>Mini fridge</li>
-                                                <li>Freezer</li>
-                                                <li>Dishwasher</li>
-                                                <li>Stove & Oven</li>
-                                                <li>Coffee makers (regular + Keurig)</li>
-                                                <li>Wine glasses</li>
-                                                <li>Toaster</li>
-                                                <li>Baking sheet</li>
-                                                <li>Blender</li>
-                                                <li>Barbecue utensils (grill tools, skewers, etc.)</li>
-                                                <li>Dining table</li>
-                                              </ul>
-                                            </div>
-                                            <div className="rounded-lg border border-[var(--border)] p-4">
-                                              <h5 className="font-semibold mb-2 flex items-center gap-2"><TvIcon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />Entertainment</h5>
-                                              <ul className="list-disc pl-5 space-y-1 text-sm">
-                                                <li>Hi‑Def TV</li>
-                                                <li>Bar area / mini fridge</li>
-                                                <li>Games area</li>
-                                              </ul>
-                                            </div>
-                                            <div className="rounded-lg border border-[var(--border)] p-4">
-                                              <h5 className="font-semibold mb-2 flex items-center gap-2"><FireIcon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />Outdoor</h5>
-                                              <ul className="list-disc pl-5 space-y-1 text-sm">
-                                                <li>Fire pit</li>
-                                                <li>Outdoor furniture</li>
-                                                <li>Outdoor dining area</li>
-                                                <li>BBQ grill</li>
-                                              </ul>
-                                            </div>
-                                            <div className="rounded-lg border border-[var(--border)] p-4">
-                                              <h5 className="font-semibold mb-2 flex items-center gap-2"><MoonIcon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />Sleeping Arrangements</h5>
-                                              <ul className="list-disc pl-5 space-y-1 text-sm">
-                                                <li>Multiple bedrooms</li>
-                                                <li>Varied bed sizes (see listing)</li>
-                                              </ul>
-                                            </div>
-                                            <div className="rounded-lg border border-[var(--border)] p-4">
-                                              <h5 className="font-semibold mb-2 flex items-center gap-2"><HomeIcon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />Comfort & Utilities</h5>
-                                              <ul className="list-disc pl-5 space-y-1 text-sm">
-                                                <li>Washer &amp; dryer</li>
-                                                <li>Air conditioning</li>
-                                                <li>Heating</li>
-                                              </ul>
-                                            </div>
-                                            <div className="rounded-lg border border-[var(--border)] p-4 md:col-span-2">
-                                              <h5 className="font-semibold mb-2 flex items-center gap-2"><BookOpenIcon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />Loft</h5>
-                                              <p className="text-sm">
-                                                Additional common spaces per listing details.
-                                              </p>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div>
-                                          <Button onClick={handleAddToCalendar2027} variant="primary">Add to Calendar (.ics)</Button>
-                                        </div>
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </div>
-                        ),
-                      },
-                      {
-                        id: 'travel-2027',
-                        label: 'Flights / Arrivals',
-                        content: (
-                          <TravelSubtab trip="2027" />
-                        ),
-                      },
-                    ]}
-                  />
+                  <div className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Draft Info</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-[var(--muted)] mb-4">
+                          Draft details will be configured by the league commissioner. Use the calendar button to add the draft to your calendar.
+                        </p>
+                        <Button onClick={handleAddToCalendar} variant="primary">Add to Calendar (.ics)</Button>
+                      </CardContent>
+                    </Card>
+                    <DraftOrderView />
+                  </div>
                 </div>
               ),
             },
@@ -1263,7 +716,7 @@ function DraftOrderView() {
         <div className="fixed inset-0 z-[201] flex min-h-full items-center justify-center p-4 pointer-events-none">
           <DialogPanel
             transition
-            className="pointer-events-auto w-full max-w-2xl rounded-lg border border-[var(--border)] evw-surface shadow-xl p-5 max-h-[90vh] overflow-y-auto data-closed:opacity-0 data-closed:scale-95 data-enter:duration-200 data-enter:ease-out data-leave:duration-150 data-leave:ease-in"
+            className="pointer-events-auto w-full max-w-2xl rounded-lg border border-[var(--border)] league-surface shadow-xl p-5 max-h-[90vh] overflow-y-auto data-closed:opacity-0 data-closed:scale-95 data-enter:duration-200 data-enter:ease-out data-leave:duration-150 data-leave:ease-in"
           >
             {tradeModal ? (
               <>
@@ -1339,7 +792,7 @@ function DraftOrderView() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {data.roundsData.map((round) => (
-              <div key={round.round} className="evw-surface border border-[var(--border)] rounded-lg overflow-hidden">
+              <div key={round.round} className="league-surface border border-[var(--border)] rounded-lg overflow-hidden">
                 <div className="px-3 py-2 text-sm font-semibold border-b border-[var(--border)]">Round {round.round}</div>
                 <ul className="divide-y divide-[var(--border)]">
                   {round.picks.map((p) => {
@@ -1412,7 +865,7 @@ function DraftOrderView() {
           ) : (
             <ul className="space-y-2">
               {data.transfers.map((t, idx) => (
-                <li key={idx} className="text-sm evw-surface border border-[var(--border)] rounded-md px-3 py-2">
+                <li key={idx} className="text-sm league-surface border border-[var(--border)] rounded-md px-3 py-2">
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="font-medium">R{t.round}{typeof t.slot === 'number' ? `, S${t.slot}` : ''}</span>

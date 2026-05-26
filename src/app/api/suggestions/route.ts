@@ -43,7 +43,7 @@ export type Suggestion = {
 };
 
 const DATA_PATH = path.join(process.cwd(), 'data', 'suggestions.json');
-const NOTIFY_EMAIL = process.env.SUGGESTIONS_NOTIFY_EMAIL || 'patrickmmcnulty62@gmail.com';
+const NOTIFY_EMAIL = process.env.SUGGESTIONS_NOTIFY_EMAIL || '';
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_SUGGESTIONS_WEBHOOK_URL;
 const SITE_URL = process.env.SITE_URL;
 

@@ -37,12 +37,12 @@ export default function GroupedToolbar({
   const positionOptions = ["all", ...((positions ?? []) as string[])];
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-3 p-3 evw-surface border border-[var(--border)] rounded">
+    <div className="mt-3 flex flex-wrap items-center gap-3 p-3 league-surface border border-[var(--border)] rounded">
       <div className="flex items-center gap-2">
         <label htmlFor="group-season" className="text-xs text-[var(--muted)]">Season</label>
         <select
           id="group-season"
-          className={cn("evw-surface border border-[var(--border)] rounded px-2 py-1 text-sm")}
+          className={cn("league-surface border border-[var(--border)] rounded px-2 py-1 text-sm")}
           value={season}
           onChange={(e) => updateParam("season", e.target.value)}
         >
@@ -57,7 +57,7 @@ export default function GroupedToolbar({
         <label htmlFor="group-team" className="text-xs text-[var(--muted)]">Team</label>
         <select
           id="group-team"
-          className={cn("evw-surface border border-[var(--border)] rounded px-2 py-1 text-sm")}
+          className={cn("league-surface border border-[var(--border)] rounded px-2 py-1 text-sm")}
           value={team}
           onChange={(e) => updateParam("team", e.target.value)}
         >
@@ -72,7 +72,7 @@ export default function GroupedToolbar({
         <label htmlFor="group-week" className="text-xs text-[var(--muted)]">Week</label>
         <select
           id="group-week"
-          className={cn("evw-surface border border-[var(--border)] rounded px-2 py-1 text-sm")}
+          className={cn("league-surface border border-[var(--border)] rounded px-2 py-1 text-sm")}
           value={week}
           onChange={(e) => updateParam("week", e.target.value)}
         >
@@ -87,7 +87,7 @@ export default function GroupedToolbar({
         <label htmlFor="group-position" className="text-xs text-[var(--muted)]">Position</label>
         <select
           id="group-position"
-          className={cn("evw-surface border border-[var(--border)] rounded px-2 py-1 text-sm")}
+          className={cn("league-surface border border-[var(--border)] rounded px-2 py-1 text-sm")}
           value={position}
           onChange={(e) => updateParam("position", e.target.value)}
         >

@@ -76,7 +76,7 @@ export function Drawer({
             tabIndex={-1}
             style={{ width }}
             className={[
-              "evw-surface border border-[var(--border)] h-full shadow-[var(--shadow-soft)] outline-none",
+              "league-surface border border-[var(--border)] h-full shadow-[var(--shadow-soft)] outline-none",
               "transform transition-transform duration-200",
               sideMargin,
             ].join(" ")}

@@ -46,7 +46,7 @@ const RULEBOOK_CONTEXT = rulesHtmlSections.map((s) => {
   return `## ${s.title}\n${text}`;
 }).join('\n\n---\n\n');
 
-const SYSTEM_PROMPT = `You are Clancy, the official rulebook assistant for the East v. West SuperFlex Dynasty Fantasy Football League. You are knowledgeable, precise, and speak plainly.
+const SYSTEM_PROMPT = `You are the official rulebook assistant for this fantasy football league. You are knowledgeable, precise, and speak plainly.
 
 Your rules:
 - Answer ONLY from the rulebook text below. Never use outside knowledge.

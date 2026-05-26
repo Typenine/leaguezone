@@ -50,7 +50,7 @@ export default function RecordsPage() {
       const logo = getTeamLogoPath(teams[0]);
       return (
         <div className="mt-2 flex items-center justify-center gap-3">
-          <div className="w-12 h-12 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
             <Image src={logo} alt={`${teams[0]} logo`} width={48} height={48} className="w-12 h-12 object-contain" />
           </div>
           <p className="text-lg font-medium">{holder}</p>
@@ -62,13 +62,13 @@ export default function RecordsPage() {
     const l2 = getTeamLogoPath(t2);
     return (
       <div className="mt-2 flex items-center justify-center gap-3 flex-wrap">
-        <div className="w-12 h-12 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+        <div className="w-12 h-12 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
           <Image src={l1} alt={`${t1} logo`} width={48} height={48} className="w-12 h-12 object-contain" />
         </div>
         <p className="text-lg font-medium text-center">
           {holder}
         </p>
-        <div className="w-12 h-12 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+        <div className="w-12 h-12 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
           <Image src={l2} alt={`${t2} logo`} width={48} height={48} className="w-12 h-12 object-contain" />
         </div>
       </div>
@@ -291,7 +291,7 @@ export default function RecordsPage() {
           className={`px-4 py-2 rounded-md pill ${
             category === 'team'
               ? 'pill-active'
-              : 'evw-surface border border-[var(--border)] text-[var(--text)] pill-hover'
+              : 'league-surface border border-[var(--border)] text-[var(--text)] pill-hover'
           }`}
         >
           Team Records
@@ -301,7 +301,7 @@ export default function RecordsPage() {
           className={`px-4 py-2 rounded-md pill ${
             category === 'game'
               ? 'pill-active'
-              : 'evw-surface border border-[var(--border)] text-[var(--text)] pill-hover'
+              : 'league-surface border border-[var(--border)] text-[var(--text)] pill-hover'
           }`}
         >
           Game Records
@@ -311,7 +311,7 @@ export default function RecordsPage() {
           className={`px-4 py-2 rounded-md pill ${
             category === 'season'
               ? 'pill-active'
-              : 'evw-surface border border-[var(--border)] text-[var(--text)] pill-hover'
+              : 'league-surface border border-[var(--border)] text-[var(--text)] pill-hover'
           }`}
         >
           Season Records
@@ -321,7 +321,7 @@ export default function RecordsPage() {
           className={`px-4 py-2 rounded-md pill ${
             category === 'player'
               ? 'pill-active'
-              : 'evw-surface border border-[var(--border)] text-[var(--text)] pill-hover'
+              : 'league-surface border border-[var(--border)] text-[var(--text)] pill-hover'
           }`}
         >
           Player Records
@@ -331,7 +331,7 @@ export default function RecordsPage() {
       {/* Records Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {getRecords().map((record, index) => (
-          <div key={index} className="evw-surface rounded-lg shadow-md overflow-hidden">
+          <div key={index} className="league-surface rounded-lg shadow-md overflow-hidden">
             <div className="brand-gradient text-on-brand px-4 py-2">
               <h3 className="text-lg font-bold">{record.title}</h3>
             </div>

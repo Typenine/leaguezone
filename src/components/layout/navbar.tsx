@@ -87,6 +87,7 @@ export default function Navbar() {
   const currentPinRef = useRef<HTMLInputElement | null>(null);
   const newPinRef = useRef<HTMLInputElement | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [leagueName, setLeagueName] = useState<string | null>(null);
 
   const toggleMobileSection = (id: string) => {
     setMobileExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -150,6 +151,15 @@ export default function Navbar() {
     return () => { mounted = false; };
   }, [pathname]);
 
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/league/info', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => { if (mounted && j?.name) setLeagueName(j.name); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
   // Apply team-themed colors (gradient/buttons) when signed in
   useEffect(() => {
     try {
@@ -207,13 +217,13 @@ export default function Navbar() {
 
   return (
     <>
-    <nav className="evw-surface border-b border-[var(--border)] sticky top-0 backdrop-blur-sm bg-[var(--surface)]/95 z-50">
+    <nav className="league-surface border-b border-[var(--border)] sticky top-0 backdrop-blur-sm bg-[var(--surface)]/95 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <Link href="/" className="font-bold text-xl">
-                East v. West
+                {leagueName ?? 'Fantasy League'}
               </Link>
             </div>
             <div className="hidden md:block">
@@ -259,7 +269,7 @@ export default function Navbar() {
                         id={`desktop-menu-${item.id}`}
                         className={`absolute left-0 top-full z-50 transition-opacity duration-150 ${menuOpen ? 'visible opacity-100 pointer-events-auto' : 'invisible opacity-0 pointer-events-none'}`}
                       >
-                        <div className="min-w-[220px] evw-surface border border-[var(--border)] rounded-md shadow-lg p-1">
+                        <div className="min-w-[220px] league-surface border border-[var(--border)] rounded-md shadow-lg p-1">
                           {(() => {
                             const bestChild = findBestActive(item.children || [], pathname, currentQuery);
                             return (item.children || []).map((child) => {
@@ -293,7 +303,7 @@ export default function Navbar() {
                                   </Link>
 
                                   <div className="absolute left-full top-0 invisible opacity-0 pointer-events-none group-hover/submenu:visible group-hover/submenu:opacity-100 group-hover/submenu:pointer-events-auto transition-opacity duration-150">
-                                    <div className="min-w-[220px] evw-surface border border-[var(--border)] rounded-md shadow-lg p-1">
+                                    <div className="min-w-[220px] league-surface border border-[var(--border)] rounded-md shadow-lg p-1">
                                       {(child.children || []).map((grand) => {
                                         const grandActive = bestGrand?.id === grand.id;
                                         return (
@@ -337,11 +347,11 @@ export default function Navbar() {
                     {sessionTeam ? (
                       <Image src={getTeamLogoPath(sessionTeam)} alt={sessionTeam} width={32} height={32} />
                     ) : (
-                      <Image src="/assets/teams/East v West Logos/Official East v. West Logo.png" alt="Admin" width={32} height={32} />
+                      <Image src="/assets/league-logo.png" alt="League logo" width={32} height={32} />
                     )}
                   </button>
                   {accountMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-40 evw-surface border border-[var(--border)] rounded shadow-lg p-1">
+                    <div className="absolute right-0 mt-2 w-40 league-surface border border-[var(--border)] rounded shadow-lg p-1">
                       {isAdmin && (
                         <>
                           <button
@@ -574,7 +584,7 @@ export default function Navbar() {
                     {sessionTeam ? (
                       <Image src={getTeamLogoPath(sessionTeam)} alt={sessionTeam} width={32} height={32} />
                     ) : (
-                      <Image src="/assets/teams/East v West Logos/Official East v. West Logo.png" alt="Admin" width={32} height={32} />
+                      <Image src="/assets/league-logo.png" alt="League logo" width={32} height={32} />
                     )}
                   </button>
                   {sessionTeam && (
@@ -604,7 +614,7 @@ export default function Navbar() {
             type="password"
             inputMode="numeric"
             autoComplete="one-time-code"
-            className="w-full evw-surface border border-[var(--border)] rounded px-3 py-2"
+            className="w-full league-surface border border-[var(--border)] rounded px-3 py-2"
             placeholder="PIN"
             autoFocus
             maxLength={6}
@@ -663,7 +673,7 @@ export default function Navbar() {
             data-1p-ignore="true"
             data-bwignore="true"
             pattern="[0-9]*"
-            className="w-full evw-surface border border-[var(--border)] rounded px-3 py-2"
+            className="w-full league-surface border border-[var(--border)] rounded px-3 py-2"
             placeholder="Current PIN"
             maxLength={12}
             ref={currentPinRef}
@@ -698,7 +708,7 @@ export default function Navbar() {
             data-1p-ignore="true"
             data-bwignore="true"
             pattern="[0-9]*"
-            className="w-full evw-surface border border-[var(--border)] rounded px-3 py-2"
+            className="w-full league-surface border border-[var(--border)] rounded px-3 py-2"
             placeholder="New PIN (4–12 digits)"
             maxLength={12}
             ref={newPinRef}

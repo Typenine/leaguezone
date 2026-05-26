@@ -1961,7 +1961,7 @@ export default function AdminDraftPage() {
                       const blob = new Blob([header + sample + '\n'], { type: 'text/csv' });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement('a');
-                      a.href = url; a.download = 'evw-draft-template.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+                      a.href = url; a.download = 'draft-template.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
                     }}>Download CSV Template</Button>
                     <Button variant="ghost" onClick={() => {
                       const data = [
@@ -1972,7 +1972,7 @@ export default function AdminDraftPage() {
                       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement('a');
-                      a.href = url; a.download = 'evw-draft-template.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+                      a.href = url; a.download = 'draft-template.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
                     }}>Download JSON Template</Button>
                   </div>
                 </div>

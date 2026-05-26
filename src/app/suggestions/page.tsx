@@ -479,7 +479,7 @@ export default function SuggestionsPage() {
                         <span className="flex-shrink-0 font-bold text-[var(--muted)] w-6">{index + 1}.</span>
                         <Link
                           href={`/suggestions/${s.id}`}
-                          className="flex-1 block p-3 rounded-lg border border-[var(--border)] evw-surface hover:border-[var(--accent)] transition-colors"
+                          className="flex-1 block p-3 rounded-lg border border-[var(--border)] league-surface hover:border-[var(--accent)] transition-colors"
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-medium">{s.title || `Suggestion #${s.id.slice(0, 8)}`}</span>
@@ -578,7 +578,7 @@ export default function SuggestionsPage() {
                       const secondary = first.sponsorTeam ? getTeamColorStyle(first.sponsorTeam, 'secondary') : null;
                       const groupStyle: React.CSSProperties | undefined = style ? { borderLeftColor: (secondary?.backgroundColor as string), borderLeftWidth: 4, borderLeftStyle: 'solid' } : undefined;
                       return (
-                        <li key={`grp-${gi}`} className="evw-surface border border-[var(--border)] rounded-[var(--radius-card)] p-3" style={groupStyle}>
+                        <li key={`grp-${gi}`} className="league-surface border border-[var(--border)] rounded-[var(--radius-card)] p-3" style={groupStyle}>
                           <div className="mb-2 text-sm text-[var(--muted)]">{new Date(first.createdAt).toLocaleString()}</div>
                           <div className="space-y-4">
                             {arr.map((s, idx) => {
@@ -609,7 +609,7 @@ export default function SuggestionsPage() {
                                         {eligibleCount}/{ENDORSEMENT_THRESHOLD}
                                       </span>
                                       {s.category && (
-                                        <span className="text-xs px-2 py-0.5 rounded-full border border-[var(--border)] evw-surface text-[var(--text)]">{s.category}</span>
+                                        <span className="text-xs px-2 py-0.5 rounded-full border border-[var(--border)] league-surface text-[var(--text)]">{s.category}</span>
                                       )}
                                       {s.voteTag === 'voted_on' && (
                                         <span className="text-xs px-2 py-0.5 rounded-full border" style={{ borderColor: '#0b5f98', color: '#0b5f98' }}>VOTED ON</span>
@@ -778,7 +778,7 @@ export default function SuggestionsPage() {
                               const secondary = first.sponsorTeam ? getTeamColorStyle(first.sponsorTeam, 'secondary') : null;
                               const groupStyle: React.CSSProperties | undefined = style ? { borderLeftColor: (secondary?.backgroundColor as string), borderLeftWidth: 4, borderLeftStyle: 'solid' } : undefined;
                               return (
-                                <li key={`closed-grp-${gi}`} className="evw-surface border border-[var(--border)] rounded-[var(--radius-card)] p-3 opacity-60" style={groupStyle}>
+                                <li key={`closed-grp-${gi}`} className="league-surface border border-[var(--border)] rounded-[var(--radius-card)] p-3 opacity-60" style={groupStyle}>
                                   <div className="mb-2 text-sm text-[var(--muted)]">{new Date(first.createdAt).toLocaleString()}</div>
                                   <div className="space-y-4">
                                     {arr.map((s, idx) => {
@@ -795,7 +795,7 @@ export default function SuggestionsPage() {
                                                 {eligibleCount}/{ENDORSEMENT_THRESHOLD}
                                               </span>
                                               {s.category && (
-                                                <span className="text-xs px-2 py-0.5 rounded-full border border-[var(--border)] evw-surface text-[var(--text)]">{s.category}</span>
+                                                <span className="text-xs px-2 py-0.5 rounded-full border border-[var(--border)] league-surface text-[var(--text)]">{s.category}</span>
                                               )}
                                               {s.voteTag === 'vote_passed' && (
                                                 <span className="text-xs px-2 py-0.5 rounded-full border" style={{ borderColor: '#16a34a', color: '#16a34a' }}>VOTE PASSED</span>

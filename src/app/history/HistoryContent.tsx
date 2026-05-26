@@ -616,7 +616,7 @@ export default function HistoryContent() {
       const link = rosterIds && rosterIds[0] !== undefined ? `/teams/${rosterIds[0]}` : undefined;
       return (
         <div className="mt-2 flex items-center justify-center gap-3">
-          <div className="w-14 h-14 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+          <div className="w-14 h-14 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
             <Image src={logo} alt={`${name} logo`} width={56} height={56} className="w-14 h-14 object-contain" />
           </div>
           {link ? (
@@ -634,7 +634,7 @@ export default function HistoryContent() {
     const bLink = rosterIds && rosterIds[1] !== undefined ? `/teams/${rosterIds[1]}` : undefined;
     return (
       <div className="mt-2 flex items-center justify-center gap-3">
-        <div className="w-14 h-14 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+        <div className="w-14 h-14 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
           <Image src={aLogo} alt={`${a} logo`} width={56} height={56} className="w-14 h-14 object-contain" />
         </div>
         <div className="flex items-center gap-1 text-lg font-semibold">
@@ -650,7 +650,7 @@ export default function HistoryContent() {
             <span className="text-[var(--text)]">{b}</span>
           )}
         </div>
-        <div className="w-14 h-14 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+        <div className="w-14 h-14 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
           <Image src={bLogo} alt={`${b} logo`} width={56} height={56} className="w-14 h-14 object-contain" />
         </div>
       </div>
@@ -951,7 +951,7 @@ export default function HistoryContent() {
           ) : (
             <div className="space-y-8">
               {/* Official Playoffs */}
-              <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+              <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
                 <h3 className="text-xl font-bold mb-4">Official Playoffs</h3>
                 {winnersBracket.length === 0 ? (
                   <p className="text-[var(--muted)]">No winners bracket available for {bracketYear}.</p>
@@ -1105,7 +1105,7 @@ export default function HistoryContent() {
               </div>
 
               {/* Toilet Bowl */}
-              <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+              <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
                 <h3 className="text-xl font-bold mb-4">Toilet Bowl</h3>
                 {losersBracket.length === 0 ? (
                   <p className="text-[var(--muted)]">No losers bracket available for {bracketYear}.</p>
@@ -1285,9 +1285,9 @@ export default function HistoryContent() {
           ) : weeklyTabError ? (
             <ErrorState message={weeklyTabError} />
           ) : weeklyHighs.length === 0 ? (
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)]">No data</div>
+            <div className="league-surface border p-6 rounded-[var(--radius-card)]">No data</div>
           ) : (
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+            <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">{weeklyTabYear} Weekly High Scorers</h3>
               </div>
@@ -1316,7 +1316,7 @@ export default function HistoryContent() {
                             <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">Week {row.week}</td>
                             <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center gap-3">
-                                <div className="w-6 h-6 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                                <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
                                   <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="object-contain" />
                                 </div>
                                 {teamLink}
@@ -1353,7 +1353,7 @@ export default function HistoryContent() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Most Championships */}
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+            <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">Most Championships</h3>
                 <button onClick={() => toggleCollapsed('mostChamps')} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">
@@ -1406,7 +1406,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                                  <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
                                     <Image src={getTeamLogoPath(teamName)} alt={`${teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
@@ -1431,7 +1431,7 @@ export default function HistoryContent() {
             </div>
             
             {/* Most Regular Season Points All-Time */}
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+            <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">Most Regular Season Points All-Time</h3>
                 <button onClick={() => toggleCollapsed('mostPointsRegular')} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">
@@ -1485,7 +1485,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                                  <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
                                     <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
@@ -1503,7 +1503,7 @@ export default function HistoryContent() {
             </div>
 
             {/* Most Points All-Time (All Games) */}
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+            <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">Most Points All-Time (All Games)</h3>
                 <button onClick={() => toggleCollapsed('mostPointsAll')} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">
@@ -1547,7 +1547,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                                  <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
                                     <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
@@ -1565,7 +1565,7 @@ export default function HistoryContent() {
             </div>
             
             {/* Best All-Time Win Percentage (All Games) */}
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+            <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">Best All-Time Win Percentage</h3>
                 <button onClick={() => toggleCollapsed('bestWinAll')} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">
@@ -1618,7 +1618,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                                  <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
                                     <Image src={getTeamLogoPath(r.teamName)} alt={`${r.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
@@ -1639,7 +1639,7 @@ export default function HistoryContent() {
             {/* moved weekly-highs tables to bottom as single-record cards */}
 
             {/* Most Playoff Appearances */}
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+            <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">Most Playoff Appearances</h3>
                 <button onClick={() => toggleCollapsed('mostPOApps')} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">
@@ -1684,7 +1684,7 @@ export default function HistoryContent() {
                           <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
                           <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center gap-3">
-                              <div className="w-6 h-6 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                              <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
                                 <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
                               </div>
                               {nameLink}
@@ -1701,7 +1701,7 @@ export default function HistoryContent() {
             </div>
 
             {/* Best Regular Season Record */}
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+            <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">Best Regular Season Win Percentage</h3>
                 <button onClick={() => toggleCollapsed('bestWinRegular')} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">
@@ -1751,7 +1751,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                                  <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
                                     <Image src={getTeamLogoPath(r.teamName)} alt={`${r.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
@@ -1770,7 +1770,7 @@ export default function HistoryContent() {
             </div>
 
             {/* Best Playoffs Record */}
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+            <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">Best Playoffs Win Percentage</h3>
                 <button onClick={() => toggleCollapsed('bestWinPlayoffs')} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">
@@ -1820,7 +1820,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                                  <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
                                     <Image src={getTeamLogoPath(r.teamName)} alt={`${r.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
@@ -1839,7 +1839,7 @@ export default function HistoryContent() {
             </div>
 
             {/* Best Toilet Bowl Record */}
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+            <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">Best Toilet Bowl Win Percentage</h3>
                 <button onClick={() => toggleCollapsed('bestWinToilet')} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">
@@ -1889,7 +1889,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                                  <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
                                     <Image src={getTeamLogoPath(r.teamName)} alt={`${r.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
@@ -1909,7 +1909,7 @@ export default function HistoryContent() {
 
           {/* Weekly Highs (Full Tables at Bottom) */}
             {/* Regular Season Top 10 */}
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift mt-8">
+            <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift mt-8">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">Top 10 Highest Scoring Weeks — Regular Season</h3>
                 <button onClick={() => toggleCollapsed('tblTopRegularWeeks')} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">{isCollapsed('tblTopRegularWeeks') ? '▸' : '▾'}</button>
@@ -1943,7 +1943,7 @@ export default function HistoryContent() {
                             <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
                             <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center gap-3">
-                                <div className="w-6 h-6 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                                <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
                                   <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="object-contain" />
                                 </div>
                                 {teamLink}
@@ -1963,7 +1963,7 @@ export default function HistoryContent() {
             </div>
 
             {/* Playoffs Top 10 */}
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+            <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">Top 10 Highest Scoring Weeks — Playoffs</h3>
                 <button onClick={() => toggleCollapsed('tblTopPlayoffWeeks')} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">{isCollapsed('tblTopPlayoffWeeks') ? '▸' : '▾'}</button>
@@ -1997,7 +1997,7 @@ export default function HistoryContent() {
                             <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
                             <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center gap-3">
-                                <div className="w-6 h-6 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                                <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
                                   <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="object-contain" />
                                 </div>
                                 {teamLink}
@@ -2017,7 +2017,7 @@ export default function HistoryContent() {
             </div>
 
             {/* All Games (Regular + Playoffs + Toilet) Top 10 */}
-            <div className="evw-surface border p-6 rounded-[var(--radius-card)] hover-lift">
+            <div className="league-surface border p-6 rounded-[var(--radius-card)] hover-lift">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">Top 10 Highest Scoring Weeks — All Games</h3>
                 <button onClick={() => toggleCollapsed('tblTopAllWeeks')} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">{isCollapsed('tblTopAllWeeks') ? '▸' : '▾'}</button>
@@ -2051,7 +2051,7 @@ export default function HistoryContent() {
                             <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
                             <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center gap-3">
-                                <div className="w-6 h-6 rounded-full evw-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                                <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
                                   <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="object-contain" />
                                 </div>
                                 {teamLink}

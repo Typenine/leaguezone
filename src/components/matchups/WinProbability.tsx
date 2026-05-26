@@ -442,24 +442,24 @@ export default function WinProbability({
     return (
       <>
         {(!side || side === 'left') && (
-          <div className={`${bordered ? 'evw-surface border border-[var(--border)] rounded-md p-3' : ''}`}>
+          <div className={`${bordered ? 'league-surface border border-[var(--border)] rounded-md p-3' : ''}`}>
             <div className="flex items-center justify-between text-sm font-medium">
               <span>{leftTeamName}</span>
               <span>{leftPct}%</span>
             </div>
-            <div className={`mt-1 h-2 w-full rounded-full overflow-hidden ${bordered ? 'evw-muted' : 'bg-black/20'}`} aria-hidden>
+            <div className={`mt-1 h-2 w-full rounded-full overflow-hidden ${bordered ? 'league-subtle' : 'bg-black/20'}`} aria-hidden>
               <div className="h-full" style={{ width: `${leftPct}%`, backgroundColor: leftBarColor }} />
             </div>
             <div className="mt-1 text-[0.7rem] text-[var(--muted)]">WP 95% CI: {(wpCal.ci[0] * 100).toFixed(0)}%–{(wpCal.ci[1] * 100).toFixed(0)}%</div>
           </div>
         )}
         {(!side || side === 'right') && (
-          <div className={`${bordered ? 'evw-surface border border-[var(--border)] rounded-md p-3' : ''}`}>
+          <div className={`${bordered ? 'league-surface border border-[var(--border)] rounded-md p-3' : ''}`}>
             <div className="flex items-center justify-between text-sm font-medium">
               <span>{rightTeamName}</span>
               <span>{rightPct}%</span>
             </div>
-            <div className={`mt-1 h-2 w-full rounded-full overflow-hidden ${bordered ? 'evw-muted' : 'bg-black/20'}`} aria-hidden>
+            <div className={`mt-1 h-2 w-full rounded-full overflow-hidden ${bordered ? 'league-subtle' : 'bg-black/20'}`} aria-hidden>
               <div className="h-full" style={{ width: `${rightPct}%`, backgroundColor: rightBarColor }} />
             </div>
             <div className="mt-1 text-[0.7rem] text-[var(--muted)]">WP 95% CI: {(wpCal.ci[0] * 100).toFixed(0)}%–{(wpCal.ci[1] * 100).toFixed(0)}%</div>
@@ -470,7 +470,7 @@ export default function WinProbability({
   }
 
   return (
-    <div className="mb-6 evw-surface border border-[var(--border)] rounded-md p-4">
+    <div className="mb-6 league-surface border border-[var(--border)] rounded-md p-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold">Win Probability (calibrated)</h3>
         <div className="text-xs text-[var(--muted)]">Auto-updates every 30s</div>
@@ -483,7 +483,7 @@ export default function WinProbability({
         <span>{leftPct}%</span>
       </div>
       <div className="text-[0.75rem] text-[var(--muted)] mb-1">WP 95% CI: {(wpCal.ci[0] * 100).toFixed(0)}%–{(wpCal.ci[1] * 100).toFixed(0)}%</div>
-      <div className="h-3 w-full rounded-full overflow-hidden evw-muted" aria-hidden>
+      <div className="h-3 w-full rounded-full overflow-hidden league-subtle" aria-hidden>
         <div className="h-full" style={{ width: `${leftPct}%`, backgroundColor: leftBarColor }} />
       </div>
       <div className="mt-2 flex items-center justify-between text-sm font-medium">

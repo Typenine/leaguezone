@@ -475,7 +475,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Content-Disposition': 'attachment; filename="evw-drafts-and-picks.json"',
+        'Content-Disposition': 'attachment; filename="league-drafts-and-picks.json"',
       },
     });
   } catch (err) {

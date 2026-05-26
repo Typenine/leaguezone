@@ -31,7 +31,7 @@ export default function PlayoffStructure() {
           <div key={p} style={{ position: 'absolute', top: 0, bottom: 0, left: p + '%', width: '1px', background: 'rgba(245,158,11,0.04)' }} />
         ))}
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-          <div style={{ fontSize: '11px', letterSpacing: '4px', color: GLD, textTransform: 'uppercase', marginBottom: '6px' }}>East v. West Dynasty League</div>
+          <div style={{ fontSize: '11px', letterSpacing: '4px', color: GLD, textTransform: 'uppercase', marginBottom: '6px' }}>Fantasy Football League</div>
           <h2 style={{ margin: 0, fontSize: 'clamp(20px,5vw,34px)', fontWeight: '900', color: '#fff' }}>Playoffs · Draft Order · Payouts</h2>
           <div style={{ marginTop: '6px', fontSize: '12px', color: MUT, letterSpacing: '2px', textTransform: 'uppercase' }}>Complete Season Outcomes Reference</div>
         </div>

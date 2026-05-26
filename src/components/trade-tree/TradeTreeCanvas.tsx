@@ -183,7 +183,7 @@ function AssetNode({ data, id }: any) {
       tabIndex={0}
       role="button"
       aria-label={data.ariaLabel as string | undefined}
-      className={`evw-node px-3 py-3 rounded-[var(--radius-card)] text-[14px] sm:text-[13px] border relative hover-lift focus-visible:ring-2 ring-[var(--focus)] ring-offset-1 ring-offset-[var(--surface)] ${isDim ? 'opacity-30' : 'opacity-100'}`}
+      className={`league-node px-3 py-3 rounded-[var(--radius-card)] text-[14px] sm:text-[13px] border relative hover-lift focus-visible:ring-2 ring-[var(--focus)] ring-offset-1 ring-offset-[var(--surface)] ${isDim ? 'opacity-30' : 'opacity-100'}`}
       style={{ ...(data.style || {}) }}
     >
       <span className="absolute left-0 right-0 top-0 h-1 accent-stripe rounded-t-[var(--radius-card)] pointer-events-none" />
@@ -243,7 +243,7 @@ function BandNode({ data, id }: any) {
     touchStart.current = null;
   };
   return (
-    <div className={`evw-node rounded-[var(--radius-card)] border bg-[var(--surface)] border-[var(--border)] ${isDim ? 'opacity-30' : 'opacity-100'}`} style={{ position: 'relative', width: '100%', height: '100%' }} onTouchStart={onTS} onTouchEnd={onTE}>
+    <div className={`league-node rounded-[var(--radius-card)] border bg-[var(--surface)] border-[var(--border)] ${isDim ? 'opacity-30' : 'opacity-100'}`} style={{ position: 'relative', width: '100%', height: '100%' }} onTouchStart={onTS} onTouchEnd={onTE}>
       <span className="absolute left-0 right-0 top-0 h-1 accent-stripe rounded-t-[var(--radius-card)] pointer-events-none" />
       <div className="flex items-center justify-between px-3" style={{ height: bandHeaderH }}>
         <div className="flex items-center gap-2 min-w-0">
@@ -266,7 +266,7 @@ function BandNode({ data, id }: any) {
       {collapsed && preview && preview.length > 0 && (
         <div className="px-3 pb-1 overflow-x-auto whitespace-nowrap space-x-1">
           {preview.slice(0, 3).map((p: string, i: number) => (
-            <span key={i} className="inline-block text-[10px] rounded px-1 py-0.5 evw-surface border border-[var(--border)]">
+            <span key={i} className="inline-block text-[10px] rounded px-1 py-0.5 league-surface border border-[var(--border)]">
               {p}
             </span>
           ))}
@@ -835,7 +835,7 @@ export default function TradeTreeCanvas({ graph, height = 640, onNodeClick }: Tr
   const rightLaneColor = ((rightLaneNode?.style as React.CSSProperties | undefined)?.color as string) || BRACKET_RED;
 
   return (
-    <div ref={wrapperRef} style={{ height }} className="evw-surface border rounded shadow overflow-hidden relative text-[var(--text)]">
+    <div ref={wrapperRef} style={{ height }} className="league-surface border rounded shadow overflow-hidden relative text-[var(--text)]">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -867,13 +867,13 @@ export default function TradeTreeCanvas({ graph, height = 640, onNodeClick }: Tr
           <MiniMap
             pannable
             zoomable
-            className="evw-surface border rounded shadow opacity-60 hover:opacity-100 transition-opacity hidden sm:block"
+            className="league-surface border rounded shadow opacity-60 hover:opacity-100 transition-opacity hidden sm:block"
             maskColor="color-mix(in srgb, var(--text) 8%, transparent)"
             nodeStrokeColor={() => 'var(--border)'}
             nodeColor={() => 'color-mix(in srgb, var(--text) 12%, transparent)'}
           />
         )}
-        {!SIMPLE_TREE && <Controls position="bottom-right" className="evw-surface border rounded shadow hidden sm:block" />}
+        {!SIMPLE_TREE && <Controls position="bottom-right" className="league-surface border rounded shadow hidden sm:block" />}
         <Background variant="lines" gap={32} color="var(--border)" />
       </ReactFlow>
 

@@ -214,7 +214,7 @@ export default function PlayerDrawer({ open, onClose, player, season, week, curr
   return (
     <div className="fixed inset-0 z-50" data-season={season}>
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-full sm:w-[420px] evw-surface border-l border-[var(--border)] p-4 overflow-y-auto">
+      <div className="absolute right-0 top-0 h-full w-full sm:w-[420px] league-surface border-l border-[var(--border)] p-4 overflow-y-auto">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
             <Image src={getTeamLogoPath(player.team || '')} alt={player.team || ''} width={32} height={32} className="object-contain" />
@@ -259,7 +259,7 @@ export default function PlayerDrawer({ open, onClose, player, season, week, curr
           <div className="flex items-center justify-between mb-1">
             <div className="text-xs text-[var(--muted)]">Game log</div>
             <select
-              className="text-xs evw-surface border border-[var(--border)] rounded px-2 py-1"
+              className="text-xs league-surface border border-[var(--border)] rounded px-2 py-1"
               value={logSeason}
               onChange={(e) => setLogSeason(e.target.value)}
             >

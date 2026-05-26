@@ -140,7 +140,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Content-Disposition': 'attachment; filename="evw-trades-and-transactions.json"',
+        'Content-Disposition': 'attachment; filename="league-trades-and-transactions.json"',
       },
     });
   } catch (err) {

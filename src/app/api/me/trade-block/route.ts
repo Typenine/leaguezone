@@ -133,7 +133,7 @@ export async function PUT(req: NextRequest) {
             description: descriptionText,
             url: tradeBlockUrl,
             color: 0xbe161e,
-            footer: { text: 'East v. West · Trade Block' },
+            footer: { text: 'Fantasy League · Trade Block' },
             timestamp: new Date().toISOString(),
           }],
         }).catch((e) => console.error('Discord webhook error:', e));

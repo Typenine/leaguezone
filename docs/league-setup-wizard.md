@@ -111,7 +111,7 @@ CREATE TABLE league_invites (
 
 ## Migration Strategy
 
-For existing East v. West deployment:
+For existing deployments being migrated to this template:
 - Set `setup_completed = true` on default league
 - Existing data continues to work
 - New deployments start with setup wizard

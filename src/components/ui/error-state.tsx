@@ -73,7 +73,7 @@ export default function ErrorState({
             {homeLink && (
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 rounded-full font-medium px-3 py-1.5 evw-surface border border-[var(--border)] text-[var(--text)] hover:opacity-90 focus:outline-none focus:ring-2 ring-[var(--focus)] ring-offset-2 ring-offset-[var(--surface)]"
+                className="inline-flex items-center gap-2 rounded-full font-medium px-3 py-1.5 league-surface border border-[var(--border)] text-[var(--text)] hover:opacity-90 focus:outline-none focus:ring-2 ring-[var(--focus)] ring-offset-2 ring-offset-[var(--surface)]"
                 aria-label="Return to homepage"
               >
                 <svg 

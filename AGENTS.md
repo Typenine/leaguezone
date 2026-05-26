@@ -4,7 +4,7 @@
 
 ### Overview
 
-East v. West (EVW) is a full-stack **Next.js 15** (App Router, Turbopack) fantasy football dynasty league management platform. It uses:
+This is a full-stack **Next.js 15** (App Router, Turbopack) fantasy football league management platform. It uses:
 - **TypeScript**, **React 19**, **Tailwind CSS 4**
 - **PostgreSQL** via Drizzle ORM (`@neondatabase/serverless` driver in production, local Postgres for dev)
 - **Sleeper API** (`api.sleeper.app`) for live league data (public, no auth needed)

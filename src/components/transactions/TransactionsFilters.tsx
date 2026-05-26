@@ -67,7 +67,7 @@ export default function TransactionsFilters({
     <div className="flex flex-col gap-4 mt-4">
       <div className="flex flex-wrap gap-2">
         <select
-          className="evw-surface border border-[var(--border)] rounded px-3 py-2"
+          className="league-surface border border-[var(--border)] rounded px-3 py-2"
           value={activeSeason}
           onChange={(e) => updateParam("season", e.target.value)}
         >
@@ -78,7 +78,7 @@ export default function TransactionsFilters({
           ))}
         </select>
         <select
-          className="evw-surface border border-[var(--border)] rounded px-3 py-2"
+          className="league-surface border border-[var(--border)] rounded px-3 py-2"
           value={activeTeam}
           onChange={(e) => updateParam("team", e.target.value)}
         >
@@ -89,7 +89,7 @@ export default function TransactionsFilters({
           ))}
         </select>
         <select
-          className="evw-surface border border-[var(--border)] rounded px-3 py-2"
+          className="league-surface border border-[var(--border)] rounded px-3 py-2"
           value={activeWeek}
           onChange={(e) => updateParam("week", e.target.value)}
         >
@@ -100,7 +100,7 @@ export default function TransactionsFilters({
           ))}
         </select>
         <select
-          className="evw-surface border border-[var(--border)] rounded px-3 py-2"
+          className="league-surface border border-[var(--border)] rounded px-3 py-2"
           value={activePosition}
           onChange={(e) => updateParam("position", e.target.value)}
         >
@@ -111,7 +111,7 @@ export default function TransactionsFilters({
           ))}
         </select>
         <select
-          className="evw-surface border border-[var(--border)] rounded px-3 py-2"
+          className="league-surface border border-[var(--border)] rounded px-3 py-2"
           value={activeType}
           onChange={(e) => updateParam("type", e.target.value)}
         >
@@ -146,7 +146,7 @@ export default function TransactionsFilters({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <SummaryCard title="Total FAAB Spent" value={`$${summary.totalFaab.toFixed(0)}`} />
         <SummaryCard title="Transactions" value={summary.count.toLocaleString()} />
-        <div className="evw-surface border border-[var(--border)] rounded p-3">
+        <div className="league-surface border border-[var(--border)] rounded p-3">
           <h3 className="text-sm font-semibold mb-2">Top Spenders</h3>
           {summary.totalsByTeam.length ? (
             <ul className="space-y-1 max-h-40 overflow-auto text-sm">
@@ -161,7 +161,7 @@ export default function TransactionsFilters({
             <p className="text-sm text-[var(--muted)]">No FAAB spending yet.</p>
           )}
         </div>
-        <div className="evw-surface border border-[var(--border)] rounded p-3 md:col-span-3">
+        <div className="league-surface border border-[var(--border)] rounded p-3 md:col-span-3">
           <h3 className="text-sm font-semibold mb-2">FAAB by Season</h3>
           {summary.totalsBySeason.length ? (
             <div className="flex flex-wrap gap-3 text-sm">
@@ -183,7 +183,7 @@ export default function TransactionsFilters({
 
 function SummaryCard({ title, value }: { title: string; value: string }) {
   return (
-    <div className="evw-surface border border-[var(--border)] rounded p-3">
+    <div className="league-surface border border-[var(--border)] rounded p-3">
       <p className="text-xs text-[var(--muted)] uppercase tracking-wide mb-1">{title}</p>
       <p className="text-lg font-semibold">{value}</p>
     </div>

@@ -25,7 +25,7 @@ export async function verifyPin(pin: string, hash: string, salt: string): Promis
 function getSecret(): string {
   const secret = process.env.AUTH_SECRET;
   if (secret && secret.length >= 16) return secret;
-  return 'evw-default-auth-secret-change-me';
+  return 'league-default-auth-secret-change-me';
 }
 
 export function signSession(payload: Record<string, unknown>): string {

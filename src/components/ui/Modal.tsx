@@ -81,7 +81,7 @@ export function Modal({
             aria-modal="true"
             aria-labelledby={title ? titleIdRef.current : undefined}
             tabIndex={-1}
-            className="evw-surface border border-[var(--border)] rounded-[var(--radius-card)] shadow-[var(--shadow-soft)] w-full max-w-lg outline-none"
+            className="league-surface border border-[var(--border)] rounded-[var(--radius-card)] shadow-[var(--shadow-soft)] w-full max-w-lg outline-none"
             onClick={(e) => e.stopPropagation()}
           >
             {(title || showClose) && (

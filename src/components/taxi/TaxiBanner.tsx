@@ -58,7 +58,7 @@ export default function TaxiBanner({ initial }: { initial: TaxiFlags }) {
   return (
     <section className="mb-6" aria-label="Taxi tracker summary">
       {flags.actual.length > 0 && (
-        <div className="mb-2 evw-surface border border-[var(--border)] rounded-md p-3" style={{ backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)" }}>
+        <div className="mb-2 league-surface border border-[var(--border)] rounded-md p-3" style={{ backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)" }}>
           <div className="flex items-center justify-between mb-1">
             <div className="font-semibold">Taxi violations</div>
             <button className="text-xs underline opacity-80" onClick={refreshFlags} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button>
@@ -74,7 +74,7 @@ export default function TaxiBanner({ initial }: { initial: TaxiFlags }) {
       )}
 
       {flags.potential.length > 0 && (
-        <div className="evw-surface border border-[var(--border)] rounded-md p-3" style={{ backgroundColor: "color-mix(in srgb, var(--gold) 12%, transparent)" }}>
+        <div className="league-surface border border-[var(--border)] rounded-md p-3" style={{ backgroundColor: "color-mix(in srgb, var(--gold) 12%, transparent)" }}>
           <div className="flex items-center justify-between mb-1">
             <div className="font-semibold">Potential taxi issues (pending games)</div>
             <button className="text-xs underline opacity-80" onClick={refreshFlags} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button>
@@ -90,7 +90,7 @@ export default function TaxiBanner({ initial }: { initial: TaxiFlags }) {
       )}
 
       {flags.actual.length === 0 && flags.potential.length === 0 && flags.runType && (
-        <div className="evw-surface border border-[var(--border)] rounded-md p-3" style={{ backgroundColor: "color-mix(in srgb, #10b981 12%, transparent)" }}>
+        <div className="league-surface border border-[var(--border)] rounded-md p-3" style={{ backgroundColor: "color-mix(in srgb, #10b981 12%, transparent)" }}>
           <div className="flex items-center justify-between mb-1">
             <div className="font-semibold">All teams compliant</div>
             <button className="text-xs underline opacity-80" onClick={refreshFlags} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button>
@@ -100,7 +100,7 @@ export default function TaxiBanner({ initial }: { initial: TaxiFlags }) {
       )}
 
       {flags.actual.length === 0 && flags.potential.length === 0 && !flags.runType && (
-        <div className="evw-surface border border-[var(--border)] rounded-md p-3" style={{ backgroundColor: "color-mix(in srgb, #93c5fd 12%, transparent)" }}>
+        <div className="league-surface border border-[var(--border)] rounded-md p-3" style={{ backgroundColor: "color-mix(in srgb, #93c5fd 12%, transparent)" }}>
           <div className="flex items-center justify-between mb-1">
             <div className="font-semibold">Taxi tracker</div>
             <button className="text-xs underline opacity-80" onClick={refreshFlags} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</button>

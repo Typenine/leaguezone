@@ -158,7 +158,7 @@ export default function GlobalSearch() {
       </Button>
 
       {/* Search modal */}
-      <Modal open={isOpen} onClose={() => setIsOpen(false)} title="Search East v West">
+      <Modal open={isOpen} onClose={() => setIsOpen(false)} title="Search">
         <div role="combobox" aria-expanded={true} aria-controls="search-results" aria-haspopup="listbox">
           <div className="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -229,7 +229,7 @@ export default function GlobalSearch() {
             )}
           </div>
 
-          <div className="evw-muted px-4 py-3 text-xs text-[var(--muted)] flex justify-between mt-2 rounded-[var(--radius-card)]">
+          <div className="league-subtle px-4 py-3 text-xs text-[var(--muted)] flex justify-between mt-2 rounded-[var(--radius-card)]">
             <div>
               <span className="bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] px-2 py-1 rounded">↑↓</span> to navigate
             </div>

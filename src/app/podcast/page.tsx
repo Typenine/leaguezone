@@ -5,21 +5,22 @@ import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Tabs } from '@/components/ui/Tabs';
 
 export const metadata: Metadata = {
-  title: 'Podcast • East v. West Fantasy Football',
-  description: 'Listen to the East v. West Fantasy Football league podcast on Spotify or Apple Podcasts.',
+  title: 'Podcast • Fantasy Football League',
+  description: 'Listen to the fantasy football league podcast.',
 };
 
-const SPOTIFY_SHOW_URL = 'https://open.spotify.com/show/0Dha8Mnml3OZOZTbQtTEgz';
-const SPOTIFY_EMBED_URL = 'https://open.spotify.com/embed/show/0Dha8Mnml3OZOZTbQtTEgz?utm_source=generator&theme=0';
+// TODO: Update these URLs with your league's actual podcast links after setup.
+const SPOTIFY_SHOW_URL = process.env.PODCAST_SPOTIFY_URL || 'https://open.spotify.com';
+const SPOTIFY_EMBED_URL = process.env.PODCAST_SPOTIFY_EMBED_URL || '';
 
-const APPLE_PODCAST_URL = 'https://podcasts.apple.com/us/podcast/west-vs-east-ffl-podcast/id1769326488';
-const APPLE_EMBED_URL = 'https://embed.podcasts.apple.com/us/podcast/west-vs-east-ffl-podcast/id1769326488';
+const APPLE_PODCAST_URL = process.env.PODCAST_APPLE_URL || 'https://podcasts.apple.com';
+const APPLE_EMBED_URL = process.env.PODCAST_APPLE_EMBED_URL || '';
 
 export default function PodcastPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <SectionHeader title="East v. West Podcast" className="mx-auto max-w-fit" />
+        <SectionHeader title="League Podcast" className="mx-auto max-w-fit" />
         <p className="text-[var(--muted)] mt-2">
           League talk, matchup previews, trades, and weekly storylines. Choose your platform below to listen.
         </p>

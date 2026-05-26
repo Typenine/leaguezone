@@ -105,7 +105,7 @@ export default function TradeDetailPage() {
         actions={
           <Link
             href="/trades"
-            className="inline-flex items-center px-4 py-2 rounded-full font-medium evw-surface border border-[var(--border)] text-[var(--text)] hover:opacity-90 focus:outline-none focus:ring-2 ring-[var(--focus)] ring-offset-2 ring-offset-[var(--surface)]"
+            className="inline-flex items-center px-4 py-2 rounded-full font-medium league-surface border border-[var(--border)] text-[var(--text)] hover:opacity-90 focus:outline-none focus:ring-2 ring-[var(--focus)] ring-offset-2 ring-offset-[var(--surface)]"
             aria-label="Return to trades list"
           >
             ← Back to Trades
@@ -117,7 +117,7 @@ export default function TradeDetailPage() {
         <div className="mb-4">
           <Link
             href={`/admin/trades?edit=${encodeURIComponent(id as string)}`}
-            className="inline-flex items-center px-3 py-1.5 rounded-md border border-[var(--border)] text-sm evw-surface hover:opacity-90"
+            className="inline-flex items-center px-3 py-1.5 rounded-md border border-[var(--border)] text-sm league-surface hover:opacity-90"
             aria-label="Edit this trade"
           >
             Edit trade
@@ -126,7 +126,7 @@ export default function TradeDetailPage() {
       )}
       <h1 id="trade-heading" className="sr-only">Trade between {trade.teams.map(t => t.name).join(' and ')}</h1>
       
-      <article className="evw-surface border border-[var(--border)] rounded-lg shadow-md overflow-hidden mb-8">
+      <article className="league-surface border border-[var(--border)] rounded-lg shadow-md overflow-hidden mb-8">
         <div className="p-6">
           {/* Trade Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -227,7 +227,7 @@ export default function TradeDetailPage() {
                   <Link
                     key={relatedTrade.id}
                     href={`/trades/${relatedTrade.id}`}
-                    className="block evw-surface border border-[var(--border)] rounded-lg p-4 hover-subtle"
+                    className="block league-surface border border-[var(--border)] rounded-lg p-4 hover-subtle"
                     aria-label={`View related trade between ${relatedTrade.teams.map(t => t.name).join(' and ')} from ${new Date(relatedTrade.date).toLocaleDateString()}`}
                   >
                     <div className="flex justify-between items-center">

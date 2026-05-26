@@ -199,7 +199,7 @@ function AdminTradesContent() {
             <form onSubmit={doLogin} className="space-y-3">
               <div>
                 <Label htmlFor="passkey">Passkey</Label>
-                <input id="passkey" type="password" className="w-full evw-surface border border-[var(--border)] rounded px-3 py-2" value={passkey} onChange={(e) => setPasskey(e.target.value)} />
+                <input id="passkey" type="password" className="w-full league-surface border border-[var(--border)] rounded px-3 py-2" value={passkey} onChange={(e) => setPasskey(e.target.value)} />
               </div>
               {error && <div className="text-red-500 text-sm">{error}</div>}
               <Button type="submit" disabled={loading || !passkey}>Login</Button>
@@ -232,7 +232,7 @@ function AdminTradesContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="date">Date</Label>
-              <input id="date" type="date" className="w-full evw-surface border rounded px-3 py-2" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              <input id="date" type="date" className="w-full league-surface border rounded px-3 py-2" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
             </div>
             <div>
               <Label htmlFor="status">Status</Label>
@@ -244,11 +244,11 @@ function AdminTradesContent() {
             </div>
             <div className="md:col-span-2">
               <Label htmlFor="override">Override Sleeper Trade (transaction_id)</Label>
-              <input id="override" placeholder="optional" className="w-full evw-surface border rounded px-3 py-2" value={form.overrideOf || ''} onChange={(e) => setForm({ ...form, overrideOf: e.target.value || null })} />
+              <input id="override" placeholder="optional" className="w-full league-surface border rounded px-3 py-2" value={form.overrideOf || ''} onChange={(e) => setForm({ ...form, overrideOf: e.target.value || null })} />
             </div>
             <div className="md:col-span-2">
               <Label htmlFor="notes">Notes / Conditions</Label>
-              <textarea id="notes" className="w-full evw-surface border rounded px-3 py-2" rows={3} value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+              <textarea id="notes" className="w-full league-surface border rounded px-3 py-2" rows={3} value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
             {editorError && (
               <div className="md:col-span-2 text-red-500 text-sm">{editorError}</div>
@@ -304,7 +304,7 @@ function AdminTradesContent() {
                         {a.type === 'player' ? (
                           <div className="col-span-3 relative">
                             <input
-                              className="w-full evw-surface border rounded px-2 py-1"
+                              className="w-full league-surface border rounded px-2 py-1"
                               placeholder="Search player (e.g., Kirk)"
                               value={a.name}
                               onChange={async (e) => {
@@ -332,7 +332,7 @@ function AdminTradesContent() {
                               onBlur={() => setTimeout(() => setOpenSuggestKey((k) => (k === `${idx}-${ai}` ? null : k)), 150)}
                             />
                             {openSuggestKey === `${idx}-${ai}` && (playerSuggests[`${idx}-${ai}`]?.length || 0) > 0 && (
-                              <div className="absolute z-10 mt-1 w-full evw-surface border rounded shadow-sm max-h-56 overflow-auto">
+                              <div className="absolute z-10 mt-1 w-full league-surface border rounded shadow-sm max-h-56 overflow-auto">
                                 {(playerSuggests[`${idx}-${ai}`] || []).map((p) => (
                                   <button
                                     type="button"
@@ -357,7 +357,7 @@ function AdminTradesContent() {
                         ) : a.type === 'pick' ? (
                           <div className="col-span-3 grid grid-cols-3 gap-2">
                             <input
-                              className="evw-surface border rounded px-2 py-1"
+                              className="league-surface border rounded px-2 py-1"
                               placeholder="Year"
                               inputMode="numeric"
                               value={a.year || ''}
@@ -418,7 +418,7 @@ function AdminTradesContent() {
                             </Select>
                           </div>
                         ) : (
-                          <input className="col-span-3 evw-surface border rounded px-2 py-1" placeholder="Label (e.g., $25 FAAB)" value={a.name} onChange={(e) => {
+                          <input className="col-span-3 league-surface border rounded px-2 py-1" placeholder="Label (e.g., $25 FAAB)" value={a.name} onChange={(e) => {
                             const teamsArr = [...form.teams];
                             const assets = teamsArr[idx].assets.slice();
                             assets[ai] = { ...assets[ai], name: e.target.value } as ManualTradeAsset;
@@ -499,7 +499,7 @@ function AdminTradesContent() {
           ) : (
             <div className="space-y-3">
               {trades.map((t) => (
-                <div key={t.id} className="evw-surface border rounded p-3">
+                <div key={t.id} className="league-surface border rounded p-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-semibold">{t.id}</div>

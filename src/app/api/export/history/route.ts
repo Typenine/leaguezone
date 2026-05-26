@@ -291,7 +291,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Content-Disposition': 'attachment; filename="evw-history-and-records.json"',
+        'Content-Disposition': 'attachment; filename="league-history-and-records.json"',
       },
     });
   } catch (err) {

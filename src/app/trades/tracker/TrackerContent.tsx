@@ -146,7 +146,7 @@ function TradeTrackerContent() {
             <div className="mt-3">
               <Label htmlFor="depth-slider" className="font-medium flex items-center gap-2">
                 Depth
-                <span className="inline-block rounded-full evw-surface border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text)]">{depthLocal}</span>
+                <span className="inline-block rounded-full league-surface border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text)]">{depthLocal}</span>
               </Label>
               <input
                 type="range"
@@ -199,7 +199,7 @@ function TradeTrackerContent() {
           {!loading && !error && graph && view === 'list' && (
             <div className="space-y-4">
               {listView && listView.map((t) => (
-                <Card key={t.id} className="evw-surface border">
+                <Card key={t.id} className="league-surface border">
                   <CardHeader>
                     <CardTitle className="text-base">{t.teams.join(' ↔ ')} <span className="text-[var(--muted)] font-normal">({t.date})</span></CardTitle>
                   </CardHeader>

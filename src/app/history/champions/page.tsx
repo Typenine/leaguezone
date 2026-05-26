@@ -59,7 +59,7 @@ export default function ChampionsPage() {
                 className={`px-4 py-2 text-sm font-medium pill ${
                   selectedYear === champion.year
                     ? 'pill-active'
-                    : 'evw-surface pill-hover border border-[var(--border)]'
+                    : 'league-surface pill-hover border border-[var(--border)]'
                 } ${
                   champion.year === championDetails[0].year ? 'rounded-l-lg' : ''
                 } ${
@@ -74,7 +74,7 @@ export default function ChampionsPage() {
       />
       
       {/* Champion Trophy Card */}
-      <div className="max-w-3xl mx-auto evw-surface border border-[var(--border)] rounded-lg shadow-lg overflow-hidden mb-8">
+      <div className="max-w-3xl mx-auto league-surface border border-[var(--border)] rounded-lg shadow-lg overflow-hidden mb-8">
         <div className="brand-gradient text-on-brand p-6 text-center">
           <div className="text-6xl mb-4">🏆</div>
           <h2 className="text-3xl font-bold">{selectedChampion.team}</h2>
@@ -121,8 +121,8 @@ export default function ChampionsPage() {
       </div>
       
       {/* Championship Game Recap */}
-      <div className="max-w-3xl mx-auto evw-surface border border-[var(--border)] rounded-lg shadow-lg overflow-hidden mb-8">
-        <div className="evw-subtle px-6 py-4">
+      <div className="max-w-3xl mx-auto league-surface border border-[var(--border)] rounded-lg shadow-lg overflow-hidden mb-8">
+        <div className="league-subtle px-6 py-4">
           <h3 className="text-xl font-bold">Championship Game Recap</h3>
         </div>
         
@@ -156,15 +156,15 @@ export default function ChampionsPage() {
       </div>
       
       {/* Championship Roster */}
-      <div className="max-w-3xl mx-auto evw-surface border border-[var(--border)] rounded-lg shadow-lg overflow-hidden mb-8">
-        <div className="evw-subtle px-6 py-4">
+      <div className="max-w-3xl mx-auto league-surface border border-[var(--border)] rounded-lg shadow-lg overflow-hidden mb-8">
+        <div className="league-subtle px-6 py-4">
           <h3 className="text-xl font-bold">Championship Roster</h3>
         </div>
         
         <div className="p-6">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-[var(--border)]">
-              <thead className="evw-subtle">
+              <thead className="league-subtle">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
                     Position
@@ -177,7 +177,7 @@ export default function ChampionsPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="evw-surface divide-y divide-[var(--border)]">
+              <tbody className="league-surface divide-y divide-[var(--border)]">
                 {selectedYear === '2024' ? (
                   <>
                     <tr>

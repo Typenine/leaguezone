@@ -30,7 +30,7 @@ export default function Amendments() {
           <div key={p} style={{ position: 'absolute', top: 0, bottom: 0, left: p + '%', width: '1px', background: 'rgba(96,165,250,0.05)' }} />
         ))}
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-          <div style={{ fontSize: '11px', letterSpacing: '4px', color: BLU, textTransform: 'uppercase', marginBottom: '6px' }}>East v. West Dynasty League</div>
+          <div style={{ fontSize: '11px', letterSpacing: '4px', color: BLU, textTransform: 'uppercase', marginBottom: '6px' }}>Fantasy Football League</div>
           <h2 style={{ margin: 0, fontSize: 'clamp(22px,5vw,36px)', fontWeight: '900', color: '#fff' }}>Amendments</h2>
           <div style={{ marginTop: '4px', fontSize: 'clamp(18px,4vw,26px)', fontWeight: '900', color: BLU }}>{'& Rule Changes'}</div>
           <div style={{ marginTop: '8px', fontSize: '12px', color: MUT, letterSpacing: '2px', textTransform: 'uppercase' }}>How the rules get changed</div>

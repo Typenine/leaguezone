@@ -118,7 +118,7 @@ export default function TradeTreeReport({ graph, rootId, onNodeClick }: Props) {
               {orgHistory.map((h, idx) => (
                 <div key={`${h.tradeId}-${idx}`} className="flex items-center gap-2">
                   {idx > 0 ? <span className="text-[var(--muted)]">→</span> : null}
-                  <span className="rounded border border-[var(--border)] px-2 py-1 evw-surface">{h.toTeam}</span>
+                  <span className="rounded border border-[var(--border)] px-2 py-1 league-surface">{h.toTeam}</span>
                 </div>
               ))}
             </div>
@@ -144,7 +144,7 @@ export default function TradeTreeReport({ graph, rootId, onNodeClick }: Props) {
                 return (
                   <div key={`${h.tradeId}-step-${idx}`} className="relative mb-8">
                     <div className="grid grid-cols-1 md:grid-cols-[1fr_80px_1fr] gap-3 items-start">
-                      <div className="rounded-lg border border-[var(--border)] p-3 evw-surface">
+                      <div className="rounded-lg border border-[var(--border)] p-3 league-surface">
                         <div className="text-xs uppercase tracking-wide text-[var(--muted)] mb-1">Acquired For</div>
                         {acquiredForAssets.length ? (
                           <div className="flex flex-wrap gap-1.5">
@@ -174,7 +174,7 @@ export default function TradeTreeReport({ graph, rootId, onNodeClick }: Props) {
                         <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[var(--muted)]">→</span>
                       </div>
 
-                      <div className="rounded-lg border border-[var(--border)] p-3 evw-surface">
+                      <div className="rounded-lg border border-[var(--border)] p-3 league-surface">
                         <div className="text-xs uppercase tracking-wide text-[var(--muted)] mb-1">Acquired</div>
                         <div className="text-sm font-semibold mb-1">{displayLabel(rootNode)}</div>
                         <div className="text-xs text-[var(--muted)]">{h.fromTeam} → {h.toTeam}</div>
@@ -232,7 +232,7 @@ export default function TradeTreeReport({ graph, rootId, onNodeClick }: Props) {
         </CardHeader>
         <CardContent className="space-y-3">
           {orderedTrades.map((t) => (
-            <div key={t.tradeId} className="rounded-lg border border-[var(--border)] p-3 evw-surface">
+            <div key={t.tradeId} className="rounded-lg border border-[var(--border)] p-3 league-surface">
               <div className="text-sm font-semibold">{t.teams.join(" ↔ ") || "Trade"}</div>
               <div className="text-xs text-[var(--muted)] mb-2">{fmtDate(t.date)}</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

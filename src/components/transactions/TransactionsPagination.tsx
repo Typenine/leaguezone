@@ -64,7 +64,7 @@ export default function TransactionsPagination({
         <label htmlFor="per-page" className="text-xs text-[var(--muted)]">Rows per page</label>
         <select
           id="per-page"
-          className="evw-surface border border-[var(--border)] rounded px-2 py-1 text-sm"
+          className="league-surface border border-[var(--border)] rounded px-2 py-1 text-sm"
           value={perPage}
           onChange={(e) => setPerPage(Number(e.target.value) || 25)}
         >

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Draft Overlay - East v. West",
+  title: "Draft Overlay",
   description: "Live draft overlay display",
 };
 

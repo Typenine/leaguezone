@@ -4,7 +4,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={[
-        "evw-surface border border-[var(--border)] rounded-[var(--radius-card)] shadow-[var(--shadow-soft)]",
+        "league-surface border border-[var(--border)] rounded-[var(--radius-card)] shadow-[var(--shadow-soft)]",
         className,
       ]
         .filter(Boolean)

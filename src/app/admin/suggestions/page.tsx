@@ -90,7 +90,7 @@ export default function AdminSuggestionsPage() {
                   ...(isVague ? { boxShadow: `${isAccepted ? 'inset 0 0 0 2px #16a34a33,' : ''} inset 0 0 0 2px #f59e0b55` } : {}),
                 };
                 return (
-                  <li key={s.id} className="evw-surface border border-[var(--border)] rounded-[var(--radius-card)] p-4" style={liStyle}>
+                  <li key={s.id} className="league-surface border border-[var(--border)] rounded-[var(--radius-card)] p-4" style={liStyle}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-sm text-[var(--muted)]">
                         {new Date(s.createdAt).toLocaleString(undefined, {
@@ -100,7 +100,7 @@ export default function AdminSuggestionsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         {s.category && (
-                          <span className="text-xs px-2 py-0.5 rounded-full border border-[var(--border)] evw-surface text-[var(--text)]">{s.category}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full border border-[var(--border)] league-surface text-[var(--text)]">{s.category}</span>
                         )}
                         {isVague && (
                           <span className="text-xs px-2 py-0.5 rounded-full border" style={{ borderColor: '#f59e0b', color: '#f59e0b' }}>Needs Clarification</span>
@@ -184,7 +184,7 @@ export default function AdminSuggestionsPage() {
                         ) : (
                           <div className="flex flex-wrap gap-2">
                             {v.up.map((t) => (
-                              <span key={t} className="text-xs px-2 py-0.5 rounded-full border border-[var(--border)] evw-surface">{t}</span>
+                              <span key={t} className="text-xs px-2 py-0.5 rounded-full border border-[var(--border)] league-surface">{t}</span>
                             ))}
                           </div>
                         )}
@@ -196,7 +196,7 @@ export default function AdminSuggestionsPage() {
                         ) : (
                           <div className="flex flex-wrap gap-2">
                             {v.down.map((t) => (
-                              <span key={t} className="text-xs px-2 py-0.5 rounded-full border border-[var(--border)] evw-surface">{t}</span>
+                              <span key={t} className="text-xs px-2 py-0.5 rounded-full border border-[var(--border)] league-surface">{t}</span>
                             ))}
                           </div>
                         )}

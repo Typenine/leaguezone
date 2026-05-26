@@ -242,7 +242,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Content-Disposition': 'attachment; filename="evw-rosters-and-teams.json"',
+        'Content-Disposition': 'attachment; filename="league-rosters-and-teams.json"',
       },
     });
   } catch (err) {

@@ -86,10 +86,10 @@ function LoginContent() {
                   onClick={() => { setAdminOpen(true); setTimeout(() => adminRef.current?.focus(), 0); }}
                   title="Admin"
                 >
-                  <span className="block w-16 h-16 rounded-full overflow-hidden evw-surface border border-[var(--border)] flex items-center justify-center">
+                  <span className="block w-16 h-16 rounded-full overflow-hidden league-surface border border-[var(--border)] flex items-center justify-center">
                     <Image
-                      src="/assets/teams/East v West Logos/Official East v. West Logo.png"
-                      alt="League admin"
+                      src="/assets/league-logo.png"
+                      alt="League logo"
                       width={56}
                       height={56}
                       className="object-contain"
@@ -98,7 +98,7 @@ function LoginContent() {
                 </button>
               </div>
               {adminOpen && (
-                <div className="evw-surface border border-[var(--border)] rounded-[var(--radius-card)] p-3">
+                <div className="league-surface border border-[var(--border)] rounded-[var(--radius-card)] p-3">
                   <Label htmlFor="admin-pin" className="mb-1 block">Admin PIN</Label>
                   <div className="flex items-center gap-2">
                     <input

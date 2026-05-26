@@ -1,52 +1,29 @@
-// Mapping canonical team names to Sleeper accounts
-// IMPORTANT: Fill CANONICAL_TEAM_BY_USER_ID with your league's Sleeper user_id -> canonical name mapping.
-// You can get user_id values from the Sleeper API or temporary console logs we emit in getTeamsData when unknown.
+// Mapping canonical team names to Sleeper accounts.
+// IMPORTANT: Fill these in after connecting your Sleeper league.
+// You can find user_id values in the Sleeper API response or from the
+// console warning logs emitted by resolveCanonicalTeamName() when an
+// owner is not recognized.
+//
+// Example entries:
+//   '603801140211027968': 'Your Team Name',
+//
+// These mappings are the authoritative source of truth across all seasons.
 
 export const CANONICAL_TEAM_BY_USER_ID: Record<string, string> = {
-  // 2025 league owners (authoritative across seasons)
-  '603801140211027968': 'Belltown Raptors',
-  '600107096758870016': 'Double Trouble',
-  '604014218504630272': 'Elemental Heroes',
-  '869614030313136128': 'Mt. Lebanon Cake Eaters',
-  '866793409938104320': 'Belleview Badgers',
-  '871107865686020096': 'BeerNeverBrokeMyHeart',
-  '603802414381879296': 'Detroit Dawgs',
-  '870841561565544448': 'bop pop',
-  '234898221262958592': "Minshew's Maniacs",
-  '866824942002487296': 'Red Pandas',
-  '867644621516353536': 'The Lone Ginger',
-  '741241996198469632': 'Bimg Bamg Boomg',
+  // Add your league's Sleeper user_id → canonical team name mappings here:
+  // '000000000000000000': 'Team Name',
 };
 
-// Optional: map Sleeper-visible team/display names to your canonical names.
-// This helps auto-resolve without user_id when names match or are known aliases.
-export const TEAM_ALIASES: Record<string, string> = {
-  // Usernames (owner usernames)
-  'jbrichards77': 'Belltown Raptors',
-  'noahjankowski': 'Double Trouble',
-  'jdeschaine4': 'Elemental Heroes',
-  'pensrock8711': 'Mt. Lebanon Cake Eaters',
-  'typenine': 'Belleview Badgers',
-  'mb48': 'BeerNeverBrokeMyHeart',
-  'conor1440': 'Detroit Dawgs',
-  'jfrank4': 'bop pop',
-  'mattminshew15': "Minshew's Maniacs",
-  'songofthepanda': 'Red Pandas',
-  'ryannmidolflynns': 'The Lone Ginger',
-  'ryanmidolflynns': 'The Lone Ginger',
-  'ratpickle': 'Bimg Bamg Boomg',
+// Optional: map Sleeper-visible team/display names or usernames to canonical names.
+// Useful for resolving names without a user_id (e.g. from old season data).
+//
+// Example entries:
+//   'sleeper_username': 'Team Name',
+//   'old team display name': 'Team Name',
 
-  // Prior or alternate team/display names (past seasons)
-  'hurts so good': 'Belltown Raptors',
-  'the reigning champs': 'Double Trouble',
-  'frank gore = hof': 'Belleview Badgers',
-  'k9 minshew ii': "Minshew's Maniacs",
-  'ryanmi dolflynns': 'The Lone Ginger',
-  'the lone ginger': 'The Lone Ginger',
-  'the lone gingeer': 'The Lone Ginger',
-  'the lone gingerr': 'The Lone Ginger',
-  'the lone gingerrr': 'The Lone Ginger',
-  'maholmes and watson': 'Bimg Bamg Boomg',
+export const TEAM_ALIASES: Record<string, string> = {
+  // Add aliases here as you discover unresolved names in production:
+  // 'username_or_old_name': 'Canonical Team Name',
 };
 
 // Normalize a name for alias matching

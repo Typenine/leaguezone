@@ -27,7 +27,7 @@ export default function TradePicks() {
       <div style={{ background: 'linear-gradient(135deg, #1a0a00, #120d00, #1a0a00)', borderBottom: '3px solid ' + GLD, padding: '24px 24px 18px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(201,168,76,0.03) 40px, rgba(201,168,76,0.03) 41px)' }} />
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-          <div style={{ fontSize: '11px', letterSpacing: '4px', color: GLD, textTransform: 'uppercase', marginBottom: '6px' }}>East v. West Dynasty League</div>
+          <div style={{ fontSize: '11px', letterSpacing: '4px', color: GLD, textTransform: 'uppercase', marginBottom: '6px' }}>Fantasy Football League</div>
           <h2 style={{ margin: 0, fontSize: 'clamp(22px,5vw,34px)', fontWeight: '900', color: '#fff' }}>Trading Draft Picks</h2>
           <div style={{ marginTop: '6px', fontSize: '12px', color: MUT, letterSpacing: '2px', textTransform: 'uppercase' }}>Rules Reference Guide</div>
         </div>
@@ -76,7 +76,7 @@ export default function TradePicks() {
               </div>
             </div>
             <div style={{ background: CARD, border: '1px solid ' + BDR, borderRadius: '8px', padding: '10px 14px', marginBottom: '20px', fontSize: '12px', color: MUT }}>
-              The East v. West Entry Draft takes place in June or July each year (after the NFL Draft). During the regular season and offseason, current year picks will already have been used.
+              The Entry Draft takes place in the summer each year (after the NFL Draft). During the regular season and offseason, current year picks will already have been used.
             </div>
             <PickWindow />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '24px' }}>

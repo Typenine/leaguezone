@@ -2,7 +2,7 @@
 
 ## Summary
 
-The East v. West draft system has been completely overhauled with broadcast-quality animations, real-time polling, and seamless integration between the admin panel, draft room, and overlay.
+The draft system has been completely overhauled with broadcast-quality animations, real-time polling, and seamless integration between the admin panel, draft room, and overlay.
 
 ---
 

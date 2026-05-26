@@ -228,7 +228,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Content-Disposition': 'attachment; filename="evw-rules-and-settings.json"',
+        'Content-Disposition': 'attachment; filename="league-rules-and-settings.json"',
       },
     });
   } catch (err) {

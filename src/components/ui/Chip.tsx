@@ -19,7 +19,7 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(
       variant === "accent" ? (selected ? "pill-active" : "pill-hover text-[var(--muted)]") : undefined,
       variant === "neutral"
         ? selected
-          ? "evw-surface border-[var(--border)]"
+          ? "league-surface border-[var(--border)]"
           : "pill-hover text-[var(--muted)] border-transparent"
         : undefined,
       variant === "outline" ? "border-[var(--border)] text-[var(--text)]" : undefined,

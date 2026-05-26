@@ -28,7 +28,7 @@ export default function LineupCompliance() {
           <div key={p} style={{ position: 'absolute', top: 0, bottom: 0, left: p + '%', width: '1px', background: 'rgba(34,197,94,0.05)' }} />
         ))}
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-          <div style={{ fontSize: '11px', letterSpacing: '4px', color: GRN, textTransform: 'uppercase', marginBottom: '6px' }}>East v. West Dynasty League</div>
+          <div style={{ fontSize: '11px', letterSpacing: '4px', color: GRN, textTransform: 'uppercase', marginBottom: '6px' }}>Fantasy Football League</div>
           <h2 style={{ margin: 0, fontSize: 'clamp(22px,5vw,36px)', fontWeight: '900', color: '#fff' }}>Lineup Compliance</h2>
           <div style={{ marginTop: '6px', fontSize: '13px', color: MUT, letterSpacing: '2px', textTransform: 'uppercase' }}>& Tanking Rules</div>
         </div>

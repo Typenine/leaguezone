@@ -53,29 +53,15 @@ export const formatTeamNameForLogo = (teamName: string): string => {
 };
 
 /**
- * Gets the path to a team's logo
+ * Gets the path to a team's logo.
+ * Place team logo files in /public/assets/teams/logos/ named as the
+ * URL-encoded result of formatTeamNameForLogo(teamName) + ".png".
+ * Example: "My Team Name" → /assets/teams/logos/my-team-name.png
  * @param teamName The team name
  * @returns Path to the team's logo
  */
 export const getTeamLogoPath = (teamName: string): string => {
-  // Map team names to their actual logo filenames in the East v West Logos folder
-  const logoMap: Record<string, string> = {
-    'Belleview Badgers': 'Belleview Badgers Primary Logo.png',
-    'Belltown Raptors': 'Belltown Raptors logo.png',
-    'Minshew\'s Maniacs': 'Minshew\'s Maniacs Logo.png',
-    'Double Trouble': 'Double Trouble logo.png',
-    'Mt. Lebanon Cake Eaters': 'Cake Eaters Logo Final Version (1).png',
-    'The Lone Ginger': 'Lone Ginger Logo.png',
-    'bop pop': 'bop pop logo.png',
-    'Red Pandas': 'Red Pandas Primary Logo (2).png',
-    'BeerNeverBrokeMyHeart': 'Beer Never Broke My Heart Logo.png',
-    'Elemental Heroes': 'Elemental Heroes Logo.png',
-    'Detroit Dawgs': 'Detroit Dawgs Logo.png',
-    'Bimg Bamg Boomg': 'Bimg Bamg Boomg Logo .png'
-  };
-  
-  const logoFile = logoMap[teamName] || `${formatTeamNameForLogo(teamName)}.png`;
-  return `/assets/teams/East%20v%20West%20Logos/${encodeURIComponent(logoFile)}`;
+  return `/assets/teams/logos/${encodeURIComponent(formatTeamNameForLogo(teamName))}.png`;
 };
 
 /**

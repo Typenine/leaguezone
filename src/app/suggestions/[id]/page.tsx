@@ -182,7 +182,7 @@ export default function SuggestionDetailPage() {
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {s.category && (
-                <span className="text-xs px-2 py-0.5 rounded-full border border-[var(--border)] evw-surface text-[var(--text)]">
+                <span className="text-xs px-2 py-0.5 rounded-full border border-[var(--border)] league-surface text-[var(--text)]">
                   {s.category}
                 </span>
               )}
@@ -215,7 +215,7 @@ export default function SuggestionDetailPage() {
           </div>
 
           {/* Endorsement counter */}
-          <div className="mb-4 p-3 rounded-lg border border-[var(--border)] evw-surface">
+          <div className="mb-4 p-3 rounded-lg border border-[var(--border)] league-surface">
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-semibold text-lg">

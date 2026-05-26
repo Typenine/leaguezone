@@ -150,7 +150,7 @@ export async function GET() {
       headers: {
         'Content-Type': 'application/json',
         'Content-Disposition':
-          'attachment; filename="evw-league-export-all.json"',
+          'attachment; filename="league-export-all.json"',
       },
     });
   } catch (err) {

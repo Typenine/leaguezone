@@ -595,10 +595,10 @@ export default function RosterColumn({
         <h3 className="text-sm font-semibold mb-2">Starters</h3>
         {/* Quick filters */}
         <div className="mb-3 flex flex-wrap gap-2" role="tablist" aria-label="Filter starters by status">
-          <button type="button" className={`px-2 py-1 rounded-md text-xs border ${filter === 'ALL' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'evw-surface text-[var(--text)] border-[var(--border)]'}`} aria-pressed={filter === 'ALL'} onClick={() => setFilter('ALL')}>All ({starterCounts.all})</button>
-          <button type="button" className={`px-2 py-1 rounded-md text-xs border ${filter === 'IP' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'evw-surface text-[var(--text)] border-[var(--border)]'}`} aria-pressed={filter === 'IP'} onClick={() => setFilter('IP')}>IP ({starterCounts.ip})</button>
-          <button type="button" className={`px-2 py-1 rounded-md text-xs border ${filter === 'YTP' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'evw-surface text-[var(--text)] border-[var(--border)]'}`} aria-pressed={filter === 'YTP'} onClick={() => setFilter('YTP')}>YTP ({starterCounts.ytp})</button>
-          <button type="button" className={`px-2 py-1 rounded-md text-xs border ${filter === 'FIN' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'evw-surface text-[var(--text)] border-[var(--border)]'}`} aria-pressed={filter === 'FIN'} onClick={() => setFilter('FIN')}>FIN ({starterCounts.fin})</button>
+          <button type="button" className={`px-2 py-1 rounded-md text-xs border ${filter === 'ALL' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'league-surface text-[var(--text)] border-[var(--border)]'}`} aria-pressed={filter === 'ALL'} onClick={() => setFilter('ALL')}>All ({starterCounts.all})</button>
+          <button type="button" className={`px-2 py-1 rounded-md text-xs border ${filter === 'IP' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'league-surface text-[var(--text)] border-[var(--border)]'}`} aria-pressed={filter === 'IP'} onClick={() => setFilter('IP')}>IP ({starterCounts.ip})</button>
+          <button type="button" className={`px-2 py-1 rounded-md text-xs border ${filter === 'YTP' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'league-surface text-[var(--text)] border-[var(--border)]'}`} aria-pressed={filter === 'YTP'} onClick={() => setFilter('YTP')}>YTP ({starterCounts.ytp})</button>
+          <button type="button" className={`px-2 py-1 rounded-md text-xs border ${filter === 'FIN' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'league-surface text-[var(--text)] border-[var(--border)]'}`} aria-pressed={filter === 'FIN'} onClick={() => setFilter('FIN')}>FIN ({starterCounts.fin})</button>
         </div>
         <ul className="space-y-2">
           {(startersFiltered.length > 0 ? startersFiltered : starters).map((s) => {
@@ -619,7 +619,7 @@ export default function RosterColumn({
             const tstat = code ? statuses[code] : undefined;
             const isRZ = !!tstat?.isRedZone && bucket === 'IP';
             return (
-              <li key={s.id} className={`flex items-center justify-between evw-surface border border-[var(--border)] rounded-md px-3 py-2 transition-colors ${flashOn[s.id] ? (d > 0 ? 'bg-green-500/10' : 'bg-red-500/10') : ''}`}>
+              <li key={s.id} className={`flex items-center justify-between league-surface border border-[var(--border)] rounded-md px-3 py-2 transition-colors ${flashOn[s.id] ? (d > 0 ? 'bg-green-500/10' : 'bg-red-500/10') : ''}`}>
                 <div className="min-w-0">
                   <div className="font-medium truncate flex items-center gap-2">
                     <span className="text-xs text-[var(--muted)] w-8 inline-block">{s.pos || "—"}</span>
@@ -667,7 +667,7 @@ export default function RosterColumn({
             const tstat = code ? statuses[code] : undefined;
             const isRZ = !!tstat?.isRedZone && bucket === 'IP';
             return (
-              <li key={s.id} className={`flex items-center justify-between evw-surface border border-[var(--border)] rounded-md px-3 py-2 transition-colors ${flashOn[s.id] ? (d > 0 ? 'bg-green-500/10' : 'bg-red-500/10') : ''}`}>
+              <li key={s.id} className={`flex items-center justify-between league-surface border border-[var(--border)] rounded-md px-3 py-2 transition-colors ${flashOn[s.id] ? (d > 0 ? 'bg-green-500/10' : 'bg-red-500/10') : ''}`}>
                 <div className="min-w-0">
                   <div className="font-medium truncate flex items-center gap-2">
                     <span className="text-xs text-[var(--muted)] w-8 inline-block">{s.pos || "—"}</span>

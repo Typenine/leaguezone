@@ -166,7 +166,7 @@ export default function AdminTaxiPage() {
             }} className="space-y-3">
               <div>
                 <Label htmlFor="passkey">Passkey</Label>
-                <input id="passkey" type="password" className="w-full evw-surface border border-[var(--border)] rounded px-3 py-2" value={passkey} onChange={(e) => setPasskey(e.target.value)} />
+                <input id="passkey" type="password" className="w-full league-surface border border-[var(--border)] rounded px-3 py-2" value={passkey} onChange={(e) => setPasskey(e.target.value)} />
               </div>
               {error && <div className="text-red-500 text-sm">{error}</div>}
               <Button type="submit" disabled={loading || !passkey}>Login</Button>
@@ -214,7 +214,7 @@ export default function AdminTaxiPage() {
                 </div>
                 <div>
                   <Label htmlFor="q">Search</Label>
-                  <input id="q" className="evw-surface border rounded px-3 py-2" placeholder="Team name" value={query} onChange={(e) => setQuery(e.target.value)} />
+                  <input id="q" className="league-surface border rounded px-3 py-2" placeholder="Team name" value={query} onChange={(e) => setQuery(e.target.value)} />
                 </div>
                 <div className="self-end">
                   <Button onClick={() => setSeason((s) => s)}>Refresh</Button>

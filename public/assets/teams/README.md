@@ -1,51 +1,48 @@
 # Team Logos
 
-This directory contains the team logos for the East v. West dynasty fantasy football league.
+This directory contains team logos for your fantasy football league.
+
+## Directory Structure
+
+Place team logos in the `logos/` subdirectory:
+
+```
+public/assets/teams/logos/
+  my-team-name.png
+  another-team.png
+  ...
+```
+
+Also place your league logo at:
+
+```
+public/assets/league-logo.png
+```
+
+This is used in the navbar, login page, and other places as a fallback when no team session is active.
 
 ## Naming Convention
 
-Please name the logo files according to the following convention:
+Logo files must be named using the URL-slug format of the canonical team name:
 
-1. Use the team name in lowercase
-2. Replace spaces with hyphens
-3. Remove any special characters (apostrophes, periods, etc.)
-4. Use PNG format with transparent background
+1. Lowercase the team name
+2. Remove apostrophes, periods, and other special characters
+3. Replace spaces with hyphens
+4. Use PNG format with a transparent background
 
 ## Examples
 
 | Team Name | Logo Filename |
 |-----------|--------------|
-| Belleview Badgers | `belleview-badgers.png` |
-| Belltown Raptors | `belltown-raptors.png` |
-| Minshew's Maniacs | `minshews-maniacs.png` |
-| Double Trouble | `double-trouble.png` |
-| Mt. Lebanon Cake Eaters | `mt-lebanon-cake-eaters.png` |
-| The Lone Ginger | `the-lone-ginger.png` |
-| bop pop | `bop-pop.png` |
+| My Team Name | `my-team-name.png` |
+| The Raptors | `the-raptors.png` |
 | Red Pandas | `red-pandas.png` |
-| BeerNeverBrokeMyHeart | `beerneverbrokeymyheart.png` |
-| Elemental Heroes | `elemental-heroes.png` |
-| Detroit Dawgs | `detroit-dawgs.png` |
-| Bimg Bamg Boomg | `bimg-bamg-boomg.png` |
 
 ## Usage in Code
 
-To use these logos in the application, use the following path format:
+The utility function in `src/lib/utils/team-utils.ts` automatically builds the path:
 
 ```typescript
-const teamLogoPath = `/assets/teams/${teamNameFormatted}.png`;
-```
-
-You can use the utility function below to generate the correct path:
-
-```typescript
-// Utility function to get team logo path
-export const getTeamLogoPath = (teamName: string): string => {
-  const formattedName = teamName
-    .toLowerCase()
-    .replace(/[''\.]/g, '')
-    .replace(/\s+/g, '-');
-  
-  return `/assets/teams/${formattedName}.png`;
-};
+// Returns /assets/teams/logos/<slug>.png
+const logoPath = getTeamLogoPath(teamName);
 ```
