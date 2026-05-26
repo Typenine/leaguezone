@@ -1,18 +1,52 @@
 // League constants — configure these for your league each season.
-// SLEEPER_LEAGUE_ID is read from the environment variable set during deployment.
-// Multi-year IDs should be entered here once you have them from Sleeper.
+//
+// League IDs are resolved in priority order:
+//   1. process.env.SLEEPER_LEAGUE_ID  (set in Vercel env vars — traditional deployments)
+//   2. window.__LEAGUE_CONFIG__        (injected by root layout from DB — setup-wizard deployments)
+//
+// This means you do NOT need to set SLEEPER_LEAGUE_ID manually if you used the
+// setup wizard; it is stored in the database and injected automatically.
 
-// Sleeper League IDs — replace with your league's IDs from Sleeper
+// ---------------------------------------------------------------------------
+// Runtime config reader (works both server-side and client-side)
+// ---------------------------------------------------------------------------
+
+interface _WindowLeagueConfig {
+  currentLeagueId: string;
+  previousLeagueIds: Record<string, string>;
+}
+
+function _getWindowConfig(): _WindowLeagueConfig | null {
+  if (typeof window === 'undefined') return null;
+  return (window as typeof window & { __LEAGUE_CONFIG__?: _WindowLeagueConfig }).__LEAGUE_CONFIG__ ?? null;
+}
+
+function _getCurrentLeagueId(): string {
+  // Server-side: env var only (DB is read async via getLeagueIdsFromDb in server utilities)
+  if (typeof window === 'undefined') {
+    return process.env.SLEEPER_LEAGUE_ID || '';
+  }
+  // Client-side: window config (injected from DB by root layout) → env var fallback
+  return _getWindowConfig()?.currentLeagueId || process.env.SLEEPER_LEAGUE_ID || '';
+}
+
+function _getPreviousLeagueIds(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  return _getWindowConfig()?.previousLeagueIds ?? {};
+}
+
+// ---------------------------------------------------------------------------
+// Exports
+// ---------------------------------------------------------------------------
+
+// Sleeper League IDs. CURRENT and PREVIOUS are dynamic getters so they always
+// reflect the injected window config after hydration.
 export const LEAGUE_IDS = {
-  CURRENT: process.env.SLEEPER_LEAGUE_ID || '',
-  PREVIOUS: {
-    // Add prior-season IDs here after your first season:
-    // '2025': 'your-2025-league-id',
-    // '2024': 'your-2024-league-id',
-  } as Record<string, string>,
+  get CURRENT(): string { return _getCurrentLeagueId(); },
+  get PREVIOUS(): Record<string, string> { return _getPreviousLeagueIds(); },
 };
 
-// Update this to the current NFL season year each September
+// Update this to the current NFL season year each September, or set CURRENT_SEASON env var.
 export const CURRENT_SEASON = process.env.CURRENT_SEASON || String(new Date().getFullYear());
 
 export function getLeagueIdForSeason(season: string): string | null {
@@ -21,15 +55,14 @@ export function getLeagueIdForSeason(season: string): string | null {
   return prev || null;
 }
 
-// Team names — populated by the Sleeper setup step; leave empty for new installs.
-// Once your Sleeper league is connected, team names resolve automatically from Sleeper's API.
+// Team names — populated by Sleeper API after connection; leave empty for new installs.
 export const TEAM_NAMES: string[] = [];
 
 // Current year for copyright and other displays
 export const CURRENT_YEAR = new Date().getFullYear();
 
 // Important dates — UPDATE THESE ANNUALLY before each season.
-// All values can also be stored in the leagues.config DB column for multi-league support.
+// All values can also be stored in the leagues.config DB column.
 export const IMPORTANT_DATES = {
   NFL_WEEK_1_START: new Date(process.env.NFL_WEEK_1_START || `${new Date().getFullYear()}-09-04T20:20:00-04:00`),
   TRADE_DEADLINE:   new Date(process.env.TRADE_DEADLINE   || `${new Date().getFullYear()}-11-28T23:45:00-05:00`),
@@ -38,9 +71,7 @@ export const IMPORTANT_DATES = {
   NEXT_DRAFT:       new Date(process.env.NEXT_DRAFT_DATE  || `${new Date().getFullYear()}-07-01T12:00:00-04:00`),
 };
 
-// Champions by year — add your league's champions here each season.
-// Eventually these can move into the DB (leagues.config or a dedicated champions table).
+// Champions by year — add entries here each season.
 export const CHAMPIONS: Record<string, { champion: string; runnerUp: string; thirdPlace: string }> = {
-  // Add entries like:
   // '2025': { champion: 'Team Name', runnerUp: 'Team Name', thirdPlace: 'Team Name' },
 };
