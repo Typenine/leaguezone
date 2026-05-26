@@ -88,6 +88,7 @@ export default function Navbar() {
   const newPinRef = useRef<HTMLInputElement | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [leagueName, setLeagueName] = useState<string | null>(null);
+  const [leagueLogoUrl, setLeagueLogoUrl] = useState<string | null>(null);
 
   const toggleMobileSection = (id: string) => {
     setMobileExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -155,7 +156,11 @@ export default function Navbar() {
     let mounted = true;
     fetch('/api/league/info', { cache: 'no-store' })
       .then((r) => r.json())
-      .then((j) => { if (mounted && j?.name) setLeagueName(j.name); })
+      .then((j) => {
+        if (!mounted) return;
+        if (j?.name) setLeagueName(j.name);
+        if (j?.logoUrl) setLeagueLogoUrl(j.logoUrl);
+      })
       .catch(() => {});
     return () => { mounted = false; };
   }, []);
@@ -221,8 +226,20 @@ export default function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <Link href="/home" className="font-bold text-xl">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* League logo — links to website hub (/) */}
+              {leagueLogoUrl && (
+                <Link href="/" aria-label="Website home" className="flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={leagueLogoUrl}
+                    alt="League logo"
+                    className="h-9 w-9 rounded-lg object-contain"
+                  />
+                </Link>
+              )}
+              {/* League name — links to league home (/home) */}
+              <Link href="/home" className="font-bold text-xl leading-none">
                 {leagueName ?? 'Fantasy League'}
               </Link>
             </div>

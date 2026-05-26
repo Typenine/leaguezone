@@ -64,19 +64,27 @@ async function getLeagueData(leagueId?: string): Promise<LeagueRow | null> {
 async function getLeagueMembers(leagueId: string): Promise<InviteRow[]> {
   try {
     const db = getDb();
+    // DISTINCT ON (roster_id) deduplicates if setup was run multiple times.
+    // Prefer claimed rows (claimed_at NOT NULL) over unclaimed ones, so a
+    // claimed duplicate is kept over an unclaimed duplicate.
     const res = await db.execute(sql`
-      SELECT id, team_name, roster_id, claimed_at
+      SELECT DISTINCT ON (COALESCE(roster_id::text, team_name))
+        id, team_name, roster_id, claimed_at
       FROM league_invites
       WHERE league_id = ${leagueId}::uuid
-      ORDER BY roster_id ASC NULLS LAST, team_name ASC
+      ORDER BY COALESCE(roster_id::text, team_name),
+               claimed_at DESC NULLS LAST,
+               created_at ASC
     `);
     const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
-    return rows.map((r) => ({
-      id: r.id as string,
-      teamName: (r.team_name as string) || '',
-      rosterId: (r.roster_id as number | null) ?? null,
-      claimedAt: (r.claimed_at as string | null) ?? null,
-    }));
+    return rows
+      .map((r) => ({
+        id: r.id as string,
+        teamName: (r.team_name as string) || '',
+        rosterId: (r.roster_id as number | null) ?? null,
+        claimedAt: (r.claimed_at as string | null) ?? null,
+      }))
+      .sort((a, b) => (a.rosterId ?? 999) - (b.rosterId ?? 999) || a.teamName.localeCompare(b.teamName));
   } catch {
     return [];
   }
