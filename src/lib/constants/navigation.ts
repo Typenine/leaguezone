@@ -66,12 +66,6 @@ export const USER_NAV_CONFIG: UserNavItem[] = [
       { id: 'transactions.trade-analyzer', label: 'Trade Analyzer', href: '/trades/analyzer' },
     ],
   },
-  {
-    id: 'media',
-    label: 'Media',
-    children: [
-      { id: 'media.podcast', label: 'Podcast', href: '/podcast' },
-    ],
-  },
   { id: 'suggestions', label: 'Suggestions', href: '/suggestions' },
+  { id: 'settings', label: 'Settings', href: '/settings' },
 ];

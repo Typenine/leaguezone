@@ -356,15 +356,7 @@ export async function buildYearToLeagueMapUnique(
   const map: Record<string, string> = {};
   if (currentId) map[String(seasonNum)] = currentId;
 
-  // Offseason backfill: when the calendar year advances before LEAGUE_IDS rotates,
-  // still resolve last season string to CURRENT league id so queries for the last
-  // completed season (e.g., '2025') continue to work.
-  const lastSeasonStr = String(seasonNum - 1);
-  if (currentId && !map[lastSeasonStr] && !prevMap[lastSeasonStr]) {
-    map[lastSeasonStr] = currentId;
-  }
-
-  if (prevMap[lastSeasonStr]) map[lastSeasonStr] = prevMap[lastSeasonStr];
+  // Add all explicitly configured previous seasons (different league IDs only)
   for (const [y, lid] of Object.entries(prevMap)) {
     if (!(y in map) && lid) map[y] = lid;
   }
