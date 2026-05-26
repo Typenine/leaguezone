@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CURRENT_SEASON, LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
+import { CURRENT_SEASON } from '@/lib/constants/league';
+import { getLeagueIdsFromDb } from '@/lib/server/league-config';
 import {
   getAllPlayers,
   getLeagueMatchups,
@@ -24,11 +25,17 @@ export async function GET(req: NextRequest) {
     const ownerIdParam = searchParams.get('ownerId') || '';
     const includeSeasonsParam = searchParams.get('seasons') || '';
 
-    // Build seasons list: current + previous from constants unless explicitly limited
-    const prevYears = Object.keys(LEAGUE_IDS.PREVIOUS || {});
+    // Build seasons list: current + previous from DB unless explicitly limited
+    const leagueConfig = await getLeagueIdsFromDb();
+    const prevYears = Object.keys(leagueConfig.previous);
     const seasons = (includeSeasonsParam
       ? includeSeasonsParam.split(',').map(s => s.trim()).filter(Boolean)
       : Array.from(new Set([CURRENT_SEASON, ...prevYears]))).sort();
+    // Helper: resolve league ID per season from DB config
+    const getLeagueIdForSeason = (season: string): string | null => {
+      if (season === CURRENT_SEASON) return leagueConfig.current || null;
+      return leagueConfig.previous[season] || null;
+    };
 
     // Resolve playerId by name if needed
     let playerId = playerIdParam.trim();

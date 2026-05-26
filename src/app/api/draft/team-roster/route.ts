@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getLeagueRosters, getRosterIdToTeamNameMap, getAllPlayersCached, SleeperPlayer } from '@/lib/utils/sleeper-api';
-import { LEAGUE_IDS } from '@/lib/constants/league';
+import { getLeagueIdsFromDb } from '@/lib/server/league-config';
 import { canonicalizeTeamName } from '@/lib/server/user-identity';
 
 export const runtime = 'nodejs';
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   if (!team) return Response.json({ error: 'team required' }, { status: 400 });
 
   try {
-    const leagueId = LEAGUE_IDS.CURRENT;
+    const { current: leagueId } = await getLeagueIdsFromDb();
     const [rosters, nameMap, allPlayers] = await Promise.all([
       getLeagueRosters(leagueId).catch(() => []),
       getRosterIdToTeamNameMap(leagueId).catch(() => new Map<number, string>()),

@@ -1,5 +1,6 @@
 import { getNFLState, getTeamsData, getLeagueRosters, getAllPlayersCached } from '@/lib/utils/sleeper-api';
-import { LEAGUE_IDS, TEAM_NAMES } from '@/lib/constants/league';
+import { TEAM_NAMES } from '@/lib/constants/league';
+import { getLeagueIdsFromDb } from '@/lib/server/league-config';
 import { validateTaxiForRoster, type Violation } from '@/lib/server/taxi-validator';
 import { getTaxiObservation, setTaxiObservation, writeTaxiSnapshot } from '@/server/db/queries.fixed';
 
@@ -123,7 +124,7 @@ async function handle(req: Request) {
     const season = Number(st.season || new Date().getFullYear());
     const week = Number(st.week || 1);
 
-    const leagueId = LEAGUE_IDS.CURRENT;
+    const { current: leagueId } = await getLeagueIdsFromDb();
     console.log('[taxi-cron] Using league ID', { ...logContext, leagueId, season, week });
     
     const teams = await getTeamsData(leagueId).catch((err) => {

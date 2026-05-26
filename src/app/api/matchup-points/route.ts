@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { LEAGUE_IDS } from '@/lib/constants/league';
 import { getLeagueMatchups, getNFLState, type SleeperMatchup } from '@/lib/utils/sleeper-api';
+import { getLeagueIdsFromDb } from '@/lib/server/league-config';
 
 // 15s in-memory cache per league/week
 const TTL_MS = 15_000;
@@ -18,7 +18,8 @@ const cache: Record<string, { ts: number; data: MatchupPointsPayload }> = {};
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const leagueId = url.searchParams.get('leagueId') ?? LEAGUE_IDS.CURRENT;
+    const { current: dbLeagueId } = await getLeagueIdsFromDb();
+    const leagueId = url.searchParams.get('leagueId') ?? dbLeagueId;
     let week = Number(url.searchParams.get('week'));
     if (!Number.isFinite(week)) {
       // fallback to current Sleeper week

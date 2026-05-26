@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { LEAGUE_IDS } from '@/lib/constants/league';
+import { getLeagueIdsFromDb } from '@/lib/server/league-config';
 import {
   getTeamsData,
   getLeagueRosters,
@@ -27,17 +27,17 @@ async function buildYearToLeagueMap(): Promise<Record<string, string | undefined
     if (Number.isFinite(s)) seasonNum = s;
   } catch {}
 
+  const { current, previous } = await getLeagueIdsFromDb();
   const map: Record<string, string | undefined> = {};
   // Current season
-  map[String(seasonNum)] = LEAGUE_IDS.CURRENT;
+  map[String(seasonNum)] = current;
 
   // Previous season (season - 1)
   const prevYear = String(seasonNum - 1);
-  const prevId = (LEAGUE_IDS.PREVIOUS as Record<string, string | undefined>)[prevYear];
-  if (prevId) map[prevYear] = prevId;
+  if (previous[prevYear]) map[prevYear] = previous[prevYear];
 
-  // Optionally include older seasons from PREVIOUS without duplicating keys
-  for (const [y, lid] of Object.entries(LEAGUE_IDS.PREVIOUS || {})) {
+  // Older seasons from previous without duplicating keys
+  for (const [y, lid] of Object.entries(previous)) {
     if (map[y] === undefined) map[y] = lid;
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { LEAGUE_IDS, IMPORTANT_DATES, TEAM_NAMES } from '@/lib/constants/league';
+import { IMPORTANT_DATES, TEAM_NAMES } from '@/lib/constants/league';
+import { getLeagueIdsFromDb } from '@/lib/server/league-config';
 import { getNFLState } from '@/lib/utils/sleeper-api';
 import { rulesHtmlSections } from '@/data/rules';
 
@@ -24,17 +25,17 @@ export async function GET() {
       if (Number.isFinite(s)) seasonNum = s;
     } catch {}
 
+    const { current, previous } = await getLeagueIdsFromDb();
     const leagueIds: Record<string, string> = {} as Record<string, string>;
     // Current season
-    if (LEAGUE_IDS.CURRENT) {
-      leagueIds[String(seasonNum)] = LEAGUE_IDS.CURRENT as string;
+    if (current) {
+      leagueIds[String(seasonNum)] = current;
     }
     // Previous season (season - 1)
     const prevYear = String(seasonNum - 1);
-    const prevId = (LEAGUE_IDS.PREVIOUS as Record<string, string | undefined>)[prevYear];
-    if (prevId) leagueIds[prevYear] = prevId;
-    // Optionally include older seasons from PREVIOUS without duplicating keys
-    for (const [y, lid] of Object.entries(LEAGUE_IDS.PREVIOUS || {})) {
+    if (previous[prevYear]) leagueIds[prevYear] = previous[prevYear];
+    // Older seasons from previous without duplicating keys
+    for (const [y, lid] of Object.entries(previous)) {
       if (!leagueIds[y] && lid) leagueIds[y] = lid;
     }
 

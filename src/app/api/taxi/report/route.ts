@@ -1,5 +1,5 @@
 import { getNFLState, getTeamsData, getAllPlayersCached } from '@/lib/utils/sleeper-api';
-import { LEAGUE_IDS } from '@/lib/constants/league';
+import { getLeagueIdsFromDb } from '@/lib/server/league-config';
 import { writeTaxiSnapshot } from '@/server/db/queries.fixed';
 import { validateTaxiForRoster } from '@/lib/server/taxi-validator';
 
@@ -32,7 +32,7 @@ export async function GET() {
     const season = Number(st.season || new Date().getFullYear());
     const week = Number(st.week || 1);
 
-    const leagueId = LEAGUE_IDS.CURRENT;
+    const { current: leagueId } = await getLeagueIdsFromDb();
     const teams = await getTeamsData(leagueId).catch(() => [] as Array<{ teamName: string; rosterId: number }>);
 
     type Flag = { team: string; type: 'violation' | 'warning'; message: string };

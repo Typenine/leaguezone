@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { loadDraftOwnershipForSeason } from '@/lib/server/trade-assets';
 import type { NextDraftOwnership } from '@/lib/server/trade-assets';
 import { getTeamsData, getLeagueWinnersBracket, getRegularSeasonRecords, type SleeperBracketGame, derivePodiumFromWinnersBracketByYear } from '@/lib/utils/sleeper-api';
-import { CURRENT_SEASON, LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
+import { CURRENT_SEASON } from '@/lib/constants/league';
+import { getLeagueIdsFromDb } from '@/lib/server/league-config';
 
 export async function GET(req: Request) {
   try {
@@ -15,10 +16,11 @@ export async function GET(req: Request) {
     const parsedSeason = seasonParam ? Number(seasonParam) : Number.NaN;
     const targetSeason = Number.isFinite(parsedSeason) ? parsedSeason : defaultSeason;
     const sourceLeagueSeason = String(targetSeason - 1);
-    const standingsLeagueId = getLeagueIdForSeason(sourceLeagueSeason) || LEAGUE_IDS.CURRENT;
+    const leagueConfig = await getLeagueIdsFromDb();
+    const standingsLeagueId = leagueConfig.previous[sourceLeagueSeason] || leagueConfig.current;
     // Keep slot order tied to prior-season standings, but read tradable pick ownership
     // for the active draft year from the current league context when needed.
-    const ownershipLeagueId = targetSeason === defaultSeason ? LEAGUE_IDS.CURRENT : standingsLeagueId;
+    const ownershipLeagueId = targetSeason === defaultSeason ? leagueConfig.current : standingsLeagueId;
     const [ownershipFromStandingsLeague, ownershipFromActiveLeague] = await Promise.all([
       loadDraftOwnershipForSeason({ leagueId: standingsLeagueId, season: targetSeason }),
       ownershipLeagueId !== standingsLeagueId
