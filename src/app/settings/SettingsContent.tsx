@@ -289,11 +289,13 @@ function SeasonManagementForm() {
   const [newLeagueId, setNewLeagueId] = useState('');
   const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
   const [msg, setMsg] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const reload = () => {
+    setLoading(true);
     fetch('/api/settings/seasons').then(r => r.json()).then(d => {
       if (Array.isArray(d.seasons)) setSeasons(d.seasons);
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => setLoading(false));
   };
 
   useEffect(() => { reload(); }, []);
@@ -320,13 +322,24 @@ function SeasonManagementForm() {
 
   return (
     <div className="space-y-4">
-      {seasons.length > 0 && (
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-[var(--muted)]">
+          Seasons are auto-discovered from Sleeper when the page loads. Add seasons manually if needed.
+        </p>
+        <Button size="sm" variant="ghost" onClick={reload} disabled={loading}>
+          {loading ? 'Loading…' : '↻ Refresh'}
+        </Button>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-[var(--muted)]">Discovering seasons from Sleeper…</p>
+      ) : seasons.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[var(--muted)] border-b border-[var(--border)]">
                 <th className="py-2 pr-3">Year</th>
-                <th className="py-2 pr-3">League ID</th>
+                <th className="py-2 pr-3">Sleeper League ID</th>
                 <th className="py-2 pr-3">Status</th>
                 <th className="py-2">Actions</th>
               </tr>
@@ -335,7 +348,7 @@ function SeasonManagementForm() {
               {seasons.map((s) => (
                 <tr key={s.year}>
                   <td className="py-2 pr-3 font-medium text-[var(--text)]">{s.year}</td>
-                  <td className="py-2 pr-3 font-mono text-xs text-[var(--muted)]">{s.leagueId}</td>
+                  <td className="py-2 pr-3 font-mono text-xs text-[var(--muted)] select-all">{s.leagueId}</td>
                   <td className="py-2 pr-3">
                     {s.isCurrent && (
                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[var(--accent)]/15 text-[var(--accent)]">Current</span>
@@ -356,14 +369,18 @@ function SeasonManagementForm() {
             </tbody>
           </table>
         </div>
+      ) : (
+        <p className="text-sm text-[var(--muted)] italic">
+          No seasons found. Make sure a Sleeper League ID is entered in the setup wizard, or add one manually below.
+        </p>
       )}
 
-      <form onSubmit={handleAdd} className="space-y-3">
-        <p className="text-sm font-medium text-[var(--text)]">Add Season</p>
+      <form onSubmit={handleAdd} className="space-y-3 pt-2 border-t border-[var(--border)]">
+        <p className="text-sm font-medium text-[var(--text)]">Add Season Manually</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="season-year">Year</Label>
-            <Input id="season-year" value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="2025" maxLength={4} />
+            <Input id="season-year" value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="2024" maxLength={4} />
           </div>
           <div>
             <Label htmlFor="season-lid">Sleeper League ID</Label>

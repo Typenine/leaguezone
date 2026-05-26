@@ -5,16 +5,18 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { isAdminCookieValue } from '@/lib/auth/admin';
+import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
+import { getLeagueIdsFromDb } from '@/lib/server/league-config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 async function requireAdmin(): Promise<boolean> {
   const jar = await cookies();
-  return isAdminCookieValue(jar.get('evw_admin')?.value);
+  return isAdminCookieValue(jar.get('evw_admin')?.value)
+    || isSiteAdminCookieValue(jar.get('site_admin')?.value);
 }
 
 type SeasonEntry = { year: string; leagueId: string; isCurrent: boolean };
@@ -42,9 +44,37 @@ export async function GET() {
   try {
     const jar = await cookies();
     const activeLeagueId = jar.get('active_league_id')?.value || undefined;
+
+    // getLeagueIdsFromDb triggers chain auto-discovery and persists the full
+    // sleeper_league_ids map back to DB if it was previously empty.
+    await getLeagueIdsFromDb(activeLeagueId).catch(() => {});
+
+    // Re-read from DB so we pick up newly-persisted chain data.
     const row = await getLeagueRow(activeLeagueId);
     if (!row) return NextResponse.json({ seasons: [] });
-    return NextResponse.json({ seasons: buildSeasons(row) });
+
+    // Ensure the current season's ID always appears in the list even if the
+    // auto-discovery didn't find a year entry for it (e.g. partial setup).
+    const currentId = (row.sleeper_league_id as string) || '';
+    const allIds: Record<string, string> = { ...((row.sleeper_league_ids as Record<string, string>) ?? {}) };
+    if (currentId && !Object.values(allIds).includes(currentId)) {
+      // We don't know the year — use a placeholder so it's at least visible.
+      allIds['current'] = currentId;
+    }
+
+    const seasons: SeasonEntry[] = Object.keys(allIds)
+      .sort((a, b) => {
+        const ai = parseInt(a) || 0;
+        const bi = parseInt(b) || 0;
+        return bi - ai;
+      })
+      .map((y) => ({
+        year: y,
+        leagueId: allIds[y],
+        isCurrent: allIds[y] === currentId,
+      }));
+
+    return NextResponse.json({ seasons });
   } catch {
     return NextResponse.json({ seasons: [] });
   }

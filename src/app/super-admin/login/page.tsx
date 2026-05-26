@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function SuperAdminLoginPage() {
   const [key, setKey] = useState('');
@@ -77,9 +78,9 @@ export default function SuperAdminLoginPage() {
 
             <p className="text-center text-xs text-[var(--muted)]">
               Not a site admin?{' '}
-              <a href="/" className="text-[var(--accent)] hover:underline">
+              <Link href="/" className="text-[var(--accent)] hover:underline">
                 Return to home
-              </a>
+              </Link>
             </p>
           </form>
         </div>
