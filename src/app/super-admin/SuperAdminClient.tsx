@@ -23,7 +23,7 @@ function LogoutButton() {
       disabled={loading}
       className="px-3 py-2 rounded-lg border border-red-500/40 text-sm text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-50"
     >
-      {loading ? 'Logging out…' : 'Site Admin Logout'}
+      {loading ? 'Exiting…' : 'Exit Admin Mode'}
     </button>
   );
 }

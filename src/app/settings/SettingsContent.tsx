@@ -560,7 +560,7 @@ export default function SettingsContent() {
     <div className="container mx-auto px-4 py-8 max-w-2xl space-y-6">
       <SectionHeader
         title="Settings"
-        subtitle={isAdmin ? 'Admin & account settings' : `Signed in as ${team}`}
+        subtitle={isAdmin ? 'Commish & account settings' : `Signed in as ${team}`}
       />
 
       {/* ── Appearance (everyone) ── */}

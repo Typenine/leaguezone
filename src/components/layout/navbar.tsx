@@ -373,7 +373,7 @@ export default function Navbar() {
                       className="rounded-full overflow-hidden border border-[var(--border)] w-8 h-8"
                       style={sessionTeam ? { borderColor: getTeamColors(sessionTeam).secondary, borderWidth: 2 } : isSiteAdmin ? { borderColor: '#f59e0b', borderWidth: 2 } : undefined}
                       onClick={() => setAccountMenuOpen((v) => !v)}
-                      title={sessionTeam || (isSiteAdmin ? 'Site Admin' : isAdmin ? 'Admin' : '')}
+                      title={sessionTeam || (isSiteAdmin ? 'Admin Mode' : isAdmin ? 'Commish Mode' : '')}
                       aria-expanded={accountMenuOpen}
                     >
                       {sessionTeam ? (
@@ -384,14 +384,14 @@ export default function Navbar() {
                     </button>
                     {/* Site admin badge */}
                     {isSiteAdmin && !sessionTeam && (
-                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 border border-[var(--surface)] text-[8px] flex items-center justify-center font-bold text-amber-900" title="Site Admin">S</span>
+                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 border border-[var(--surface)] text-[8px] flex items-center justify-center font-bold text-amber-900" title="Admin Mode">A</span>
                     )}
                   </div>
                   {accountMenuOpen && (
                     <div className="absolute right-0 mt-2 w-48 league-surface border border-[var(--border)] rounded shadow-lg p-1">
                       {isSiteAdmin && (
                         <>
-                          <div className="px-2 py-1 text-xs font-semibold text-amber-500 uppercase tracking-wide">Site Admin</div>
+                          <div className="px-2 py-1 text-xs font-semibold text-amber-500 uppercase tracking-wide">Admin Mode</div>
                           <button
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                             onClick={() => { setAccountMenuOpen(false); router.push('/super-admin'); }}
@@ -402,14 +402,14 @@ export default function Navbar() {
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm text-red-500"
                             onClick={() => { setAccountMenuOpen(false); handleSiteAdminLogout(); }}
                           >
-                            Site Admin Logout
+                            Exit Admin Mode
                           </button>
                           <div className="my-1 border-t border-[var(--border)]" />
                         </>
                       )}
                       {isAdmin && (
                         <>
-                          {!isSiteAdmin && <div className="px-2 py-1 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">League Admin</div>}
+                          {!isSiteAdmin && <div className="px-2 py-1 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Commish Mode</div>}
                           <button
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                             onClick={() => { setAccountMenuOpen(false); router.push('/admin/newsletter'); }}
@@ -445,7 +445,7 @@ export default function Navbar() {
                               className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                               onClick={() => { setAccountMenuOpen(false); handleAdminLogout(); }}
                             >
-                              Admin Logout
+                              Exit Commish Mode
                             </button>
                           )}
                           <div className="my-1 border-t border-[var(--border)]" />
@@ -637,7 +637,7 @@ export default function Navbar() {
                       setMobileMenuOpen(false);
                       if (sessionTeam) setChangeOpen(true);
                     }}
-                    title={sessionTeam || (isAdmin ? 'Admin' : '')}
+                    title={sessionTeam || (isSiteAdmin ? 'Admin Mode' : isAdmin ? 'Commish Mode' : '')}
                   >
                     {sessionTeam ? (
                       <Image src={getTeamLogoPath(sessionTeam)} alt={sessionTeam} width={32} height={32} />
@@ -648,8 +648,11 @@ export default function Navbar() {
                   {sessionTeam && (
                     <Button size="sm" variant="ghost" onClick={() => { setMobileMenuOpen(false); handleLogout(); }}>Logout</Button>
                   )}
-                  {isAdmin && (
-                    <Button size="sm" variant="ghost" onClick={() => { setMobileMenuOpen(false); handleAdminLogout(); }}>Admin Logout</Button>
+                  {isSiteAdmin && (
+                    <Button size="sm" variant="ghost" onClick={() => { setMobileMenuOpen(false); handleSiteAdminLogout(); }}>Exit Admin Mode</Button>
+                  )}
+                  {isAdmin && !isSiteAdmin && (
+                    <Button size="sm" variant="ghost" onClick={() => { setMobileMenuOpen(false); handleAdminLogout(); }}>Exit Commish Mode</Button>
                   )}
                 </div>
               </>
@@ -662,8 +665,8 @@ export default function Navbar() {
         </div>
       </div>
     </nav>
-    {/* Admin Login Modal */}
-    <Modal open={adminOpen} onClose={() => setAdminOpen(false)} title="Admin Login" autoFocusPanel={false}>
+    {/* Commish Login Modal */}
+    <Modal open={adminOpen} onClose={() => setAdminOpen(false)} title="Commish Login" autoFocusPanel={false}>
       <form onSubmit={submitAdmin} noValidate className="space-y-3">
         <div>
           <Label htmlFor="admin-pin">Enter PIN</Label>

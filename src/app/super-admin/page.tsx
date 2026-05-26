@@ -52,7 +52,7 @@ export default async function SuperAdminPage() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <span className="text-2xl">🌐</span>
-            <h1 className="text-3xl font-bold text-[var(--text)]">Site Admin</h1>
+            <h1 className="text-3xl font-bold text-[var(--text)]">Admin Mode</h1>
           </div>
           <p className="text-[var(--muted)] text-sm">
             Global administration — manage all leagues from one place.

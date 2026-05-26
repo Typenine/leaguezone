@@ -38,9 +38,9 @@ export default function SuperAdminLoginPage() {
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 shadow-sm">
           <div className="text-center mb-6">
             <div className="text-4xl mb-3">🌐</div>
-            <h1 className="text-xl font-bold text-[var(--text)]">Site Admin Login</h1>
+            <h1 className="text-xl font-bold text-[var(--text)]">Admin Mode Login</h1>
             <p className="text-sm text-[var(--muted)] mt-1">
-              Enter your SUPER_ADMIN_KEY to access the site-wide admin dashboard.
+              Enter your admin key to access the global admin dashboard.
             </p>
           </div>
 
@@ -50,7 +50,7 @@ export default function SuperAdminLoginPage() {
                 htmlFor="super-admin-key"
                 className="block text-sm font-medium text-[var(--text)] mb-1"
               >
-                Site Admin Key
+                Admin Key
               </label>
               <input
                 id="super-admin-key"
@@ -58,7 +58,7 @@ export default function SuperAdminLoginPage() {
                 autoComplete="current-password"
                 autoFocus
                 className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-strong,var(--surface))] px-3 py-2 text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
-                placeholder="Enter site admin key"
+                placeholder="Enter admin key"
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
               />
@@ -77,7 +77,7 @@ export default function SuperAdminLoginPage() {
             </button>
 
             <p className="text-center text-xs text-[var(--muted)]">
-              Not a site admin?{' '}
+              Not an admin?{' '}
               <Link href="/" className="text-[var(--accent)] hover:underline">
                 Return to home
               </Link>
