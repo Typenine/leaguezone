@@ -6,9 +6,11 @@ export async function GET() {
   try {
     const db = getDb();
     
-    // Check if any league exists and is setup completed
+    // Prefer completed leagues; if multiple rows exist (e.g. repeated test runs),
+    // pick the most recently completed one first, then fall back to newest.
     const res = await db.execute(sql`
-      SELECT id, setup_completed, config FROM leagues LIMIT 1
+      SELECT id, setup_completed, config, name FROM leagues
+      ORDER BY setup_completed DESC, created_at DESC LIMIT 1
     `);
     
     const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
@@ -25,6 +27,7 @@ export async function GET() {
       return NextResponse.json({
         setupCompleted: true,
         leagueId: row.id,
+        leagueName: row.name ?? null,
       });
     }
     
