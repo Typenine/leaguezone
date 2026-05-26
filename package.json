@@ -26,6 +26,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/kv": "^1.0.1",
     "@xyflow/react": "12.8.3",
+    "bcryptjs": "^3.0.3",
     "classnames": "2.5.1",
     "d3-dag": "1.1.0",
     "drizzle-orm": "0.36.0",
@@ -39,12 +40,14 @@
     "pg": "^8.16.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "resend": "^6.12.4",
     "svg2pdf.js": "2.5.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

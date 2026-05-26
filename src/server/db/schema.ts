@@ -23,6 +23,7 @@ export const leagues = pgTable('leagues', {
   foundedYear: integer('founded_year'),
   setupCompleted: boolean('setup_completed').default(false).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
+  commissionerUserId: uuid('commissioner_user_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
@@ -36,6 +37,7 @@ export const users = pgTable('users', {
   displayName: varchar('display_name', { length: 255 }),
   passwordHash: text('password_hash'),
   role: roleEnum('role').default('user').notNull(),
+  emailVerified: boolean('email_verified').default(false).notNull(),
   leagueId: uuid('league_id').references(() => leagues.id),
   teamName: varchar('team_name', { length: 255 }),
   sleeperUserId: varchar('sleeper_user_id', { length: 64 }),
@@ -43,6 +45,30 @@ export const users = pgTable('users', {
 }, (t) => ({
   emailIdx: index('users_email_idx').on(t.email),
   leagueIdx: index('users_league_idx').on(t.leagueId),
+}));
+
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: varchar('token', { length: 128 }).notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  tokenIdx: index('prt_token_idx').on(t.token),
+  userIdx: index('prt_user_idx').on(t.userId),
+}));
+
+export const emailVerificationTokens = pgTable('email_verification_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: varchar('token', { length: 128 }).notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  tokenIdx: index('evt_token_idx').on(t.token),
+  userIdx: index('evt_user_idx').on(t.userId),
 }));
 
 // League invites for team signup

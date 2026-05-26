@@ -1,7 +1,11 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
+import { verifySession } from '@/lib/server/auth';
+import { isSiteAdminCookieValue, isAdminCookieValue } from '@/lib/auth/admin';
+import { getUserLeagues } from '@/lib/server/user-auth';
 import { InviteButton } from './InviteButton';
 
 export const dynamic = 'force-dynamic';
@@ -66,9 +70,6 @@ async function getLeagueData(leagueId?: string): Promise<LeagueRow | null> {
 async function getLeagueMembers(leagueId: string): Promise<InviteRow[]> {
   try {
     const db = getDb();
-    // DISTINCT ON (roster_id) deduplicates if setup was run multiple times.
-    // Prefer claimed rows (claimed_at NOT NULL) over unclaimed ones, so a
-    // claimed duplicate is kept over an unclaimed duplicate.
     const res = await db.execute(sql`
       SELECT DISTINCT ON (COALESCE(roster_id::text, team_name))
         id, team_name, roster_id, claimed_at, invite_code
@@ -95,11 +96,80 @@ async function getLeagueMembers(leagueId: string): Promise<InviteRow[]> {
 
 export default async function HomePage() {
   const cookieJar = await cookies();
+
+  // ── Auth check ──────────────────────────────────────────────────────────────
+  const isSiteAdmin = isSiteAdminCookieValue(cookieJar.get('site_admin')?.value);
+  const isAdmin = isAdminCookieValue(cookieJar.get('evw_admin')?.value) || isSiteAdmin;
+
+  const sessionToken = cookieJar.get('evw_session')?.value || '';
+  const claims = sessionToken ? verifySession(sessionToken) : null;
+
+  // Not authenticated and not an admin → redirect to login
+  if (!claims && !isAdmin) {
+    redirect('/login');
+  }
+
   const activeLeagueId = cookieJar.get('active_league_id')?.value || undefined;
 
-  const league = await getLeagueData(activeLeagueId);
-  const members = league ? await getLeagueMembers(league.id) : [];
+  // ── User-based session: resolve which league to show ────────────────────────
+  let resolvedLeagueId = activeLeagueId;
 
+  if (claims?.type === 'user') {
+    const userId = claims.sub as string;
+    const userLeagues = await getUserLeagues(userId);
+
+    // No memberships yet
+    if (userLeagues.length === 0 && !isAdmin) {
+      return (
+        <div className="container mx-auto px-4 py-20 max-w-lg text-center">
+          <div className="text-5xl mb-4">🏈</div>
+          <h1 className="text-2xl font-bold text-[var(--text)] mb-2">You&apos;re not in a league yet</h1>
+          <p className="text-[var(--muted)] mb-8">
+            Ask your commissioner for an invite link to join a league.
+          </p>
+          <Link
+            href="/"
+            className="text-[var(--accent)] hover:underline text-sm"
+          >
+            ← Back to home
+          </Link>
+        </div>
+      );
+    }
+
+    // Multiple leagues and no active one set — show picker
+    const activeMembership = userLeagues.find((l) => l.leagueId === activeLeagueId);
+    if (userLeagues.length > 1 && !activeMembership) {
+      return (
+        <div className="container mx-auto px-4 py-10 max-w-2xl">
+          <h1 className="text-3xl font-bold text-[var(--text)] mb-2">Your Leagues</h1>
+          <p className="text-[var(--muted)] mb-8">Select a league to view.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {userLeagues.map((lg) => (
+              <a
+                key={lg.leagueId}
+                href={`/api/super-admin/switch-league`}
+                // We use a plain form POST to set the cookie and redirect
+                className="hidden"
+              />
+            ))}
+            {userLeagues.map((lg) => (
+              <LeaguePickerCard key={lg.leagueId} league={lg} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Use the only league, or the active one
+    if (!resolvedLeagueId && userLeagues.length === 1) {
+      resolvedLeagueId = userLeagues[0].leagueId;
+    }
+  }
+
+  // ── Fetch league data ────────────────────────────────────────────────────────
+  const league = await getLeagueData(resolvedLeagueId);
+  const members = league ? await getLeagueMembers(league.id) : [];
   const claimedCount = members.filter((m) => !!m.claimedAt).length;
   const accent = league?.primaryColor || 'var(--accent)';
 
@@ -161,7 +231,6 @@ export default async function HomePage() {
               const claimed = !!member.claimedAt;
               return (
                 <li key={member.id} className="flex items-center gap-3 px-6 py-3">
-                  {/* Status icon */}
                   <span
                     className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs"
                     style={{
@@ -181,17 +250,13 @@ export default async function HomePage() {
                   </span>
 
                   {claimed ? (
-                    <span
-                      className="text-xs font-medium"
-                      style={{ color: accent }}
-                    >
+                    <span className="text-xs font-medium" style={{ color: accent }}>
                       Active
                     </span>
                   ) : (
                     <span className="text-xs text-[var(--muted)] italic">Pending</span>
                   )}
 
-                  {/* Invite button — always visible so commissioners can re-send */}
                   <InviteButton teamName={member.teamName} inviteCode={member.inviteCode} />
                 </li>
               );
@@ -200,5 +265,31 @@ export default async function HomePage() {
         </div>
       )}
     </div>
+  );
+}
+
+// ── League picker card (client island not needed — just a link) ────────────────
+function LeaguePickerCard({
+  league,
+}: {
+  league: { leagueId: string; leagueName: string; teamName: string; isCommissioner: boolean };
+}) {
+  return (
+    <form action="/api/super-admin/switch-league" method="POST" className="contents">
+      <input type="hidden" name="leagueId" value={league.leagueId} />
+      <input type="hidden" name="next" value="/home" />
+      <button
+        type="submit"
+        className="w-full text-left rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 hover:border-[var(--accent)]/60 transition-all"
+      >
+        <div className="font-semibold text-[var(--text)]">{league.leagueName}</div>
+        <div className="text-sm text-[var(--muted)] mt-1">
+          {league.teamName}
+          {league.isCommissioner && (
+            <span className="ml-2 text-xs text-[var(--accent)] font-medium">Commissioner</span>
+          )}
+        </div>
+      </button>
+    </form>
   );
 }

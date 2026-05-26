@@ -13,7 +13,7 @@ async function getInvite(code: string) {
   try {
     const db = getDb();
     const res = await db.execute(sql`
-      SELECT li.team_name, li.claimed_at, l.name AS league_name, l.primary_color, l.logo_url
+      SELECT li.league_id::text AS league_id, l.name AS league_name, l.primary_color
       FROM league_invites li
       LEFT JOIN leagues l ON l.id = li.league_id
       WHERE li.invite_code = ${code}
@@ -23,11 +23,9 @@ async function getInvite(code: string) {
     if (rows.length === 0) return null;
     const r = rows[0];
     return {
-      teamName: r.team_name as string,
-      claimed: Boolean(r.claimed_at),
+      leagueId: r.league_id as string,
       leagueName: (r.league_name as string | null) ?? null,
       primaryColor: (r.primary_color as string | null) ?? null,
-      logoUrl: (r.logo_url as string | null) ?? null,
     };
   } catch {
     return null;
@@ -38,18 +36,14 @@ export default async function JoinPage({ params }: PageProps) {
   const { code } = await params;
   const invite = await getInvite(code);
 
-  if (!invite) {
-    notFound();
-  }
+  if (!invite) notFound();
 
   return (
     <JoinContent
       code={code}
-      teamName={invite.teamName}
-      claimed={invite.claimed}
+      leagueId={invite.leagueId}
       leagueName={invite.leagueName}
       primaryColor={invite.primaryColor}
-      logoUrl={invite.logoUrl}
     />
   );
 }

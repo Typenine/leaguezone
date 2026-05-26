@@ -1,91 +1,89 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getTeamLogoPath, getTeamColorStyle } from '@/lib/utils/team-utils';
 import { Card, CardContent } from '@/components/ui/Card';
-import Label from '@/components/ui/Label';
 import Button from '@/components/ui/Button';
 
 interface JoinContentProps {
   code: string;
-  teamName: string;
-  claimed: boolean;
+  leagueId: string;
   leagueName: string | null;
   primaryColor: string | null;
-  logoUrl: string | null;
 }
 
-export default function JoinContent({
-  code,
-  teamName,
-  claimed,
-  leagueName,
-  primaryColor,
-}: JoinContentProps) {
+interface AvailableRoster {
+  id: string;
+  teamName: string;
+  rosterId: number | null;
+}
+
+type AuthState = 'loading' | 'guest' | 'authenticated';
+
+export default function JoinContent({ code, leagueId, leagueName, primaryColor }: JoinContentProps) {
   const router = useRouter();
   const accent = primaryColor || 'var(--accent)';
-  const logoStyle = getTeamColorStyle(teamName, 'secondary');
 
-  // PIN creation state
-  const [pin, setPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [authState, setAuthState] = useState<AuthState>('loading');
+  const [alreadyMember, setAlreadyMember] = useState(false);
+  const [rosters, setRosters] = useState<AvailableRoster[]>([]);
+  const [rostersLoading, setRostersLoading] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
 
-  // Login state (for already-claimed users)
-  const [loginPin, setLoginPin] = useState('');
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
+  // Check auth status on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (!res.ok) { setAuthState('guest'); return; }
+        const data = await res.json();
+        if (!data.authenticated || !data.user) { setAuthState('guest'); return; }
+        // Check if already a member of this league
+        const isMember = (data.leagues || []).some(
+          (l: { leagueId: string }) => l.leagueId === leagueId
+        );
+        if (isMember) {
+          setAlreadyMember(true);
+          setAuthState('authenticated');
+          return;
+        }
+        setAuthState('authenticated');
+        // Load available rosters
+        setRostersLoading(true);
+        const rRes = await fetch(`/api/leagues/${leagueId}/available-rosters`);
+        if (rRes.ok) {
+          const rData = await rRes.json();
+          setRosters(rData.rosters || []);
+        }
+        setRostersLoading(false);
+      } catch {
+        setAuthState('guest');
+      }
+    })();
+  }, [leagueId]);
 
-  const handleSetupPin = async () => {
-    if (!pin) return;
-    if (pin !== confirmPin) {
-      setError('PINs do not match');
-      return;
-    }
-    if (!/^\d{4,12}$/.test(pin)) {
-      setError('PIN must be 4–12 digits');
-      return;
-    }
+  const handleClaim = async () => {
+    if (!selected) return;
     try {
-      setLoading(true);
-      setError(null);
-      const res = await fetch('/api/auth/setup-pin', {
+      setClaiming(true);
+      setClaimError(null);
+      const res = await fetch(`/api/leagues/${leagueId}/claim-roster`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inviteCode: code, pin }),
+        body: JSON.stringify({ inviteId: selected }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Setup failed');
+      if (!res.ok) throw new Error(data?.error || 'Failed to claim roster');
       router.push('/home');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Setup failed');
+      setClaimError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogin = async () => {
-    if (!loginPin) return;
-    try {
-      setLoginLoading(true);
-      setLoginError(null);
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ team: teamName, pin: loginPin }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Login failed');
-      router.push('/home');
-    } catch (e) {
-      setLoginError(e instanceof Error ? e.message : 'Login failed');
-    } finally {
-      setLoginLoading(false);
+      setClaiming(false);
     }
   };
 
@@ -106,123 +104,113 @@ export default function JoinContent({
       {leagueName && (
         <p className="text-center text-sm text-[var(--muted)] mb-2">{leagueName}</p>
       )}
-
-      {/* Team hero */}
-      <div className="flex flex-col items-center mb-8">
-        <div
-          className="w-24 h-24 rounded-full overflow-hidden border-4 flex items-center justify-center mb-4 shadow-lg"
-          style={{ ...logoStyle, borderColor: accent }}
-        >
-          <Image
-            src={getTeamLogoPath(teamName)}
-            alt={teamName}
-            width={80}
-            height={80}
-            className="object-contain"
-          />
-        </div>
-        <h1 className="text-2xl font-bold text-[var(--text)] text-center">{teamName}</h1>
-        <p className="text-sm text-[var(--muted)] mt-1">
-          {claimed ? 'Welcome back! Sign in below.' : "You've been invited to join the league."}
-        </p>
-      </div>
+      <h1 className="text-2xl font-bold text-center text-[var(--text)] mb-8">
+        Join the league
+      </h1>
 
       <Card>
         <CardContent className="pt-6">
-          {!claimed ? (
-            /* ── First-time setup ── */
-            <div className="space-y-5">
-              <div className="p-4 rounded-xl text-sm" style={{ backgroundColor: `${accent}15`, color: 'var(--text)' }}>
-                <strong>Create your PIN</strong> to secure your account. You&apos;ll use this every time you sign in.
-              </div>
+          {/* Loading auth check */}
+          {authState === 'loading' && (
+            <p className="text-center text-[var(--muted)] py-6">Loading…</p>
+          )}
 
-              <div>
-                <Label htmlFor="new-pin" className="mb-2 block">Choose a PIN (4–12 digits)</Label>
-                <input
-                  id="new-pin"
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  pattern="[0-9]*"
-                  maxLength={12}
-                  placeholder="e.g. 4567"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 12))}
-                  className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-strong)]"
-                  onKeyDown={(e) => e.key === 'Enter' && handleSetupPin()}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="confirm-pin" className="mb-2 block">Confirm PIN</Label>
-                <input
-                  id="confirm-pin"
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  pattern="[0-9]*"
-                  maxLength={12}
-                  placeholder="Repeat your PIN"
-                  value={confirmPin}
-                  onChange={(e) => setConfirmPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 12))}
-                  className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-strong)]"
-                  onKeyDown={(e) => e.key === 'Enter' && handleSetupPin()}
-                />
-              </div>
-
-              {error && <div className="text-sm text-red-500" role="alert">{error}</div>}
-
-              <Button
-                onClick={handleSetupPin}
-                disabled={!pin || !confirmPin || loading}
-                variant="primary"
-                className="w-full"
-              >
-                {loading ? 'Setting up…' : 'Create PIN & Enter League'}
-              </Button>
-            </div>
-          ) : (
-            /* ── Already claimed — sign in ── */
-            <div className="space-y-5">
-              <div className="p-4 rounded-xl text-sm" style={{ backgroundColor: `${accent}15`, color: 'var(--text)' }}>
-                Your account is already set up. Enter your PIN to sign in.
-              </div>
-
-              <div>
-                <Label htmlFor="login-pin" className="mb-2 block">Your PIN</Label>
-                <input
-                  id="login-pin"
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  pattern="[0-9]*"
-                  maxLength={12}
-                  autoFocus
-                  placeholder="Enter your PIN"
-                  value={loginPin}
-                  onChange={(e) => setLoginPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 12))}
-                  className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-strong)]"
-                  onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                />
-              </div>
-
-              {loginError && <div className="text-sm text-red-500" role="alert">{loginError}</div>}
-
-              <Button
-                onClick={handleLogin}
-                disabled={!loginPin || loginLoading}
-                variant="primary"
-                className="w-full"
-              >
-                {loginLoading ? 'Signing in…' : 'Sign In'}
-              </Button>
-
-              <p className="text-center text-xs text-[var(--muted)]">
-                Forgot your PIN?{' '}
-                <Link href="/login" className="text-[var(--accent)] hover:underline">
-                  Go to login page
-                </Link>
+          {/* Not logged in — prompt to register or sign in */}
+          {authState === 'guest' && (
+            <div className="space-y-4 text-center">
+              <p className="text-sm text-[var(--muted)]">
+                You need an account to join. It only takes a moment.
               </p>
+              <div className="flex flex-col gap-3">
+                <Link href={`/register?invite=${code}`}>
+                  <Button variant="primary" className="w-full">
+                    Create account &amp; join
+                  </Button>
+                </Link>
+                <Link href={`/login?next=/join/${code}`}>
+                  <Button variant="ghost" className="w-full">
+                    I already have an account
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Already a member */}
+          {authState === 'authenticated' && alreadyMember && (
+            <div className="text-center space-y-4 py-4">
+              <div className="text-4xl">✅</div>
+              <p className="font-medium text-[var(--text)]">You&apos;re already in this league!</p>
+              <Link href="/home">
+                <Button variant="primary">Go to League Home</Button>
+              </Link>
+            </div>
+          )}
+
+          {/* Authenticated — pick a team */}
+          {authState === 'authenticated' && !alreadyMember && (
+            <div className="space-y-5">
+              <p className="text-sm text-[var(--muted)]">
+                Pick your team from the available rosters below.
+              </p>
+
+              {rostersLoading ? (
+                <p className="text-center text-[var(--muted)] py-4">Loading rosters…</p>
+              ) : rosters.length === 0 ? (
+                <p className="text-center text-[var(--muted)] py-4">
+                  All rosters have been claimed. Contact your commissioner.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {rosters.map((r) => {
+                    const isSelected = selected === r.id;
+                    const logoStyle = getTeamColorStyle(r.teamName, 'secondary');
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setSelected(r.id)}
+                        className={`rounded-xl border-2 p-3 flex flex-col items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-[var(--accent-strong)] ${
+                          isSelected
+                            ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                            : 'border-[var(--border)] hover:border-[var(--accent)]/50'
+                        }`}
+                        style={isSelected ? { borderColor: accent } : undefined}
+                        aria-pressed={isSelected}
+                      >
+                        <div
+                          className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center"
+                          style={logoStyle}
+                        >
+                          <Image
+                            src={getTeamLogoPath(r.teamName)}
+                            alt={r.teamName}
+                            width={40}
+                            height={40}
+                            className="object-contain"
+                          />
+                        </div>
+                        <span className="text-xs font-medium text-center text-[var(--text)] leading-tight">
+                          {r.teamName}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {claimError && (
+                <div className="text-sm text-red-500" role="alert">{claimError}</div>
+              )}
+
+              <Button
+                onClick={handleClaim}
+                disabled={!selected || claiming || rosters.length === 0}
+                variant="primary"
+                className="w-full"
+              >
+                {claiming ? 'Joining…' : 'This is my team — join league'}
+              </Button>
             </div>
           )}
         </CardContent>

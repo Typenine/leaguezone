@@ -1,11 +1,13 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { resolveCanonicalTeamName } from '@/lib/utils/team-utils';
-import { readTeamPin, writeTeamPinWithResult } from '@/lib/server/pins';
-import { verifyPin, signSession, verifySession, hashPin } from '@/lib/server/auth';
-import { logAuthEvent } from '@/lib/server/audit';
-import { TEAM_NAMES } from '@/lib/constants/league';
-// no global map writes; use per-team helpers
+import {
+  getUserByEmail,
+  verifyPassword,
+  signUserSession,
+  sessionCookieOptions,
+  SESSION_COOKIE,
+  getUserLeagues,
+} from '@/lib/server/user-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,120 +15,46 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const teamRaw = typeof body.team === 'string' ? body.team.trim() : '';
-    const pin = typeof body.pin === 'string' ? body.pin.trim() : '';
-    if (!teamRaw || !pin) {
-      return Response.json({ error: 'team and pin required' }, { status: 400 });
+    const email = typeof body.email === 'string' ? body.email.trim() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+
+    if (!email || !password) {
+      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    let team = TEAM_NAMES.includes(teamRaw) ? teamRaw : resolveCanonicalTeamName({ rosterTeamName: teamRaw });
-    if (team === 'Unknown Team') team = teamRaw;
-
-    const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
-
-    let stored = await readTeamPin(team);
-
-    // Read per-browser override cookie (from change-pin fallback)
-    let overrideStored: { hash: string; salt: string; pinVersion: number; updatedAt: string } | null = null;
-    try {
-      const jarRead = await cookies();
-      const overrideTok = jarRead.get('evw_pin_override')?.value || '';
-      const claims = overrideTok ? verifySession(overrideTok) : null;
-      if (claims && typeof (claims as Record<string, unknown>).pins === 'object') {
-        const pinsObj = (claims as { pins?: Record<string, unknown> }).pins || {};
-        const o = pinsObj[team] as Record<string, unknown> | undefined;
-        if (o && typeof o.hash === 'string' && typeof o.salt === 'string') {
-          overrideStored = {
-            hash: o.hash as string,
-            salt: o.salt as string,
-            pinVersion: typeof o.pinVersion === 'number' ? (o.pinVersion as number) : 1,
-            updatedAt: typeof o.updatedAt === 'string' ? (o.updatedAt as string) : new Date().toISOString(),
-          };
-        }
-      }
-    } catch {}
-
-    if (stored && overrideStored) {
-      // Prefer the newer by pinVersion; if stored is newer, drop override cookie
-      if ((stored.pinVersion || 0) >= (overrideStored.pinVersion || 0)) {
-        try {
-          const jarDrop = await cookies();
-          jarDrop.set('evw_pin_override', '', { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 0 });
-        } catch {}
-        overrideStored = null;
-      } else {
-        // Override is newer; adopt it
-        stored = overrideStored;
-      }
-    } else if (!stored && overrideStored) {
-      stored = overrideStored;
+    const user = await getUserByEmail(email);
+    if (!user || !user.passwordHash) {
+      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    if (!stored) {
-      // Fallback: allow default team-index PINs (legacy bootstrap) to log in and seed storage
-      const defaults = ['111111','222222','333333','444444','555555','666666','777777','888888','999999','101010','121212','131313'];
-      const index = TEAM_NAMES.indexOf(team);
-      const expected = index >= 0 ? defaults[index % defaults.length] : null;
-      if (!expected || pin !== expected) {
-        await logAuthEvent({ type: 'login_fail', team, ip, ok: false, reason: 'no_pin' });
-        return Response.json({ error: 'PIN not set for this team. Ask admin to set it.' }, { status: 400 });
-      }
-      // Seed a real hashed PIN from the default
-      const { hash, salt } = await hashPin(expected);
-      const seeded = { hash, salt, pinVersion: 1, updatedAt: new Date().toISOString() };
-      try { await writeTeamPinWithResult(team, seeded); } catch {}
-      stored = seeded;
+    const valid = await verifyPassword(password, user.passwordHash);
+    if (!valid) {
+      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    let ok: boolean;
-    if (overrideStored) {
-      // If a per-browser override exists, it is authoritative: old PINs are rejected
-      ok = await verifyPin(pin, overrideStored.hash, overrideStored.salt);
-      if (!ok) {
-        await logAuthEvent({ type: 'login_fail', team, ip, ok: false, reason: 'bad_pin_override' });
-        return Response.json({ error: 'Invalid PIN' }, { status: 401 });
-      }
-      // Adopt override as current stored pin and attempt to persist to store
-      stored = overrideStored;
-      try {
-        await writeTeamPinWithResult(team, overrideStored);
-      } catch {}
-    } else {
-      ok = await verifyPin(pin, stored.hash, stored.salt);
-      if (!ok) {
-        await logAuthEvent({ type: 'login_fail', team, ip, ok: false, reason: 'bad_pin' });
-        return Response.json({ error: 'Invalid PIN' }, { status: 401 });
-      }
-    }
-
-    const ttlDays = 30;
-    const payload = {
-      sub: team,
-      team,
-      pv: stored.pinVersion || 1,
-      exp: Date.now() + ttlDays * 24 * 60 * 60 * 1000,
-    };
-    const token = signSession(payload);
-
+    const token = signUserSession(user.id);
     const jar = await cookies();
-    jar.set('evw_session', token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: ttlDays * 24 * 60 * 60,
-    });
+    jar.set(SESSION_COOKIE, token, sessionCookieOptions());
 
-    await logAuthEvent({ type: 'login_success', team, ip, ok: true });
+    // Auto-set active league if user belongs to exactly one
+    const leagues = await getUserLeagues(user.id);
+    if (leagues.length === 1) {
+      jar.set('active_league_id', leagues[0].leagueId, {
+        httpOnly: false,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 30,
+      });
+    }
 
-    return new Response(JSON.stringify({ team }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    return NextResponse.json({
+      userId: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      leagues,
     });
   } catch (e) {
     console.error('POST /api/auth/login failed', e);
-    return Response.json({ error: 'Login failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Login failed' }, { status: 500 });
   }
 }
