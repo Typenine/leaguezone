@@ -152,12 +152,16 @@ export function resolveCanonicalTeamName(params: {
   const fromDisplay = tryMap(userDisplayName) || tryMap(username);
   if (fromDisplay) return fromDisplay;
 
-  // 4) Unknown – caller can log and/or fall back to placeholder in UI
+  // 4) No canonical mapping found — fall back to raw Sleeper data so teams are
+  //    never shown as "Unknown Team" on a fresh install. The canonical mapping in
+  //    team-mapping.ts is only needed for cross-season consistency (e.g. if someone
+  //    renames their team between seasons). Add mappings there when needed.
+  const rawFallback = rosterTeamName || userDisplayName || username;
+  if (rawFallback) return rawFallback;
+
+  // 5) Absolute last resort — no data at all from Sleeper
   try {
-    // Emit a helpful warning so we can populate CANONICAL_TEAM_BY_USER_ID or TEAM_ALIASES
-    // This will show up in the browser console and server logs during development
-    // It is safe to keep in production; it's a one-line warning.
-    console.warn('[team-utils] Unknown team mapping. Please add mapping in team-mapping.ts', {
+    console.warn('[team-utils] No team name data found. Check that the league ID is correct.', {
       ownerId,
       rosterTeamName,
       userDisplayName,
