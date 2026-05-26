@@ -123,6 +123,25 @@ const ALIAS_BY_NORMALIZED = new Map<string, string>(
 );
 
 /**
+ * Runtime cache: ownerId → resolved team name.
+ * Populated by getTeamsData() in sleeper-api.ts whenever a league's teams are
+ * fetched with full user/roster data. This allows resolveCanonicalTeamName()
+ * called with only an ownerId (e.g. in records/franchise pages) to still return
+ * the correct name without requiring the caller to pass user data.
+ */
+const OWNER_NAME_CACHE = new Map<string, string>();
+
+/**
+ * Store a resolved owner→name mapping in the runtime cache.
+ * Call this from getTeamsData() after building TeamData objects.
+ */
+export function cacheOwnerName(ownerId: string, name: string): void {
+  if (ownerId && name && name !== 'Unknown Team') {
+    OWNER_NAME_CACHE.set(ownerId, name);
+  }
+}
+
+/**
  * Resolve a canonical team name using owner_id first, then aliases, then best-effort matches.
  */
 export function resolveCanonicalTeamName(params: {
@@ -159,7 +178,14 @@ export function resolveCanonicalTeamName(params: {
   const rawFallback = rosterTeamName || userDisplayName || username;
   if (rawFallback) return rawFallback;
 
-  // 5) Absolute last resort — no data at all from Sleeper
+  // 5) Runtime cache populated by getTeamsData() — covers ownerId-only call sites
+  //    (records, franchise pages, streak calculations) after any league's teams
+  //    have been fetched in the same request chain.
+  if (ownerId && OWNER_NAME_CACHE.has(ownerId)) {
+    return OWNER_NAME_CACHE.get(ownerId)!;
+  }
+
+  // 6) Absolute last resort — no data at all from Sleeper
   try {
     console.warn('[team-utils] No team name data found. Check that the league ID is correct.', {
       ownerId,

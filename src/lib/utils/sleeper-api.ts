@@ -6,7 +6,7 @@
  */
 
 import { LEAGUE_IDS, CHAMPIONS, getLeagueIdForSeason } from '../constants/league';
-import { resolveCanonicalTeamName } from '../utils/team-utils';
+import { resolveCanonicalTeamName, cacheOwnerName } from '../utils/team-utils';
 
 // Base URL for Sleeper API
 const SLEEPER_API_BASE = 'https://api.sleeper.app/v1';
@@ -364,15 +364,26 @@ export async function buildYearToLeagueMapUnique(
 }
 
 /**
- * Get all unique owner IDs that have participated across configured seasons
+ * Get all unique owner IDs that have participated across configured seasons.
+ * As a side-effect, populates the OWNER_NAME_CACHE in team-utils by calling
+ * getTeamsData() for each league — this ensures that downstream call sites
+ * using resolveCanonicalTeamName({ ownerId }) (records page, franchise page,
+ * streak calculations) can resolve names without full user/roster data.
  */
 export async function getAllOwnerIdsAcrossSeasons(options?: SleeperFetchOptions): Promise<string[]> {
   const yearToLeague = await buildYearToLeagueMapUnique(options);
   const ownerSet = new Set<string>();
   for (const leagueId of Object.values(yearToLeague)) {
     if (!leagueId) continue;
-    const rosters = await getLeagueRosters(leagueId, options);
-    for (const r of rosters) ownerSet.add(r.owner_id);
+    // getTeamsData populates the cacheOwnerName map as a side-effect
+    try {
+      const teams = await getTeamsData(leagueId, options);
+      for (const t of teams) ownerSet.add(t.ownerId);
+    } catch {
+      // fallback: still collect owner IDs from rosters even if user data fails
+      const rosters = await getLeagueRosters(leagueId, options);
+      for (const r of rosters) ownerSet.add(r.owner_id);
+    }
   }
   return Array.from(ownerSet);
 }
@@ -785,6 +796,11 @@ export async function getSplitRecordsAllTime(
   // Iterate seasons
   for (const leagueId of uniqueLeagueIds) {
     if (!leagueId) continue;
+
+    // Warm the OWNER_NAME_CACHE so resolveCanonicalTeamName({ ownerId })
+    // can resolve names without full user data at the call sites below.
+    // Best-effort: if it fails (e.g. historical league), fall through gracefully.
+    await getTeamsData(leagueId, options).catch(() => {});
 
     // Build mapping roster_id -> owner_id and a stable team name via canonical resolution
     const rosters = await getLeagueRosters(leagueId, options);
@@ -1775,6 +1791,13 @@ export async function getTeamsData(leagueId: string, options?: SleeperFetchOptio
         players: roster.players || [],
       };
     });
+
+    // Populate the runtime owner→name cache so that call sites that only have
+    // an ownerId (e.g. records page, franchise page, streak calculations) can
+    // resolve team names without needing full user/roster data.
+    for (const t of teams) {
+      cacheOwnerName(t.ownerId, t.teamName);
+    }
 
     return teams;
   } catch (error) {
