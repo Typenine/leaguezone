@@ -291,7 +291,7 @@ export default function Navbar() {
                         onFocus={() => setDesktopMenuOpen(item.id)}
                       >
                         {item.label}
-                        <span className="text-xs">â–¾</span>
+                        <span className="text-xs">▾</span>
                       </Button>
 
                       <div
@@ -328,7 +328,7 @@ export default function Navbar() {
                                     onClick={() => setDesktopMenuOpen(null)}
                                   >
                                     <span>{child.label}</span>
-                                    <span aria-hidden="true">â–¸</span>
+                                    <span aria-hidden="true">▸</span>
                                   </Link>
 
                                   <div className="absolute left-full top-0 invisible opacity-0 pointer-events-none group-hover/submenu:visible group-hover/submenu:opacity-100 group-hover/submenu:pointer-events-auto transition-opacity duration-150">
@@ -395,7 +395,7 @@ export default function Navbar() {
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                             onClick={() => { setAccountMenuOpen(false); router.push('/super-admin'); }}
                           >
-                            ðŸŒ Admin Dashboard
+                            🌐 Admin Dashboard
                           </button>
                           <button
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm text-red-500"
@@ -481,7 +481,7 @@ export default function Navbar() {
                     aria-expanded={accountMenuOpen}
                     aria-haspopup="menu"
                   >
-                    Sign In <span aria-hidden="true" className="text-xs">â–¾</span>
+                    Sign In <span aria-hidden="true" className="text-xs">▾</span>
                   </Button>
                   {accountMenuOpen && (
                     <div className="absolute right-0 mt-2 w-44 league-surface border border-[var(--border)] rounded shadow-lg p-1 z-50">
@@ -490,14 +490,14 @@ export default function Navbar() {
                         className="block rounded px-3 py-2 text-sm hover:bg-[var(--surface-strong)] text-[var(--text)]"
                         onClick={() => setAccountMenuOpen(false)}
                       >
-                        ðŸˆ Team Login
+                        🏈 Team Login
                       </Link>
                       <Link
                         href="/login?mode=commish"
                         className="block rounded px-3 py-2 text-sm hover:bg-[var(--surface-strong)] text-[var(--text)]"
                         onClick={() => setAccountMenuOpen(false)}
                       >
-                        ðŸ† Commish Login
+                        🏆 Commish Login
                       </Link>
                       <div className="my-1 border-t border-[var(--border)]" />
                       <Link
@@ -505,7 +505,7 @@ export default function Navbar() {
                         className="block rounded px-3 py-2 text-sm hover:bg-[var(--surface-strong)] text-amber-500"
                         onClick={() => setAccountMenuOpen(false)}
                       >
-                        ðŸŒ Admin Mode
+                        🌐 Admin Mode
                       </Link>
                     </div>
                   )}
@@ -588,7 +588,7 @@ export default function Navbar() {
                   aria-expanded={expanded}
                 >
                   <span>{item.label}</span>
-                  <span aria-hidden="true">{expanded ? 'â–¾' : 'â–¸'}</span>
+                  <span aria-hidden="true">{expanded ? '▾' : '▸'}</span>
                 </button>
 
                 {expanded && (
@@ -632,7 +632,7 @@ export default function Navbar() {
                               aria-expanded={childExpanded}
                               aria-label={`Toggle ${child.label} submenu`}
                             >
-                              <span aria-hidden="true">{childExpanded ? 'â–¾' : 'â–¸'}</span>
+                              <span aria-hidden="true">{childExpanded ? '▾' : '▸'}</span>
                             </button>
                           </div>
 
@@ -808,7 +808,7 @@ export default function Navbar() {
             data-bwignore="true"
             pattern="[0-9]*"
             className="w-full league-surface border border-[var(--border)] rounded px-3 py-2"
-            placeholder="New PIN (4â€“12 digits)"
+            placeholder="New PIN (4–12 digits)"
             maxLength={12}
             ref={newPinRef}
             value={newPin}

@@ -3,14 +3,14 @@ import { getAllLeagues } from '@/lib/server/league-config';
 import type { LeagueSummary } from '@/lib/server/league-config';
 
 const FEATURES = [
-  { icon: 'ðŸ†', label: 'Standings',    href: '/standings',    desc: 'Win/loss records & rankings' },
-  { icon: 'ðŸˆ', label: 'Matchups',     href: '/matchups',     desc: 'Weekly scores & head-to-head' },
-  { icon: 'ðŸ‘¥', label: 'Teams',        href: '/teams',        desc: 'Rosters, profiles & pages' },
-  { icon: 'ðŸ”„', label: 'Trades',       href: '/trades',       desc: 'Trade history & analyzer' },
-  { icon: 'ðŸ“œ', label: 'History',      href: '/history',      desc: 'Champions & all-time records' },
-  { icon: 'ðŸ“', label: 'Transactions', href: '/transactions', desc: 'Free agency & waiver moves' },
-  { icon: 'ðŸ“‹', label: 'Rules',        href: '/rules',        desc: 'League constitution' },
-  { icon: 'ðŸ’¡', label: 'Suggestions',  href: '/suggestions',  desc: 'Rule proposals & voting' },
+  { icon: '🏆', label: 'Standings',    href: '/standings',    desc: 'Win/loss records & rankings' },
+  { icon: '🏈', label: 'Matchups',     href: '/matchups',     desc: 'Weekly scores & head-to-head' },
+  { icon: '👥', label: 'Teams',        href: '/teams',        desc: 'Rosters, profiles & pages' },
+  { icon: '🔄', label: 'Trades',       href: '/trades',       desc: 'Trade history & analyzer' },
+  { icon: '📜', label: 'History',      href: '/history',      desc: 'Champions & all-time records' },
+  { icon: '📝', label: 'Transactions', href: '/transactions', desc: 'Free agency & waiver moves' },
+  { icon: '📋', label: 'Rules',        href: '/rules',        desc: 'League constitution' },
+  { icon: '💡', label: 'Suggestions',  href: '/suggestions',  desc: 'Rule proposals & voting' },
 ];
 
 function getInitials(name: string): string {
@@ -55,7 +55,7 @@ function SingleLeagueLanding({ league }: { league: LeagueSummary }) {
           )}
           {league.foundedYear && (
             <p className="text-sm text-[var(--muted)] mb-8">
-              Dynasty Fantasy Football Â· Est. {league.foundedYear}
+              Dynasty Fantasy Football · Est. {league.foundedYear}
             </p>
           )}
 
@@ -84,9 +84,9 @@ function SingleLeagueLanding({ league }: { league: LeagueSummary }) {
       <section className="container mx-auto px-4 py-12 max-w-4xl">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center mb-16">
           {[
-            { icon: 'ðŸˆ', label: 'Dynasty', desc: 'Keep your players year to year' },
-            { icon: 'ðŸ‘‘', label: league.foundedYear ? `Since ${league.foundedYear}` : 'Long-running', desc: 'Season after season of competition' },
-            { icon: 'âš¡', label: 'Live Scoring', desc: 'Real-time stats powered by Sleeper' },
+            { icon: '🏈', label: 'Dynasty', desc: 'Keep your players year to year' },
+            { icon: '👑', label: league.foundedYear ? `Since ${league.foundedYear}` : 'Long-running', desc: 'Season after season of competition' },
+            { icon: '⚡', label: 'Live Scoring', desc: 'Real-time stats powered by Sleeper' },
           ].map((item) => (
             <div
               key={item.label}
@@ -170,7 +170,7 @@ export default async function RootPage() {
   if (leagues.length === 0) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 py-16 text-center">
-        <div className="text-6xl mb-6">ðŸˆ</div>
+        <div className="text-6xl mb-6">🏈</div>
         <h1 className="text-3xl font-bold text-[var(--text)] mb-4">No Leagues Configured</h1>
         <p className="text-[var(--muted)] mb-8 max-w-sm">No leagues have been set up yet. Visit the setup page to get started.</p>
         <Link href="/setup" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-[var(--accent)] text-white hover:opacity-90 transition-opacity">

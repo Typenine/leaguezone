@@ -111,7 +111,7 @@ function LoginContent() {
                   : 'bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--text)]'
               }`}
             >
-              {t === 'team' ? 'ðŸˆ Team Login' : 'ðŸ† Commish Login'}
+              {t === 'team' ? '🏈 Team Login' : '🏆 Commish Login'}
             </button>
           ))}
         </div>
@@ -170,7 +170,7 @@ function LoginContent() {
 
               <div className="flex items-center gap-3">
                 <Button onClick={handleTeamLogin} disabled={!selectedTeam || !pin || loading} variant="primary">
-                  {loading ? 'Signing inâ€¦' : 'Sign In'}
+                  {loading ? 'Signing in…' : 'Sign In'}
                 </Button>
                 <Button onClick={() => { setSelectedTeam(null); setPin(''); setError(null); }} variant="ghost">
                   Reset
@@ -206,7 +206,7 @@ function LoginContent() {
                 disabled={!commishPin || commishLoading}
                 className="w-full"
               >
-                {commishLoading ? 'Verifyingâ€¦' : 'Enter Commish Mode'}
+                {commishLoading ? 'Verifying…' : 'Enter Commish Mode'}
               </Button>
             </div>
           )}
@@ -217,7 +217,7 @@ function LoginContent() {
       <p className="text-center text-xs text-[var(--muted)] mt-6">
         Site admin?{' '}
         <Link href="/super-admin/login" className="text-amber-500 hover:underline font-medium">
-          Enter Admin Mode â†’
+          Enter Admin Mode →
         </Link>
       </p>
     </div>
