@@ -1343,6 +1343,8 @@ export interface SleeperUser {
   username: string;
   display_name: string;
   avatar: string;
+  /** Per-league metadata — includes team_name set by the user in Sleeper */
+  metadata?: Record<string, string> | null;
 }
 
 export interface SleeperRoster {
@@ -1750,10 +1752,16 @@ export async function getTeamsData(leagueId: string, options?: SleeperFetchOptio
     const usersById: Record<string, SleeperUser | undefined> = {};
     for (const u of usersData) usersById[u.user_id] = u;
 
-    // Build team objects with canonical names resolved via owner_id and aliases
+    // Build team objects with canonical names resolved via owner_id and aliases.
+    // Sleeper stores the custom team name in user.metadata.team_name (from the users
+    // endpoint) and also in roster.metadata.team_name — prefer the users endpoint
+    // since it is more reliably populated.
     const teams: TeamData[] = rosters.map((roster) => {
       const user = usersById[roster.owner_id];
-      const rosterTeamName = roster.metadata?.team_name ?? null;
+      const rosterTeamName =
+        (user?.metadata?.team_name) ||
+        (roster.metadata?.team_name) ||
+        null;
       const teamName = resolveCanonicalTeamName({
         ownerId: roster.owner_id,
         rosterTeamName,
