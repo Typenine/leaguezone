@@ -12,7 +12,9 @@ import {
   validatePassword,
   validateDisplayName,
   getUserLeagues,
+  generateSecureToken,
 } from '@/lib/server/user-auth';
+import { sendEmailVerification } from '@/lib/server/email';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,6 +50,22 @@ export async function POST(req: NextRequest) {
 
     // Create account
     const user = await createUser(email, displayName, password);
+
+    // Send email verification
+    try {
+      const token = generateSecureToken();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      await getDb().execute(sql`
+        INSERT INTO email_verification_tokens (user_id, token, expires_at)
+        VALUES (${user.id}::uuid, ${token}, ${expiresAt.toISOString()}::timestamptz)
+      `);
+      const origin = req.nextUrl.origin;
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || origin;
+      await sendEmailVerification(user.email, `${siteUrl}/verify-email/${token}`);
+    } catch (emailErr) {
+      console.error('Failed to send verification email', emailErr);
+      // Don't block registration if email fails
+    }
 
     // If an invite code was provided, look it up so we can set active_league_id
     let activeLeagueId: string | null = null;

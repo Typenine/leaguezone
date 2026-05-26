@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -8,9 +8,9 @@ import LinkButton from '@/components/ui/LinkButton';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Label from '@/components/ui/Label';
-import Image from 'next/image';
-import { getTeamLogoPath, getTeamColors } from '@/lib/utils/team-utils';
 import { USER_NAV_CONFIG, type UserNavItem } from '@/lib/constants/navigation';
+
+// ── path helpers ──────────────────────────────────────────────────────────────
 
 function matchesPath(pathname: string, targetPath: string): boolean {
   if (targetPath === '/') return pathname === '/';
@@ -62,66 +62,86 @@ function findBestActive(items: UserNavItem[], pathname: string, searchParams: UR
   return best;
 }
 
+// ── user avatar (initials) ────────────────────────────────────────────────────
+
+function UserAvatar({ displayName, size = 32 }: { displayName: string; size?: number }) {
+  const initials = displayName
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  return (
+    <span
+      className="rounded-full flex items-center justify-center font-semibold text-white select-none"
+      style={{
+        width: size,
+        height: size,
+        fontSize: size * 0.375,
+        background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-strong, var(--accent)) 100%)',
+      }}
+      aria-hidden="true"
+    >
+      {initials || '?'}
+    </span>
+  );
+}
+
+// ── types ─────────────────────────────────────────────────────────────────────
+
+interface SessionUser {
+  id: string;
+  displayName: string | null;
+  email: string;
+  emailVerified: boolean;
+}
+
+interface ActiveTeam {
+  teamName: string;
+  leagueId: string;
+  leagueName: string;
+  isCommissioner: boolean;
+}
+
+// ── navbar ────────────────────────────────────────────────────────────────────
+
 export default function Navbar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const currentQuery = useMemo(() => new URLSearchParams(searchParams?.toString() || ''), [searchParams]);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<Record<string, boolean>>({});
-  const [adminOpen, setAdminOpen] = useState(false);
-  const [pin, setPin] = useState('');
-  const [adminError, setAdminError] = useState<string | null>(null);
-  const [adminLoading, setAdminLoading] = useState(false);
-  const [sessionTeam, setSessionTeam] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [changeOpen, setChangeOpen] = useState(false);
-  const [currentPin, setCurrentPin] = useState('');
-  const [newPin, setNewPin] = useState('');
-  const [changeMsg, setChangeMsg] = useState<string | null>(null);
-  const [changeLoading, setChangeLoading] = useState(false);
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [desktopMenuOpen, setDesktopMenuOpen] = useState<string | null>(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const desktopMenuRef = useRef<HTMLDivElement | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
-  const currentPinRef = useRef<HTMLInputElement | null>(null);
-  const newPinRef = useRef<HTMLInputElement | null>(null);
+
+  // Auth state
+  const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
+  const [activeTeam, setActiveTeam] = useState<ActiveTeam | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSiteAdmin, setIsSiteAdmin] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // League branding
   const [leagueName, setLeagueName] = useState<string | null>(null);
   const [leagueLogoUrl, setLeagueLogoUrl] = useState<string | null>(null);
 
-  const toggleMobileSection = (id: string) => {
-    setMobileExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  // Change password modal
+  const [changePwOpen, setChangePwOpen] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [changePwMsg, setChangePwMsg] = useState<string | null>(null);
+  const [changePwLoading, setChangePwLoading] = useState(false);
+  const [changePwError, setChangePwError] = useState(false);
 
-  const closeMobile = () => {
-    setMobileMenuOpen(false);
-  };
+  const toggleMobileSection = (id: string) => setMobileExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  const closeMobile = () => setMobileMenuOpen(false);
 
-  // Removed special homepage click-to-admin; admin sign-in now lives on /login
-
-  const submitAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAdminError(null);
-    setAdminLoading(true);
-    try {
-      const r = await fetch('/api/admin-login', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ key: pin.trim() }),
-      });
-      if (!r.ok) throw new Error('Invalid PIN');
-      setAdminOpen(false);
-      setPin('');
-      // Stay on current page; admin mode enabled via cookie
-    } catch (err) {
-      setAdminError(err instanceof Error ? err.message : 'Login failed');
-    } finally {
-      setAdminLoading(false);
-    }
-  };
-
+  // ── fetch auth state on every route change ──────────────────────────────────
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -131,12 +151,29 @@ export default function Navbar() {
         if (!mounted) return;
         if (r.ok) {
           const j = await r.json();
-          setSessionTeam((j?.claims?.team as string) || null);
+          if (j?.authenticated && j?.user) {
+            setSessionUser(j.user as SessionUser);
+            setActiveTeam((j.activeTeam as ActiveTeam) || null);
+            setIsAdmin(Boolean(j.isAdmin));
+            setIsSiteAdmin(Boolean(j.isSiteAdmin));
+          } else if (j?.authenticated && j?.claims?.team) {
+            // Legacy team session — treat team name as display name
+            const team = j.claims.team as string;
+            setSessionUser({ id: team, displayName: team, email: '', emailVerified: true });
+            setIsAdmin(Boolean(j.isAdmin));
+            setIsSiteAdmin(Boolean(j.isSiteAdmin));
+          } else {
+            setSessionUser(null);
+            setActiveTeam(null);
+            setIsAdmin(Boolean(j?.isAdmin));
+            setIsSiteAdmin(Boolean(j?.isSiteAdmin));
+          }
         } else {
-          setSessionTeam(null);
+          setSessionUser(null);
+          setActiveTeam(null);
         }
       } catch {
-        if (mounted) setSessionTeam(null);
+        if (mounted) { setSessionUser(null); setActiveTeam(null); }
       } finally {
         if (mounted) setAuthLoading(false);
       }
@@ -144,20 +181,7 @@ export default function Navbar() {
     return () => { mounted = false; };
   }, [pathname]);
 
-  useEffect(() => {
-    let mounted = true;
-    // Check both league admin and site admin status
-    Promise.all([
-      fetch('/api/admin-login', { credentials: 'include', cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
-      fetch('/api/super-admin-login', { credentials: 'include', cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
-    ]).then(([adminJ, siteJ]) => {
-      if (!mounted) return;
-      setIsAdmin(Boolean(adminJ?.isAdmin) || Boolean(siteJ?.isAdmin));
-      setIsSiteAdmin(Boolean(siteJ?.isSiteAdmin));
-    }).catch(() => { if (mounted) { setIsAdmin(false); setIsSiteAdmin(false); } });
-    return () => { mounted = false; };
-  }, [pathname]);
-
+  // ── league branding ──────────────────────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
     fetch('/api/league/info', { cache: 'no-store' })
@@ -171,38 +195,14 @@ export default function Navbar() {
     return () => { mounted = false; };
   }, []);
 
-  // Apply team-themed colors (gradient/buttons) when signed in
-  useEffect(() => {
-    try {
-      const root = document.documentElement;
-      if (sessionTeam) {
-        const colors = getTeamColors(sessionTeam);
-        // Map brand tokens to team colors
-        root.style.setProperty('--danger', colors.primary);
-        root.style.setProperty('--gold', colors.secondary || colors.primary);
-      } else {
-        // Revert to league defaults defined in globals.css
-        root.style.removeProperty('--danger');
-        root.style.removeProperty('--gold');
-      }
-    } catch {}
-  }, [sessionTeam]);
-
+  // ── close menus on outside click / Escape ───────────────────────────────────
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
-      if (!accountMenuRef.current) return;
-      if (!accountMenuRef.current.contains(e.target as Node)) {
-        setAccountMenuOpen(false);
-      }
-      if (desktopMenuRef.current && !desktopMenuRef.current.contains(e.target as Node)) {
-        setDesktopMenuOpen(null);
-      }
+      if (!accountMenuRef.current?.contains(e.target as Node)) setAccountMenuOpen(false);
+      if (!desktopMenuRef.current?.contains(e.target as Node)) setDesktopMenuOpen(null);
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setDesktopMenuOpen(null);
-        setAccountMenuOpen(false);
-      }
+      if (e.key === 'Escape') { setDesktopMenuOpen(null); setAccountMenuOpen(false); }
     };
     document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onKeyDown);
@@ -212,19 +212,12 @@ export default function Navbar() {
     };
   }, []);
 
+  // ── handlers ─────────────────────────────────────────────────────────────────
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch {}
-    setSessionTeam(null);
-    router.push(pathname === '/login' ? '/' : pathname);
-  };
-
-  const handleAdminLogout = async () => {
-    try { await fetch('/api/admin-login', { method: 'DELETE' }); } catch {}
-    setIsAdmin(false);
-    setIsSiteAdmin(false);
-    // keep user on page
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+    setSessionUser(null);
+    setActiveTeam(null);
+    router.push('/login');
   };
 
   const handleSiteAdminLogout = async () => {
@@ -234,14 +227,53 @@ export default function Navbar() {
     router.push('/');
   };
 
+  const handleChangePw = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangePwMsg(null);
+    setChangePwError(false);
+    if (newPw !== confirmPw) {
+      setChangePwMsg('New passwords do not match');
+      setChangePwError(true);
+      return;
+    }
+    if (newPw.length < 8) {
+      setChangePwMsg('Password must be at least 8 characters');
+      setChangePwError(true);
+      return;
+    }
+    setChangePwLoading(true);
+    try {
+      const r = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error || 'Failed to change password');
+      setChangePwMsg('Password updated!');
+      setChangePwError(false);
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+    } catch (err) {
+      setChangePwMsg(err instanceof Error ? err.message : 'Failed');
+      setChangePwError(true);
+    } finally {
+      setChangePwLoading(false);
+    }
+  };
+
+  const displayName = sessionUser?.displayName || sessionUser?.email || '';
+  const isLoggedIn = Boolean(sessionUser) || isAdmin;
+
+  // ── render ────────────────────────────────────────────────────────────────────
   return (
     <>
     <nav className="league-surface border-b border-[var(--border)] sticky top-0 backdrop-blur-sm bg-[var(--surface)]/95 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
+
+          {/* Left: logo + nav links */}
           <div className="flex items-center">
             <div className="flex items-center gap-2 flex-shrink-0">
-              {/* League logo â€” always visible, links to website hub (/) */}
               <Link href="/" aria-label="Website home" className="flex-shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -250,7 +282,6 @@ export default function Navbar() {
                   className="h-9 w-9 rounded-lg object-contain"
                 />
               </Link>
-              {/* League name â€” links to league home (/home) */}
               <Link href="/home" className="font-bold text-xl leading-none">
                 {leagueName ?? 'Fantasy League'}
               </Link>
@@ -330,7 +361,6 @@ export default function Navbar() {
                                     <span>{child.label}</span>
                                     <span aria-hidden="true">▸</span>
                                   </Link>
-
                                   <div className="absolute left-full top-0 invisible opacity-0 pointer-events-none group-hover/submenu:visible group-hover/submenu:opacity-100 group-hover/submenu:pointer-events-auto transition-opacity duration-150">
                                     <div className="min-w-[220px] league-surface border border-[var(--border)] rounded-md shadow-lg p-1">
                                       {(child.children || []).map((grand) => {
@@ -360,34 +390,57 @@ export default function Navbar() {
               </div>
             </div>
           </div>
+
+          {/* Right: theme + account */}
           <div className="flex items-center gap-2">
             <ThemeToggle />
+
+            {/* Desktop account area */}
             <div className="hidden md:flex items-center gap-2">
-              {sessionTeam || isAdmin ? (
+              {isLoggedIn ? (
                 <div className="relative" ref={accountMenuRef}>
-                  <div className="relative">
-                    <button
-                      aria-label="Account menu"
-                      className="rounded-full overflow-hidden border border-[var(--border)] w-8 h-8"
-                      style={sessionTeam ? { borderColor: getTeamColors(sessionTeam).secondary, borderWidth: 2 } : isSiteAdmin ? { borderColor: '#f59e0b', borderWidth: 2 } : undefined}
-                      onClick={() => setAccountMenuOpen((v) => !v)}
-                      title={sessionTeam || (isSiteAdmin ? 'Admin Mode' : isAdmin ? 'Commish Mode' : '')}
-                      aria-expanded={accountMenuOpen}
-                    >
-                      {sessionTeam ? (
-                        <Image src={getTeamLogoPath(sessionTeam)} alt={sessionTeam} width={32} height={32} />
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src="/assets/teams/East v West Logos/EvW Clancy logo.png" alt="League logo" width={32} height={32} className="w-full h-full object-contain" />
-                      )}
-                    </button>
-                    {/* Site admin badge */}
-                    {isSiteAdmin && !sessionTeam && (
-                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 border border-[var(--surface)] text-[8px] flex items-center justify-center font-bold text-amber-900" title="Admin Mode">A</span>
+                  <button
+                    aria-label="Account menu"
+                    className="rounded-full overflow-hidden border-2 border-[var(--accent)]/40 hover:border-[var(--accent)] transition-colors"
+                    style={isSiteAdmin ? { borderColor: '#f59e0b' } : undefined}
+                    onClick={() => setAccountMenuOpen((v) => !v)}
+                    title={displayName}
+                    aria-expanded={accountMenuOpen}
+                  >
+                    {sessionUser ? (
+                      <UserAvatar displayName={displayName} size={32} />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src="/assets/teams/East v West Logos/EvW Clancy logo.png" alt="Admin" width={32} height={32} className="w-8 h-8 object-contain" />
                     )}
-                  </div>
+                  </button>
+                  {/* Admin badge */}
+                  {isSiteAdmin && (
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 border border-[var(--surface)] text-[8px] flex items-center justify-center font-bold text-amber-900" title="Admin Mode">A</span>
+                  )}
+
                   {accountMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 league-surface border border-[var(--border)] rounded shadow-lg p-1">
+                    <div className="absolute right-0 mt-2 w-56 league-surface border border-[var(--border)] rounded shadow-lg p-1 z-50">
+
+                      {/* User identity */}
+                      {sessionUser && (
+                        <div className="px-3 py-2 border-b border-[var(--border)] mb-1">
+                          <div className="text-sm font-semibold text-[var(--text)] truncate">{displayName}</div>
+                          {activeTeam && (
+                            <div className="text-xs text-[var(--muted)] truncate mt-0.5">
+                              {activeTeam.teamName}
+                              {activeTeam.isCommissioner && (
+                                <span className="ml-1.5 text-[var(--accent)] font-medium">· Commissioner</span>
+                              )}
+                            </div>
+                          )}
+                          {!sessionUser.emailVerified && (
+                            <div className="text-xs text-amber-500 mt-0.5">⚠ Email not verified</div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Site admin tools */}
                       {isSiteAdmin && (
                         <>
                           <div className="px-2 py-1 text-xs font-semibold text-amber-500 uppercase tracking-wide">Admin Mode</div>
@@ -406,20 +459,16 @@ export default function Navbar() {
                           <div className="my-1 border-t border-[var(--border)]" />
                         </>
                       )}
-                      {isAdmin && (
+
+                      {/* Commissioner tools */}
+                      {activeTeam?.isCommissioner && (
                         <>
-                          {!isSiteAdmin && <div className="px-2 py-1 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Commish Mode</div>}
+                          <div className="px-2 py-1 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Commissioner</div>
                           <button
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
-                            onClick={() => { setAccountMenuOpen(false); router.push('/admin/newsletter'); }}
+                            onClick={() => { setAccountMenuOpen(false); router.push('/settings'); }}
                           >
-                            Newsletter
-                          </button>
-                          <button
-                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
-                            onClick={() => { setAccountMenuOpen(false); router.push('/admin/trades'); }}
-                          >
-                            Trades
+                            League Settings
                           </button>
                           <button
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
@@ -429,48 +478,49 @@ export default function Navbar() {
                           </button>
                           <button
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
-                            onClick={() => { setAccountMenuOpen(false); router.push('/admin/taxi'); }}
+                            onClick={() => { setAccountMenuOpen(false); router.push('/admin/newsletter'); }}
                           >
-                            Taxi
+                            Newsletter
                           </button>
-                          <button
-                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
-                            onClick={() => { setAccountMenuOpen(false); router.push('/admin/users'); }}
-                          >
-                            Users
-                          </button>
-                          {!isSiteAdmin && (
-                            <button
-                              className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
-                              onClick={() => { setAccountMenuOpen(false); handleAdminLogout(); }}
-                            >
-                              Exit Commish Mode
-                            </button>
-                          )}
                           <div className="my-1 border-t border-[var(--border)]" />
                         </>
                       )}
-                      {sessionTeam && (
+
+                      {/* Account actions */}
+                      {sessionUser && (
                         <>
                           <button
-                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)]"
-                            onClick={() => { setAccountMenuOpen(false); setChangeOpen(true); }}
+                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
+                            onClick={() => { setAccountMenuOpen(false); setChangePwOpen(true); }}
                           >
-                            Change PIN
+                            Change password
                           </button>
-                          <button
-                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)]"
-                            onClick={() => { setAccountMenuOpen(false); handleLogout(); }}
-                            disabled={authLoading}
-                          >
-                            Logout
-                          </button>
+                          {!sessionUser.emailVerified && (
+                            <button
+                              className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm text-amber-500"
+                              onClick={async () => {
+                                setAccountMenuOpen(false);
+                                await fetch('/api/auth/resend-verification', { method: 'POST' });
+                                alert('Verification email sent! Check your inbox.');
+                              }}
+                            >
+                              Resend verification email
+                            </button>
+                          )}
                         </>
                       )}
+                      <button
+                        className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm text-red-500"
+                        onClick={() => { setAccountMenuOpen(false); handleLogout(); }}
+                        disabled={authLoading}
+                      >
+                        Sign out
+                      </button>
                     </div>
                   )}
                 </div>
               ) : (
+                /* Not logged in */
                 <div className="relative" ref={accountMenuRef}>
                   <Button
                     type="button"
@@ -481,7 +531,7 @@ export default function Navbar() {
                     aria-expanded={accountMenuOpen}
                     aria-haspopup="menu"
                   >
-                    Sign In <span aria-hidden="true" className="text-xs">▾</span>
+                    Sign in <span aria-hidden="true" className="text-xs">▾</span>
                   </Button>
                   {accountMenuOpen && (
                     <div className="absolute right-0 mt-2 w-44 league-surface border border-[var(--border)] rounded shadow-lg p-1 z-50">
@@ -490,14 +540,14 @@ export default function Navbar() {
                         className="block rounded px-3 py-2 text-sm hover:bg-[var(--surface-strong)] text-[var(--text)]"
                         onClick={() => setAccountMenuOpen(false)}
                       >
-                        🏈 Team Login
+                        Sign in
                       </Link>
                       <Link
-                        href="/login?mode=commish"
+                        href="/register"
                         className="block rounded px-3 py-2 text-sm hover:bg-[var(--surface-strong)] text-[var(--text)]"
                         onClick={() => setAccountMenuOpen(false)}
                       >
-                        🏆 Commish Login
+                        Create account
                       </Link>
                       <div className="my-1 border-t border-[var(--border)]" />
                       <Link
@@ -512,6 +562,8 @@ export default function Navbar() {
                 </div>
               )}
             </div>
+
+            {/* Mobile hamburger */}
             <div className="md:hidden">
               <Button
                 id="mobile-menu-button"
@@ -523,26 +575,10 @@ export default function Navbar() {
                 aria-label="Toggle main menu"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               >
-                {/* Icon when menu is closed */}
-                <svg
-                  className={`${mobileMenuOpen ? 'hidden' : 'block'} h-6 w-6`}
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
+                <svg className={`${mobileMenuOpen ? 'hidden' : 'block'} h-6 w-6`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
-                {/* Icon when menu is open */}
-                <svg
-                  className={`${mobileMenuOpen ? 'block' : 'hidden'} h-6 w-6`}
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
+                <svg className={`${mobileMenuOpen ? 'block' : 'hidden'} h-6 w-6`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </Button>
@@ -551,12 +587,8 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu, show/hide based on menu state */}
-      <div
-        className={`${mobileMenuOpen ? 'block' : 'hidden'} md:hidden relative z-40`}
-        id="mobile-menu"
-        aria-labelledby="mobile-menu-button"
-      >
+      {/* Mobile menu */}
+      <div className={`${mobileMenuOpen ? 'block' : 'hidden'} md:hidden relative z-40`} id="mobile-menu" aria-labelledby="mobile-menu-button">
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
           {USER_NAV_CONFIG.map((item) => {
             const itemActive = isNavItemActive(item, pathname, currentQuery);
@@ -564,15 +596,7 @@ export default function Navbar() {
 
             if (!hasChildren && item.href) {
               return (
-                <LinkButton
-                  key={item.id}
-                  href={item.href}
-                  aria-current={isHrefActive(pathname, currentQuery, item.href) ? 'page' : undefined}
-                  variant={itemActive ? 'secondary' : 'ghost'}
-                  size="lg"
-                  className="block text-left"
-                  onClick={closeMobile}
-                >
+                <LinkButton key={item.id} href={item.href} aria-current={isHrefActive(pathname, currentQuery, item.href) ? 'page' : undefined} variant={itemActive ? 'secondary' : 'ghost'} size="lg" className="block text-left" onClick={closeMobile}>
                   {item.label}
                 </LinkButton>
               );
@@ -581,261 +605,109 @@ export default function Navbar() {
             const expanded = Boolean(mobileExpanded[item.id]);
             return (
               <div key={item.id} className="border border-[var(--border)] rounded-md">
-                <button
-                  type="button"
-                  className={`w-full flex items-center justify-between px-3 py-2 text-left ${itemActive ? 'text-[var(--text)] font-medium' : 'text-[var(--muted)]'}`}
-                  onClick={() => toggleMobileSection(item.id)}
-                  aria-expanded={expanded}
-                >
+                <button type="button" className={`w-full flex items-center justify-between px-3 py-2 text-left ${itemActive ? 'text-[var(--text)] font-medium' : 'text-[var(--muted)]'}`} onClick={() => toggleMobileSection(item.id)} aria-expanded={expanded}>
                   <span>{item.label}</span>
                   <span aria-hidden="true">{expanded ? '▾' : '▸'}</span>
                 </button>
-
                 {expanded && (
                   <div className="px-2 pb-2 space-y-1">
                     {(() => {
                       const bestChild = findBestActive(item.children || [], pathname, currentQuery);
                       return (item.children || []).map((child) => {
-                      const hasGrandChildren = Boolean(child.children && child.children.length > 0);
-                      const childBranchActive = bestChild?.id === child.id || (child.children || []).some((g) => g.id === bestChild?.id);
-
-                      if (!hasGrandChildren) {
-                        return (
-                          <Link
-                            key={child.id}
-                            href={child.href || '#'}
-                            onClick={closeMobile}
-                            className={`block rounded px-2 py-1.5 text-sm ${childBranchActive ? 'bg-[var(--surface-strong)] text-[var(--text)] font-medium' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}
-                          >
-                            {child.label}
-                          </Link>
-                        );
-                      }
-
-                      const childExpanded = Boolean(mobileExpanded[child.id]);
-                      const bestGrand = findBestActive(child.children || [], pathname, currentQuery);
-
-                      return (
-                        <div key={child.id} className="border border-[var(--border)] rounded-md">
-                          <div className="w-full flex items-center justify-between px-2 py-1.5 text-sm">
-                            <Link
-                              href={child.href || '#'}
-                              onClick={closeMobile}
-                              className={`${childBranchActive ? 'text-[var(--text)] font-medium' : 'text-[var(--text)]'} hover:underline`}
-                            >
+                        const hasGrandChildren = Boolean(child.children && child.children.length > 0);
+                        const childBranchActive = bestChild?.id === child.id || (child.children || []).some((g) => g.id === bestChild?.id);
+                        if (!hasGrandChildren) {
+                          return (
+                            <Link key={child.id} href={child.href || '#'} onClick={closeMobile} className={`block rounded px-2 py-1.5 text-sm ${childBranchActive ? 'bg-[var(--surface-strong)] text-[var(--text)] font-medium' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}>
                               {child.label}
                             </Link>
-                            <button
-                              type="button"
-                              className={`${childBranchActive ? 'text-[var(--text)] font-medium' : 'text-[var(--muted)]'}`}
-                              onClick={() => toggleMobileSection(child.id)}
-                              aria-expanded={childExpanded}
-                              aria-label={`Toggle ${child.label} submenu`}
-                            >
-                              <span aria-hidden="true">{childExpanded ? '▾' : '▸'}</span>
-                            </button>
-                          </div>
-
-                          {childExpanded && (
-                            <div className="px-2 pb-2 space-y-1">
-                              {(child.children || []).map((grand) => {
-                                const grandActive = bestGrand?.id === grand.id;
-                                return (
-                                  <Link
-                                    key={grand.id}
-                                    href={grand.href || '#'}
-                                    onClick={closeMobile}
-                                    className={`block rounded px-2 py-1.5 text-sm ${grandActive ? 'bg-[var(--surface-strong)] text-[var(--text)] font-medium' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}
-                                  >
-                                    {grand.label}
-                                  </Link>
-                                );
-                              })}
+                          );
+                        }
+                        const childExpanded = Boolean(mobileExpanded[child.id]);
+                        const bestGrand = findBestActive(child.children || [], pathname, currentQuery);
+                        return (
+                          <div key={child.id} className="border border-[var(--border)] rounded-md">
+                            <div className="w-full flex items-center justify-between px-2 py-1.5 text-sm">
+                              <Link href={child.href || '#'} onClick={closeMobile} className={`${childBranchActive ? 'text-[var(--text)] font-medium' : 'text-[var(--text)]'} hover:underline`}>{child.label}</Link>
+                              <button type="button" className={`${childBranchActive ? 'text-[var(--text)] font-medium' : 'text-[var(--muted)]'}`} onClick={() => toggleMobileSection(child.id)} aria-expanded={childExpanded} aria-label={`Toggle ${child.label} submenu`}>
+                                <span aria-hidden="true">{childExpanded ? '▾' : '▸'}</span>
+                              </button>
                             </div>
-                          )}
-                        </div>
-                      );
-                    });
+                            {childExpanded && (
+                              <div className="px-2 pb-2 space-y-1">
+                                {(child.children || []).map((grand) => {
+                                  const grandActive = bestGrand?.id === grand.id;
+                                  return (
+                                    <Link key={grand.id} href={grand.href || '#'} onClick={closeMobile} className={`block rounded px-2 py-1.5 text-sm ${grandActive ? 'bg-[var(--surface-strong)] text-[var(--text)] font-medium' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}>
+                                      {grand.label}
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
                     })()}
                   </div>
                 )}
               </div>
             );
           })}
-          <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between">
-            {sessionTeam || isAdmin ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <button
-                    aria-label="Account menu"
-                    className="rounded-full overflow-hidden border border-[var(--border)] w-8 h-8"
-                    style={sessionTeam ? { borderColor: getTeamColors(sessionTeam).secondary, borderWidth: 2 } : undefined}
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      if (sessionTeam) setChangeOpen(true);
-                    }}
-                    title={sessionTeam || (isSiteAdmin ? 'Admin Mode' : isAdmin ? 'Commish Mode' : '')}
-                  >
-                    {sessionTeam ? (
-                      <Image src={getTeamLogoPath(sessionTeam)} alt={sessionTeam} width={32} height={32} />
-                    ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src="/assets/teams/East v West Logos/EvW Clancy logo.png" alt="League logo" width={32} height={32} className="w-full h-full object-contain" />
-                    )}
-                  </button>
-                  {sessionTeam && (
-                    <Button size="sm" variant="ghost" onClick={() => { setMobileMenuOpen(false); handleLogout(); }}>Logout</Button>
-                  )}
-                  {isSiteAdmin && (
-                    <Button size="sm" variant="ghost" onClick={() => { setMobileMenuOpen(false); handleSiteAdminLogout(); }}>Exit Admin Mode</Button>
-                  )}
-                  {isAdmin && !isSiteAdmin && (
-                    <Button size="sm" variant="ghost" onClick={() => { setMobileMenuOpen(false); handleAdminLogout(); }}>Exit Commish Mode</Button>
-                  )}
-                </div>
-              </>
+
+          {/* Mobile account area */}
+          <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between gap-2">
+            {isLoggedIn ? (
+              <div className="flex items-center gap-2 w-full">
+                {sessionUser && <UserAvatar displayName={displayName} size={28} />}
+                <span className="text-sm text-[var(--text)] truncate flex-1">{displayName}</span>
+                {isSiteAdmin ? (
+                  <Button size="sm" variant="ghost" onClick={() => { closeMobile(); handleSiteAdminLogout(); }}>Exit Admin</Button>
+                ) : (
+                  <Button size="sm" variant="ghost" onClick={() => { closeMobile(); handleLogout(); }}>Sign out</Button>
+                )}
+              </div>
             ) : (
-              <LinkButton href={`/login?next=${encodeURIComponent(pathname)}`} variant="ghost" size="sm" className="w-full text-left" onClick={() => setMobileMenuOpen(false)}>
-                Log In
-              </LinkButton>
+              <div className="flex gap-2 w-full">
+                <LinkButton href={`/login?next=${encodeURIComponent(pathname)}`} variant="ghost" size="sm" className="flex-1 text-center" onClick={closeMobile}>
+                  Sign in
+                </LinkButton>
+                <LinkButton href="/register" variant="primary" size="sm" className="flex-1 text-center" onClick={closeMobile}>
+                  Sign up
+                </LinkButton>
+              </div>
             )}
           </div>
         </div>
       </div>
     </nav>
-    {/* Commish Login Modal */}
-    <Modal open={adminOpen} onClose={() => setAdminOpen(false)} title="Commish Login" autoFocusPanel={false}>
-      <form onSubmit={submitAdmin} noValidate className="space-y-3">
-        <div>
-          <Label htmlFor="admin-pin">Enter PIN</Label>
-          <input
-            id="admin-pin"
-            type="password"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            className="w-full league-surface border border-[var(--border)] rounded px-3 py-2"
-            placeholder="PIN"
-            autoFocus
-            maxLength={6}
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-          />
-        </div>
-        {adminError && <div className="text-red-500 text-sm">{adminError}</div>}
-        <div className="flex items-center gap-2 justify-end">
-          <Button type="button" variant="secondary" onClick={() => setAdminOpen(false)}>Cancel</Button>
-          <Button type="submit" disabled={adminLoading || !pin}>Enter Admin</Button>
-        </div>
-      </form>
-    </Modal>
 
-    {/* Change PIN Modal */}
-    <Modal open={changeOpen} onClose={() => setChangeOpen(false)} title="Change PIN" autoFocusPanel={false}>
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setChangeMsg(null);
-          setChangeLoading(true);
-          try {
-            const r = await fetch('/api/auth/change-pin', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ currentPin, newPin }),
-            });
-            if (!r.ok) {
-              const j = await r.json().catch(() => ({}));
-              throw new Error(j?.error || 'Failed to change PIN');
-            }
-            setChangeMsg('PIN updated. Please sign in again.');
-          } catch (err) {
-            setChangeMsg(err instanceof Error ? err.message : 'Failed to change PIN');
-          } finally {
-            setChangeLoading(false);
-          }
-        }}
-        noValidate
-        autoComplete="off"
-        className="space-y-3"
-      >
+    {/* Change Password Modal */}
+    <Modal open={changePwOpen} onClose={() => { setChangePwOpen(false); setChangePwMsg(null); setChangePwError(false); setCurrentPw(''); setNewPw(''); setConfirmPw(''); }} title="Change password" autoFocusPanel={false}>
+      <form onSubmit={handleChangePw} noValidate className="space-y-4">
         <div>
-          <Label htmlFor="cur-pin">Current PIN</Label>
-          <input
-            id="cur-pin"
-            type="tel"
-            inputMode="numeric"
-            autoComplete="off"
-            name="current-pin"
-            spellCheck={false}
-            autoCorrect="off"
-            autoCapitalize="off"
-            data-lpignore="true"
-            data-1p-ignore="true"
-            data-bwignore="true"
-            pattern="[0-9]*"
-            className="w-full league-surface border border-[var(--border)] rounded px-3 py-2"
-            placeholder="Current PIN"
-            maxLength={12}
-            ref={currentPinRef}
-            value={currentPin}
-            onChange={(e) => {
-              const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 12);
-              setCurrentPin(v);
-              // Keep focus in this field in case a manager tries to steal it
-              requestAnimationFrame(() => {
-                const el = currentPinRef.current;
-                if (el) {
-                  const end = el.value.length;
-                  try { el.setSelectionRange(end, end); } catch {}
-                  el.focus();
-                }
-              });
-            }}
-          />
+          <Label htmlFor="cur-pw">Current password</Label>
+          <input id="cur-pw" type="password" autoComplete="current-password" className="w-full league-surface border border-[var(--border)] rounded px-3 py-2 mt-1" placeholder="Current password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} />
         </div>
         <div>
-          <Label htmlFor="new-pin">New PIN</Label>
-          <input
-            id="new-pin"
-            type="tel"
-            inputMode="numeric"
-            autoComplete="off"
-            name="new-pin"
-            spellCheck={false}
-            autoCorrect="off"
-            autoCapitalize="off"
-            data-lpignore="true"
-            data-1p-ignore="true"
-            data-bwignore="true"
-            pattern="[0-9]*"
-            className="w-full league-surface border border-[var(--border)] rounded px-3 py-2"
-            placeholder="New PIN (4–12 digits)"
-            maxLength={12}
-            ref={newPinRef}
-            value={newPin}
-            onChange={(e) => {
-              const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 12);
-              setNewPin(v);
-              // Force focus to remain in New PIN field
-              requestAnimationFrame(() => {
-                const el = newPinRef.current;
-                if (el) {
-                  const end = el.value.length;
-                  try { el.setSelectionRange(end, end); } catch {}
-                  el.focus();
-                }
-              });
-            }}
-          />
+          <Label htmlFor="new-pw">New password</Label>
+          <input id="new-pw" type="password" autoComplete="new-password" className="w-full league-surface border border-[var(--border)] rounded px-3 py-2 mt-1" placeholder="At least 8 characters" value={newPw} onChange={(e) => setNewPw(e.target.value)} />
         </div>
-        {changeMsg && <div className="text-sm" role="status">{changeMsg}</div>}
+        <div>
+          <Label htmlFor="confirm-pw">Confirm new password</Label>
+          <input id="confirm-pw" type="password" autoComplete="new-password" className="w-full league-surface border border-[var(--border)] rounded px-3 py-2 mt-1" placeholder="Repeat new password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} />
+        </div>
+        {changePwMsg && (
+          <div className={`text-sm ${changePwError ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`} role="status">{changePwMsg}</div>
+        )}
         <div className="flex items-center gap-2 justify-end">
-          <Button type="button" variant="secondary" onClick={() => setChangeOpen(false)}>Close</Button>
-          <Button type="submit" disabled={changeLoading || !currentPin || !newPin}>Update PIN</Button>
+          <Button type="button" variant="secondary" onClick={() => setChangePwOpen(false)}>Cancel</Button>
+          <Button type="submit" disabled={changePwLoading || !currentPw || !newPw || !confirmPw}>
+            {changePwLoading ? 'Updating…' : 'Update password'}
+          </Button>
         </div>
       </form>
     </Modal>
     </>
   );
 }
-
-
