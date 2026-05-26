@@ -3,18 +3,15 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { TEAM_NAMES } from '@/lib/constants/league';
 import { getTeamLogoPath, getTeamColorStyle, getTeamColors } from '@/lib/utils/team-utils';
 import { Card, CardContent } from '@/components/ui/Card';
 import Label from '@/components/ui/Label';
 import Button from '@/components/ui/Button';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-
 type Tab = 'team' | 'commish';
 
-function LoginContent() {
+function LoginContent({ initialTeams }: { initialTeams: string[] }) {
   const search = useSearchParams();
   const router = useRouter();
   const initialTab: Tab = search?.get('mode') === 'commish' ? 'commish' : 'team';
@@ -125,7 +122,7 @@ function LoginContent() {
               <div>
                 <Label className="mb-2 block">Select Your Team</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {TEAM_NAMES.map((team) => {
+                  {initialTeams.map((team) => {
                     const active = selectedTeam === team;
                     const style = getTeamColorStyle(team, 'secondary');
                     return (

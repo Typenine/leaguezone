@@ -5,17 +5,32 @@ import { isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { getAllLeagues } from '@/lib/server/league-config';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
-import { LogoutButton, SwitchLeagueButton } from './SuperAdminClient';
+import { LogoutButton, SwitchLeagueButton, DedupInvitesButton, DeleteLeagueButton } from './SuperAdminClient';
 
 export const dynamic = 'force-dynamic';
 
 async function getMemberCounts(): Promise<Record<string, { total: number; claimed: number }>> {
   try {
     const db = getDb();
+    // Use ROW_NUMBER to deduplicate per (roster_id or team_name), matching the
+    // same logic used on the home page. This prevents double-counted members
+    // when the setup wizard was run more than once.
     const res = await db.execute(sql`
-      SELECT league_id::text, COUNT(*) AS total,
-             COUNT(claimed_at) AS claimed
-      FROM league_invites
+      WITH ranked AS (
+        SELECT
+          league_id::text AS league_id,
+          claimed_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY league_id, COALESCE(roster_id::text, team_name)
+            ORDER BY claimed_at DESC NULLS LAST, created_at ASC
+          ) AS rn
+        FROM league_invites
+      )
+      SELECT
+        league_id,
+        COUNT(*) FILTER (WHERE rn = 1)                  AS total,
+        COUNT(*) FILTER (WHERE rn = 1 AND claimed_at IS NOT NULL) AS claimed
+      FROM ranked
       GROUP BY league_id
     `);
     const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
@@ -147,7 +162,7 @@ export default async function SuperAdminPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mb-2">
                     <SwitchLeagueButton
                       leagueId={league.id}
                       leagueName={league.name}
@@ -160,6 +175,10 @@ export default async function SuperAdminPage() {
                       label="Settings"
                       variant="secondary"
                     />
+                  </div>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <DedupInvitesButton leagueId={league.id} />
+                    <DeleteLeagueButton leagueId={league.id} leagueName={league.name} />
                   </div>
                 </div>
               );

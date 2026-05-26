@@ -32,6 +32,7 @@ type InviteRow = {
   teamName: string;
   rosterId: number | null;
   claimedAt: string | null;
+  inviteCode: string;
 };
 
 async function getLeagueData(leagueId?: string): Promise<LeagueRow | null> {
@@ -70,7 +71,7 @@ async function getLeagueMembers(leagueId: string): Promise<InviteRow[]> {
     // claimed duplicate is kept over an unclaimed duplicate.
     const res = await db.execute(sql`
       SELECT DISTINCT ON (COALESCE(roster_id::text, team_name))
-        id, team_name, roster_id, claimed_at
+        id, team_name, roster_id, claimed_at, invite_code
       FROM league_invites
       WHERE league_id = ${leagueId}::uuid
       ORDER BY COALESCE(roster_id::text, team_name),
@@ -84,6 +85,7 @@ async function getLeagueMembers(leagueId: string): Promise<InviteRow[]> {
         teamName: (r.team_name as string) || '',
         rosterId: (r.roster_id as number | null) ?? null,
         claimedAt: (r.claimed_at as string | null) ?? null,
+        inviteCode: (r.invite_code as string) || '',
       }))
       .sort((a, b) => (a.rosterId ?? 999) - (b.rosterId ?? 999) || a.teamName.localeCompare(b.teamName));
   } catch {
@@ -190,7 +192,7 @@ export default async function HomePage() {
                   )}
 
                   {/* Invite button — always visible so commissioners can re-send */}
-                  <InviteButton teamName={member.teamName} />
+                  <InviteButton teamName={member.teamName} inviteCode={member.inviteCode} />
                 </li>
               );
             })}

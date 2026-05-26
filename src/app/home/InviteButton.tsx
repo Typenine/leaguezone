@@ -4,13 +4,16 @@ import { useState } from 'react';
 
 interface InviteButtonProps {
   teamName: string;
+  inviteCode: string;
 }
 
-export function InviteButton({ teamName }: InviteButtonProps) {
+export function InviteButton({ teamName, inviteCode }: InviteButtonProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    const url = `${window.location.origin}/login?team=${encodeURIComponent(teamName)}`;
+    // Link goes to /join/[code] — prompts new users to create a PIN,
+    // and returning users to sign in directly with their team pre-selected.
+    const url = `${window.location.origin}/join/${inviteCode}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);

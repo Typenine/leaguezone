@@ -181,6 +181,10 @@ export default function HistoryContent() {
 
   // Regular season winners count per franchise (by team name)
   const [regularSeasonWinnerCounts, setRegularSeasonWinnerCounts] = useState<Record<string, number>>({});
+  // Championship counts keyed by ownerId (derived from live Sleeper bracket data)
+  const [champCountsByOwner, setChampCountsByOwner] = useState<Record<string, number>>({});
+  // Championship years keyed by ownerId
+  const [champYearsByOwner, setChampYearsByOwner] = useState<Record<string, string[]>>({});
   const DEFAULT_TIMEOUT = 15000;
   const AWARDS_TIMEOUT = 30000;
 
@@ -390,14 +394,7 @@ export default function HistoryContent() {
         }
 
         // Build FranchiseSummary list using split records for accurate regular-season-only stats
-        const champCounts: Record<string, number> = {};
-        Object.values(CHAMPIONS).forEach((c) => {
-          if (c.champion && c.champion !== 'TBD') {
-            champCounts[c.champion] = (champCounts[c.champion] || 0) + 1;
-          }
-        });
-
-        // Use split records for regular-season-only wins/losses/PF/PA
+        // Championships will be patched in after winnersByYear is fetched below
         const franchisesDerived: FranchiseSummary[] = Object.entries(splits).map(([ownerId, s]) => {
           const reg = s.regular;
           const games = reg.wins + reg.losses + reg.ties;
@@ -412,7 +409,7 @@ export default function HistoryContent() {
             totalPA: reg.pa,
             avgPF: games > 0 ? reg.pf / games : 0,
             avgPA: games > 0 ? reg.pa / games : 0,
-            championships: champCounts[teamName] || 0,
+            championships: 0, // patched after bracket data loads
           };
         });
         setFranchises(franchisesDerived);
@@ -454,6 +451,36 @@ export default function HistoryContent() {
           const opts = y === CURRENT_SEASON ? optsFresh : optsCached;
           winnersByYear[y] = lid ? await getLeagueWinnersBracket(lid, opts).catch(() => []) : [];
         }));
+
+        // Count championships by ownerId using live Sleeper bracket data.
+        // The championship game is the game with the highest round number and m=1.
+        const champByOwner: Record<string, number> = {};
+        const champYearsLocal: Record<string, string[]> = {};
+        for (const y of yearsOrdered) {
+          const games = winnersByYear[y] || [];
+          if (games.length === 0) continue;
+          const mapByRoster = rosterToOwnerByYear[y] || new Map();
+          const maxRound = Math.max(...games.map((g) => g.r ?? 0));
+          if (maxRound <= 0) continue;
+          const finalGames = games.filter((g) => g.r === maxRound);
+          // m=1 is the championship game; m=2 is typically 3rd-place game
+          const champGame = finalGames.find((g) => g.m === 1) ?? finalGames[0];
+          if (!champGame?.w) continue;
+          const info = mapByRoster.get(champGame.w);
+          if (!info) continue;
+          champByOwner[info.ownerId] = (champByOwner[info.ownerId] || 0) + 1;
+          if (!champYearsLocal[info.ownerId]) champYearsLocal[info.ownerId] = [];
+          champYearsLocal[info.ownerId].push(y);
+        }
+
+        // Patch championship counts back into the franchise summaries
+        if (!cancelled) {
+          setFranchises((prev) =>
+            prev.map((f) => ({ ...f, championships: champByOwner[f.ownerId] || 0 }))
+          );
+          setChampCountsByOwner(champByOwner);
+          setChampYearsByOwner(champYearsLocal);
+        }
 
         // Count unique participants per season, then aggregate by owner
         const ownerCounts: Record<string, number> = {};
@@ -1397,53 +1424,41 @@ export default function HistoryContent() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border)]">
-                    {/* Championship counts */}
-                    {(() => {
-                      // Create a counts object
-                      const counts: Record<string, number> = {};
-                      
-                      // Count championships by team
-                      Object.values(CHAMPIONS).forEach((data) => {
-                        if (data.champion !== 'TBD') {
-                          counts[data.champion] = (counts[data.champion] || 0) + 1;
-                        }
-                      });
-                      
-                      // Convert to array, sort, and render all teams with logos and color accents
-                      return Object.entries(counts)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([teamName, count], index) => {
-                          const colors = getTeamColors(teamName);
-                          const ownerId = ownerByTeamName[teamName];
-                          const rid = ownerId ? ownerToRosterId[ownerId] : undefined;
-                          const nameLink = rid !== undefined ? (
-                            <Link href={`/teams/${rid}`} className="text-[var(--text)] hover:underline">{teamName}</Link>
-                          ) : (
-                            <span className="text-[var(--text)]">{teamName}</span>
-                          );
-                          return (
-                            <tr key={teamName} className="border-l-4" style={{ borderLeftColor: colors.primary, backgroundColor: hexToRgba(colors.primary, 0.06) }}>
-                              <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
-                              <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                    <Image src={getTeamLogoPath(teamName)} alt={`${teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
-                                  </div>
-                                  {nameLink}
+                    {/* Championship counts — keyed by ownerId so renames don't break tallies */}
+                    {franchises
+                      .filter((f) => (champCountsByOwner[f.ownerId] || 0) > 0)
+                      .sort((a, b) => (champCountsByOwner[b.ownerId] || 0) - (champCountsByOwner[a.ownerId] || 0))
+                      .map((f, index) => {
+                        const count = champCountsByOwner[f.ownerId] || 0;
+                        const colors = getTeamColors(f.teamName);
+                        const rid = ownerToRosterId[f.ownerId];
+                        const nameLink = rid !== undefined ? (
+                          <Link href={`/teams/${rid}`} className="text-[var(--text)] hover:underline">{f.teamName}</Link>
+                        ) : (
+                          <span className="text-[var(--text)]">{f.teamName}</span>
+                        );
+                        return (
+                          <tr key={f.ownerId} className="border-l-4" style={{ borderLeftColor: colors.primary, backgroundColor: hexToRgba(colors.primary, 0.06) }}>
+                            <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)]">{index + 1}</td>
+                            <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
+                              <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
+                                  <Image src={getTeamLogoPath(f.teamName)} alt={`${f.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
                                 </div>
-                              </td>
-                              <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)] text-center">
-                                <div className="flex items-center justify-center gap-2">
-                                  {Array.from({ length: count }).map((_, i) => (
-                                    <TrophyIcon key={i} className="w-6 h-6" />
-                                  ))}
-                                  <span className="sr-only">{count} {count === 1 ? 'title' : 'titles'}</span>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        });
-                    })()}
+                                {nameLink}
+                              </div>
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap text-sm text-[var(--muted)] text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                {Array.from({ length: count }).map((_, i) => (
+                                  <TrophyIcon key={i} className="w-6 h-6" />
+                                ))}
+                                <span className="sr-only">{count} {count === 1 ? 'title' : 'titles'}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
                 )}
@@ -2171,13 +2186,7 @@ export default function HistoryContent() {
                           <p>
                             Titles:
                             {' '}
-                            {(() => {
-                              const years = Object.entries(CHAMPIONS)
-                                .filter(([, c]) => c.champion === f.teamName)
-                                .map(([year]) => year)
-                                .sort();
-                              return years.join(', ');
-                            })()}
+                            {(champYearsByOwner[f.ownerId] || []).slice().sort().join(', ')}
                           </p>
                         )}
                         <p>2nd Place: {ruCount}</p>
