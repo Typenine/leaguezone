@@ -35,7 +35,7 @@ function buildSummary(transactions: LeagueTransaction[]): TransactionsSummary {
 
 export async function GET() {
   try {
-    const seasons = listAllSeasons();
+    const seasons = await listAllSeasons();
 
     const trades = await fetchTradesAllTime();
     const ledger = await buildTransactionLedger();

@@ -71,8 +71,8 @@ export default async function TransactionsPage({
   const position = Array.isArray(positionParamRaw) ? positionParamRaw[0] : positionParamRaw;
   const txnType = Array.isArray(typeParamRaw) ? typeParamRaw[0] : typeParamRaw;
 
-  // Determine seasons list
-  const allSeasons = listAllSeasons();
+  // Determine seasons list (async — reads DB for league IDs)
+  const allSeasons = await listAllSeasons();
 
   // Build data server-side
   let ledger: LeagueTransaction[] = [];

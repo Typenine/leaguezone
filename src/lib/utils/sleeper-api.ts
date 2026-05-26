@@ -333,11 +333,16 @@ export async function getNFLState(ttlMs: number = NFL_STATE_TTL_DEFAULT, options
 
 /**
  * Build a dynamic, unique mapping of season year -> leagueId.
- * - Current season resolves to LEAGUE_IDS.CURRENT
- * - Previous season (current-1) resolves from LEAGUE_IDS.PREVIOUS when available
- * - Older seasons from PREVIOUS are included only if not already present
+ * - Current season resolves to LEAGUE_IDS.CURRENT (or leagueIdsConfig.current when provided)
+ * - Previous seasons come from LEAGUE_IDS.PREVIOUS (or leagueIdsConfig.previous)
+ *
+ * Pass `leagueIdsConfig` from server-side code (e.g. getLeagueIdsFromDb()) to
+ * avoid relying on LEAGUE_IDS which is empty server-side when env var not set.
  */
-export async function buildYearToLeagueMapUnique(options?: SleeperFetchOptions): Promise<Record<string, string>> {
+export async function buildYearToLeagueMapUnique(
+  options?: SleeperFetchOptions,
+  leagueIdsConfig?: { current: string; previous: Record<string, string> },
+): Promise<Record<string, string>> {
   let seasonNum = new Date().getFullYear();
   try {
     const st = await getNFLState(undefined, options);
@@ -345,25 +350,22 @@ export async function buildYearToLeagueMapUnique(options?: SleeperFetchOptions):
     if (Number.isFinite(s)) seasonNum = s;
   } catch {}
 
+  const currentId = leagueIdsConfig?.current ?? LEAGUE_IDS.CURRENT;
+  const prevMap: Record<string, string> = leagueIdsConfig?.previous ?? ((LEAGUE_IDS.PREVIOUS as Record<string, string>) || {});
+
   const map: Record<string, string> = {};
-  if (LEAGUE_IDS.CURRENT) map[String(seasonNum)] = LEAGUE_IDS.CURRENT;
+  if (currentId) map[String(seasonNum)] = currentId;
 
   // Offseason backfill: when the calendar year advances before LEAGUE_IDS rotates,
   // still resolve last season string to CURRENT league id so queries for the last
   // completed season (e.g., '2025') continue to work.
   const lastSeasonStr = String(seasonNum - 1);
-  if (LEAGUE_IDS.CURRENT && !map[lastSeasonStr]) {
-    const prevMapProbe = (LEAGUE_IDS.PREVIOUS as Record<string, string | undefined>) || {};
-    if (!prevMapProbe[lastSeasonStr]) {
-      map[lastSeasonStr] = LEAGUE_IDS.CURRENT;
-    }
+  if (currentId && !map[lastSeasonStr] && !prevMap[lastSeasonStr]) {
+    map[lastSeasonStr] = currentId;
   }
 
-  const prevMap = LEAGUE_IDS.PREVIOUS as Record<string, string | undefined>;
-  const prevYear = String(seasonNum - 1);
-  if (prevMap?.[prevYear]) map[prevYear] = prevMap[prevYear] as string;
-
-  for (const [y, lid] of Object.entries(prevMap || {})) {
+  if (prevMap[lastSeasonStr]) map[lastSeasonStr] = prevMap[lastSeasonStr];
+  for (const [y, lid] of Object.entries(prevMap)) {
     if (!(y in map) && lid) map[y] = lid;
   }
   return map;

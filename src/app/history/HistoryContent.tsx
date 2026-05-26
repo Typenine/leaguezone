@@ -790,10 +790,15 @@ export default function HistoryContent() {
         <div>
           <h2 className="text-2xl font-bold mb-6">League Champions</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Object.entries(CHAMPIONS).map(([year, data]) => {
-              const merged = podiumsByYear[year]
-                ? podiumsByYear[year]
-                : (data as { champion: string; runnerUp: string; thirdPlace: string });
+            {allYears.map((year) => {
+              // Prefer auto-derived podiums from Sleeper brackets; CHAMPIONS can override
+              const base = CHAMPIONS[year as keyof typeof CHAMPIONS];
+              const derived = podiumsByYear[year];
+              // Skip years where we have no data yet
+              if (!derived && !base) return null;
+              const merged = derived
+                ? { ...derived, ...(base ? { champion: base.champion !== 'TBD' ? base.champion : derived.champion } : {}) }
+                : (base as { champion: string; runnerUp: string; thirdPlace: string });
               const { champion, runnerUp, thirdPlace } = merged;
               const renderSeasonLine = (teamName: string, year: string) => {
                 if (!teamName || teamName === 'TBD') return <span className="text-[var(--muted)] text-xs">—</span>;
