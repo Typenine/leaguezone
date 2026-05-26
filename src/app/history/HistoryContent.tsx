@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getTeamLogoPath, getTeamColorStyle, getTeamColors } from '@/lib/utils/team-utils';
-import { CHAMPIONS, LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
+import { CHAMPIONS, CURRENT_SEASON, LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
 import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
 import Card, { CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -118,14 +118,14 @@ export default function HistoryContent() {
   const [awardsByYear, setAwardsByYear] = useState<Record<string, SeasonAwards>>({});
   const [awardsLoading, setAwardsLoading] = useState(true);
   const [awardsError, setAwardsError] = useState<string | null>(null);
-  // Weekly Highs tab state
+  // Weekly Highs tab state — year list built from current season + previous seasons in DB
   const allYears = useMemo(() => {
     const prev = Object.keys(LEAGUE_IDS.PREVIOUS || {});
-    const ys = ['2025', ...prev];
+    const ys = Array.from(new Set([CURRENT_SEASON, ...prev]));
     // sort desc (most recent first)
     return ys.sort((a, b) => b.localeCompare(a));
   }, []);
-  const [weeklyTabYear, setWeeklyTabYear] = useState<string>('2025');
+  const [weeklyTabYear, setWeeklyTabYear] = useState<string>(CURRENT_SEASON);
   const [weeklyHighs, setWeeklyHighs] = useState<WeeklyHighByWeekEntry[]>([]);
   const [weeklyTabLoading, setWeeklyTabLoading] = useState(false);
   const [weeklyTabError, setWeeklyTabError] = useState<string | null>(null);
@@ -190,7 +190,7 @@ export default function HistoryContent() {
     let cancelled = false;
     async function loadPodiums() {
       try {
-        const years = ['2025', '2024', '2023'];
+        const years = allYears; // dynamic: current + previous seasons from DB
         const podiums: Record<string, { champion: string; runnerUp: string; thirdPlace: string }> = {};
         const statsPerYear: Record<string, Record<string, { wins: number; losses: number; ties: number; fpts: number; rosterId: number }>> = {};
         for (const y of years) {
@@ -232,7 +232,7 @@ export default function HistoryContent() {
   }, []);
   
   // Brackets state
-  const [bracketYear, setBracketYear] = useState('2025');
+  const [bracketYear, setBracketYear] = useState(CURRENT_SEASON);
   const [bracketLoading, setBracketLoading] = useState(false);
   const [bracketError, setBracketError] = useState<string | null>(null);
   const [winnersBracket, setWinnersBracket] = useState<SleeperBracketGameWithScore[]>([]);
@@ -316,33 +316,52 @@ export default function HistoryContent() {
         const needWeeklyHighs = activeTab === 'franchises';
         const needSplitRecords = activeTab === 'leaderboards' || activeTab === 'franchises';
         const needTopWeeks = activeTab === 'leaderboards';
-        const league2025 = getLeagueIdForSeason('2025');
-        if (!league2025) throw new Error('No league ID configured for 2025');
-        const [teams2025, teams2024, teams2023, wh2025, wh2024, wh2023, splits, topReg, topPO, topAll] = await Promise.all([
-          getTeamsData(league2025, optsFresh),
-          getTeamsData(LEAGUE_IDS.PREVIOUS['2024'], optsCached),
-          getTeamsData(LEAGUE_IDS.PREVIOUS['2023'], optsCached),
-          // Weekly highs by season -> aggregate to tally (aligns exactly with table logic)
-          needWeeklyHighs ? getWeeklyHighsBySeason('2025', optsFresh) : Promise.resolve([] as WeeklyHighByWeekEntry[]),
-          needWeeklyHighs ? getWeeklyHighsBySeason('2024', optsCached) : Promise.resolve([] as WeeklyHighByWeekEntry[]),
-          needWeeklyHighs ? getWeeklyHighsBySeason('2023', optsCached) : Promise.resolve([] as WeeklyHighByWeekEntry[]),
-          // Split records: only needed for Leaderboards tab
+
+        // Build dynamic season list: current season + all previous seasons from DB
+        const yearsOrdered: string[] = allYears; // already sorted desc
+        const currentLeagueId = getLeagueIdForSeason(CURRENT_SEASON);
+        if (!currentLeagueId) throw new Error('No league ID found. Complete the setup wizard first.');
+
+        // Fetch teams for all available seasons concurrently
+        const teamsByYearArr = await Promise.all(
+          yearsOrdered.map(async (year) => {
+            const lid = getLeagueIdForSeason(year);
+            if (!lid) return { year, teams: [] as TeamData[] };
+            const opts = year === CURRENT_SEASON ? optsFresh : optsCached;
+            const teams = await getTeamsData(lid, opts).catch(() => [] as TeamData[]);
+            return { year, teams };
+          })
+        );
+        if (cancelled) return;
+        const allTeams: Record<string, TeamData[]> = {};
+        for (const { year, teams } of teamsByYearArr) allTeams[year] = teams;
+
+        // Weekly highs: fetch all seasons concurrently when needed
+        let allWeeklyHighRows: WeeklyHighByWeekEntry[] = [];
+        if (needWeeklyHighs) {
+          const whArr = await Promise.all(
+            yearsOrdered.map(async (year) => {
+              const lid = getLeagueIdForSeason(year);
+              if (!lid) return [];
+              const opts = year === CURRENT_SEASON ? optsFresh : optsCached;
+              return getWeeklyHighsBySeason(year, opts).catch(() => [] as WeeklyHighByWeekEntry[]);
+            })
+          );
+          allWeeklyHighRows = whArr.flat();
+        }
+        if (cancelled) return;
+
+        const [splits, topReg, topPO, topAll] = await Promise.all([
           needSplitRecords ? getSplitRecordsAllTime(optsCached) : Promise.resolve({} as Record<string, { teamName: string; regular: SplitRecord; playoffs: SplitRecord; toilet: SplitRecord }>),
-          // Top weeks: regular + playoffs
           needTopWeeks ? getTopScoringWeeksAllTime({ category: 'regular', top: 10 }, optsCached) : Promise.resolve([] as TopScoringWeekEntry[]),
           needTopWeeks ? getTopScoringWeeksAllTime({ category: 'playoffs', top: 10 }, optsCached) : Promise.resolve([] as TopScoringWeekEntry[]),
           needTopWeeks ? getTopScoringWeeksAllTime({ category: 'all', top: 10 }, optsCached) : Promise.resolve([] as TopScoringWeekEntry[]),
         ]);
         if (cancelled) return;
-        // Build owner -> rosterId and owner -> teamName mapping preferring 2025, then 2024, then 2023
+
+        // Build owner -> rosterId and owner -> teamName mapping (prefer most recent season)
         const ownerRosterMap: Record<string, number> = {};
         const ownerNameMap: Record<string, string> = {};
-        const yearsOrdered: string[] = ['2025', '2024', '2023'];
-        const allTeams: Record<string, TeamData[]> = {
-          '2025': teams2025 || [],
-          '2024': teams2024 || [],
-          '2023': teams2023 || [],
-        };
         for (const year of yearsOrdered) {
           const teams = allTeams[year] || [];
           for (const t of teams) {
@@ -354,7 +373,7 @@ export default function HistoryContent() {
         if (needWeeklyHighs) {
           const tallyTeam: Record<string, number> = {};
           const tallyOwner: Record<string, number> = {};
-          for (const row of [...(wh2025 || []), ...(wh2024 || []), ...(wh2023 || [])]) {
+          for (const row of allWeeklyHighRows) {
             const tname = row?.teamName || '';
             if (tname) tallyTeam[tname] = (tallyTeam[tname] || 0) + 1;
             const oid = row?.ownerId || '';
@@ -398,10 +417,9 @@ export default function HistoryContent() {
         });
         setFranchises(franchisesDerived);
 
-        // Compute Regular Season Winners per franchise (previous completed seasons)
+        // Compute Regular Season Winners per franchise (all available seasons)
         const rsCounts: Record<string, number> = {};
-        const rsYears: string[] = ['2025', '2024', '2023'];
-        for (const y of rsYears) {
+        for (const y of yearsOrdered) {
           const teams = allTeams[y] || [];
           if (!teams || teams.length === 0) continue;
           const sorted = [...teams].sort((a, b) => {
@@ -416,31 +434,30 @@ export default function HistoryContent() {
         }
         setRegularSeasonWinnerCounts(rsCounts);
 
-        // Compute Most Playoff Appearances using winners bracket participants per season (include 2025 now completed)
-        const previousYears: string[] = ['2025', '2024', '2023'];
+        // Compute Most Playoff Appearances using winners bracket participants per season
         const leagueIdsByYear: Record<string, string> = {};
-        for (const y of previousYears) {
+        for (const y of yearsOrdered) {
           const lid = getLeagueIdForSeason(y);
           if (lid) leagueIdsByYear[y] = lid;
         }
 
         // Build rosterId -> ownerId mapping per year for bracket lookups
         const rosterToOwnerByYear: Record<string, Map<number, { ownerId: string; teamName: string }>> = {};
-        for (const y of previousYears) {
+        for (const y of yearsOrdered) {
           const teams = allTeams[y] || [];
           rosterToOwnerByYear[y] = new Map(teams.map((t) => [t.rosterId, { ownerId: t.ownerId, teamName: t.teamName }]));
         }
 
         const winnersByYear: Record<string, SleeperBracketGame[]> = {};
-        await Promise.all(previousYears.map(async (y) => {
+        await Promise.all(yearsOrdered.map(async (y) => {
           const lid = leagueIdsByYear[y];
-          const opts = y === '2025' ? optsFresh : optsCached;
+          const opts = y === CURRENT_SEASON ? optsFresh : optsCached;
           winnersByYear[y] = lid ? await getLeagueWinnersBracket(lid, opts).catch(() => []) : [];
         }));
 
         // Count unique participants per season, then aggregate by owner
         const ownerCounts: Record<string, number> = {};
-        for (const y of previousYears) {
+        for (const y of yearsOrdered) {
           const seenOwners = new Set<string>();
           const games = winnersByYear[y] || [];
           const mapByRoster = rosterToOwnerByYear[y] || new Map();
@@ -525,12 +542,13 @@ export default function HistoryContent() {
         setAwardsLoading(true);
         setAwardsError(null);
         const opts = { signal: ac.signal, timeoutMs: AWARDS_TIMEOUT } as const;
+        // Build candidates dynamically from all available seasons
         const candidates: Array<{ season: string; lid: string }> = [];
-        const lid2025 = getLeagueIdForSeason('2025');
-        if (lid2025) candidates.push({ season: '2025', lid: lid2025 });
-        // 2024 & 2023
-        if (LEAGUE_IDS.PREVIOUS?.['2024']) candidates.push({ season: '2024', lid: LEAGUE_IDS.PREVIOUS['2024'] });
-        if (LEAGUE_IDS.PREVIOUS?.['2023']) candidates.push({ season: '2023', lid: LEAGUE_IDS.PREVIOUS['2023'] });
+        const allAwardsYears = Array.from(new Set([CURRENT_SEASON, ...Object.keys(LEAGUE_IDS.PREVIOUS || {})])).sort((a, b) => b.localeCompare(a));
+        for (const season of allAwardsYears) {
+          const lid = getLeagueIdForSeason(season);
+          if (lid) candidates.push({ season, lid });
+        }
 
         const settled = await Promise.allSettled(
           candidates.map(({ season, lid }) =>
@@ -921,20 +939,17 @@ export default function HistoryContent() {
             title="Playoff Brackets"
             actions={
               <div className="flex items-center gap-2">
-                {['2025', '2024', '2023'].map((year) => {
+                {allYears.map((year) => {
                   const isActive = bracketYear === year;
-                  const colors: Record<string, { bg: string; text: string }> = {
-                    '2025': { bg: '#be161e', text: '#ffffff' },
-                    '2024': { bg: '#0b5f98', text: '#ffffff' },
-                    '2023': { bg: '#bf9944', text: '#111111' },
-                  };
-                  const c = colors[year] || { bg: 'var(--surface)', text: 'var(--text)' };
                   return (
                     <button
                       key={year}
                       onClick={() => setBracketYear(year)}
-                      className={`px-4 py-2 rounded-md font-bold text-sm transition-all ${isActive ? 'ring-2 ring-offset-2 ring-[var(--accent)] scale-105' : 'opacity-70 hover:opacity-100'}`}
-                      style={{ backgroundColor: c.bg, color: c.text }}
+                      className={`px-4 py-2 rounded-md font-bold text-sm transition-all ${
+                        isActive
+                          ? 'bg-[var(--accent)] text-white ring-2 ring-offset-2 ring-[var(--accent)] scale-105'
+                          : 'bg-[var(--surface)] text-[var(--text)] opacity-70 hover:opacity-100'
+                      }`}
                     >
                       {year}
                     </button>
@@ -2411,7 +2426,7 @@ export default function HistoryContent() {
                     <div className="text-red-500">{awardsError}</div>
                   ) : (
                     <div className="space-y-6">
-                      {['2025','2024','2023'].map((yr) => {
+                      {Object.keys(awardsByYear).sort((a, b) => b.localeCompare(a)).map((yr) => {
                         const data = awardsByYear[yr];
                         if (!data) return null;
                         return (

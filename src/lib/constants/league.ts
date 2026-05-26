@@ -47,7 +47,13 @@ export const LEAGUE_IDS = {
 };
 
 // Update this to the current NFL season year each September, or set CURRENT_SEASON env var.
-export const CURRENT_SEASON = process.env.CURRENT_SEASON || String(new Date().getFullYear());
+// Auto-detection: the NFL season "2025" runs from Sept 2025 – Feb 2026.
+// Before July (months 0–5) we are still in the prior season's offseason, so subtract 1.
+function _defaultNFLSeason(): string {
+  const now = new Date();
+  return String(now.getMonth() < 6 ? now.getFullYear() - 1 : now.getFullYear());
+}
+export const CURRENT_SEASON = process.env.CURRENT_SEASON || _defaultNFLSeason();
 
 export function getLeagueIdForSeason(season: string): string | null {
   if (season === CURRENT_SEASON) return LEAGUE_IDS.CURRENT || null;
