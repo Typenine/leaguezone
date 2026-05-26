@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConfiguredAdminSecret, isAdminCookieValue } from '@/lib/auth/admin';
+import { getConfiguredAdminSecret, isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,7 +10,8 @@ function getSecret(): string {
 
 function isAdmin(req: NextRequest): boolean {
   const cookie = req.cookies.get('evw_admin')?.value;
-  return isAdminCookieValue(cookie);
+  const siteAdmin = req.cookies.get('site_admin')?.value;
+  return isAdminCookieValue(cookie) || isSiteAdminCookieValue(siteAdmin);
 }
 
 export async function GET(req: NextRequest) {

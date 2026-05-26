@@ -87,6 +87,7 @@ export default function Navbar() {
   const currentPinRef = useRef<HTMLInputElement | null>(null);
   const newPinRef = useRef<HTMLInputElement | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSiteAdmin, setIsSiteAdmin] = useState(false);
   const [leagueName, setLeagueName] = useState<string | null>(null);
   const [leagueLogoUrl, setLeagueLogoUrl] = useState<string | null>(null);
 
@@ -145,10 +146,15 @@ export default function Navbar() {
 
   useEffect(() => {
     let mounted = true;
-    fetch('/api/admin-login', { credentials: 'include', cache: 'no-store' })
-      .then((r) => r.json())
-      .then((j) => { if (mounted) setIsAdmin(Boolean(j?.isAdmin)); })
-      .catch(() => { if (mounted) setIsAdmin(false); });
+    // Check both league admin and site admin status
+    Promise.all([
+      fetch('/api/admin-login', { credentials: 'include', cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
+      fetch('/api/super-admin-login', { credentials: 'include', cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
+    ]).then(([adminJ, siteJ]) => {
+      if (!mounted) return;
+      setIsAdmin(Boolean(adminJ?.isAdmin) || Boolean(siteJ?.isAdmin));
+      setIsSiteAdmin(Boolean(siteJ?.isSiteAdmin));
+    }).catch(() => { if (mounted) { setIsAdmin(false); setIsSiteAdmin(false); } });
     return () => { mounted = false; };
   }, [pathname]);
 
@@ -217,7 +223,15 @@ export default function Navbar() {
   const handleAdminLogout = async () => {
     try { await fetch('/api/admin-login', { method: 'DELETE' }); } catch {}
     setIsAdmin(false);
+    setIsSiteAdmin(false);
     // keep user on page
+  };
+
+  const handleSiteAdminLogout = async () => {
+    try { await fetch('/api/super-admin-login', { method: 'DELETE' }); } catch {}
+    setIsAdmin(false);
+    setIsSiteAdmin(false);
+    router.push('/');
   };
 
   return (
@@ -353,60 +367,87 @@ export default function Navbar() {
             <div className="hidden md:flex items-center gap-2">
               {sessionTeam || isAdmin ? (
                 <div className="relative" ref={accountMenuRef}>
-                  <button
-                    aria-label="Account menu"
-                    className="rounded-full overflow-hidden border border-[var(--border)] w-8 h-8"
-                    style={sessionTeam ? { borderColor: getTeamColors(sessionTeam).secondary, borderWidth: 2 } : undefined}
-                    onClick={() => setAccountMenuOpen((v) => !v)}
-                    title={sessionTeam || (isAdmin ? 'Admin' : '')}
-                    aria-expanded={accountMenuOpen}
-                  >
-                    {sessionTeam ? (
-                      <Image src={getTeamLogoPath(sessionTeam)} alt={sessionTeam} width={32} height={32} />
-                    ) : (
-                      <Image src="/assets/league-logo.png" alt="League logo" width={32} height={32} />
+                  <div className="relative">
+                    <button
+                      aria-label="Account menu"
+                      className="rounded-full overflow-hidden border border-[var(--border)] w-8 h-8"
+                      style={sessionTeam ? { borderColor: getTeamColors(sessionTeam).secondary, borderWidth: 2 } : isSiteAdmin ? { borderColor: '#f59e0b', borderWidth: 2 } : undefined}
+                      onClick={() => setAccountMenuOpen((v) => !v)}
+                      title={sessionTeam || (isSiteAdmin ? 'Site Admin' : isAdmin ? 'Admin' : '')}
+                      aria-expanded={accountMenuOpen}
+                    >
+                      {sessionTeam ? (
+                        <Image src={getTeamLogoPath(sessionTeam)} alt={sessionTeam} width={32} height={32} />
+                      ) : (
+                        <Image src="/assets/league-logo.png" alt="League logo" width={32} height={32} />
+                      )}
+                    </button>
+                    {/* Site admin badge */}
+                    {isSiteAdmin && !sessionTeam && (
+                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 border border-[var(--surface)] text-[8px] flex items-center justify-center font-bold text-amber-900" title="Site Admin">S</span>
                     )}
-                  </button>
+                  </div>
                   {accountMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-40 league-surface border border-[var(--border)] rounded shadow-lg p-1">
+                    <div className="absolute right-0 mt-2 w-48 league-surface border border-[var(--border)] rounded shadow-lg p-1">
+                      {isSiteAdmin && (
+                        <>
+                          <div className="px-2 py-1 text-xs font-semibold text-amber-500 uppercase tracking-wide">Site Admin</div>
+                          <button
+                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
+                            onClick={() => { setAccountMenuOpen(false); router.push('/super-admin'); }}
+                          >
+                            🌐 Admin Dashboard
+                          </button>
+                          <button
+                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm text-red-500"
+                            onClick={() => { setAccountMenuOpen(false); handleSiteAdminLogout(); }}
+                          >
+                            Site Admin Logout
+                          </button>
+                          <div className="my-1 border-t border-[var(--border)]" />
+                        </>
+                      )}
                       {isAdmin && (
                         <>
+                          {!isSiteAdmin && <div className="px-2 py-1 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">League Admin</div>}
                           <button
-                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)]"
+                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                             onClick={() => { setAccountMenuOpen(false); router.push('/admin/newsletter'); }}
                           >
-                            Admin: Newsletter
+                            Newsletter
                           </button>
                           <button
-                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)]"
+                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                             onClick={() => { setAccountMenuOpen(false); router.push('/admin/trades'); }}
                           >
-                            Admin: Trades
+                            Trades
                           </button>
                           <button
-                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)]"
+                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                             onClick={() => { setAccountMenuOpen(false); router.push('/admin/suggestions'); }}
                           >
-                            Admin: Suggestions
+                            Suggestions
                           </button>
                           <button
-                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)]"
+                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                             onClick={() => { setAccountMenuOpen(false); router.push('/admin/taxi'); }}
                           >
-                            Admin: Taxi
+                            Taxi
                           </button>
                           <button
-                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)]"
+                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                             onClick={() => { setAccountMenuOpen(false); router.push('/admin/users'); }}
                           >
-                            Admin: Users
+                            Users
                           </button>
-                          <button
-                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)]"
-                            onClick={() => { setAccountMenuOpen(false); handleAdminLogout(); }}
-                          >
-                            Admin Logout
-                          </button>
+                          {!isSiteAdmin && (
+                            <button
+                              className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
+                              onClick={() => { setAccountMenuOpen(false); handleAdminLogout(); }}
+                            >
+                              Admin Logout
+                            </button>
+                          )}
                           <div className="my-1 border-t border-[var(--border)]" />
                         </>
                       )}

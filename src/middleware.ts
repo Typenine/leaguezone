@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminCookieValue } from '@/lib/auth/admin';
+import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 
 // Paths to protect (require session cookie)
 const PROTECTED_PREFIXES = [
@@ -17,14 +17,16 @@ function isProtectedPath(pathname: string): boolean {
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   const adminCookie = req.cookies.get('evw_admin')?.value || '';
-  const isAdmin = isAdminCookieValue(adminCookie);
+  const siteAdminCookie = req.cookies.get('site_admin')?.value || '';
+  const isAdmin = isAdminCookieValue(adminCookie) || isSiteAdminCookieValue(siteAdminCookie);
   // Optional: draft preview lock using EVW_PREVIEW_SECRET
   const previewSecret = process.env.EVW_PREVIEW_SECRET || '';
   const isDraftFeaturePath = pathname === '/draft/room' || pathname === '/draft/overlay' || pathname === '/admin/draft' || pathname.startsWith('/api/draft');
   if (previewSecret && isDraftFeaturePath) {
-    // Allow admin cookie
+    // Allow admin or site admin cookie
     const adminCookie = req.cookies.get('evw_admin')?.value || '';
-    if (isAdminCookieValue(adminCookie)) {
+    const siteAdminCk = req.cookies.get('site_admin')?.value || '';
+    if (isAdminCookieValue(adminCookie) || isSiteAdminCookieValue(siteAdminCk)) {
       // admin allowed
     } else {
       // Support one-time unlock via query param ?preview_key=SECRET (sets evw_preview cookie)
