@@ -105,7 +105,13 @@ export default function SetupAdminPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to create admin account');
+        const msg: string = data.error || 'Failed to create admin account';
+        // If an admin already exists, just proceed — no need to create another one.
+        if (msg.toLowerCase().includes('already exists')) {
+          router.push('/setup/auth');
+          return;
+        }
+        throw new Error(msg);
       }
 
       router.push('/setup/auth');
@@ -180,9 +186,22 @@ export default function SetupAdminPage() {
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                {error}
-              </div>
+              error.toLowerCase().includes('already exists') ? (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm flex items-center justify-between gap-3">
+                  <span>An admin account already exists — no need to create another.</span>
+                  <button
+                    type="button"
+                    onClick={() => router.push('/setup/auth')}
+                    className="shrink-0 text-xs px-3 py-1.5 rounded bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                  >
+                    Continue →
+                  </button>
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                  {error}
+                </div>
+              )
             )}
 
             <div>
