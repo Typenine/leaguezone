@@ -8,6 +8,7 @@ import Navbar from "@/components/layout/navbar";
 import Footer from "@/components/layout/footer";
 import SetupCheck from "@/components/SetupCheck";
 import { getLeagueIdsFromDb } from "@/lib/server/league-config";
+import { discoverLeagueChain } from "@/lib/utils/sleeper-api";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,9 +40,26 @@ export default async function RootLayout({
     // show their own empty/setup states.
   }
 
+  // If no previous seasons were explicitly saved (e.g. user only entered the
+  // current league ID during setup), auto-discover the full history by following
+  // the Sleeper previous_league_id chain. Results are cached in-process (1 hr
+  // TTL on getLeague), so this does not hit the Sleeper API on every request.
+  let previousLeagueIds = leagueConfig.previous;
+  if (leagueConfig.current && Object.keys(previousLeagueIds).length === 0) {
+    try {
+      const chain = await discoverLeagueChain(leagueConfig.current);
+      // chain includes current season — extract only previous entries
+      previousLeagueIds = Object.fromEntries(
+        Object.entries(chain).filter(([, id]) => id !== leagueConfig.current)
+      );
+    } catch {
+      // Non-fatal — history pages will just show only current season
+    }
+  }
+
   const leagueConfigJson = JSON.stringify({
     currentLeagueId: leagueConfig.current,
-    previousLeagueIds: leagueConfig.previous,
+    previousLeagueIds,
   });
 
   return (

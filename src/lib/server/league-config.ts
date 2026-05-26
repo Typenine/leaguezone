@@ -4,6 +4,10 @@
  * have SLEEPER_LEAGUE_ID set (i.e. the user configured via setup wizard).
  *
  * Priority: env var > DB (so explicit Vercel env vars still work).
+ *
+ * If only a current league ID is stored (no previous seasons), the function
+ * auto-discovers the full history by walking the Sleeper previous_league_id
+ * chain. Results are persisted back to the DB so subsequent calls are fast.
  */
 
 import { getDb } from '@/server/db/client';
@@ -24,7 +28,7 @@ export async function getLeagueIdsFromDb(): Promise<LeagueIdsConfig> {
   try {
     const db = getDb();
     const res = await db.execute(sql`
-      SELECT sleeper_league_id, sleeper_league_ids
+      SELECT id, sleeper_league_id, sleeper_league_ids
       FROM leagues
       WHERE setup_completed = true
       ORDER BY created_at DESC
@@ -33,12 +37,42 @@ export async function getLeagueIdsFromDb(): Promise<LeagueIdsConfig> {
     const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
 
     const current = (row?.sleeper_league_id as string) || '';
-    const allIds = (row?.sleeper_league_ids as Record<string, string>) || {};
+    let allIds = (row?.sleeper_league_ids as Record<string, string>) || {};
 
     // previous = every season entry whose ID differs from the current one
-    const previous: Record<string, string> = {};
+    let previous: Record<string, string> = {};
     for (const [year, id] of Object.entries(allIds)) {
       if (id !== current) previous[year] = id;
+    }
+
+    // If no previous seasons are stored, auto-discover via the Sleeper chain
+    // and persist back to DB so future calls skip the traversal.
+    if (current && Object.keys(previous).length === 0) {
+      try {
+        // Lazy import to avoid circular deps at module load time
+        const { discoverLeagueChain } = await import('@/lib/utils/sleeper-api');
+        const chain = await discoverLeagueChain(current);
+        const newPrevious: Record<string, string> = {};
+        for (const [year, id] of Object.entries(chain)) {
+          if (id !== current) newPrevious[year] = id;
+        }
+        if (Object.keys(newPrevious).length > 0) {
+          previous = newPrevious;
+          // Merge into allIds and persist so next call reads from DB
+          allIds = { ...allIds, ...chain };
+          const leagueRowId = row?.id as string;
+          if (leagueRowId) {
+            await db.execute(sql`
+              UPDATE leagues
+              SET sleeper_league_ids = ${JSON.stringify(allIds)}::jsonb,
+                  updated_at = now()
+              WHERE id = ${leagueRowId}::uuid
+            `).catch(() => { /* non-fatal */ });
+          }
+        }
+      } catch {
+        // Non-fatal — app works with current season only
+      }
     }
 
     return { current, previous };

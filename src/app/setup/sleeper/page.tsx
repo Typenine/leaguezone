@@ -35,22 +35,18 @@ export default function SetupSleeperPage() {
   const [historicalLeagues, setHistoricalLeagues] = useState<HistoricalLeague[]>([]);
   const [showHistorical, setShowHistorical] = useState(false);
 
-  const validateLeagueId = async (leagueId: string): Promise<SleeperLeagueInfo | null> => {
+  const fetchLeagueInfo = async (leagueId: string): Promise<SleeperLeagueInfo | null> => {
     try {
-      // Fetch league info from Sleeper API
-      const leagueRes = await fetch(`https://api.sleeper.app/v1/league/${leagueId}`);
+      const [leagueRes, rostersRes, usersRes] = await Promise.all([
+        fetch(`https://api.sleeper.app/v1/league/${leagueId}`),
+        fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`),
+        fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`),
+      ]);
       if (!leagueRes.ok) return null;
       const league = await leagueRes.json();
-
-      // Fetch rosters
-      const rostersRes = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`);
       const rosters = rostersRes.ok ? await rostersRes.json() : [];
-
-      // Fetch users
-      const usersRes = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`);
       const users = usersRes.ok ? await usersRes.json() : [];
 
-      // Map users to rosters
       const userMap = new Map(users.map((u: { user_id: string; display_name: string; metadata?: { team_name?: string } }) => [
         u.user_id,
         { displayName: u.display_name, teamName: u.metadata?.team_name }
@@ -70,13 +66,50 @@ export default function SetupSleeperPage() {
         totalRosters: league.total_rosters,
         status: league.status,
         season: league.season,
-        scoringSettings: league.scoring_settings?.rec === 1 ? 'PPR' : 
+        scoringSettings: league.scoring_settings?.rec === 1 ? 'PPR' :
                         league.scoring_settings?.rec === 0.5 ? 'Half PPR' : 'Standard',
         rosters: rosterInfo,
       };
     } catch {
       return null;
     }
+  };
+
+  /**
+   * Walk the Sleeper previous_league_id chain from startId and return
+   * an array of { year, leagueId } for every season in the history
+   * (excluding the current season itself).
+   */
+  const discoverHistoricalChain = async (
+    startId: string,
+    currentSeason: string,
+  ): Promise<HistoricalLeague[]> => {
+    const discovered: HistoricalLeague[] = [];
+    // Fetch just the league metadata (no rosters) for each hop
+    let prevId: string | null = null;
+    try {
+      const res = await fetch(`https://api.sleeper.app/v1/league/${startId}`);
+      if (res.ok) {
+        const data = await res.json();
+        prevId = data.previous_league_id || null;
+      }
+    } catch { /* ignore */ }
+
+    let depth = 0;
+    while (prevId && depth < 20) {
+      try {
+        const res = await fetch(`https://api.sleeper.app/v1/league/${prevId}`);
+        if (!res.ok) break;
+        const league = await res.json();
+        if (!league.season || league.season === currentSeason) break;
+        discovered.push({ year: league.season, leagueId: prevId, validated: true });
+        prevId = league.previous_league_id || null;
+      } catch {
+        break;
+      }
+      depth++;
+    }
+    return discovered;
   };
 
   const handleValidateCurrent = async () => {
@@ -88,10 +121,17 @@ export default function SetupSleeperPage() {
     setValidating(true);
     setError(null);
 
-    const info = await validateLeagueId(currentLeagueId.trim());
-    
+    const trimmedId = currentLeagueId.trim();
+    const info = await fetchLeagueInfo(trimmedId);
+
     if (info) {
       setCurrentLeagueInfo(info);
+      // Auto-discover historical seasons from the Sleeper chain
+      const historical = await discoverHistoricalChain(trimmedId, info.season);
+      if (historical.length > 0) {
+        setHistoricalLeagues(historical);
+        setShowHistorical(true);
+      }
     } else {
       setError('Could not find that league. Please check the ID and try again.');
     }
@@ -125,16 +165,16 @@ export default function SetupSleeperPage() {
     const league = historicalLeagues[index];
     if (!league.leagueId.trim()) return;
 
-    setHistoricalLeagues(prev => prev.map((h, i) => 
+    setHistoricalLeagues(prev => prev.map((h, i) =>
       i === index ? { ...h, validated: false, error: undefined } : h
     ));
 
-    const info = await validateLeagueId(league.leagueId.trim());
-    
-    setHistoricalLeagues(prev => prev.map((h, i) => 
-      i === index ? { 
-        ...h, 
-        validated: !!info, 
+    const info = await fetchLeagueInfo(league.leagueId.trim());
+
+    setHistoricalLeagues(prev => prev.map((h, i) =>
+      i === index ? {
+        ...h,
+        validated: !!info,
         info: info || undefined,
         error: info ? undefined : 'Invalid league ID'
       } : h
@@ -245,7 +285,7 @@ export default function SetupSleeperPage() {
                   onClick={handleValidateCurrent}
                   disabled={validating || !currentLeagueId.trim()}
                 >
-                  {validating ? 'Checking...' : 'Validate'}
+                  {validating ? 'Loading history…' : 'Validate'}
                 </Button>
               </div>
               <p className="text-xs text-[var(--muted)] mt-1">
@@ -288,7 +328,13 @@ export default function SetupSleeperPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="font-medium text-[var(--text)]">Historical Leagues</h3>
-                    <p className="text-xs text-[var(--muted)]">Optional: Add previous seasons for history features</p>
+                    {historicalLeagues.length > 0 ? (
+                      <p className="text-xs text-green-400 mt-0.5">
+                        ✓ {historicalLeagues.length} previous season{historicalLeagues.length !== 1 ? 's' : ''} auto-discovered from Sleeper
+                      </p>
+                    ) : (
+                      <p className="text-xs text-[var(--muted)]">Add previous seasons for history features (optional)</p>
+                    )}
                   </div>
                   <Button
                     type="button"
@@ -296,7 +342,7 @@ export default function SetupSleeperPage() {
                     size="sm"
                     onClick={() => setShowHistorical(!showHistorical)}
                   >
-                    {showHistorical ? 'Hide' : 'Add'}
+                    {showHistorical ? 'Hide' : historicalLeagues.length > 0 ? 'Review' : 'Add'}
                   </Button>
                 </div>
 

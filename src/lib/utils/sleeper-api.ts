@@ -278,6 +278,41 @@ export interface SleeperLeague {
   total_rosters: number;
   draft_id: string;
   metadata: Record<string, unknown>;
+  /** ID of the previous season's league — Sleeper chains seasons via this field */
+  previous_league_id?: string | null;
+}
+
+/**
+ * Walk the Sleeper previous_league_id chain starting from a given league ID.
+ * Returns a map of { season: leagueId } for the given league AND all historical
+ * seasons reachable via the chain. Stops when previous_league_id is absent/null
+ * or after maxDepth hops (default 20) to prevent infinite loops.
+ *
+ * This is the key function that lets the app auto-discover all historical seasons
+ * from a single league ID — no manual configuration required.
+ */
+export async function discoverLeagueChain(
+  startLeagueId: string,
+  options?: SleeperFetchOptions,
+  maxDepth = 20,
+): Promise<Record<string, string>> {
+  const result: Record<string, string> = {};
+  let currentId: string | null | undefined = startLeagueId;
+  let depth = 0;
+
+  while (currentId && depth < maxDepth) {
+    try {
+      const league = await getLeague(currentId, options);
+      if (!league?.league_id || !league?.season) break;
+      result[league.season] = league.league_id;
+      currentId = league.previous_league_id || null;
+    } catch {
+      break; // stop on any fetch error
+    }
+    depth++;
+  }
+
+  return result;
 }
 
 /**
@@ -331,10 +366,16 @@ export async function getNFLState(ttlMs: number = NFL_STATE_TTL_DEFAULT, options
   return data;
 }
 
+// Cache for auto-discovered league chain: keyed by current league ID
+const leagueChainCache: Record<string, { ts: number; map: Record<string, string> }> = {};
+const CHAIN_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours — chain only changes once per season
+
 /**
  * Build a dynamic, unique mapping of season year -> leagueId.
  * - Current season resolves to LEAGUE_IDS.CURRENT (or leagueIdsConfig.current when provided)
  * - Previous seasons come from LEAGUE_IDS.PREVIOUS (or leagueIdsConfig.previous)
+ * - If no previous seasons are configured, auto-discovers them by walking the
+ *   Sleeper previous_league_id chain from the current league ID (cached 4 hrs).
  *
  * Pass `leagueIdsConfig` from server-side code (e.g. getLeagueIdsFromDb()) to
  * avoid relying on LEAGUE_IDS which is empty server-side when env var not set.
@@ -343,15 +384,35 @@ export async function buildYearToLeagueMapUnique(
   options?: SleeperFetchOptions,
   leagueIdsConfig?: { current: string; previous: Record<string, string> },
 ): Promise<Record<string, string>> {
+  const currentId = leagueIdsConfig?.current ?? LEAGUE_IDS.CURRENT;
+  const prevMap: Record<string, string> = leagueIdsConfig?.previous ?? ((LEAGUE_IDS.PREVIOUS as Record<string, string>) || {});
+
+  // If we have previous season IDs already configured (from DB or env), use them directly.
+  // Otherwise auto-discover the full chain from Sleeper — this handles the common case
+  // where a user entered only the current league ID during setup.
+  const hasPrevious = Object.keys(prevMap).length > 0;
+
+  if (currentId && !hasPrevious) {
+    const now = Date.now();
+    const cached = leagueChainCache[currentId];
+    if (!options?.forceFresh && cached && now - cached.ts < CHAIN_TTL_MS) {
+      return cached.map;
+    }
+    try {
+      const chain = await discoverLeagueChain(currentId, options);
+      leagueChainCache[currentId] = { ts: now, map: chain };
+      return chain;
+    } catch {
+      // Fall through to manual map
+    }
+  }
+
   let seasonNum = new Date().getFullYear();
   try {
     const st = await getNFLState(undefined, options);
     const s = Number((st as { season?: string | number }).season ?? seasonNum);
     if (Number.isFinite(s)) seasonNum = s;
   } catch {}
-
-  const currentId = leagueIdsConfig?.current ?? LEAGUE_IDS.CURRENT;
-  const prevMap: Record<string, string> = leagueIdsConfig?.previous ?? ((LEAGUE_IDS.PREVIOUS as Record<string, string>) || {});
 
   const map: Record<string, string> = {};
   if (currentId) map[String(seasonNum)] = currentId;
@@ -1618,13 +1679,21 @@ export function resolveAvailabilityFromSleeper(player: SleeperPlayer | undefined
   return { tier: 'unknown', reasons };
 }
 
+const leagueMetaCache: Record<string, { ts: number; data: SleeperLeague }> = {};
+const LEAGUE_META_TTL_MS = 60 * 60 * 1000; // 1 hour — league structure barely changes
+
 /**
- * Fetch league information from Sleeper API
+ * Fetch league information from Sleeper API (cached 1 hour).
  * @param leagueId The Sleeper league ID
  * @returns Promise with league data
  */
 export async function getLeague(leagueId: string, options?: SleeperFetchOptions): Promise<SleeperLeague> {
-  return sleeperFetchJson<SleeperLeague>(`${SLEEPER_API_BASE}/league/${leagueId}`, undefined, options);
+  const now = Date.now();
+  const cached = leagueMetaCache[leagueId];
+  if (!options?.forceFresh && cached && now - cached.ts < LEAGUE_META_TTL_MS) return cached.data;
+  const data = await sleeperFetchJson<SleeperLeague>(`${SLEEPER_API_BASE}/league/${leagueId}`, undefined, options);
+  leagueMetaCache[leagueId] = { ts: now, data };
+  return data;
 }
 
 /**
