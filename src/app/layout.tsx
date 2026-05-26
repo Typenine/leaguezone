@@ -24,6 +24,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Fantasy Football League",
   description: "Dynasty fantasy football league management",
+  icons: {
+    icon: '/assets/teams/East v West Logos/Official East v. West Logo.png',
+    apple: '/assets/teams/East v West Logos/Official East v. West Logo.png',
+  },
 };
 
 export default async function RootLayout({

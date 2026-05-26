@@ -241,17 +241,15 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <div className="flex items-center gap-2 flex-shrink-0">
-              {/* League logo — links to website hub (/) */}
-              {leagueLogoUrl && (
-                <Link href="/" aria-label="Website home" className="flex-shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={leagueLogoUrl}
-                    alt="League logo"
-                    className="h-9 w-9 rounded-lg object-contain"
-                  />
-                </Link>
-              )}
+              {/* League logo — always visible, links to website hub (/) */}
+              <Link href="/" aria-label="Website home" className="flex-shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={leagueLogoUrl || '/assets/teams/East v West Logos/Official East v. West Logo.png'}
+                  alt="League logo"
+                  className="h-9 w-9 rounded-lg object-contain"
+                />
+              </Link>
               {/* League name — links to league home (/home) */}
               <Link href="/home" className="font-bold text-xl leading-none">
                 {leagueName ?? 'Fantasy League'}
@@ -379,7 +377,8 @@ export default function Navbar() {
                       {sessionTeam ? (
                         <Image src={getTeamLogoPath(sessionTeam)} alt={sessionTeam} width={32} height={32} />
                       ) : (
-                        <Image src="/assets/league-logo.png" alt="League logo" width={32} height={32} />
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src="/assets/teams/East v West Logos/Official East v. West Logo.png" alt="League logo" width={32} height={32} className="w-full h-full object-contain" />
                       )}
                     </button>
                     {/* Site admin badge */}
@@ -472,7 +471,45 @@ export default function Navbar() {
                   )}
                 </div>
               ) : (
-                <LinkButton href={`/login?next=${encodeURIComponent(pathname)}`} variant="ghost" size="sm">Log In</LinkButton>
+                <div className="relative" ref={accountMenuRef}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="inline-flex items-center gap-1"
+                    onClick={() => setAccountMenuOpen((v) => !v)}
+                    aria-expanded={accountMenuOpen}
+                    aria-haspopup="menu"
+                  >
+                    Sign In <span aria-hidden="true" className="text-xs">▾</span>
+                  </Button>
+                  {accountMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-44 league-surface border border-[var(--border)] rounded shadow-lg p-1 z-50">
+                      <Link
+                        href={`/login?next=${encodeURIComponent(pathname)}`}
+                        className="block rounded px-3 py-2 text-sm hover:bg-[var(--surface-strong)] text-[var(--text)]"
+                        onClick={() => setAccountMenuOpen(false)}
+                      >
+                        🏈 Team Login
+                      </Link>
+                      <Link
+                        href="/login?mode=commish"
+                        className="block rounded px-3 py-2 text-sm hover:bg-[var(--surface-strong)] text-[var(--text)]"
+                        onClick={() => setAccountMenuOpen(false)}
+                      >
+                        🏆 Commish Login
+                      </Link>
+                      <div className="my-1 border-t border-[var(--border)]" />
+                      <Link
+                        href="/super-admin/login"
+                        className="block rounded px-3 py-2 text-sm hover:bg-[var(--surface-strong)] text-amber-500"
+                        onClick={() => setAccountMenuOpen(false)}
+                      >
+                        🌐 Admin Mode
+                      </Link>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             <div className="md:hidden">
@@ -642,7 +679,8 @@ export default function Navbar() {
                     {sessionTeam ? (
                       <Image src={getTeamLogoPath(sessionTeam)} alt={sessionTeam} width={32} height={32} />
                     ) : (
-                      <Image src="/assets/league-logo.png" alt="League logo" width={32} height={32} />
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src="/assets/teams/East v West Logos/Official East v. West Logo.png" alt="League logo" width={32} height={32} className="w-full h-full object-contain" />
                     )}
                   </button>
                   {sessionTeam && (

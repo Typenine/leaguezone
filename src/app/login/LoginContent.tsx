@@ -1,30 +1,46 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { TEAM_NAMES } from '@/lib/constants/league';
 import { getTeamLogoPath, getTeamColorStyle, getTeamColors } from '@/lib/utils/team-utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import Label from '@/components/ui/Label';
 import Button from '@/components/ui/Button';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
+type Tab = 'team' | 'commish';
+
 function LoginContent() {
+  const search = useSearchParams();
+  const router = useRouter();
+  const initialTab: Tab = search?.get('mode') === 'commish' ? 'commish' : 'team';
+
+  const [tab, setTab] = useState<Tab>(initialTab);
+
+  // Team login state
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [adminOpen, setAdminOpen] = useState(false);
-  const [adminPin, setAdminPin] = useState('');
-  const [adminLoading, setAdminLoading] = useState(false);
-  const [adminError, setAdminError] = useState<string | null>(null);
-  const adminRef = useRef<HTMLInputElement | null>(null);
-  const router = useRouter();
-  const search = useSearchParams();
 
-  const handleLogin = async () => {
+  // Commish login state
+  const [commishPin, setCommishPin] = useState('');
+  const [commishLoading, setCommishLoading] = useState(false);
+  const [commishError, setCommishError] = useState<string | null>(null);
+  const commishRef = useRef<HTMLInputElement | null>(null);
+
+  // Auto-focus commish input when tab opens
+  useEffect(() => {
+    if (tab === 'commish') {
+      setTimeout(() => commishRef.current?.focus(), 50);
+    }
+  }, [tab]);
+
+  const handleTeamLogin = async () => {
     if (!selectedTeam || !pin) return;
     try {
       setLoading(true);
@@ -37,87 +53,74 @@ function LoginContent() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Login failed');
-      const next = search?.get('next') || '/';
+      const next = search?.get('next') || '/home';
       router.push(next);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Login failed';
-      setError(msg);
+      setError(e instanceof Error ? e.message : 'Login failed');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAdminLogin = async () => {
-    if (!adminPin) return;
+  const handleCommishLogin = async () => {
+    if (!commishPin) return;
     try {
-      setAdminLoading(true);
-      setAdminError(null);
+      setCommishLoading(true);
+      setCommishError(null);
       const r = await fetch('/api/admin-login', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ key: adminPin.trim() })
+        body: JSON.stringify({ key: commishPin.trim() }),
       });
       if (!r.ok) throw new Error('Invalid PIN');
-      setAdminOpen(false);
-      setAdminPin('');
-      // Redirect to admin dashboard so it's clear admin mode is enabled
-      router.push('/admin/users');
+      setCommishPin('');
+      router.push('/home');
     } catch (e) {
-      setAdminError(e instanceof Error ? e.message : 'Admin login failed');
+      setCommishError(e instanceof Error ? e.message : 'Login failed');
     } finally {
-      setAdminLoading(false);
+      setCommishLoading(false);
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle>Sign In</CardTitle>
-          </CardHeader>
-          <CardContent>
+    <div className="container mx-auto px-4 py-10 max-w-4xl">
+      {/* Logo */}
+      <div className="flex justify-center mb-6">
+        <Link href="/" aria-label="Website home">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/assets/teams/East v West Logos/Official East v. West Logo.png"
+            alt="League logo"
+            className="w-20 h-20 object-contain"
+          />
+        </Link>
+      </div>
+
+      {/* Tab switcher */}
+      <div className="flex justify-center mb-6">
+        <div className="inline-flex rounded-xl border border-[var(--border)] overflow-hidden">
+          {(['team', 'commish'] as Tab[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`px-6 py-2.5 text-sm font-medium transition-colors ${
+                tab === t
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--text)]'
+              }`}
+            >
+              {t === 'team' ? '🏈 Team Login' : '🏆 Commish Login'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          {/* ── Team Login ── */}
+          {tab === 'team' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-center">
-                <button
-                  type="button"
-                  className="rounded-full focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                  aria-label="Admin sign-in"
-                  onClick={() => { setAdminOpen(true); setTimeout(() => adminRef.current?.focus(), 0); }}
-                  title="Admin"
-                >
-                  <span className="block w-16 h-16 rounded-full overflow-hidden league-surface border border-[var(--border)] flex items-center justify-center">
-                    <Image
-                      src="/assets/league-logo.png"
-                      alt="League logo"
-                      width={56}
-                      height={56}
-                      className="object-contain"
-                    />
-                  </span>
-                </button>
-              </div>
-              {adminOpen && (
-                <div className="league-surface border border-[var(--border)] rounded-[var(--radius-card)] p-3">
-                  <Label htmlFor="admin-pin" className="mb-1 block">Admin PIN</Label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={adminRef}
-                      id="admin-pin"
-                      type="password"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      className="flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-strong)]"
-                      value={adminPin}
-                      onChange={(e) => setAdminPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 12))}
-                      placeholder="Enter admin PIN"
-                    />
-                    <Button onClick={handleAdminLogin} disabled={!adminPin || adminLoading}>{adminLoading ? 'Verifying…' : 'Enter'}</Button>
-                    <Button variant="secondary" onClick={() => { setAdminOpen(false); setAdminPin(''); setAdminError(null); }}>Cancel</Button>
-                  </div>
-                  {adminError && <div className="text-sm text-[var(--danger)] mt-2">{adminError}</div>}
-                </div>
-              )}
               <div>
                 <Label className="mb-2 block">Select Your Team</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -162,22 +165,60 @@ function LoginContent() {
                 />
               </div>
 
-              {error && (
-                <div className="text-sm text-red-500" role="alert">{error}</div>
-              )}
+              {error && <div className="text-sm text-red-500" role="alert">{error}</div>}
 
               <div className="flex items-center gap-3">
-                <Button onClick={handleLogin} disabled={!selectedTeam || !pin || loading} variant="primary">
-                  {loading ? 'Signing in...' : 'Sign In'}
+                <Button onClick={handleTeamLogin} disabled={!selectedTeam || !pin || loading} variant="primary">
+                  {loading ? 'Signing in…' : 'Sign In'}
                 </Button>
                 <Button onClick={() => { setSelectedTeam(null); setPin(''); setError(null); }} variant="ghost">
                   Reset
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+
+          {/* ── Commish Login ── */}
+          {tab === 'commish' && (
+            <div className="max-w-sm mx-auto space-y-4 py-4">
+              <p className="text-sm text-[var(--muted)] text-center">
+                Enter your commissioner PIN to enter Commish Mode.
+              </p>
+              <div>
+                <Label htmlFor="commish-pin" className="mb-1 block">Commish PIN</Label>
+                <input
+                  ref={commishRef}
+                  id="commish-pin"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-strong)]"
+                  value={commishPin}
+                  onChange={(e) => setCommishPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 12))}
+                  placeholder="Enter commish PIN"
+                  onKeyDown={(e) => e.key === 'Enter' && handleCommishLogin()}
+                />
+              </div>
+              {commishError && <div className="text-sm text-red-500" role="alert">{commishError}</div>}
+              <Button
+                onClick={handleCommishLogin}
+                disabled={!commishPin || commishLoading}
+                className="w-full"
+              >
+                {commishLoading ? 'Verifying…' : 'Enter Commish Mode'}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Admin Mode link */}
+      <p className="text-center text-xs text-[var(--muted)] mt-6">
+        Site admin?{' '}
+        <Link href="/super-admin/login" className="text-amber-500 hover:underline font-medium">
+          Enter Admin Mode →
+        </Link>
+      </p>
     </div>
   );
 }
