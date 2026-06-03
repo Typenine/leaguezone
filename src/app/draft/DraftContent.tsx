@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import CountdownTimer from '@/components/ui/countdown-timer';
@@ -8,7 +8,7 @@ import { CURRENT_SEASON, NEXT_DRAFT_SEASON, getLeagueIdForSeason, getPastDraftSe
 import EmptyState from '@/components/ui/empty-state';
 import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
-import { getLeagueDrafts, getDraftPicks, getTeamsData } from '@/lib/utils/sleeper-api';
+import { getLeagueDrafts, getDraftPicks, getTeamsData, type SleeperDraftPick } from '@/lib/utils/sleeper-api';
 import SectionHeader from '@/components/ui/SectionHeader';
 import { Tabs } from '@/components/ui/Tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -55,16 +55,8 @@ type DraftDateSettings = {
   nextDraftConfigured: boolean;
 };
 
-type DraftPickMetadata = {
-  first_name?: unknown;
-  last_name?: unknown;
-  player_name?: unknown;
-  name?: unknown;
-  position?: unknown;
-};
-
-function getDraftPickPlayer(pick: { player_id?: string; metadata?: DraftPickMetadata | null }) {
-  const metadata = pick.metadata ?? {};
+function getDraftPickPlayer(pick: Pick<SleeperDraftPick, 'player_id' | 'metadata'>) {
+  const metadata = (pick.metadata ?? {}) as Record<string, unknown>;
   const firstName = typeof metadata.first_name === 'string' ? metadata.first_name : '';
   const lastName = typeof metadata.last_name === 'string' ? metadata.last_name : '';
   const fullName = `${firstName} ${lastName}`.trim();
