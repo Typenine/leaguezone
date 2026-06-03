@@ -1,9 +1,31 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { sql } from 'drizzle-orm';
 import { loadDraftOwnershipForSeason } from '@/lib/server/trade-assets';
 import type { NextDraftOwnership } from '@/lib/server/trade-assets';
 import { getTeamsData, getLeagueWinnersBracket, getRegularSeasonRecords, type SleeperBracketGame, derivePodiumFromWinnersBracketByYear } from '@/lib/utils/sleeper-api';
 import { CURRENT_SEASON } from '@/lib/constants/league';
 import { getLeagueIdsFromDb } from '@/lib/server/league-config';
+import { getDb } from '@/server/db/client';
+
+async function getProjectedDraftOrderOverride(leagueId: string | undefined, season: number): Promise<number[] | null> {
+  try {
+    const db = getDb();
+    const res = leagueId
+      ? await db.execute(sql`SELECT config FROM leagues WHERE setup_completed = true AND id = ${leagueId}::uuid LIMIT 1`)
+      : await db.execute(sql`SELECT config FROM leagues WHERE setup_completed = true ORDER BY created_at DESC LIMIT 1`);
+    const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+    const config = (row?.config as Record<string, unknown>) ?? {};
+    const orders = config.projectedDraftOrders;
+    if (!orders || typeof orders !== 'object' || Array.isArray(orders)) return null;
+    const order = (orders as Record<string, unknown>)[String(season)];
+    if (!Array.isArray(order)) return null;
+    const rosterIds = order.map((id) => Number(id)).filter((id) => Number.isFinite(id));
+    return rosterIds.length > 0 ? rosterIds : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(req: Request) {
   try {
@@ -12,11 +34,14 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const seasonParam = url.searchParams.get('season');
+    const ignoreOverride = url.searchParams.get('ignoreOverride') === '1';
     const defaultSeason = Number(CURRENT_SEASON);
     const parsedSeason = seasonParam ? Number(seasonParam) : Number.NaN;
     const targetSeason = Number.isFinite(parsedSeason) ? parsedSeason : defaultSeason;
     const sourceLeagueSeason = String(targetSeason - 1);
-    const leagueConfig = await getLeagueIdsFromDb();
+    const jar = await cookies();
+    const activeLeagueId = jar.get('active_league_id')?.value || undefined;
+    const leagueConfig = await getLeagueIdsFromDb(activeLeagueId);
     const standingsLeagueId = leagueConfig.previous[sourceLeagueSeason] || leagueConfig.current;
     // Keep slot order tied to prior-season standings, but read tradable pick ownership
     // for the active draft year from the current league context when needed.
@@ -282,6 +307,28 @@ export async function GET(req: Request) {
       }));
     }
 
+    let orderSource: 'projected' | 'commissioner' = 'projected';
+    if (!ignoreOverride) {
+      const overrideRosterIds = await getProjectedDraftOrderOverride(activeLeagueId, targetSeason);
+      if (overrideRosterIds) {
+        const generatedByRosterId = new Map(slotOrder.map((entry) => [entry.rosterId, entry] as const));
+        const generatedRosterIds = new Set(generatedByRosterId.keys());
+        const overrideRosterIdSet = new Set(overrideRosterIds);
+        const overrideIsComplete =
+          overrideRosterIds.length === slotOrder.length
+          && overrideRosterIdSet.size === overrideRosterIds.length
+          && overrideRosterIds.every((rosterId) => generatedRosterIds.has(rosterId));
+
+        if (overrideIsComplete) {
+          slotOrder = overrideRosterIds.map((rosterId, index) => ({
+            ...generatedByRosterId.get(rosterId)!,
+            slot: index + 1,
+          }));
+          orderSource = 'commissioner';
+        }
+      }
+    }
+
     const slotByRoster = new Map<number, number>();
     for (const entry of slotOrder) slotByRoster.set(entry.rosterId, entry.slot);
 
@@ -435,6 +482,7 @@ export async function GET(req: Request) {
       rounds: roundsToShow,
       rosterCount: ownership.rosterCount,
       generatedAt: new Date().toISOString(),
+      orderSource,
       slotOrder,
       roundsData,
       summary: {

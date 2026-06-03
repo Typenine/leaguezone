@@ -147,13 +147,7 @@ export default function DraftTradeAnimation({ teams, assets, eventLogoUrl, event
   }, []);
 
   const c1 = getTeamColors(teams[0] || '');
-  const c2 = getTeamColors(teams[teams.length - 1] || '');
-  const topBarGradient = teams.length >= 3
-    ? `linear-gradient(90deg, ${teams.map((t, i) => {
-        const pct = Math.round((i / (teams.length - 1)) * 100);
-        return i % 2 === 0 ? `${getTeamColors(t).primary}cc ${pct}%` : `${ec1}99 ${pct}%`;
-      }).join(', ')})`
-    : `linear-gradient(90deg, ${c1.primary}cc 0%, ${ec1}99 50%, ${c2.primary}cc 100%)`;
+  const topBarColor = teams.length >= 3 ? `${getTeamColors(teams[0]).primary}cc` : `${c1.primary}cc`;
 
   return (
     <div
@@ -164,7 +158,7 @@ export default function DraftTradeAnimation({ teams, assets, eventLogoUrl, event
 
       {/* ── PHASE 0: Event Logo ─────────────────────────────────────────── */}
       <div className="gtrade-logo absolute inset-0 flex items-center justify-center" style={{ willChange: 'opacity, visibility' }}>
-        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 50% 50%, ${ec1}22 0%, #080810 70%)` }} />
+        <div className="absolute inset-0" style={{ background: '#080810' }} />
         {eventLogoUrl ? (
           <img src={eventLogoUrl} alt="" className="relative z-10 object-contain"
             style={{ width: 'clamp(120px, 20vw, 200px)', height: 'clamp(120px, 20vw, 200px)' }} />
@@ -177,7 +171,7 @@ export default function DraftTradeAnimation({ teams, assets, eventLogoUrl, event
 
       {/* ── PHASE 1: TRADE ALERT ────────────────────────────────────────── */}
       <div className="gtrade-alert absolute inset-0 flex flex-col items-center justify-center gap-6" style={{ willChange: 'opacity, visibility' }}>
-        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 50% 45%, ${ec1}30 0%, #080810 60%)` }} />
+        <div className="absolute inset-0" style={{ background: '#080810' }} />
         <div className="relative z-10 flex flex-col items-center gap-6">
           {eventLogoUrl && (
             <img src={eventLogoUrl} alt="" className="object-contain opacity-90"
@@ -198,7 +192,7 @@ export default function DraftTradeAnimation({ teams, assets, eventLogoUrl, event
           </div>
           <div
             className="gtrade-alert-line rounded-full"
-            style={{ width: 'clamp(200px, 30vw, 360px)', height: '3px', background: `linear-gradient(90deg, transparent, ${ec1}, transparent)`, willChange: 'transform' }}
+            style={{ width: 'clamp(200px, 30vw, 360px)', height: '3px', background: ec1, willChange: 'transform' }}
           />
         </div>
       </div>
@@ -210,13 +204,12 @@ export default function DraftTradeAnimation({ teams, assets, eventLogoUrl, event
           const tLogo = getTeamLogoPath(t);
           const panelWidth = `${100 / teams.length}%`;
           const panelLeft = `${(idx / teams.length) * 100}%`;
-          const angle = idx % 2 === 0 ? 160 : 200;
           return (
             <div key={t}
               className="gtrade-team-panel absolute inset-y-0 flex flex-col items-center justify-center gap-6 overflow-hidden"
               style={{
                 width: panelWidth, left: panelLeft,
-                background: `linear-gradient(${angle}deg, ${tc.primary}ff 0%, ${tc.secondary}dd 100%)`,
+                background: tc.primary,
                 willChange: 'transform',
                 borderRight: idx < teams.length - 1 ? `2px solid rgba(0,0,0,0.4)` : 'none',
               }}
@@ -255,7 +248,7 @@ export default function DraftTradeAnimation({ teams, assets, eventLogoUrl, event
 
           {/* Top bar */}
           <div className="flex items-center justify-center gap-4 flex-shrink-0 px-6 py-4"
-            style={{ background: topBarGradient, borderBottom: `3px solid ${ec1}` }}>
+            style={{ background: topBarColor, borderBottom: `3px solid ${ec1}` }}>
             {eventLogoUrl && (
               <img src={eventLogoUrl} alt="" className="object-contain flex-shrink-0"
                 style={{ width: 'clamp(28px,4vw,44px)', height: 'clamp(28px,4vw,44px)' }} />
@@ -273,7 +266,7 @@ export default function DraftTradeAnimation({ teams, assets, eventLogoUrl, event
               return (
                 <div key={t} className="flex-1 flex flex-col overflow-hidden relative"
                   style={{
-                    background: `linear-gradient(135deg, ${tc.primary}44 0%, ${tc.primary}18 55%, rgba(8,8,16,0.92) 100%)`,
+                    background: `${tc.primary}22`,
                     borderTop: idx > 0 ? `2px solid ${ec1}33` : 'none',
                   }}
                 >

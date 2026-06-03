@@ -25,7 +25,7 @@ export default function Amendments() {
   return (
     <div style={{ fontFamily: 'Georgia, serif', background: BG, color: TXT, borderRadius: '12px', overflow: 'hidden' }}>
       {/* Header */}
-      <div style={{ background: 'linear-gradient(160deg, #09090d, #0e1020, #09090d)', borderBottom: '3px solid ' + BLU, padding: '28px 24px 20px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: '#09090d', borderBottom: '3px solid ' + BLU, padding: '28px 24px 20px', position: 'relative', overflow: 'hidden' }}>
         {[20, 40, 60, 80].map(p => (
           <div key={p} style={{ position: 'absolute', top: 0, bottom: 0, left: p + '%', width: '1px', background: 'rgba(96,165,250,0.05)' }} />
         ))}

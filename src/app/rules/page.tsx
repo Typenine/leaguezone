@@ -236,6 +236,7 @@ function EmptyRules({ isAdmin }: { isAdmin: boolean }) {
         <Link
           href="/settings"
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
+          style={{ color: 'var(--on-brand)' }}
         >
           Add Rules in Settings →
         </Link>

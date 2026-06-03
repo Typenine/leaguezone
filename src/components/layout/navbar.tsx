@@ -78,7 +78,7 @@ function UserAvatar({ displayName, size = 32 }: { displayName: string; size?: nu
         width: size,
         height: size,
         fontSize: size * 0.375,
-        background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-strong, var(--accent)) 100%)',
+        background: 'var(--accent)',
       }}
       aria-hidden="true"
     >
@@ -99,7 +99,16 @@ interface SessionUser {
 interface ActiveTeam {
   teamName: string;
   leagueId: string;
+  leagueSlug?: string;
   leagueName: string;
+  isCommissioner: boolean;
+}
+
+interface UserLeagueSummary {
+  leagueId: string;
+  leagueSlug: string;
+  leagueName: string;
+  teamName: string;
   isCommissioner: boolean;
 }
 
@@ -121,6 +130,7 @@ export default function Navbar() {
   // Auth state
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [activeTeam, setActiveTeam] = useState<ActiveTeam | null>(null);
+  const [userLeagues, setUserLeagues] = useState<UserLeagueSummary[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSiteAdmin, setIsSiteAdmin] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
@@ -154,26 +164,30 @@ export default function Navbar() {
           if (j?.authenticated && j?.user) {
             setSessionUser(j.user as SessionUser);
             setActiveTeam((j.activeTeam as ActiveTeam) || null);
+            setUserLeagues(Array.isArray(j.leagues) ? (j.leagues as UserLeagueSummary[]) : []);
             setIsAdmin(Boolean(j.isAdmin));
             setIsSiteAdmin(Boolean(j.isSiteAdmin));
           } else if (j?.authenticated && j?.claims?.team) {
             // Legacy team session — treat team name as display name
             const team = j.claims.team as string;
             setSessionUser({ id: team, displayName: team, email: '', emailVerified: true });
+            setUserLeagues([]);
             setIsAdmin(Boolean(j.isAdmin));
             setIsSiteAdmin(Boolean(j.isSiteAdmin));
           } else {
             setSessionUser(null);
             setActiveTeam(null);
+            setUserLeagues([]);
             setIsAdmin(Boolean(j?.isAdmin));
             setIsSiteAdmin(Boolean(j?.isSiteAdmin));
           }
         } else {
           setSessionUser(null);
           setActiveTeam(null);
+          setUserLeagues([]);
         }
       } catch {
-        if (mounted) { setSessionUser(null); setActiveTeam(null); }
+        if (mounted) { setSessionUser(null); setActiveTeam(null); setUserLeagues([]); }
       } finally {
         if (mounted) setAuthLoading(false);
       }
@@ -193,7 +207,7 @@ export default function Navbar() {
       })
       .catch(() => {});
     return () => { mounted = false; };
-  }, []);
+  }, [pathname]);
 
   // ── close menus on outside click / Escape ───────────────────────────────────
   useEffect(() => {
@@ -263,30 +277,56 @@ export default function Navbar() {
 
   const displayName = sessionUser?.displayName || sessionUser?.email || '';
   const isLoggedIn = Boolean(sessionUser) || isAdmin;
+  const isMarketingHome = pathname === '/';
+  const isLeagueHomepage = pathname.startsWith('/leagues/');
+  const isPortalSurface = isMarketingHome || isLeagueHomepage;
+  const portalMenuItems = [
+    { href: '/', label: 'Home' },
+    { href: '/#my-leagues', label: 'My Leagues' },
+    { href: '/#available-leagues', label: 'Available Leagues' },
+    activeTeam
+      ? { href: `/api/league/select?id=${encodeURIComponent(activeTeam.leagueId)}&next=${encodeURIComponent('/home')}`, label: 'Dashboard' }
+      : { href: '/login', label: 'Sign In' },
+  ];
+  const leagueMenuItems = [
+    { href: '/home', label: 'Home' },
+    { href: '/teams', label: 'Teams' },
+    { href: '/standings', label: 'Standings' },
+    { href: '/draft?view=next', label: 'Draft' },
+    { href: '/trades', label: 'Trades' },
+    { href: '/history', label: 'History' },
+    { href: '/rules', label: 'Rules' },
+    { href: '/suggestions', label: 'Suggestions' },
+    { href: '/settings', label: 'Settings' },
+  ];
+  const menuBarItems = isPortalSurface ? portalMenuItems : leagueMenuItems;
 
   // ── render ────────────────────────────────────────────────────────────────────
   return (
     <>
-    <nav className="league-surface border-b border-[var(--border)] sticky top-0 backdrop-blur-sm bg-[var(--surface)]/95 z-50">
+    <nav
+      className="league-surface border-b border-[var(--border)] sticky top-0 backdrop-blur-sm bg-[var(--surface)]/95 z-50"
+      style={{ boxShadow: 'inset 0 -3px 0 var(--gold)' }}
+    >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
 
           {/* Left: logo + nav links */}
           <div className="flex items-center">
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Link href="/" aria-label="Website home" className="flex-shrink-0">
+              <Link href={isPortalSurface ? '/' : activeTeam?.leagueSlug ? `/leagues/${activeTeam.leagueSlug}` : '/'} aria-label="Website home" className="flex-shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={leagueLogoUrl || '/assets/teams/East v West Logos/EvW Clancy logo.png'}
-                  alt="League logo"
+                  src={isPortalSurface ? '/assets/teams/East v West Logos/EvW Clancy logo.png' : leagueLogoUrl || '/assets/teams/East v West Logos/EvW Clancy logo.png'}
+                  alt={isPortalSurface ? 'Website logo' : 'League logo'}
                   className="h-9 w-9 rounded-lg object-contain"
                 />
               </Link>
-              <Link href="/home" className="font-bold text-xl leading-none">
-                {leagueName ?? 'Fantasy League'}
+              <Link href={isPortalSurface ? '/' : '/home'} className="font-bold text-xl leading-none">
+                {isPortalSurface ? 'League HQ' : leagueName ?? 'Fantasy League'}
               </Link>
             </div>
-            <div className="hidden md:block">
+            {!isPortalSurface && <div className="hidden">
               <div className="ml-10 flex items-center gap-1" ref={desktopMenuRef}>
                 {USER_NAV_CONFIG.map((item) => {
                   const itemActive = isNavItemActive(item, pathname, currentQuery);
@@ -388,11 +428,21 @@ export default function Navbar() {
                   );
                 })}
               </div>
-            </div>
+            </div>}
           </div>
 
           {/* Right: theme + account */}
           <div className="flex items-center gap-2">
+            {isPortalSurface && activeTeam && (
+              <LinkButton
+                href={`/api/league/select?id=${encodeURIComponent(activeTeam.leagueId)}&next=${encodeURIComponent('/home')}`}
+                variant="secondary"
+                size="sm"
+                className="hidden sm:inline-flex"
+              >
+                Open Dashboard
+              </LinkButton>
+            )}
             <ThemeToggle />
 
             {/* Desktop account area */}
@@ -420,7 +470,7 @@ export default function Navbar() {
                   )}
 
                   {accountMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-56 league-surface border border-[var(--border)] rounded shadow-lg p-1 z-50">
+                    <div className="absolute right-0 mt-2 w-72 league-surface border border-[var(--border)] rounded shadow-lg p-1 z-50">
 
                       {/* User identity */}
                       {sessionUser && (
@@ -438,6 +488,35 @@ export default function Navbar() {
                             <div className="text-xs text-amber-500 mt-0.5">⚠ Email not verified</div>
                           )}
                         </div>
+                      )}
+
+                      {userLeagues.length > 1 && (
+                        <>
+                          <div className="px-2 py-1 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Switch League</div>
+                          {userLeagues.map((league) => {
+                            const active = activeTeam?.leagueId === league.leagueId;
+                            return (
+                              <a
+                                key={league.leagueId}
+                                href={`/api/league/select?id=${encodeURIComponent(league.leagueId)}&next=${encodeURIComponent('/home')}`}
+                                className={`block rounded px-2 py-1.5 text-sm hover:bg-[var(--surface-strong)] ${active ? 'bg-[var(--surface-strong)] text-[var(--text)] font-medium' : 'text-[var(--text)]'}`}
+                                onClick={() => setAccountMenuOpen(false)}
+                                aria-current={active ? 'page' : undefined}
+                              >
+                                <span className="block truncate">{league.leagueName}</span>
+                                <span className="block truncate text-xs text-[var(--muted)]">{league.teamName}</span>
+                              </a>
+                            );
+                          })}
+                          <Link
+                            href="/#my-leagues"
+                            className="block rounded px-2 py-1.5 text-sm text-[var(--accent)] hover:bg-[var(--surface-strong)]"
+                            onClick={() => setAccountMenuOpen(false)}
+                          >
+                            View all league homepages
+                          </Link>
+                          <div className="my-1 border-t border-[var(--border)]" />
+                        </>
                       )}
 
                       {/* Site admin tools */}
@@ -587,10 +666,38 @@ export default function Navbar() {
         </div>
       </div>
 
+      <div className="border-t border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-strong)_50%,transparent)]">
+        <div className="container mx-auto px-4">
+          <div className="flex min-h-10 items-center gap-2 overflow-x-auto py-1.5">
+            {menuBarItems.map((item) => {
+              const active = item.href === '/'
+                ? pathname === '/'
+                : item.href.startsWith('/#')
+                  ? false
+                  : isHrefActive(pathname, currentQuery, item.href);
+              return (
+                <Link
+                  key={`${item.href}-${item.label}`}
+                  href={item.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                    active
+                      ? 'bg-[var(--surface-strong)] text-[var(--text)]'
+                      : 'text-[var(--muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--text)]'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Mobile menu */}
       <div className={`${mobileMenuOpen ? 'block' : 'hidden'} md:hidden relative z-40`} id="mobile-menu" aria-labelledby="mobile-menu-button">
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-          {USER_NAV_CONFIG.map((item) => {
+          {!isPortalSurface && USER_NAV_CONFIG.map((item) => {
             const itemActive = isNavItemActive(item, pathname, currentQuery);
             const hasChildren = Boolean(item.children && item.children.length > 0);
 

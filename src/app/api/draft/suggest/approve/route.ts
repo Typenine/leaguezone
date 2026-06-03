@@ -48,11 +48,27 @@ export async function POST(req: NextRequest) {
     const idx = suggestions.findIndex((s) => s.id === id);
     if (idx < 0) return NextResponse.json({ error: 'Suggestion not found' }, { status: 404 });
 
+    const approvedDate = new Date(suggestions[idx].date);
+    if (Number.isNaN(approvedDate.getTime())) {
+      return NextResponse.json({ error: 'Suggestion has an invalid date' }, { status: 400 });
+    }
+
     suggestions[idx] = { ...suggestions[idx], approvedAt: new Date().toISOString() };
 
     await db.execute(sql`
       UPDATE leagues
-      SET config = ${JSON.stringify({ ...config, draftSuggestions: suggestions })}::jsonb,
+      SET config = ${JSON.stringify({
+        ...config,
+        draftSuggestions: suggestions,
+        importantDates: {
+          ...(
+            config.importantDates && typeof config.importantDates === 'object' && !Array.isArray(config.importantDates)
+              ? config.importantDates as Record<string, unknown>
+              : {}
+          ),
+          nextDraft: approvedDate.toISOString(),
+        },
+      })}::jsonb,
           updated_at = now()
       WHERE id = ${leagueId}::uuid
     `);

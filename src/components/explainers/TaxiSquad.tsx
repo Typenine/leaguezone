@@ -24,8 +24,7 @@ export default function TaxiSquad() {
   return (
     <div style={{ fontFamily: "'Georgia', serif", background: BG, color: TXT, borderRadius: '12px', overflow: 'hidden' }}>
       {/* Header */}
-      <div style={{ background: 'linear-gradient(135deg, #1a0505 0%, #2a0a0a 50%, #1a0505 100%)', borderBottom: '3px solid #c9a84c', padding: '24px 24px 18px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(201,168,76,0.03) 40px, rgba(201,168,76,0.03) 41px)' }} />
+      <div style={{ background: '#1a0505', borderBottom: '3px solid #c9a84c', padding: '24px 24px 18px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'relative', zIndex: 1 }}>
           <span style={{ fontSize: '11px', letterSpacing: '4px', color: '#c9a84c', textTransform: 'uppercase' }}>Fantasy Football League</span>
           <h2 style={{ margin: '8px 0 0', fontSize: 'clamp(24px, 6vw, 38px)', fontWeight: 'bold', color: '#ffffff', letterSpacing: '1px' }}>
@@ -157,7 +156,7 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle: string })
     <div style={{ marginBottom: '24px' }}>
       <h2 style={{ margin: 0, fontSize: '26px', color: '#ffffff', fontWeight: 'bold' }}>{title}</h2>
       <p style={{ margin: '4px 0 0', color: '#c9a84c', fontSize: '13px', letterSpacing: '1px', textTransform: 'uppercase' }}>{subtitle}</p>
-      <div style={{ height: '2px', background: 'linear-gradient(to right, #c9a84c, transparent)', marginTop: '12px', width: '120px' }} />
+      <div style={{ height: '2px', background: '#c9a84c', marginTop: '12px', width: '120px' }} />
     </div>
   );
 }

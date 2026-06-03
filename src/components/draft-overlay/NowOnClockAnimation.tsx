@@ -238,7 +238,7 @@ export default function NowOnClockAnimation({
   const c2 = team.colors[1] || team.colors[0];
   const ec = eventColor1 || c1;
   const logo = getTeamLogoPath(team.name);
-  const barTopLine = `linear-gradient(90deg, transparent 0%, ${ec} 15%, ${ec} 85%, transparent 100%)`;
+  const barTopLine = ec;
   const sublineText = buildSubline(eventName, eventYear, pickNumber);
 
   useLayoutEffect(() => {
@@ -273,14 +273,14 @@ export default function NowOnClockAnimation({
             className="pointer-events-none absolute inset-y-0 left-0 w-[min(72%,420px)] z-0 opacity-[0.38]"
             aria-hidden
             style={{
-              background: `linear-gradient(90deg, transparent 0%, ${c1}00 8%, ${c1}bb 45%, ${c1}ff 50%, ${c1}bb 55%, ${c1}00 92%, transparent 100%)`,
+              background: c1,
               filter: 'blur(0.75px)',
             }}
           />
           <div
             className="noc-ib-accent shrink-0 w-2 sm:w-2.5 self-stretch relative z-[1]"
             style={{
-              background: `linear-gradient(180deg, ${c2} 0%, ${c2}dd 45%, #0a0a0a 100%)`,
+              background: c2,
               boxShadow: `2px 0 14px ${c2}66`,
             }}
           />
@@ -313,7 +313,7 @@ export default function NowOnClockAnimation({
                   style={{
                     width: 'clamp(44px, 10vw, 64px)',
                     height: 'clamp(44px, 10vw, 64px)',
-                    background: `linear-gradient(145deg, ${c1}33 0%, #0d0d0d 100%)`,
+                    background: `${c1}33`,
                   }}
                 >
                   <img src={logo} alt="" className="noc-ib-logo object-contain w-[82%] h-[82%]" />
@@ -362,17 +362,14 @@ export default function NowOnClockAnimation({
       <div
         className="noc-ambient absolute inset-0"
         style={{
-          background: `
-            radial-gradient(ellipse 85% 65% at 50% 35%, ${c1}14 0%, transparent 55%),
-            linear-gradient(180deg, #0a0b10 0%, #050508 45%, #020203 100%)
-          `,
+          background: '#050508',
           boxShadow: `inset 0 -120px 100px -40px rgba(0,0,0,0.85)`,
         }}
       />
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.07]"
         style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.35) 1px, transparent 1px)`,
+          backgroundImage: 'none',
           backgroundSize: '100% 4px',
         }}
       />
@@ -388,7 +385,7 @@ export default function NowOnClockAnimation({
         <div
           className="noc-accent shrink-0 w-2 sm:w-3 self-stretch"
           style={{
-            background: `linear-gradient(180deg, ${c1} 0%, ${c2} 100%)`,
+            background: c1,
             boxShadow: `4px 0 24px ${c1}55`,
           }}
         />
@@ -396,7 +393,7 @@ export default function NowOnClockAnimation({
         <div
           className="flex-1 flex flex-col min-w-0 relative"
           style={{
-            background: `linear-gradient(180deg, rgba(12,13,20,0.97) 0%, rgba(6,7,11,0.99) 100%)`,
+            background: 'rgba(12,13,20,0.98)',
             boxShadow: `0 -12px 48px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.06)`,
           }}
         >
@@ -407,7 +404,7 @@ export default function NowOnClockAnimation({
           />
           <div
             className="absolute top-0.5 left-0 right-0 h-px pointer-events-none"
-            style={{ background: `linear-gradient(90deg, transparent, ${ec}66, transparent)` }}
+            style={{ background: `${ec}66` }}
           />
 
           <div className="flex-1 flex flex-col justify-end px-4 sm:px-8 pb-5 pt-6 min-w-0 gap-4">
@@ -464,7 +461,7 @@ export default function NowOnClockAnimation({
                     width: 'clamp(88px, 14vw, 132px)',
                     height: 'clamp(88px, 14vw, 132px)',
                     borderColor: c2,
-                    background: `linear-gradient(145deg, ${c1}33 0%, rgba(0,0,0,0.5) 100%)`,
+                    background: `${c1}33`,
                     boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08) inset`,
                   }}
                 >
@@ -491,14 +488,14 @@ export default function NowOnClockAnimation({
             <div
               className="noc-chyron relative rounded-lg overflow-hidden"
               style={{
-                background: `linear-gradient(90deg, rgba(0,0,0,0.55) 0%, ${c1}22 50%, rgba(0,0,0,0.55) 100%)`,
+                background: 'rgba(0,0,0,0.55)',
                 border: `1px solid ${c1}55`,
               }}
             >
               <div
                 className="noc-shine pointer-events-none absolute inset-y-0 w-1/3 z-10"
                 style={{
-                  background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent)`,
+                  background: 'rgba(255,255,255,0.12)',
                 }}
               />
               <div className="relative z-20 flex flex-wrap justify-between sm:justify-start gap-y-3 gap-x-6 sm:gap-x-12 px-4 py-3 sm:px-6 sm:py-3.5">

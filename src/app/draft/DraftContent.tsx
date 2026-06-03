@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import CountdownTimer from '@/components/ui/countdown-timer';
-import { CURRENT_SEASON, IMPORTANT_DATES, LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
+import { CURRENT_SEASON, LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
 import EmptyState from '@/components/ui/empty-state';
 import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
@@ -50,6 +50,11 @@ type SleeperDraftSettings = {
   rounds?: number;
 };
 
+type DraftDateSettings = {
+  nextDraft: string | null;
+  nextDraftConfigured: boolean;
+};
+
 // Threshold: only show countdown if draft is > 24 hours away
 const DRAFT_COUNTDOWN_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
@@ -64,7 +69,15 @@ function isDraftDateMeaningful(date: Date): boolean {
 }
 
 // ── Draft date suggestion form ────────────────────────────────────────────────
-function DraftSuggestForm({ isLoggedIn, isAdmin }: { isLoggedIn: boolean; isAdmin: boolean }) {
+function DraftSuggestForm({
+  isLoggedIn,
+  isAdmin,
+  onDraftDateConfirmed,
+}: {
+  isLoggedIn: boolean;
+  isAdmin: boolean;
+  onDraftDateConfirmed?: (date: string) => void;
+}) {
   const [suggestions, setSuggestions] = useState<Array<{ id: string; teamName: string; date: string; notes?: string; approvedAt?: string }>>([]);
   const [date, setDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -106,7 +119,10 @@ function DraftSuggestForm({ isLoggedIn, isAdmin }: { isLoggedIn: boolean; isAdmi
       body: JSON.stringify({ id: suggId, date: suggDate }),
     });
     const data = await res.json();
-    if (res.ok && Array.isArray(data.suggestions)) setSuggestions(data.suggestions);
+    if (res.ok && Array.isArray(data.suggestions)) {
+      setSuggestions(data.suggestions);
+      onDraftDateConfirmed?.(suggDate);
+    }
   };
 
   return (
@@ -196,6 +212,10 @@ export default function DraftContent() {
   const [draftView, setDraftView] = useState<'teams' | 'linear'>('teams');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [draftDateSettings, setDraftDateSettings] = useState<DraftDateSettings>({
+    nextDraft: null,
+    nextDraftConfigured: false,
+  });
 
   const outerTabParam = searchParams?.get('view') || '';
   const nextTabParam = searchParams?.get('next') || '';
@@ -217,6 +237,15 @@ export default function DraftContent() {
   useEffect(() => {
     fetch('/api/admin-login').then(r => r.json()).then(j => setIsAdmin(Boolean(j?.isAdmin))).catch(() => setIsAdmin(false));
     fetch('/api/auth/me').then(r => r.json()).then(j => setIsLoggedIn(Boolean(j?.authenticated))).catch(() => setIsLoggedIn(false));
+    fetch('/api/settings/dates')
+      .then(r => r.json())
+      .then((d: Partial<DraftDateSettings>) => {
+        setDraftDateSettings({
+          nextDraft: typeof d.nextDraft === 'string' ? d.nextDraft : null,
+          nextDraftConfigured: Boolean(d.nextDraftConfigured),
+        });
+      })
+      .catch(() => setDraftDateSettings({ nextDraft: null, nextDraftConfigured: false }));
   }, []);
 
   // Removed local classNames helper – primitives use tokenized styles
@@ -224,8 +253,9 @@ export default function DraftContent() {
   // Download an ICS calendar file for the next draft
   const handleAddToCalendar = () => {
     try {
+      if (!draftDateSettings.nextDraftConfigured || !draftDateSettings.nextDraft) return;
       const formatICSDate = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-      const draftStart = IMPORTANT_DATES.NEXT_DRAFT;
+      const draftStart = new Date(draftDateSettings.nextDraft);
       const draftEnd = new Date(draftStart.getTime() + 2 * 60 * 60 * 1000); // 2 hours
       const now = new Date();
       const year = draftStart.getFullYear();
@@ -377,12 +407,17 @@ export default function DraftContent() {
               id: 'next',
               label: 'Next Draft',
               content: (() => {
-                const draftDateConfirmed = isDraftDateMeaningful(IMPORTANT_DATES.NEXT_DRAFT);
+                const configuredDraftDate = draftDateSettings.nextDraft ? new Date(draftDateSettings.nextDraft) : null;
+                const draftDateConfirmed = Boolean(
+                  draftDateSettings.nextDraftConfigured
+                  && configuredDraftDate
+                  && isDraftDateMeaningful(configuredDraftDate)
+                );
                 return (
                   <div className="space-y-6">
                     {draftDateConfirmed ? (
                       <CountdownTimer
-                        targetDate={IMPORTANT_DATES.NEXT_DRAFT}
+                        targetDate={configuredDraftDate!}
                         title="Countdown to Draft Day"
                         className="mb-2"
                       />
@@ -415,7 +450,14 @@ export default function DraftContent() {
                           </CardContent>
                         </Card>
                       )}
-                      <DraftSuggestForm isLoggedIn={isLoggedIn} isAdmin={isAdmin} />
+                      <DraftSuggestForm
+                        isLoggedIn={isLoggedIn}
+                        isAdmin={isAdmin}
+                        onDraftDateConfirmed={(date) => setDraftDateSettings({
+                          nextDraft: new Date(date).toISOString(),
+                          nextDraftConfigured: true,
+                        })}
+                      />
                       <DraftOrderView />
                     </div>
                   </div>
@@ -610,7 +652,7 @@ export default function DraftContent() {
                                           );
                                         })}
                                       </ul>
-                                      <div className="h-px bg-gradient-to-r from-[#be161e] to-[#bf9944] opacity-40 mt-4" />
+                                      <div className="h-px bg-[var(--border)] opacity-70 mt-4" />
                                     </div>
                                   ));
                                 })()}
@@ -795,6 +837,7 @@ function DraftOrderView() {
     rounds: number;
     rosterCount: number;
     generatedAt?: string;
+    orderSource?: 'projected' | 'commissioner';
     slotOrder: Array<{ slot: number; rosterId: number; team: string; record: { wins: number; losses: number; ties: number; fpts: number; fptsAgainst: number } }>;
     roundsData: Array<{ round: number; picks: Array<{ slot: number; round: number; originalTeam: string; ownerTeam: string; originalRosterId: number; ownerRosterId: number; history: DraftOrderHistoryHop[]; tradeSummary?: string }> }>;
     summary: { factoids: string[]; picksPerTeam: Array<{ team: string; overall: number; firstTwo: number }>; leaders: { mostOverall: { team: string; count: number } | null; mostFirstTwo: { team: string; count: number } | null } };
@@ -856,7 +899,7 @@ function DraftOrderView() {
           disabled={loading}
           onClick={() => setRefreshNonce((n) => n + 1)}
         >
-          {loading ? 'Refreshing…' : 'Refresh from Sleeper'}
+          {loading ? 'Refreshing…' : 'Refresh Draft Order'}
         </Button>
       </div>
       <Dialog open={tradeModal !== null} onClose={() => setTradeModal(null)} className="relative z-[200]">
@@ -938,7 +981,12 @@ function DraftOrderView() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Projected Draft Order • {data.season}</CardTitle>
+          <CardTitle>
+            Projected Draft Order • {data.season}
+            {data.orderSource === 'commissioner' && (
+              <span className="ml-2 text-xs font-semibold text-[var(--gold)]">Commissioner set</span>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

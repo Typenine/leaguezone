@@ -85,7 +85,7 @@ function TradeSummary({ teams, assets, myTeam, allTeamLogos }: { teams: string[]
         const isMe = team === myTeam;
         return (
           <div key={team} className="flex-1 rounded-xl border border-zinc-700 overflow-hidden">
-            <div className="flex items-center gap-2 px-3 py-2" style={{ background: `linear-gradient(135deg, ${colors.primary}99, ${colors.secondary}88)` }}>
+            <div className="flex items-center gap-2 px-3 py-2" style={{ background: `${colors.primary}cc` }}>
               {allTeamLogos[team] && <img src={allTeamLogos[team]!} alt={team} className="w-6 h-6 object-contain" />}
               <span className="text-white font-black text-sm truncate">{team}{isMe ? ' (You)' : ''}</span>
             </div>
@@ -132,7 +132,7 @@ function TeamAssetPicker({
 
   return (
     <div className="rounded-xl border border-zinc-700 overflow-hidden flex flex-col">
-      <div className="flex items-center gap-2 px-3 py-2.5" style={{ background: `linear-gradient(135deg, ${colors.primary}cc, ${colors.secondary}aa)` }}>
+      <div className="flex items-center gap-2 px-3 py-2.5" style={{ background: colors.primary }}>
         <img src={logo} alt={team} className="w-7 h-7 object-contain" />
         <span className="text-white font-black text-sm flex-1 truncate">{team}</span>
         {otherTeams.length > 1 && (

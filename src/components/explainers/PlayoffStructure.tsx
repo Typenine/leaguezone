@@ -26,7 +26,7 @@ export default function PlayoffStructure() {
   return (
     <div style={{ fontFamily: 'Georgia, serif', background: BG, color: TXT, borderRadius: '12px', overflow: 'hidden' }}>
       {/* Header */}
-      <div style={{ background: 'linear-gradient(160deg, #09090f, #0f1020, #09090f)', borderBottom: '3px solid ' + GLD, padding: '24px 24px 18px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: '#09090f', borderBottom: '3px solid ' + GLD, padding: '24px 24px 18px', position: 'relative', overflow: 'hidden' }}>
         {[20, 40, 60, 80].map(p => (
           <div key={p} style={{ position: 'absolute', top: 0, bottom: 0, left: p + '%', width: '1px', background: 'rgba(245,158,11,0.04)' }} />
         ))}

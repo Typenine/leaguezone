@@ -1325,7 +1325,7 @@ export default function AdminDraftPage() {
                 {/* Live Color Preview */}
                 <div
                   className="rounded-lg p-4 flex items-center gap-4 border border-zinc-700"
-                  style={{ background: `linear-gradient(135deg, ${brandingForm.eventColor1}22 0%, ${brandingForm.eventColor2}22 100%)` }}
+                  style={{ background: `${brandingForm.eventColor1}22` }}
                 >
                   <div className="flex gap-2">
                     <div className="w-8 h-8 rounded-full border-2 border-white/20" style={{ background: brandingForm.eventColor1 }} title="Primary" />
@@ -1762,7 +1762,7 @@ export default function AdminDraftPage() {
                           key={`${p.overall}-${idx}`} 
                           className="flex items-center gap-3 p-2 rounded"
                           style={{
-                            background: `linear-gradient(90deg, ${teamColors.primary}20 0%, transparent 100%)`,
+                            background: `${teamColors.primary}14`,
                             borderLeft: `3px solid ${teamColors.primary}`
                           }}
                         >

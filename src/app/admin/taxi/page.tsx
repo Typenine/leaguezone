@@ -314,7 +314,7 @@ export default function AdminTaxiPage() {
                 const colors = getTeamColors(t.teamName);
                 return (
                   <div key={t.rosterId} className="rounded border border-[var(--border)] overflow-hidden">
-                    <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
+                    <div className="h-1 w-full" style={{ background: colors.primary }} />
                     <div className="p-3">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">

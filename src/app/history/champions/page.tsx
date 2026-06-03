@@ -75,7 +75,7 @@ export default function ChampionsPage() {
       
       {/* Champion Trophy Card */}
       <div className="max-w-3xl mx-auto league-surface border border-[var(--border)] rounded-lg shadow-lg overflow-hidden mb-8">
-        <div className="brand-gradient text-on-brand p-6 text-center">
+        <div className="brand-fill text-on-brand p-6 text-center">
           <div className="text-6xl mb-4">🏆</div>
           <h2 className="text-3xl font-bold">{selectedChampion.team}</h2>
           <p className="text-xl mt-2">{selectedChampion.year} Champion</p>

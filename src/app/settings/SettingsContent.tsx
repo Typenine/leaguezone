@@ -7,6 +7,8 @@ import Card, { CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Label from '@/components/ui/Label';
+import Select from '@/components/ui/Select';
+import { CURRENT_SEASON } from '@/lib/constants/league';
 
 type AuthState = {
   authenticated: boolean;
@@ -17,6 +19,32 @@ type AuthState = {
 type LeagueInfo = {
   name: string | null;
   shortName: string | null;
+};
+
+type DraftOrderSettingsData = {
+  season: number;
+  orderSource?: 'projected' | 'commissioner';
+  slotOrder: Array<{
+    slot: number;
+    rosterId: number;
+    team: string;
+    record: {
+      wins: number;
+      losses: number;
+      ties: number;
+      fpts: number;
+      fptsAgainst: number;
+    };
+  }>;
+};
+
+type JoinRequestRow = {
+  id: string;
+  name: string;
+  email: string;
+  message?: string;
+  sleeperLeagueId?: string;
+  createdAt: string;
 };
 
 // ─── PIN change form (for logged-in users) ───────────────────────────────────
@@ -163,6 +191,230 @@ function ImportantDatesForm() {
         {status === 'saving' ? 'Saving…' : 'Save Dates'}
       </Button>
     </form>
+  );
+}
+
+// ─── Admin: projected draft order editor ──────────────────────────────────────
+function ProjectedDraftOrderForm() {
+  const [season, setSeason] = useState(String(CURRENT_SEASON));
+  const [data, setData] = useState<DraftOrderSettingsData | null>(null);
+  const [order, setOrder] = useState<number[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
+  const [msg, setMsg] = useState('');
+
+  const loadOrder = async (opts?: { ignoreOverride?: boolean }) => {
+    try {
+      setLoading(true);
+      setStatus('idle');
+      setMsg('');
+      const suffix = opts?.ignoreOverride ? '&ignoreOverride=1' : '';
+      const res = await fetch(`/api/draft/next-order?season=${encodeURIComponent(season)}${suffix}`, { cache: 'no-store' });
+      const next = await res.json();
+      if (!res.ok) throw new Error(next?.error || 'Failed to load draft order');
+      const parsed = next as DraftOrderSettingsData;
+      setData(parsed);
+      setOrder(parsed.slotOrder.map((entry) => entry.rosterId));
+    } catch (err) {
+      setStatus('error');
+      setMsg(err instanceof Error ? err.message : 'Unable to load draft order');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOrder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [season]);
+
+  const updateSlot = (index: number, rosterId: number) => {
+    setOrder((prev) => prev.map((id, i) => (i === index ? rosterId : id)));
+    setStatus('idle');
+    setMsg('');
+  };
+
+  const duplicateRosterIds = new Set(
+    order.filter((id, index) => order.indexOf(id) !== index)
+  );
+
+  const saveOrder = async () => {
+    if (duplicateRosterIds.size > 0) {
+      setStatus('error');
+      setMsg('Each team can appear only once in the draft order.');
+      return;
+    }
+
+    try {
+      setStatus('saving');
+      setMsg('');
+      const res = await fetch('/api/settings/draft-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ season: Number(season), rosterIds: order }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error || 'Failed to save draft order');
+      setStatus('ok');
+      setMsg('Projected draft order saved.');
+      await loadOrder();
+    } catch (err) {
+      setStatus('error');
+      setMsg(err instanceof Error ? err.message : 'Failed to save draft order');
+    }
+  };
+
+  const resetOrder = async () => {
+    try {
+      setStatus('saving');
+      setMsg('');
+      const res = await fetch('/api/settings/draft-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ season: Number(season), reset: true }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error || 'Failed to reset draft order');
+      setStatus('ok');
+      setMsg('Commissioner override removed. Using projected Sleeper order.');
+      await loadOrder({ ignoreOverride: true });
+    } catch (err) {
+      setStatus('error');
+      setMsg(err instanceof Error ? err.message : 'Failed to reset draft order');
+    }
+  };
+
+  const teamsByRosterId = new Map((data?.slotOrder ?? []).map((entry) => [entry.rosterId, entry] as const));
+  const seasonOptions = [Number(CURRENT_SEASON), Number(CURRENT_SEASON) + 1]
+    .filter((year) => Number.isFinite(year))
+    .map(String);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <Label htmlFor="projected-draft-season">Draft Season</Label>
+          <Select
+            id="projected-draft-season"
+            value={season}
+            onChange={(e) => setSeason(e.target.value)}
+            fullWidth={false}
+            className="min-w-[10rem]"
+          >
+            {seasonOptions.map((year) => (
+              <option key={year} value={year}>{year} Draft</option>
+            ))}
+          </Select>
+        </div>
+        <Button type="button" variant="secondary" onClick={() => loadOrder({ ignoreOverride: true })} disabled={loading || status === 'saving'}>
+          Load Sleeper Projection
+        </Button>
+      </div>
+
+      <p className="text-sm text-[var(--muted)]">
+        Set the original slot order for the projected draft. Traded picks still follow the saved trade ownership for each round.
+        {data?.orderSource === 'commissioner' ? ' Current order is using a commissioner override.' : ' Current order is using the projected Sleeper order.'}
+      </p>
+
+      {loading && <p className="text-sm text-[var(--muted)]">Loading draft order...</p>}
+
+      {data && (
+        <div className="space-y-2">
+          {order.map((rosterId, index) => {
+            const selectedTeam = teamsByRosterId.get(rosterId);
+            const hasDuplicate = duplicateRosterIds.has(rosterId);
+            return (
+              <div key={`slot-${index + 1}`} className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2">
+                <div className="w-12 shrink-0 text-sm font-semibold text-[var(--muted)]">#{index + 1}</div>
+                <Select
+                  aria-label={`Draft slot ${index + 1}`}
+                  value={String(rosterId)}
+                  onChange={(e) => updateSlot(index, Number(e.target.value))}
+                  invalid={hasDuplicate}
+                >
+                  {data.slotOrder.map((entry) => (
+                    <option key={entry.rosterId} value={entry.rosterId}>
+                      {entry.team}
+                    </option>
+                  ))}
+                </Select>
+                {selectedTeam && (
+                  <div className="hidden sm:block w-28 shrink-0 text-right text-xs text-[var(--muted)]">
+                    {selectedTeam.record.wins}-{selectedTeam.record.losses}
+                    {selectedTeam.record.ties ? `-${selectedTeam.record.ties}` : ''}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {msg && (
+        <p className={`text-sm ${status === 'ok' ? 'text-green-500' : 'text-red-400'}`}>{msg}</p>
+      )}
+
+      <div className="flex flex-wrap gap-3">
+        <Button type="button" onClick={saveOrder} disabled={!data || loading || status === 'saving'}>
+          {status === 'saving' ? 'Saving...' : 'Save Projected Order'}
+        </Button>
+        <Button type="button" variant="ghost" onClick={resetOrder} disabled={!data || loading || status === 'saving'}>
+          Reset to Sleeper Projection
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Admin: public join request inbox ─────────────────────────────────────────
+function JoinRequestsPanel() {
+  const [requests, setRequests] = useState<JoinRequestRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/settings/join-requests', { cache: 'no-store' })
+      .then((res) => res.ok ? res.json() : Promise.reject(new Error('Failed to load requests')))
+      .then((body) => {
+        if (!mounted) return;
+        setRequests(Array.isArray(body.requests) ? body.requests : []);
+      })
+      .catch((err) => {
+        if (mounted) setError(err instanceof Error ? err.message : 'Failed to load requests');
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => { mounted = false; };
+  }, []);
+
+  if (loading) return <p className="text-sm text-[var(--muted)]">Loading join requests...</p>;
+  if (error) return <p className="text-sm text-red-400">{error}</p>;
+  if (requests.length === 0) {
+    return <p className="text-sm text-[var(--muted)]">No public join requests yet.</p>;
+  }
+
+  return (
+    <ul className="space-y-3">
+      {requests.map((request) => (
+        <li key={request.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="font-semibold text-[var(--text)]">{request.name}</p>
+              <a href={`mailto:${request.email}`} className="text-sm text-[var(--accent)] hover:underline">{request.email}</a>
+            </div>
+            <p className="text-xs text-[var(--muted)]">{new Date(request.createdAt).toLocaleString()}</p>
+          </div>
+          {request.sleeperLeagueId && (
+            <p className="mt-2 text-xs text-[var(--muted)]">Searched Sleeper ID: {request.sleeperLeagueId}</p>
+          )}
+          {request.message && (
+            <p className="mt-2 text-sm text-[var(--muted)]">{request.message}</p>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -621,6 +873,24 @@ export default function SettingsContent() {
             </CardHeader>
             <CardContent>
               <ImportantDatesForm />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Projected Draft Order</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ProjectedDraftOrderForm />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Join Requests</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <JoinRequestsPanel />
             </CardContent>
           </Card>
 

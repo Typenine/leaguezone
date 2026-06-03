@@ -275,7 +275,7 @@ export default function DraftInfoBarTicker({ picksPerRound = 12, onClockTeam, av
 
   if (pendingPick) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center z-20" style={{ background: 'linear-gradient(135deg,rgba(0,0,0,0.92),rgba(30,10,0,0.96))' }}>
+      <div className="absolute inset-0 flex flex-col items-center justify-center z-20" style={{ background: 'rgba(0,0,0,0.94)' }}>
         <div className="text-4xl font-black text-white tracking-widest uppercase animate-pulse">PICK IS IN</div>
       </div>
     );

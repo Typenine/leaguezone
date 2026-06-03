@@ -755,7 +755,7 @@ export default function DraftRoomPage() {
     <div className="flex flex-col" style={{ background: 'var(--background)' }}>
 
       {/* ── Header (sticky) ── */}
-      <div className="sticky top-0 z-50 flex items-center justify-between px-4 py-2" style={{ background: 'linear-gradient(90deg,#be161e,#bf9944)', boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+      <div className="sticky top-0 z-50 flex items-center justify-between px-4 py-2" style={{ background: '#be161e', boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
         <div className="flex items-center gap-3">
           {myTeam && myTeamColors && (
             <div className="w-8 h-8 rounded overflow-hidden bg-black/30">
@@ -905,7 +905,7 @@ export default function DraftRoomPage() {
           return (
             <div className="relative flex gap-0 items-stretch" style={{ minHeight: '184px', borderBottom: `2px solid ${eventColor1}33` }}>
               {/* ClockBox */}
-              <div className="flex items-stretch shrink-0" style={{ width: '380px', background: 'linear-gradient(to bottom,#202020,#282828)', borderRadius: '4px', border: '1px solid #333' }}>
+              <div className="flex items-stretch shrink-0" style={{ width: '380px', background: '#202020', borderRadius: '4px', border: '1px solid #333' }}>
                 <div className="flex flex-col justify-center items-center p-2 w-28">
                   {eventLogoUrl && <img src={eventLogoUrl} alt="" className="object-contain" style={{ width: '88px', height: '88px', opacity: 0.94 }} />}
                 </div>
@@ -940,12 +940,12 @@ export default function DraftRoomPage() {
                 className="shrink-0 self-stretch"
                 style={{
                   width: '8px',
-                  background: `linear-gradient(180deg, ${tc[1]} 0%, ${tc[1]}dd 55%, #0b0b0b 100%)`,
+                  background: tc[1],
                   boxShadow: `0 0 10px ${tc[1]}66`,
                 }}
               />
               {/* InfoBar — ticker; on-the-clock overlay is sibling (covers clock + bar) */}
-              <div className="flex-1 p-2 overflow-hidden relative" style={{ background: `linear-gradient(135deg, ${tc[0]}dd, ${tc[1]}cc)` }}>
+              <div className="flex-1 p-2 overflow-hidden relative" style={{ background: `${tc[0]}dd` }}>
                 <DraftInfoBarTicker
                   draftId={draft?.id ?? null}
                   picksPerRound={picksPerRound}
@@ -1031,9 +1031,7 @@ export default function DraftRoomPage() {
               className="rounded-xl overflow-hidden border-2 shadow-md flex flex-col min-h-0"
               style={{
                 borderColor: myTeamColors?.secondary ?? 'var(--border)',
-                background: myTeamColors
-                  ? `linear-gradient(180deg, ${myTeamColors.primary}18, var(--background))`
-                  : 'var(--background)',
+                background: myTeamColors ? `${myTeamColors.primary}12` : 'var(--background)',
               }}
             >
               {myTeam && (
@@ -1126,7 +1124,7 @@ export default function DraftRoomPage() {
                                   onClick={() => setConfirmPlayer(p)}
                                   className="px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wide text-white shadow-sm disabled:opacity-50 transition-transform active:scale-[0.98]"
                                   style={{
-                                    background: `linear-gradient(135deg, ${myTeamColors.primary} 0%, ${myTeamColors.secondary} 100%)`,
+                                    background: myTeamColors.primary,
                                     boxShadow: `0 0 0 1px ${myTeamColors.secondary}66`,
                                   }}
                                 >
@@ -1342,9 +1340,7 @@ export default function DraftRoomPage() {
             <div
               className="px-5 py-4"
               style={{
-                background: myTeamColors
-                  ? `linear-gradient(90deg, ${myTeamColors.primary}, ${myTeamColors.secondary})`
-                  : 'linear-gradient(90deg,#be161e,#bf9944)',
+                background: myTeamColors ? myTeamColors.primary : '#be161e',
               }}
             >
               <div className="text-base font-black text-white uppercase tracking-wide">Confirm Selection</div>
@@ -1373,9 +1369,7 @@ export default function DraftRoomPage() {
                   disabled={submitting}
                   className="flex-1 py-2.5 rounded-lg text-sm font-black text-white transition-colors disabled:opacity-50"
                   style={{
-                    background: myTeamColors
-                      ? `linear-gradient(90deg, ${myTeamColors.primary}, ${myTeamColors.secondary})`
-                      : 'linear-gradient(90deg,#be161e,#bf9944)',
+                    background: myTeamColors ? myTeamColors.primary : '#be161e',
                   }}
                   onClick={() => { submitPick(confirmPlayer); setConfirmPlayer(null); }}
                 >

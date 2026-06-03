@@ -9,6 +9,7 @@ export function Modal({
   children,
   showClose = true,
   autoFocusPanel = true,
+  panelClassName,
 }: {
   open: boolean;
   onClose: () => void;
@@ -16,6 +17,7 @@ export function Modal({
   children: ReactNode;
   showClose?: boolean;
   autoFocusPanel?: boolean;
+  panelClassName?: string;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const titleIdRef = useRef<string>(`modal-title-${Math.random().toString(36).slice(2)}`);
@@ -81,7 +83,10 @@ export function Modal({
             aria-modal="true"
             aria-labelledby={title ? titleIdRef.current : undefined}
             tabIndex={-1}
-            className="league-surface border border-[var(--border)] rounded-[var(--radius-card)] shadow-[var(--shadow-soft)] w-full max-w-lg outline-none"
+            className={[
+              "league-surface border border-[var(--border)] rounded-[var(--radius-card)] shadow-[var(--shadow-soft)] w-full max-w-lg outline-none",
+              panelClassName,
+            ].filter(Boolean).join(" ")}
             onClick={(e) => e.stopPropagation()}
           >
             {(title || showClose) && (

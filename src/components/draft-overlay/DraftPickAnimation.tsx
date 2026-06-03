@@ -251,30 +251,25 @@ export default function DraftPickAnimation({
         <div className="absolute inset-0" style={{ background: '#060809' }} />
         {/* Faint furnace glow — mill light on the horizon */}
         <div className="absolute inset-x-0 bottom-0 h-1/3 pointer-events-none" style={{
-          background: 'linear-gradient(to top, rgba(180,80,0,0.07) 0%, transparent 100%)',
+          background: 'rgba(180,80,0,0.04)',
         }} />
         {/* X-lattice truss pattern */}
         <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: [
-            'repeating-linear-gradient(45deg,transparent 0,transparent 46px,rgba(90,105,115,0.18) 46px,rgba(90,105,115,0.18) 48px)',
-            'repeating-linear-gradient(-45deg,transparent 0,transparent 46px,rgba(90,105,115,0.18) 46px,rgba(90,105,115,0.18) 48px)',
-          ].join(','),
+          backgroundImage: 'none',
         }} />
         {/* Horizontal girder lines */}
         {([8, 22, 38, 50, 62, 78, 92] as number[]).map((top, i) => (
           <div key={i} className="gsap-cable absolute left-0 right-0" style={{
             top: `${top}%`,
             height: i === 3 ? '2px' : '1px',
-            background: i === 3
-              ? 'linear-gradient(90deg,#3a3a3a 0%,#888 25%,#bbb 50%,#888 75%,#3a3a3a 100%)'
-              : 'linear-gradient(90deg,#1c1c1c 0%,#4a4a4a 30%,#5a5a5a 50%,#4a4a4a 70%,#1c1c1c 100%)',
+            background: i === 3 ? '#888' : '#4a4a4a',
             willChange: 'transform',
           }} />
         ))}
         {/* Corner rivets */}
         {(['top-6 left-6', 'top-6 right-6', 'bottom-6 left-6', 'bottom-6 right-6'] as string[]).map((pos, i) => (
           <div key={i} className={`gsap-rivet absolute ${pos} w-5 h-5 rounded-full`} style={{
-            background: 'radial-gradient(circle at 35% 35%,#c0c0c0 0%,#666 45%,#1a1a1a 100%)',
+            background: '#666',
             boxShadow: '0 2px 4px rgba(0,0,0,0.9),inset 0 1px 0 rgba(255,255,255,0.15)',
             willChange: 'opacity,transform',
           }} />
@@ -288,7 +283,7 @@ export default function DraftPickAnimation({
       >
         <div
           className="absolute inset-0"
-          style={{ background: `radial-gradient(ellipse at 50% 50%, ${c1}22 0%, #0d0d0d 70%)` }}
+          style={{ background: '#0d0d0d' }}
         />
         <div
           className="gsap-team-name-bg absolute inset-0"
@@ -346,7 +341,7 @@ export default function DraftPickAnimation({
       <div
         className="gsap-transition-wipe absolute inset-0"
         style={{
-          background: `linear-gradient(90deg, ${c1} 0%, ${c2} 100%)`,
+          background: c1,
           willChange: 'transform',
         }}
       />
@@ -358,7 +353,7 @@ export default function DraftPickAnimation({
       >
         <div
           className="absolute inset-0"
-          style={{ background: `radial-gradient(ellipse at 50% 40%, ${c1}33 0%, #0d0d0d 65%)` }}
+          style={{ background: '#0d0d0d' }}
         />
         <div className="relative z-10 flex flex-col items-center select-none">
           <div
@@ -396,21 +391,21 @@ export default function DraftPickAnimation({
           className="gsap-event-logo-feat absolute inset-0 flex items-center justify-center pointer-events-none"
           style={{ willChange: 'opacity' }}
         >
-          {/* Industrial dark base + event color radial glow */}
+          {/* Industrial dark base + event color glow */}
           <div className="absolute inset-0" style={{
-            background: `radial-gradient(ellipse 65% 55% at 50% 50%, ${ec}2e 0%, #020406 72%)`,
+            background: '#020406',
           }} />
           {/* Bridge truss X-lattice */}
           <div className="absolute inset-0" style={{
-            backgroundImage: `repeating-linear-gradient(45deg, transparent 0, transparent 30px, ${ec}20 30px, ${ec}20 32px), repeating-linear-gradient(-45deg, transparent 0, transparent 30px, ${ec}20 30px, ${ec}20 32px)`,
+            backgroundImage: 'none',
           }} />
           {/* Horizontal girder bands */}
           <div className="absolute inset-0" style={{
-            backgroundImage: `repeating-linear-gradient(0deg, transparent 0, transparent 63px, ${ec}18 63px, ${ec}18 65px)`,
+            backgroundImage: 'none',
           }} />
           {/* Industrial spotlight beam rising from below center */}
           <div className="absolute inset-0" style={{
-            background: `linear-gradient(to top, ${ec}22 0%, ${ec}0d 38%, transparent 58%)`,
+            background: `${ec}14`,
             clipPath: 'polygon(32% 100%, 68% 100%, 78% 0%, 22% 0%)',
           }} />
           {/* Logo — cinematic element animated independently */}
@@ -430,7 +425,7 @@ export default function DraftPickAnimation({
       >
         <div
           className="absolute inset-0"
-          style={{ background: `radial-gradient(ellipse at 50% 45%, ${c1}2a 0%, #0d0d0d 65%)` }}
+          style={{ background: '#0d0d0d' }}
         />
         <div className="relative z-10 text-center px-4 sm:px-8 select-none max-w-[min(96vw,1400px)] mx-auto">
           <div
@@ -475,13 +470,13 @@ export default function DraftPickAnimation({
       >
         <div
           className="absolute inset-0"
-          style={{ background: `radial-gradient(ellipse at 50% 50%, ${c1}28 0%, #0d0d0d 70%)` }}
+          style={{ background: '#0d0d0d' }}
         />
         <div
           className="relative z-10 rounded-2xl overflow-hidden"
           style={{
             width: 'min(1100px, 96vw)',
-            background: `linear-gradient(135deg, ${c1}ee 0%, ${c2}ee 100%)`,
+            background: `${c1}ee`,
             boxShadow: `0 24px 80px rgba(0,0,0,0.7), 0 0 60px ${c1}44`,
           }}
         >

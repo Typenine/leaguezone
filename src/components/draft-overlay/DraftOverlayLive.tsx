@@ -448,7 +448,7 @@ export default function DraftOverlayLive() {
   }, [animPhase]);
 
   return (
-    <div className="w-full h-full bg-gradient-to-b from-zinc-950 to-zinc-900 p-3 flex flex-col">
+    <div className="w-full h-full bg-zinc-950 p-3 flex flex-col">
       {/* Draft Board Grid */}
       <div className="flex-1 mb-4 min-h-0 relative">
         <div
@@ -599,7 +599,7 @@ export default function DraftOverlayLive() {
           className="flex items-stretch shrink-0"
           style={{
             width: '380px',
-            background: 'linear-gradient(to bottom, #202020, #282828)',
+            background: '#202020',
             borderRadius: '4px',
             border: '1px solid #333',
           }}
@@ -656,7 +656,7 @@ export default function DraftOverlayLive() {
           className="shrink-0 self-stretch"
           style={{
             width: '8px',
-            background: `linear-gradient(180deg, ${teamColors[1]} 0%, ${teamColors[1]}dd 55%, #0b0b0b 100%)`,
+            background: teamColors[1],
             boxShadow: `0 0 10px ${teamColors[1]}66`,
           }}
         />

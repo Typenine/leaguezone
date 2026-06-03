@@ -1019,7 +1019,7 @@ export default function TradeTreeCanvas({ graph, height = 640, onNodeClick }: Tr
             </div>
           )}
           <div className="flex items-center gap-2">
-            <span className="inline-block w-6 h-3 rounded" style={{ background: `linear-gradient(90deg, ${leftLaneColor}, ${rightLaneColor})` }} />
+            <span className="inline-block w-6 h-3 rounded" style={{ background: leftLaneColor }} />
             <span>Lane headers (team colors)</span>
           </div>
           <div className="flex items-center gap-2">

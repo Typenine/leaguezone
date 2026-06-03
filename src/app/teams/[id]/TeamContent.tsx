@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Tabs from '@/components/ui/Tabs';
@@ -182,6 +182,8 @@ export default function TeamContent() {
   const [newsWindowHours, setNewsWindowHours] = useState<number>(336); // 14 days default
   const [newsView, setNewsView] = useState<'grouped' | 'timeline'>('grouped');
   const [newsFilterPlayer, setNewsFilterPlayer] = useState<string | null>(null);
+  const newsInFlightKeyRef = useRef<string | null>(null);
+  const newsLoadedKeyRef = useRef<string | null>(null);
   // Collapsed state per playerId for News groups
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const toggleGroup = (playerId: string) => {
@@ -393,6 +395,14 @@ export default function TeamContent() {
     if (!playerModalOpen || !playerModal || !modalSeason) return;
     loadPlayerWeekly(modalSeason, playerModal.playerId);
   }, [playerModalOpen, playerModal, modalSeason, loadPlayerWeekly]);
+
+  // Load the same weekly points data for the roster player detail modal.
+  useEffect(() => {
+    if (!selectedPlayerId || !modalYear) return;
+    setModalWeeks([]);
+    setModalError(null);
+    loadPlayerWeekly(String(modalYear), selectedPlayerId);
+  }, [selectedPlayerId, modalYear, loadPlayerWeekly]);
 
   // Populate Records: multi-season aggregation with roster reconstruction (only when Records tab is open)
   useEffect(() => {
@@ -802,28 +812,46 @@ export default function TeamContent() {
 
   // Fetch roster-based news when News is open, or on-demand for player modal.
   useEffect(() => {
-    const shouldFetchFromModal = !!selectedPlayerId && news.length === 0 && !newsLoading;
+    const playerIds = team?.players?.join(',');
+    if (!playerIds) return;
+
+    const requestKey = `${playerIds}:${newsWindowHours}`;
+    const shouldFetchFromModal = !!selectedPlayerId && newsLoadedKeyRef.current !== requestKey;
     if (mainTab !== 'news' && !shouldFetchFromModal) return;
+
+    if (newsInFlightKeyRef.current === requestKey || newsLoadedKeyRef.current === requestKey) return;
+
+    const controller = new AbortController();
     const load = async () => {
-      if (!team || !team.players || team.players.length === 0) return;
+      newsInFlightKeyRef.current = requestKey;
       try {
         setNewsLoading(true);
         setNewsError(null);
-        const playerIds = encodeURIComponent(team.players.join(','));
         // Use selected timeframe and increased limit for more articles
-        const res = await fetch(`/api/roster-news?playerIds=${playerIds}&limit=100&sinceHours=${newsWindowHours}` as const, { cache: 'no-store' });
+        const encodedPlayerIds = encodeURIComponent(playerIds);
+        const res = await fetch(`/api/roster-news?playerIds=${encodedPlayerIds}&limit=100&sinceHours=${newsWindowHours}` as const, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error(`Failed to fetch roster news: ${res.status}`);
         const data: RosterNewsResponse = await res.json();
         setNews(data.items || []);
+        newsLoadedKeyRef.current = requestKey;
       } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
         console.error(e);
         setNewsError('Failed to load news');
       } finally {
-        setNewsLoading(false);
+        if (newsInFlightKeyRef.current === requestKey) {
+          newsInFlightKeyRef.current = null;
+          setNewsLoading(false);
+        }
       }
     };
     load();
-  }, [team, newsWindowHours, mainTab, selectedPlayerId, news.length, newsLoading]);
+
+    return () => controller.abort();
+  }, [team?.players, newsWindowHours, mainTab, selectedPlayerId]);
   
   // Group news by matched player for better readability
   const newsGrouped = useMemo(() => {
@@ -962,7 +990,7 @@ export default function TeamContent() {
   
   return (
     <div className="container mx-auto px-4 py-8" style={themeVars}>
-      <div className="w-full h-1.5 rounded-full mb-6 brand-gradient" />
+      <div className="w-full h-1.5 rounded-full mb-6 brand-fill" />
       <div className="flex flex-col items-center mb-4">
         <div 
           className="w-32 h-32 rounded-full flex items-center justify-center mb-4 overflow-hidden" 
@@ -1030,7 +1058,7 @@ export default function TeamContent() {
                     <div
                       className="rounded-md shrink-0"
                       style={{
-                        backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
+                        backgroundColor: teamColors.primary,
                         color: '#ffffff',
                         padding: '0.35rem 0.6rem',
                       }}
@@ -1272,7 +1300,7 @@ export default function TeamContent() {
                   <div
                     className="rounded-md"
                     style={{
-                      backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
+                      backgroundColor: teamColors.primary,
                       color: '#ffffff',
                       padding: '0.35rem 0.6rem',
                     }}
@@ -1381,7 +1409,7 @@ export default function TeamContent() {
                   <div
                     className="rounded-md"
                     style={{
-                      backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
+                      backgroundColor: teamColors.primary,
                       color: '#ffffff',
                       padding: '0.35rem 0.6rem',
                     }}
@@ -1438,7 +1466,7 @@ export default function TeamContent() {
                             <div
                               className="rounded mb-2"
                               style={{
-                                backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
+                                backgroundColor: teamColors.primary,
                                 color: '#ffffff',
                                 padding: '0.25rem 0.5rem',
                               }}
@@ -1458,7 +1486,7 @@ export default function TeamContent() {
                             <div
                               className="rounded mb-2"
                               style={{
-                                backgroundImage: `linear-gradient(90deg, ${teamColors.secondary} 0%, ${teamColors.tertiary || teamColors.primary} 100%)`,
+                                backgroundColor: teamColors.secondary,
                                 color: '#ffffff',
                                 padding: '0.25rem 0.5rem',
                               }}
@@ -1479,7 +1507,7 @@ export default function TeamContent() {
                               <div
                                 className="rounded mb-2"
                                 style={{
-                                  backgroundImage: `linear-gradient(90deg, ${teamColors.secondary} 0%, ${teamColors.tertiary || teamColors.primary} 100%)`,
+                                  backgroundColor: teamColors.secondary,
                                   color: '#ffffff',
                                   padding: '0.25rem 0.5rem',
                                 }}
@@ -1501,7 +1529,7 @@ export default function TeamContent() {
                               <div
                                 className="rounded mb-2"
                                 style={{
-                                  backgroundImage: `linear-gradient(90deg, ${teamColors.secondary} 0%, ${teamColors.tertiary || teamColors.primary} 100%)`,
+                                  backgroundColor: teamColors.secondary,
                                   color: '#ffffff',
                                   padding: '0.25rem 0.5rem',
                                 }}
@@ -1537,7 +1565,7 @@ export default function TeamContent() {
               {(draftAssetsLoading || (draftAssets && (draftAssets.rosterPlayers.length > 0 || draftAssets.currentPicks.length > 0 || draftAssets.futurePicks.length > 0))) && (
                 <Card style={{ borderTop: `4px solid ${teamColors.primary}`, marginBottom: '1rem' }}>
                   <CardHeader>
-                    <div className="rounded-md" style={{ backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`, color: '#ffffff', padding: '0.35rem 0.6rem' }}>
+                    <div className="rounded-md" style={{ backgroundColor: teamColors.primary, color: '#ffffff', padding: '0.35rem 0.6rem' }}>
                       <CardTitle>Draft Day Assets</CardTitle>
                     </div>
                   </CardHeader>
@@ -1621,7 +1649,7 @@ export default function TeamContent() {
                   <div
                     className="rounded-md"
                     style={{
-                      backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
+                      backgroundColor: teamColors.primary,
                       color: '#ffffff',
                       padding: '0.35rem 0.6rem',
                     }}
@@ -1733,7 +1761,7 @@ export default function TeamContent() {
                   <div
                     className="rounded-md"
                     style={{
-                      backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
+                      backgroundColor: teamColors.primary,
                       color: '#ffffff',
                       padding: '0.35rem 0.6rem',
                     }}
@@ -1813,7 +1841,7 @@ export default function TeamContent() {
                   <div
                     className="rounded-md"
                     style={{
-                      backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
+                      backgroundColor: teamColors.primary,
                       color: '#ffffff',
                       padding: '0.5rem 0.75rem',
                     }}
@@ -1828,7 +1856,7 @@ export default function TeamContent() {
                         <div
                           className="rounded"
                           style={{
-                            backgroundImage: `linear-gradient(90deg, ${teamColors.secondary} 0%, ${teamColors.tertiary || teamColors.primary} 100%)`,
+                            backgroundColor: teamColors.secondary,
                             color: '#ffffff',
                             padding: '0.35rem 0.6rem',
                           }}
@@ -1885,7 +1913,7 @@ export default function TeamContent() {
                         <div
                           className="rounded"
                           style={{
-                            backgroundImage: `linear-gradient(90deg, ${teamColors.secondary} 0%, ${teamColors.tertiary || teamColors.primary} 100%)`,
+                            backgroundColor: teamColors.secondary,
                             color: '#ffffff',
                             padding: '0.35rem 0.6rem',
                           }}
@@ -2168,11 +2196,16 @@ export default function TeamContent() {
       {selectedPlayerId && (
         <Modal
           open={!!selectedPlayerId}
-          onClose={() => setSelectedPlayerId(null)}
+          onClose={() => {
+            setSelectedPlayerId(null);
+            setModalWeeks([]);
+            setModalError(null);
+          }}
           title={(() => {
             const p = players[selectedPlayerId!];
             return p ? `${p.first_name} ${p.last_name}` : 'Player Details';
           })()}
+          panelClassName="max-w-3xl"
         >
           {(() => {
             const p = players[selectedPlayerId!];
@@ -2180,6 +2213,20 @@ export default function TeamContent() {
             const nfl = (modalRealCache[modalYear] ?? seasonStats[selectedPlayerId!]);
             const group = newsGrouped.find((g) => g.playerId === selectedPlayerId);
             const meta = p ? `${p.position || ''}${p.team ? ` • ${p.team}` : ''}` : '';
+            const modalSeasonOptions = buildModalSeasons();
+            const fantasyTotal = Number(s.totalPPR || 0);
+            const activeGames = (nfl?.gp ?? nfl?.gms_active ?? s.gp ?? 0) || 0;
+            const fantasyPpg = activeGames > 0 ? fantasyTotal / activeGames : Number(s.ppg || 0);
+            const rosteredWeeks = modalWeeks.filter((w) => w.rostered);
+            const startedWeeks = modalWeeks.filter((w) => w.started);
+            const scoringWeeks = modalWeeks.filter((w) => w.rostered && w.points > 0);
+            const highWeek = scoringWeeks.reduce<WeeklyRow | null>((best, row) => (!best || row.points > best.points ? row : best), null);
+            const lowWeek = scoringWeeks.reduce<WeeklyRow | null>((best, row) => (!best || row.points < best.points ? row : best), null);
+            const recentStarted = startedWeeks.slice(-3);
+            const recentAvg = recentStarted.length > 0
+              ? recentStarted.reduce((sum, row) => sum + row.points, 0) / recentStarted.length
+              : null;
+            const teamLogTotal = modalWeeks.reduce((sum, row) => sum + row.points, 0);
 
             const labelMap: Record<string, string> = {
               pass_yd: 'Pass Yds',
@@ -2222,47 +2269,103 @@ export default function TeamContent() {
 
             return (
               <div className="space-y-4" style={tabsAccentVars}>
-                <div className="flex items-center justify-between">
-                  {meta ? <div className="text-sm text-[var(--muted)]">{meta}</div> : <span />}
+                <div className="rounded-2xl border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_7%,var(--surface))] p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      {meta ? <div className="text-sm font-semibold text-[var(--muted)]">{meta}</div> : null}
+                      <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-1">
+                        <div>
+                          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">Fantasy PPG</div>
+                          <div className="text-3xl font-black tracking-tight text-[var(--text)]">{fantasyPpg.toFixed(2)}</div>
+                        </div>
+                        <div className="pb-1 text-sm text-[var(--muted)]">
+                          <span className="font-semibold text-[var(--text)]">{fantasyTotal.toFixed(2)}</span> season points
+                        </div>
+                      </div>
+                    </div>
+                    {highWeek && (
+                      <div className="rounded-xl bg-[var(--surface)] px-3 py-2 text-right shadow-sm border border-[var(--border)]">
+                        <div className="text-[11px] font-bold uppercase text-[var(--muted)]">Best Week</div>
+                        <div className="text-lg font-black text-[var(--text)]">{highWeek.points.toFixed(2)}</div>
+                        <div className="text-xs text-[var(--muted)]">Week {highWeek.week}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {[
+                      { label: 'Games', value: String(activeGames || 0) },
+                      { label: 'Rostered', value: String(rosteredWeeks.length) },
+                      { label: 'Started', value: String(startedWeeks.length) },
+                      { label: 'Last 3 Starts', value: recentAvg === null ? 'N/A' : recentAvg.toFixed(2) },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5">
+                        <div className="text-[11px] font-semibold text-[var(--muted)]">{item.label}</div>
+                        <div className="text-base font-bold text-[var(--text)]">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs text-[var(--muted)]">
+                    Season stats use league scoring. Game log is team-attributed by rostered weeks.
+                  </div>
                   <div className="flex items-center gap-2">
                     <Label htmlFor="player-season" className="text-xs text-[var(--muted)]">Season</Label>
                     <Select
                       id="player-season"
                       size="sm"
+                      fullWidth={false}
                       value={modalYear}
                       onChange={(e) => setModalYear(e.target.value)}
-                      className="w-[8.5rem]"
+                      className="shrink-0"
+                      style={{ width: '6.75rem' }}
                     >
-                      <option value="2025">2025</option>
-                      <option value="2024">2024</option>
-                      <option value="2023">2023</option>
+                      {modalSeasonOptions.map((season) => (
+                        <option key={season} value={season}>{season}</option>
+                      ))}
                     </Select>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="evw-subtle rounded-lg p-3 border border-[var(--border)]">
-                    <div className="text-xs font-semibold text-[var(--muted)] mb-1">Fantasy (PPR)</div>
-                    {(() => {
-                      const gp = (nfl?.gp ?? nfl?.gms_active ?? 0) || 0;
-                      const total = Number(s.totalPPR || 0);
-                      const ppg = gp > 0 ? total / gp : 0;
-                      return (
-                        <>
-                          <div className="text-sm">G: <span className="font-medium">{gp}</span></div>
-                          <div className="text-sm">Total: <span className="font-medium">{total.toFixed(2)}</span></div>
-                          <div className="text-sm">PPG: <span className="font-medium">{ppg.toFixed(2)}</span></div>
-                        </>
-                      );
-                    })()}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl p-3 border border-[var(--border)] bg-[var(--surface)]">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Fantasy</div>
+                      <span className="rounded-full bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent)]">League scoring</span>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-[var(--muted)]">Season Total</dt>
+                        <dd className="font-bold text-[var(--text)]">{fantasyTotal.toFixed(2)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[var(--muted)]">PPG</dt>
+                        <dd className="font-bold text-[var(--text)]">{fantasyPpg.toFixed(2)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[var(--muted)]">Team Log Total</dt>
+                        <dd className="font-bold text-[var(--text)]">{teamLogTotal.toFixed(2)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[var(--muted)]">Low Scoring Week</dt>
+                        <dd className="font-bold text-[var(--text)]">{lowWeek ? `${lowWeek.points.toFixed(2)} W${lowWeek.week}` : 'N/A'}</dd>
+                      </div>
+                    </dl>
                   </div>
-                  <div className="evw-subtle rounded-lg p-3 border border-[var(--border)]">
-                    <div className="text-xs font-semibold text-[var(--muted)] mb-1">Real-life</div>
-                    <div className="text-sm">Games: <span className="font-medium">{(nfl?.gp ?? nfl?.gms_active ?? 0) || 0}</span></div>
+                  <div className="rounded-xl p-3 border border-[var(--border)] bg-[var(--surface)]">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Real-Life</div>
+                      <span className="text-xs font-semibold text-[var(--muted)]">{activeGames || 0} games</span>
+                    </div>
                     {topReal.length > 0 ? (
-                      <ul className="mt-1 space-y-0.5 text-sm">
+                      <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                         {topReal.map((rs) => (
-                          <li key={rs.key} className="flex justify-between"><span>{rs.label}</span><span className="font-medium">{rs.value}</span></li>
+                          <li key={rs.key} className="flex justify-between gap-3 border-b border-[color-mix(in_srgb,var(--border)_55%,transparent)] pb-1">
+                            <span className="text-[var(--muted)]">{rs.label}</span>
+                            <span className="font-bold text-[var(--text)]">{rs.value}</span>
+                          </li>
                         ))}
                       </ul>
                     ) : (
@@ -2271,8 +2374,49 @@ export default function TeamContent() {
                   </div>
                 </div>
 
-                <div className="evw-subtle rounded-lg p-3 border border-[var(--border)]" style={{ borderTop: '3px solid var(--danger)', borderLeft: '3px solid var(--tertiary)' }}>
-                  <div className="text-xs font-semibold text-[var(--muted)] mb-2">Latest News</div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Game Log</div>
+                    <div className="text-xs text-[var(--muted)]">Weeks 1-17</div>
+                  </div>
+                  {modalLoading ? (
+                    <div className="py-4"><LoadingState message="Loading game log..." /></div>
+                  ) : modalError ? (
+                    <ErrorState message={modalError} />
+                  ) : (
+                    <div className="max-h-64 overflow-y-auto rounded-lg border border-[var(--border)]">
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 bg-[var(--surface-strong)] text-xs text-[var(--muted)]">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold">Week</th>
+                            <th className="px-3 py-2 text-left font-semibold">Status</th>
+                            <th className="px-3 py-2 text-right font-semibold">Pts</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {modalWeeks.map((row) => {
+                            const status = row.started ? 'Started' : row.rostered ? 'Bench' : 'Off roster';
+                            return (
+                              <tr key={row.week} className="border-t border-[var(--border)]">
+                                <td className="px-3 py-2">
+                                  <span className="font-medium text-[var(--text)]">W{row.week}</span>
+                                  {row.week >= playoffStartWeek && (
+                                    <span className="ml-2 rounded-full bg-[color-mix(in_srgb,var(--gold)_20%,transparent)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--gold)]">PO</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-[var(--muted)]">{status}</td>
+                                <td className="px-3 py-2 text-right font-bold text-[var(--text)]">{row.points.toFixed(2)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl p-3 border border-[var(--border)] bg-[var(--surface)]" style={{ borderTop: '3px solid var(--danger)', borderLeft: '3px solid var(--tertiary)' }}>
+                  <div className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)] mb-2">Latest News</div>
                   {group && group.items && group.items.length > 0 ? (
                     <ul className="space-y-1.5">
                       {group.items.slice(0, 5).map((it, idx) => (

@@ -116,6 +116,7 @@ export function generateSecureToken(): string {
 
 export interface UserLeague {
   leagueId: string;
+  leagueSlug: string;
   leagueName: string;
   teamName: string;
   rosterId: number | null;
@@ -128,6 +129,7 @@ export async function getUserLeagues(userId: string): Promise<UserLeague[]> {
     const res = await db.execute(sql`
       SELECT
         li.league_id::text AS league_id,
+        l.slug             AS league_slug,
         l.name             AS league_name,
         li.team_name,
         li.roster_id,
@@ -140,6 +142,7 @@ export async function getUserLeagues(userId: string): Promise<UserLeague[]> {
     const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
     return rows.map((r) => ({
       leagueId: r.league_id as string,
+      leagueSlug: r.league_slug as string,
       leagueName: r.league_name as string,
       teamName: r.team_name as string,
       rosterId: (r.roster_id as number | null) ?? null,

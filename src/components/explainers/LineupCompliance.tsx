@@ -23,7 +23,7 @@ export default function LineupCompliance() {
   return (
     <div style={{ fontFamily: 'Georgia, serif', background: BG, color: TXT, borderRadius: '12px', overflow: 'hidden' }}>
       {/* Header */}
-      <div style={{ background: 'linear-gradient(160deg, #0b1120, #0f1e35, #0b1120)', borderBottom: '3px solid ' + GRN, padding: '24px 24px 18px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: '#0b1120', borderBottom: '3px solid ' + GRN, padding: '24px 24px 18px', position: 'relative', overflow: 'hidden' }}>
         {[20, 40, 60, 80].map(p => (
           <div key={p} style={{ position: 'absolute', top: 0, bottom: 0, left: p + '%', width: '1px', background: 'rgba(34,197,94,0.05)' }} />
         ))}

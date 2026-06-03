@@ -75,18 +75,11 @@ function readableOn(hex: string): string {
   return luminance > 0.6 ? '#111111' : '#ffffff';
 }
 
-// Trophy icon resembling a cup without handles, with a tiny base. Uses a subtle metallic gradient.
+// Trophy icon resembling a cup without handles, with a tiny base.
 function TrophyIcon({ className = '' }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className={className} role="img">
-      <defs>
-        <linearGradient id="trophyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#f0f0f0" />
-          <stop offset="50%" stopColor="#c9c9c9" />
-          <stop offset="100%" stopColor="#9b9b9b" />
-        </linearGradient>
-      </defs>
-      <g fill="url(#trophyGrad)" stroke="#666" strokeWidth="0.5">
+      <g fill="#c9c9c9" stroke="#666" strokeWidth="0.5">
         {/* Cup (no handles) */}
         <path d="M8 3h8v2c0 2.6-2.4 4.6-6 4.6S4 7.6 4 5V5h4V3Z" />
         {/* Stem and base */}

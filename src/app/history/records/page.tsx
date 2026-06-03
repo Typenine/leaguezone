@@ -332,7 +332,7 @@ export default function RecordsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {getRecords().map((record, index) => (
           <div key={index} className="league-surface rounded-lg shadow-md overflow-hidden">
-            <div className="brand-gradient text-on-brand px-4 py-2">
+            <div className="brand-fill text-on-brand px-4 py-2">
               <h3 className="text-lg font-bold">{record.title}</h3>
             </div>
             <div className="p-6">

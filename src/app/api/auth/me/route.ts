@@ -56,6 +56,7 @@ export async function GET() {
         ? {
             teamName: activeMembership.teamName,
             leagueId: activeMembership.leagueId,
+            leagueSlug: activeMembership.leagueSlug,
             leagueName: activeMembership.leagueName,
             isCommissioner: activeMembership.isCommissioner,
           }

@@ -124,11 +124,11 @@ export default async function RootLayout({
             __html: `window.__LEAGUE_BRANDING__ = ${leagueBrandingJson};`,
           }}
         />
-        {/* Inject league primary color as CSS variable override when configured */}
+        {/* Expose league primary color without replacing the site brand accent. */}
         {branding.primaryColor && (
           <style
             dangerouslySetInnerHTML={{
-              __html: `:root { --accent: ${branding.primaryColor}; }`,
+              __html: `:root { --league-accent: ${branding.primaryColor}; }`,
             }}
           />
         )}

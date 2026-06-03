@@ -146,14 +146,6 @@ export default async function HomePage() {
           <p className="text-[var(--muted)] mb-8">Select a league to view.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {userLeagues.map((lg) => (
-              <a
-                key={lg.leagueId}
-                href={`/api/super-admin/switch-league`}
-                // We use a plain form POST to set the cookie and redirect
-                className="hidden"
-              />
-            ))}
-            {userLeagues.map((lg) => (
               <LeaguePickerCard key={lg.leagueId} league={lg} />
             ))}
           </div>
@@ -272,16 +264,13 @@ export default async function HomePage() {
 function LeaguePickerCard({
   league,
 }: {
-  league: { leagueId: string; leagueName: string; teamName: string; isCommissioner: boolean };
+  league: { leagueId: string; leagueSlug: string; leagueName: string; teamName: string; isCommissioner: boolean };
 }) {
   return (
-    <form action="/api/super-admin/switch-league" method="POST" className="contents">
-      <input type="hidden" name="leagueId" value={league.leagueId} />
-      <input type="hidden" name="next" value="/home" />
-      <button
-        type="submit"
-        className="w-full text-left rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 hover:border-[var(--accent)]/60 transition-all"
-      >
+    <a
+      href={`/api/league/select?id=${league.leagueId}&next=/home`}
+      className="block w-full text-left rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 hover:border-[var(--accent)]/60 transition-all"
+    >
         <div className="font-semibold text-[var(--text)]">{league.leagueName}</div>
         <div className="text-sm text-[var(--muted)] mt-1">
           {league.teamName}
@@ -289,7 +278,7 @@ function LeaguePickerCard({
             <span className="ml-2 text-xs text-[var(--accent)] font-medium">Commissioner</span>
           )}
         </div>
-      </button>
-    </form>
+        <div className="mt-3 text-xs font-semibold text-[var(--accent)]">Open dashboard</div>
+    </a>
   );
 }

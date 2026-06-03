@@ -96,7 +96,7 @@ export default function RoundRecapOverlay({
       ref={containerRef}
       className={isInline ? 'rounded-xl overflow-hidden' : 'fixed inset-0 z-[9999] flex flex-col'}
       style={{
-        background: 'linear-gradient(160deg, #08090c 0%, #0e1117 60%, #0a0c10 100%)',
+        background: '#08090c',
         willChange: 'opacity',
         ...(isInline ? { border: `1px solid ${eventColor1}44` } : {}),
       }}
@@ -130,7 +130,7 @@ export default function RoundRecapOverlay({
               style={{
                 padding: isInline ? '0.75rem 2rem' : 'clamp(0.75rem,1.2vw,1.1rem) clamp(2rem,3.5vw,3.5rem)',
                 fontSize: isInline ? '1.25rem' : 'clamp(1.2rem, 2.2vw, 2rem)',
-                background: `linear-gradient(135deg, ${eventColor1} 0%, ${eventColor1}aa 100%)`,
+                background: eventColor1,
                 color: '#000',
                 boxShadow: `0 4px 24px ${eventColor1}66`,
               }}
@@ -163,7 +163,7 @@ export default function RoundRecapOverlay({
                   className="rounded-lg overflow-hidden flex items-center gap-2"
                   style={{
                     padding: isInline ? '0.5rem 0.75rem' : 'clamp(0.5rem, 0.8vw, 0.9rem) clamp(0.75rem, 1vw, 1.1rem)',
-                    background: `linear-gradient(135deg, ${colors.primary}22 0%, #1a1a1a 100%)`,
+                    background: `${colors.primary}22`,
                     border: `1px solid ${colors.primary}44`,
                     animationDelay: `${i * 0.05}s`,
                   }}

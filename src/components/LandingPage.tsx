@@ -43,7 +43,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[var(--background)]">
       {/* Hero Section */}
       <header className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent)] to-[color-mix(in_srgb,var(--accent)_60%,#000)] opacity-90" />
+        <div className="absolute inset-0 bg-[var(--accent)] opacity-90" />
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
         
         <div className="relative max-w-6xl mx-auto px-4 py-24 sm:py-32">
@@ -198,7 +198,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer CTA */}
-      <section className="py-16 px-4 bg-gradient-to-r from-[var(--accent)] to-[color-mix(in_srgb,var(--accent)_70%,#000)]">
+      <section className="py-16 px-4 bg-[var(--accent)]">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
             Ready to elevate your league?

@@ -24,8 +24,7 @@ export default function TradePicks() {
   return (
     <div style={{ fontFamily: 'Georgia, serif', background: BG, color: TXT, borderRadius: '12px', overflow: 'hidden' }}>
       {/* Header */}
-      <div style={{ background: 'linear-gradient(135deg, #1a0a00, #120d00, #1a0a00)', borderBottom: '3px solid ' + GLD, padding: '24px 24px 18px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(201,168,76,0.03) 40px, rgba(201,168,76,0.03) 41px)' }} />
+      <div style={{ background: '#1a0a00', borderBottom: '3px solid ' + GLD, padding: '24px 24px 18px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
           <div style={{ fontSize: '11px', letterSpacing: '4px', color: GLD, textTransform: 'uppercase', marginBottom: '6px' }}>Fantasy Football League</div>
           <h2 style={{ margin: 0, fontSize: 'clamp(22px,5vw,34px)', fontWeight: '900', color: '#fff' }}>Trading Draft Picks</h2>

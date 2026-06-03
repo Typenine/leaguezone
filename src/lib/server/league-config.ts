@@ -30,6 +30,10 @@ export interface LeagueSummary {
   foundedYear: number | null;
 }
 
+export interface LeagueHomepageData extends LeagueSummary {
+  sleeperLeagueId: string | null;
+}
+
 export interface LeagueBranding {
   name: string;
   shortName: string | null;
@@ -117,6 +121,7 @@ export async function getAllLeagues(): Promise<LeagueSummary[]> {
       SELECT id, slug, name, short_name, logo_url, primary_color, secondary_color, founded_year
       FROM leagues
       WHERE setup_completed = true
+        AND is_active = true
       ORDER BY created_at ASC
     `);
     const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
@@ -132,6 +137,39 @@ export async function getAllLeagues(): Promise<LeagueSummary[]> {
     }));
   } catch {
     return [];
+  }
+}
+
+export async function getLeagueBySlug(slug: string): Promise<LeagueHomepageData | null> {
+  const normalizedSlug = slug.trim().toLowerCase();
+  if (!normalizedSlug) return null;
+
+  try {
+    const db = getDb();
+    const res = await db.execute(sql`
+      SELECT id, slug, name, short_name, logo_url, primary_color, secondary_color, founded_year, sleeper_league_id
+      FROM leagues
+      WHERE setup_completed = true
+        AND is_active = true
+        AND slug = ${normalizedSlug}
+      LIMIT 1
+    `);
+    const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+    if (!row) return null;
+
+    return {
+      id: row.id as string,
+      slug: (row.slug as string) || normalizedSlug,
+      name: (row.name as string) || '',
+      shortName: (row.short_name as string | null) ?? null,
+      logoUrl: (row.logo_url as string | null) ?? null,
+      primaryColor: (row.primary_color as string | null) ?? null,
+      secondaryColor: (row.secondary_color as string | null) ?? null,
+      foundedYear: (row.founded_year as number | null) ?? null,
+      sleeperLeagueId: (row.sleeper_league_id as string | null) ?? null,
+    };
+  } catch {
+    return null;
   }
 }
 

@@ -15,7 +15,7 @@ function sigmoid(z: number) { return 1 / (1 + Math.exp(-z)); }
 function logit(p: number) { const pp = clamp01(p); return Math.log(pp / (1 - pp)); }
 
 function trainPlattScaling(z: number[], y: number[], steps = 300, lr = 0.05): { a: number; b: number } {
-  // Logistic regression with single predictor z, optimize a,b via gradient descent
+  // Logistic regression with single predictor z, optimize a,b iteratively.
   let a = 1, b = 0;
   const n = z.length;
   for (let it = 0; it < steps; it++) {
