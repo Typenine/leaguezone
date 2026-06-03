@@ -99,7 +99,7 @@ function MyLeagueCard({ league }: { league: UserLeague }) {
         </span>
         {league.isCommissioner && (
           <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold text-[var(--muted)]">
-            Commissioner
+            <span className="text-[var(--gold)]" aria-label="Commissioner">★</span> Commissioner
           </span>
         )}
       </div>

@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm';
 import { loadDraftOwnershipForSeason } from '@/lib/server/trade-assets';
 import type { NextDraftOwnership } from '@/lib/server/trade-assets';
 import { getTeamsData, getLeagueWinnersBracket, getRegularSeasonRecords, type SleeperBracketGame, derivePodiumFromWinnersBracketByYear } from '@/lib/utils/sleeper-api';
-import { CURRENT_SEASON } from '@/lib/constants/league';
+import { NEXT_DRAFT_SEASON } from '@/lib/constants/league';
 import { getLeagueIdsFromDb } from '@/lib/server/league-config';
 import { getDb } from '@/server/db/client';
 
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const seasonParam = url.searchParams.get('season');
     const ignoreOverride = url.searchParams.get('ignoreOverride') === '1';
-    const defaultSeason = Number(CURRENT_SEASON);
+    const defaultSeason = Number(NEXT_DRAFT_SEASON);
     const parsedSeason = seasonParam ? Number(seasonParam) : Number.NaN;
     const targetSeason = Number.isFinite(parsedSeason) ? parsedSeason : defaultSeason;
     const sourceLeagueSeason = String(targetSeason - 1);

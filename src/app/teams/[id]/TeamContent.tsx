@@ -11,7 +11,6 @@ import {
   SleeperPlayer,
   TeamData,
   getTeamAllTimeStatsByOwner,
-  getTeamH2HRecordsAllTimeByOwner,
   computeSeasonTotalsCustomScoringFromStats,
   getNFLSeasonStats,
   SleeperNFLSeasonPlayerStats,
@@ -21,6 +20,7 @@ import {
   TeamTopWeek,
   getLeague,
 } from '@/lib/utils/sleeper-api';
+import { getHeadToHeadAllTime } from '@/lib/utils/headtohead';
 import { LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
 import { getTeamLogoPath, getTeamColorStyle, getTeamColors, resolveCanonicalTeamName } from '@/lib/utils/team-utils';
 import LoadingState from '@/components/ui/loading-state';
@@ -742,9 +742,24 @@ export default function TeamContent() {
         const results = await getTeamWeeklyResults(leagueId, rosterId);
         setWeeklyResults(results);
 
-        // Fetch all-time H2H records (aggregated by owner across seasons)
-        const h2hAllTime = await getTeamH2HRecordsAllTimeByOwner(currentTeam.ownerId);
-        setH2HRecords(h2hAllTime);
+        // Fetch all-time H2H records from the canonical matrix so both sides
+        // of a matchup always use the same franchise-normalized source.
+        const h2hAllTime = await getHeadToHeadAllTime();
+        const currentTeamH2H = h2hAllTime.matrix[currentTeam.teamName] ?? {};
+        setH2HRecords(
+          Object.fromEntries(
+            Object.entries(currentTeamH2H)
+              .filter(([opponentName, record]) => opponentName !== currentTeam.teamName && record.meetings > 0)
+              .map(([opponentName, record]) => [
+                opponentName,
+                {
+                  wins: record.wins.total,
+                  losses: record.losses.total,
+                  ties: record.ties,
+                },
+              ])
+          )
+        );
         
         // Fetch players data and season stats if team has players
         if (currentTeam.players && currentTeam.players.length > 0) {
@@ -2162,12 +2177,11 @@ export default function TeamContent() {
                         </Tr>
                       </THead>
                       <TBody>
-                        {Object.entries(h2hRecords).map(([opponentOwnerId, record]) => {
-                          const opponentName = resolveCanonicalTeamName({ ownerId: opponentOwnerId });
+                        {Object.entries(h2hRecords).map(([opponentName, record]) => {
                           const totalGames = record.wins + record.losses + record.ties;
                           const winPercentage = totalGames > 0 ? (record.wins + record.ties * 0.5) / totalGames : 0;
                           return (
-                            <Tr key={opponentOwnerId}>
+                            <Tr key={opponentName}>
                               <Td>
                                 <div className="text-sm font-medium text-[var(--text)]">{opponentName}</div>
                               </Td>

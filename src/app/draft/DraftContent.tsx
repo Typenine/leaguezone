@@ -4,18 +4,18 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import CountdownTimer from '@/components/ui/countdown-timer';
-import { CURRENT_SEASON, LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
+import { CURRENT_SEASON, NEXT_DRAFT_SEASON, getLeagueIdForSeason, getPastDraftSeasonYears } from '@/lib/constants/league';
 import EmptyState from '@/components/ui/empty-state';
 import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
-import { getLeagueDrafts, getDraftPicks, getTeamsData, getAllPlayers, SleeperPlayer } from '@/lib/utils/sleeper-api';
+import { getLeagueDrafts, getDraftPicks, getTeamsData } from '@/lib/utils/sleeper-api';
 import SectionHeader from '@/components/ui/SectionHeader';
 import { Tabs } from '@/components/ui/Tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import Label from '@/components/ui/Label';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
-import { getTeamColors, getTeamColorStyle, getTeamLogoPath } from '@/lib/utils/team-utils';
+import { getTeamColorStyle, getTeamLogoPath } from '@/lib/utils/team-utils';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react';
@@ -54,6 +54,32 @@ type DraftDateSettings = {
   nextDraft: string | null;
   nextDraftConfigured: boolean;
 };
+
+type DraftPickMetadata = {
+  first_name?: unknown;
+  last_name?: unknown;
+  player_name?: unknown;
+  name?: unknown;
+  position?: unknown;
+};
+
+function getDraftPickPlayer(pick: { player_id?: string; metadata?: DraftPickMetadata | null }) {
+  const metadata = pick.metadata ?? {};
+  const firstName = typeof metadata.first_name === 'string' ? metadata.first_name : '';
+  const lastName = typeof metadata.last_name === 'string' ? metadata.last_name : '';
+  const fullName = `${firstName} ${lastName}`.trim();
+  const metadataName = typeof metadata.player_name === 'string'
+    ? metadata.player_name
+    : typeof metadata.name === 'string'
+      ? metadata.name
+      : '';
+  const position = typeof metadata.position === 'string' ? metadata.position : undefined;
+
+  return {
+    name: fullName || metadataName || pick.player_id || 'Unknown Player',
+    position,
+  };
+}
 
 // Threshold: only show countdown if draft is > 24 hours away
 const DRAFT_COUNTDOWN_THRESHOLD_MS = 24 * 60 * 60 * 1000;
@@ -198,16 +224,22 @@ function DraftSuggestForm({
 export default function DraftContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const years = useMemo(
-    () => [...Object.keys(LEAGUE_IDS.PREVIOUS)].sort((a, b) => parseInt(b, 10) - parseInt(a, 10)),
-    [],
-  );
-  const [selectedYear, setSelectedYear] = useState(() => years[0] ?? '2025');
+  const [years, setYears] = useState<string[]>(() => getPastDraftSeasonYears());
+  const [selectedYear, setSelectedYear] = useState<string>(() => getPastDraftSeasonYears()[0] ?? CURRENT_SEASON);
+
+  useEffect(() => {
+    setYears(getPastDraftSeasonYears());
+  }, []);
+
+  useEffect(() => {
+    if (years.length > 0 && !years.includes(selectedYear)) {
+      setSelectedYear(years[0]);
+    }
+  }, [years, selectedYear]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draftsByYear, setDraftsByYear] = useState<Record<string, DraftYearData | null>>({});
-  const playersRef = useRef<Record<string, SleeperPlayer> | null>(null);
   const loadedYearsRef = useRef<Set<string>>(new Set());
   const [draftView, setDraftView] = useState<'teams' | 'linear'>('teams');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -312,17 +344,24 @@ export default function DraftContent() {
           getTeamsData(resolvedLeagueId),
         ]);
 
-        if (!playersRef.current) {
-          playersRef.current = await getAllPlayers();
-        }
+        const candidateDrafts = drafts.filter((draft) => !draft.season || String(draft.season) === String(selectedYear));
+        const draftsToCheck = candidateDrafts.length > 0 ? candidateDrafts : drafts;
+        const draftsWithPicks = await Promise.all(
+          draftsToCheck.map(async (draft) => ({
+            draft,
+            picks: await getDraftPicks(draft.draft_id).catch(() => []),
+          }))
+        );
+        draftsWithPicks.sort((a, b) => b.picks.length - a.picks.length);
+        const selectedDraft = draftsWithPicks[0];
+        const draft = selectedDraft?.draft;
+        const picks = selectedDraft?.picks ?? [];
 
-        const draft = drafts[0];
-        if (!draft) {
+        if (!draft || picks.length === 0) {
           if (!cancelled) setDraftsByYear(prev => ({ ...prev, [selectedYear]: null }));
           return;
         }
 
-        const picks = await getDraftPicks(draft.draft_id);
         const rounds = picks.reduce((max, p) => Math.max(max, p.round), 0);
         const picksInRound1 = picks.filter(p => p.round === 1).length || teams.length;
 
@@ -331,8 +370,7 @@ export default function DraftContent() {
         const linearPicks: LinearPick[] = [];
         for (const p of picks) {
           const arr = byTeam.get(p.roster_id) || [];
-          const player = playersRef.current?.[p.player_id];
-          const name = player ? `${player.first_name} ${player.last_name}` : 'Unknown Player';
+          const player = getDraftPickPlayer(p);
           // Attach price for auction drafts when present on pick
           // Sleeper stores auction bid in metadata.amount (string); fallback to root amount/price
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -342,14 +380,17 @@ export default function DraftContent() {
           const rootAmountRaw = anyPick?.amount ?? anyPick?.price;
           const rootAmount = typeof rootAmountRaw === 'string' ? Number(rootAmountRaw) : (typeof rootAmountRaw === 'number' ? rootAmountRaw : undefined);
           const price = Number.isFinite(metaAmount) ? (metaAmount as number) : (Number.isFinite(rootAmount) ? (rootAmount as number) : undefined);
-          arr.push({ round: p.round, pick: p.draft_slot, player: name, price });
-          byTeam.set(p.roster_id, arr);
-
           const teamName = rosterIdToTeam.get(p.roster_id) || 'Unknown Team';
           const overall = (typeof p.pick_no === 'number' && Number.isFinite(p.pick_no))
             ? (p.pick_no as number)
             : ((p.round - 1) * picksInRound1 + p.draft_slot);
-          linearPicks.push({ pick_no: overall, round: p.round, pick: p.draft_slot, team: teamName, player: name, price, pos: player?.position });
+          const pickInRound = picksInRound1 > 0
+            ? ((overall - 1) % picksInRound1) + 1
+            : p.draft_slot;
+          arr.push({ round: p.round, pick: pickInRound, player: player.name, price });
+          byTeam.set(p.roster_id, arr);
+
+          linearPicks.push({ pick_no: overall, round: p.round, pick: pickInRound, team: teamName, player: player.name, price, pos: player.position });
         }
 
         const team_hauls: TeamHaul[] = [];
@@ -418,7 +459,7 @@ export default function DraftContent() {
                     {draftDateConfirmed ? (
                       <CountdownTimer
                         targetDate={configuredDraftDate!}
-                        title="Countdown to Draft Day"
+                        title={`Countdown to ${NEXT_DRAFT_SEASON} Draft`}
                         className="mb-2"
                       />
                     ) : (
@@ -427,7 +468,7 @@ export default function DraftContent() {
                           <div className="flex items-center gap-3 py-2">
                             <span className="text-3xl">📅</span>
                             <div>
-                              <p className="font-semibold text-[var(--text)]">Draft Date TBD</p>
+                              <p className="font-semibold text-[var(--text)]">{NEXT_DRAFT_SEASON} Draft Date TBD</p>
                               <p className="text-sm text-[var(--muted)]">
                                 No draft date has been confirmed yet. Use the suggestion form below to propose a date.
                               </p>
@@ -479,7 +520,7 @@ export default function DraftContent() {
                       >
                         {years.map((year) => (
                           <option key={year} value={year}>
-                            {year === '2023' ? 'Inaugural Draft' : `${year} Draft`}
+                            {`${year} Draft`}
                           </option>
                         ))}
                       </Select>
@@ -538,12 +579,10 @@ export default function DraftContent() {
                           {draftView === 'teams' ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                               {(draftsByYear[selectedYear]?.team_hauls ?? []).map((teamHaul, index) => {
-                                const colors = getTeamColors(teamHaul.team);
-                                const headerStyle = getTeamColorStyle(teamHaul.team, 'primary');
                                 return (
-                                  <Card key={index} className="hover-lift" style={{ borderColor: colors.primary }}>
-                                    <CardHeader className="rounded-t-[var(--radius-card)]" style={headerStyle}>
-                                      <CardTitle style={{ color: headerStyle.color }}>{teamHaul.team}</CardTitle>
+                                  <Card key={index} className="hover-lift" style={{ borderColor: 'var(--accent)' }}>
+                                    <CardHeader className="rounded-t-[var(--radius-card)]" style={{ backgroundColor: 'var(--accent)', color: 'var(--on-brand)' }}>
+                                      <CardTitle style={{ color: 'var(--on-brand)' }}>{teamHaul.team}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                       <ul className="space-y-1">
@@ -575,24 +614,22 @@ export default function DraftContent() {
                                       <div className="sticky top-0 z-10 bg-[var(--surface)]/80 backdrop-blur-sm text-base font-semibold text-[var(--muted)] -mx-2 px-2 py-1.5 border-b border-[var(--border)]">{`Round ${r}`}</div>
                                       <ul className="space-y-2 mt-2">
                                         {(byRound.get(r) || []).map((p) => {
-                                          const colors = getTeamColors(p.team);
-                                          const nameStyle = getTeamColorStyle(p.team);
                                           const priceEnabled = selectedYear === '2023' && draftsByYear[selectedYear]?.isAuction && p.price != null;
                                           return (
                                             <li
                                               key={p.pick_no}
                                               className="text-sm rounded-md"
                                               style={{
-                                                borderLeft: `4px solid ${colors.secondary}`,
-                                                backgroundColor: nameStyle.backgroundColor as string,
-                                                color: nameStyle.color as string,
+                                                borderLeft: '4px solid var(--gold)',
+                                                backgroundColor: 'color-mix(in srgb, var(--accent) 8%, var(--surface))',
+                                                color: 'var(--text)',
                                               }}
                                             >
                                               <div className="pl-3 py-2 flex items-start justify-between gap-3">
                                                 <div className="flex items-start min-w-0">
                                                   <div 
                                                     className="w-12 h-12 rounded-full flex items-center justify-center mr-3 overflow-hidden flex-shrink-0"
-                                                    style={nameStyle}
+                                                    style={{ backgroundColor: 'var(--accent)', color: 'var(--on-brand)' }}
                                                   >
                                                     <Image
                                                       src={getTeamLogoPath(p.team)}
@@ -624,8 +661,8 @@ export default function DraftContent() {
                                                         <span
                                                           className="ml-2 align-middle px-1.5 py-0.5 rounded text-[10px]"
                                                           style={{
-                                                            backgroundColor: (nameStyle.color as string) === '#000000' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.12)',
-                                                            color: nameStyle.color as string,
+                                                            backgroundColor: 'color-mix(in srgb, var(--gold) 18%, transparent)',
+                                                            color: 'var(--text)',
                                                           }}
                                                         >
                                                           {p.pos}
@@ -639,8 +676,8 @@ export default function DraftContent() {
                                                     <span
                                                       className="inline-block px-2 py-0.5 rounded-full text-xs"
                                                       style={{
-                                                        backgroundColor: (nameStyle.color as string) === '#000000' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.12)',
-                                                        color: nameStyle.color as string,
+                                                        backgroundColor: 'color-mix(in srgb, var(--gold) 18%, transparent)',
+                                                        color: 'var(--text)',
                                                       }}
                                                     >
                                                       {`$${p.price}`}
@@ -830,7 +867,7 @@ function TeamHopChip({ team }: { team: string }) {
 
 function DraftOrderView() {
   const [refreshNonce, setRefreshNonce] = useState(0);
-  const [orderSeason, setOrderSeason] = useState<number>(Number(CURRENT_SEASON));
+  const [orderSeason, setOrderSeason] = useState<number>(Number(NEXT_DRAFT_SEASON));
   const [tradeModal, setTradeModal] = useState<DraftOrderTradeModal | null>(null);
   const [data, setData] = useState<{
     season: number;
@@ -889,8 +926,8 @@ function DraftOrderView() {
             onChange={(e) => setOrderSeason(Number(e.target.value))}
             className="w-[150px]"
           >
+            <option value={NEXT_DRAFT_SEASON}>{NEXT_DRAFT_SEASON} Draft</option>
             <option value={CURRENT_SEASON}>{CURRENT_SEASON} Draft</option>
-            <option value={String(Number(CURRENT_SEASON) + 1)}>{Number(CURRENT_SEASON) + 1} Draft</option>
           </Select>
         </div>
         <Button

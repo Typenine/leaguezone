@@ -275,7 +275,9 @@ function LeaguePickerCard({
         <div className="text-sm text-[var(--muted)] mt-1">
           {league.teamName}
           {league.isCommissioner && (
-            <span className="ml-2 text-xs text-[var(--accent)] font-medium">Commissioner</span>
+            <span className="ml-2 text-xs text-[var(--accent)] font-medium">
+              <span className="text-[var(--gold)]" aria-label="Commissioner">★</span> Commissioner
+            </span>
           )}
         </div>
         <div className="mt-3 text-xs font-semibold text-[var(--accent)]">Open dashboard</div>

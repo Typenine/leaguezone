@@ -55,10 +55,24 @@ function _defaultNFLSeason(): string {
 }
 export const CURRENT_SEASON = process.env.CURRENT_SEASON || _defaultNFLSeason();
 
+/** Upcoming entry/rookie draft year — always the season after the active NFL season. */
+export const NEXT_DRAFT_SEASON = String(Number(CURRENT_SEASON) + 1);
+
 export function getLeagueIdForSeason(season: string): string | null {
   if (season === CURRENT_SEASON) return LEAGUE_IDS.CURRENT || null;
   const prev = LEAGUE_IDS.PREVIOUS[season];
   return prev || null;
+}
+
+/** All configured seasons (current + previous), most recent first. */
+export function getAvailableSeasonYears(): string[] {
+  const prev = Object.keys(LEAGUE_IDS.PREVIOUS || {});
+  return Array.from(new Set([CURRENT_SEASON, ...prev])).sort((a, b) => b.localeCompare(a));
+}
+
+/** Completed draft seasons only — excludes the upcoming draft year. */
+export function getPastDraftSeasonYears(): string[] {
+  return getAvailableSeasonYears().filter((year) => year !== NEXT_DRAFT_SEASON);
 }
 
 // Team names — populated by Sleeper API after connection; leave empty for new installs.

@@ -52,22 +52,31 @@ export async function getLeagueIdsFromDb(leagueId?: string): Promise<LeagueIdsCo
 
   try {
     const db = getDb();
-    const res = leagueId
-      ? await db.execute(sql`
-          SELECT id, sleeper_league_id, sleeper_league_ids
-          FROM leagues
-          WHERE setup_completed = true
-            AND id = ${leagueId}::uuid
-          LIMIT 1
-        `)
-      : await db.execute(sql`
-          SELECT id, sleeper_league_id, sleeper_league_ids
-          FROM leagues
-          WHERE setup_completed = true
-          ORDER BY created_at DESC
-          LIMIT 1
-        `);
-    const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+    const defaultLeagueQuery = sql`
+      SELECT id, sleeper_league_id, sleeper_league_ids
+      FROM leagues
+      WHERE setup_completed = true
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+
+    let row: Record<string, unknown> | undefined;
+    if (leagueId) {
+      const res = await db.execute(sql`
+        SELECT id, sleeper_league_id, sleeper_league_ids
+        FROM leagues
+        WHERE setup_completed = true
+          AND id = ${leagueId}::uuid
+        LIMIT 1
+      `);
+      row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+    }
+
+    // Stale or missing active_league_id cookie — fall back to the default league.
+    if (!row) {
+      const res = await db.execute(defaultLeagueQuery);
+      row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+    }
 
     const current = (row?.sleeper_league_id as string) || '';
     let allIds = (row?.sleeper_league_ids as Record<string, string>) || {};
@@ -185,22 +194,30 @@ export async function getLeagueBranding(leagueId?: string): Promise<LeagueBrandi
   };
   try {
     const db = getDb();
-    const res = leagueId
-      ? await db.execute(sql`
-          SELECT name, short_name, logo_url, primary_color, secondary_color, rules_content, rules_file_key
-          FROM leagues
-          WHERE setup_completed = true
-            AND id = ${leagueId}::uuid
-          LIMIT 1
-        `)
-      : await db.execute(sql`
-          SELECT name, short_name, logo_url, primary_color, secondary_color, rules_content, rules_file_key
-          FROM leagues
-          WHERE setup_completed = true
-          ORDER BY created_at DESC
-          LIMIT 1
-        `);
-    const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+    const defaultBrandingQuery = sql`
+      SELECT name, short_name, logo_url, primary_color, secondary_color, rules_content, rules_file_key
+      FROM leagues
+      WHERE setup_completed = true
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+
+    let row: Record<string, unknown> | undefined;
+    if (leagueId) {
+      const res = await db.execute(sql`
+        SELECT name, short_name, logo_url, primary_color, secondary_color, rules_content, rules_file_key
+        FROM leagues
+        WHERE setup_completed = true
+          AND id = ${leagueId}::uuid
+        LIMIT 1
+      `);
+      row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+    }
+
+    if (!row) {
+      const res = await db.execute(defaultBrandingQuery);
+      row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+    }
     if (!row) return fallback;
     return {
       name: (row.name as string) || '',

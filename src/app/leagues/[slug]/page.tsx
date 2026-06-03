@@ -114,7 +114,9 @@ export default async function LeagueHomepage({
                   <dt className="text-[var(--muted)]">Your team</dt>
                   <dd className="mt-1 font-semibold text-[var(--text)]">
                     {membership.teamName}
-                    {membership.isCommissioner && <span className="ml-2 text-xs text-[var(--gold)]">Commissioner</span>}
+                    {membership.isCommissioner && (
+                      <span className="ml-2 text-xs text-[var(--gold)]" aria-label="Commissioner">★ Commissioner</span>
+                    )}
                   </dd>
                 </div>
               )}

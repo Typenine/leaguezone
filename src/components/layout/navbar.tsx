@@ -480,7 +480,9 @@ export default function Navbar() {
                             <div className="text-xs text-[var(--muted)] truncate mt-0.5">
                               {activeTeam.teamName}
                               {activeTeam.isCommissioner && (
-                                <span className="ml-1.5 text-[var(--accent)] font-medium">· Commissioner</span>
+                                <span className="ml-1.5 text-[var(--accent)] font-medium">
+                                  <span className="text-[var(--gold)]" aria-label="Commissioner">★</span> Commissioner
+                                </span>
                               )}
                             </div>
                           )}
@@ -504,7 +506,10 @@ export default function Navbar() {
                                 aria-current={active ? 'page' : undefined}
                               >
                                 <span className="block truncate">{league.leagueName}</span>
-                                <span className="block truncate text-xs text-[var(--muted)]">{league.teamName}</span>
+                                <span className="block truncate text-xs text-[var(--muted)]">
+                                  {league.teamName}
+                                  {league.isCommissioner && <span className="ml-1 text-[var(--gold)]" aria-label="Commissioner">★</span>}
+                                </span>
                               </a>
                             );
                           })}

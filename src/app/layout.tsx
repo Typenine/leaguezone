@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 import Navbar from "@/components/layout/navbar";
 import Footer from "@/components/layout/footer";
 import SetupCheck from "@/components/SetupCheck";
+import LeagueThemeScope from "@/components/LeagueThemeScope";
 import { getLeagueIdsFromDb, getLeagueBranding } from "@/lib/server/league-config";
 import { discoverLeagueChain } from "@/lib/utils/sleeper-api";
 
@@ -124,11 +125,11 @@ export default async function RootLayout({
             __html: `window.__LEAGUE_BRANDING__ = ${leagueBrandingJson};`,
           }}
         />
-        {/* Expose league primary color without replacing the site brand accent. */}
-        {branding.primaryColor && (
+        {/* Expose league colors; LeagueThemeScope decides when they override site tokens. */}
+        {(branding.primaryColor || branding.secondaryColor) && (
           <style
             dangerouslySetInnerHTML={{
-              __html: `:root { --league-accent: ${branding.primaryColor}; }`,
+              __html: `:root { ${branding.primaryColor ? `--league-accent: ${branding.primaryColor};` : ''} ${branding.secondaryColor ? `--league-gold: ${branding.secondaryColor};` : ''} }`,
             }}
           />
         )}
@@ -136,15 +137,20 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
-        <SetupCheck>
-          <Suspense fallback={null}>
-            <Navbar />
-          </Suspense>
-          <main className="flex-grow">
-            {children}
-          </main>
-          <Footer />
-        </SetupCheck>
+        <Suspense fallback={null}>
+          <LeagueThemeScope />
+        </Suspense>
+        <Suspense fallback={null}>
+          <SetupCheck>
+            <Suspense fallback={null}>
+              <Navbar />
+            </Suspense>
+            <main className="flex-grow">
+              {children}
+            </main>
+            <Footer />
+          </SetupCheck>
+        </Suspense>
         <Analytics />
       </body>
     </html>

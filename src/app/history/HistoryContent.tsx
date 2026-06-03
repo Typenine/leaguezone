@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getTeamLogoPath, getTeamColorStyle, getTeamColors } from '@/lib/utils/team-utils';
-import { CHAMPIONS, CURRENT_SEASON, LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
+import { CHAMPIONS, CURRENT_SEASON, getLeagueIdForSeason, getAvailableSeasonYears } from '@/lib/constants/league';
 import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
 import Card, { CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -112,11 +112,13 @@ export default function HistoryContent() {
   const [awardsLoading, setAwardsLoading] = useState(true);
   const [awardsError, setAwardsError] = useState<string | null>(null);
   // Weekly Highs tab state — year list built from current season + previous seasons in DB
-  const allYears = useMemo(() => {
-    const prev = Object.keys(LEAGUE_IDS.PREVIOUS || {});
-    const ys = Array.from(new Set([CURRENT_SEASON, ...prev]));
-    // sort desc (most recent first)
-    return ys.sort((a, b) => b.localeCompare(a));
+  const [allYears, setAllYears] = useState<string[]>(() => getAvailableSeasonYears());
+  useEffect(() => {
+    const available = getAvailableSeasonYears();
+    setAllYears((prev) => {
+      const same = prev.length === available.length && prev.every((y, i) => y === available[i]);
+      return same ? prev : available;
+    });
   }, []);
   const [weeklyTabYear, setWeeklyTabYear] = useState<string>(CURRENT_SEASON);
   const [weeklyHighs, setWeeklyHighs] = useState<WeeklyHighByWeekEntry[]>([]);
@@ -190,6 +192,8 @@ export default function HistoryContent() {
         const years = allYears; // dynamic: current + previous seasons from DB
         const podiums: Record<string, { champion: string; runnerUp: string; thirdPlace: string }> = {};
         const statsPerYear: Record<string, Record<string, { wins: number; losses: number; ties: number; fpts: number; rosterId: number }>> = {};
+        const champByOwner: Record<string, number> = {};
+        const champYearsLocal: Record<string, string[]> = {};
         for (const y of years) {
           // Try to derive from brackets, fall back to constants
           let derived = null as null | { champion: string | null; runnerUp: string | null; thirdPlace: string | null };
@@ -210,12 +214,26 @@ export default function HistoryContent() {
               statsPerYear[y] = Object.fromEntries(
                 teams.map((t) => [t.teamName, { wins: t.wins, losses: t.losses, ties: t.ties, fpts: t.fpts, rosterId: t.rosterId }])
               );
+              const championName = podiums[y].champion;
+              if (championName && championName !== 'TBD') {
+                const winningTeam = teams.find((t) => t.teamName === championName);
+                if (winningTeam) {
+                  champByOwner[winningTeam.ownerId] = (champByOwner[winningTeam.ownerId] || 0) + 1;
+                  if (!champYearsLocal[winningTeam.ownerId]) champYearsLocal[winningTeam.ownerId] = [];
+                  champYearsLocal[winningTeam.ownerId].push(y);
+                }
+              }
             } catch {}
           }
         }
         if (cancelled) return;
         setPodiumsByYear(podiums);
         setTeamStatsByYear(statsPerYear);
+        setChampCountsByOwner(champByOwner);
+        setChampYearsByOwner(champYearsLocal);
+        setFranchises((prev) =>
+          prev.map((f) => ({ ...f, championships: champByOwner[f.ownerId] || 0 }))
+        );
       } catch (e) {
         if (isAbortError(e)) return;
         console.error('Failed to auto-derive podiums:', e);
@@ -226,7 +244,7 @@ export default function HistoryContent() {
       cancelled = true;
       ac.abort();
     };
-  }, []);
+  }, [allYears]);
   
   // Brackets state
   const [bracketYear, setBracketYear] = useState(CURRENT_SEASON);
@@ -317,7 +335,10 @@ export default function HistoryContent() {
         // Build dynamic season list: current season + all previous seasons from DB
         const yearsOrdered: string[] = allYears; // already sorted desc
         const currentLeagueId = getLeagueIdForSeason(CURRENT_SEASON);
-        if (!currentLeagueId) throw new Error('No league ID found. Complete the setup wizard first.');
+        if (!currentLeagueId) {
+          if (!cancelled) setFranchisesError('No league connected yet. Complete setup or select a league first.');
+          return;
+        }
 
         // Fetch teams for all available seasons concurrently
         const teamsByYearArr = await Promise.all(
@@ -445,36 +466,6 @@ export default function HistoryContent() {
           winnersByYear[y] = lid ? await getLeagueWinnersBracket(lid, opts).catch(() => []) : [];
         }));
 
-        // Count championships by ownerId using live Sleeper bracket data.
-        // The championship game is the game with the highest round number and m=1.
-        const champByOwner: Record<string, number> = {};
-        const champYearsLocal: Record<string, string[]> = {};
-        for (const y of yearsOrdered) {
-          const games = winnersByYear[y] || [];
-          if (games.length === 0) continue;
-          const mapByRoster = rosterToOwnerByYear[y] || new Map();
-          const maxRound = Math.max(...games.map((g) => g.r ?? 0));
-          if (maxRound <= 0) continue;
-          const finalGames = games.filter((g) => g.r === maxRound);
-          // m=1 is the championship game; m=2 is typically 3rd-place game
-          const champGame = finalGames.find((g) => g.m === 1) ?? finalGames[0];
-          if (!champGame?.w) continue;
-          const info = mapByRoster.get(champGame.w);
-          if (!info) continue;
-          champByOwner[info.ownerId] = (champByOwner[info.ownerId] || 0) + 1;
-          if (!champYearsLocal[info.ownerId]) champYearsLocal[info.ownerId] = [];
-          champYearsLocal[info.ownerId].push(y);
-        }
-
-        // Patch championship counts back into the franchise summaries
-        if (!cancelled) {
-          setFranchises((prev) =>
-            prev.map((f) => ({ ...f, championships: champByOwner[f.ownerId] || 0 }))
-          );
-          setChampCountsByOwner(champByOwner);
-          setChampYearsByOwner(champYearsLocal);
-        }
-
         // Count unique participants per season, then aggregate by owner
         const ownerCounts: Record<string, number> = {};
         for (const y of yearsOrdered) {
@@ -492,7 +483,6 @@ export default function HistoryContent() {
               }
             }
           }
-          // Increment counts once per owner per season
           for (const ownerId of seenOwners) {
             ownerCounts[ownerId] = (ownerCounts[ownerId] || 0) + 1;
           }
@@ -523,7 +513,7 @@ export default function HistoryContent() {
       cancelled = true;
       ac.abort();
     };
-  }, [activeTab]);
+  }, [activeTab, allYears]);
 
   // Load Record Book only when Records tab is active (heavy)
   useEffect(() => {
@@ -564,10 +554,15 @@ export default function HistoryContent() {
         const opts = { signal: ac.signal, timeoutMs: AWARDS_TIMEOUT } as const;
         // Build candidates dynamically from all available seasons
         const candidates: Array<{ season: string; lid: string }> = [];
-        const allAwardsYears = Array.from(new Set([CURRENT_SEASON, ...Object.keys(LEAGUE_IDS.PREVIOUS || {})])).sort((a, b) => b.localeCompare(a));
+        const allAwardsYears = getAvailableSeasonYears();
         for (const season of allAwardsYears) {
           const lid = getLeagueIdForSeason(season);
           if (lid) candidates.push({ season, lid });
+        }
+
+        if (candidates.length === 0) {
+          if (!cancelled) setAwardsError('No league connected yet.');
+          return;
         }
 
         const settled = await Promise.allSettled(
@@ -585,7 +580,10 @@ export default function HistoryContent() {
             console.warn('Awards load failed for', candidates[i]?.season, res.reason);
           }
         }
-        if (Object.keys(map).length === 0) throw new Error('No awards could be loaded');
+        if (Object.keys(map).length === 0) {
+          if (!cancelled) setAwardsError('Awards data is not available yet.');
+          return;
+        }
         setAwardsByYear(map);
       } catch (e) {
         if (isAbortError(e)) return;
@@ -606,10 +604,7 @@ export default function HistoryContent() {
   const { runnerUpCounts, thirdPlaceCounts } = useMemo(() => {
     const ru: Record<string, number> = {};
     const tp: Record<string, number> = {};
-    Object.entries(CHAMPIONS).forEach(([year, base]) => {
-      const merged = podiumsByYear[year]
-        ? podiumsByYear[year]
-        : (base as { champion: string; runnerUp: string; thirdPlace: string });
+    Object.entries(podiumsByYear).forEach(([, merged]) => {
       if (merged?.runnerUp && merged.runnerUp !== 'TBD') {
         ru[merged.runnerUp] = (ru[merged.runnerUp] || 0) + 1;
       }
@@ -2118,7 +2113,6 @@ export default function HistoryContent() {
                 const ruCount = runnerUpCounts[f.teamName] || 0;
                 const tpCount = thirdPlaceCounts[f.teamName] || 0;
                 const rsCount = regularSeasonWinnerCounts[f.teamName] || 0;
-                const headerStyle = getTeamColorStyle(f.teamName);
                 const teamLink = rosterId !== undefined ? `/teams/${rosterId}` : null;
                 const headerContent = (
                   <div className="flex items-center gap-3">
@@ -2140,9 +2134,9 @@ export default function HistoryContent() {
                 );
                 return (
                   <Card key={f.ownerId} className="overflow-hidden">
-                    <CardHeader style={headerStyle}>
+                    <CardHeader style={{ backgroundColor: 'var(--accent)', color: 'var(--on-brand)' }}>
                       {teamLink ? (
-                        <Link href={teamLink} className="hover:opacity-80 transition-opacity">
+                        <Link href={teamLink} className="hover:opacity-80 transition-opacity" style={{ color: 'var(--on-brand)' }}>
                           {headerContent}
                         </Link>
                       ) : (

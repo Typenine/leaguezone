@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Label from '@/components/ui/Label';
 import Select from '@/components/ui/Select';
-import { CURRENT_SEASON } from '@/lib/constants/league';
+import { CURRENT_SEASON, NEXT_DRAFT_SEASON } from '@/lib/constants/league';
 
 type AuthState = {
   authenticated: boolean;
@@ -45,6 +45,14 @@ type JoinRequestRow = {
   message?: string;
   sleeperLeagueId?: string;
   createdAt: string;
+};
+
+type CommissionerMember = {
+  userId: string;
+  teamName: string;
+  displayName: string | null;
+  email: string | null;
+  isCommissioner: boolean;
 };
 
 // ─── PIN change form (for logged-in users) ───────────────────────────────────
@@ -196,7 +204,7 @@ function ImportantDatesForm() {
 
 // ─── Admin: projected draft order editor ──────────────────────────────────────
 function ProjectedDraftOrderForm() {
-  const [season, setSeason] = useState(String(CURRENT_SEASON));
+  const [season, setSeason] = useState(NEXT_DRAFT_SEASON);
   const [data, setData] = useState<DraftOrderSettingsData | null>(null);
   const [order, setOrder] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
@@ -285,7 +293,7 @@ function ProjectedDraftOrderForm() {
   };
 
   const teamsByRosterId = new Map((data?.slotOrder ?? []).map((entry) => [entry.rosterId, entry] as const));
-  const seasonOptions = [Number(CURRENT_SEASON), Number(CURRENT_SEASON) + 1]
+  const seasonOptions = [Number(NEXT_DRAFT_SEASON), Number(CURRENT_SEASON)]
     .filter((year) => Number.isFinite(year))
     .map(String);
 
@@ -415,6 +423,104 @@ function JoinRequestsPanel() {
         </li>
       ))}
     </ul>
+  );
+}
+
+// ─── Admin: commissioner assignment ───────────────────────────────────────────
+function CommissionerAssignmentForm() {
+  const [members, setMembers] = useState<CommissionerMember[]>([]);
+  const [commissionerUserId, setCommissionerUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
+  const [msg, setMsg] = useState('');
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      setMsg('');
+      const res = await fetch('/api/settings/commissioner', { cache: 'no-store' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error || 'Failed to load commissioner settings');
+      const nextMembers = Array.isArray(body.members) ? body.members as CommissionerMember[] : [];
+      setMembers(nextMembers);
+      setCommissionerUserId(typeof body.commissionerUserId === 'string' ? body.commissionerUserId : null);
+      setSelectedUserId(nextMembers[0]?.userId || '');
+    } catch (err) {
+      setStatus('error');
+      setMsg(err instanceof Error ? err.message : 'Failed to load commissioner settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const assign = async () => {
+    if (!selectedUserId) return;
+    try {
+      setStatus('saving');
+      setMsg('');
+      const res = await fetch('/api/settings/commissioner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: selectedUserId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error || 'Failed to assign commissioner');
+      setStatus('ok');
+      setMsg('Commissioner assigned.');
+      await load();
+    } catch (err) {
+      setStatus('error');
+      setMsg(err instanceof Error ? err.message : 'Failed to assign commissioner');
+    }
+  };
+
+  const commissioner = members.find((member) => member.userId === commissionerUserId);
+
+  if (loading) return <p className="text-sm text-[var(--muted)]">Loading commissioner settings...</p>;
+
+  return (
+    <div className="space-y-4">
+      {commissioner ? (
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+          <p className="text-sm text-[var(--muted)]">Current commissioner</p>
+          <p className="mt-1 font-semibold text-[var(--text)]">
+            <span className="mr-1 text-[var(--gold)]" aria-label="Commissioner">★</span>
+            {commissioner.teamName}
+          </p>
+          <p className="text-xs text-[var(--muted)]">{commissioner.displayName || commissioner.email || 'League member'}</p>
+        </div>
+      ) : members.length === 0 ? (
+        <p className="text-sm text-[var(--muted)]">No claimed teams are available yet. A user must join a team before they can be assigned as commissioner.</p>
+      ) : (
+        <>
+          <p className="text-sm text-[var(--muted)]">
+            No commissioner is assigned. Choose one claimed team/user to grant commissioner abilities.
+          </p>
+          <div>
+            <Label htmlFor="commissioner-user">Commissioner</Label>
+            <Select id="commissioner-user" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
+              {members.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.teamName} — {member.displayName || member.email || 'User'}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <Button type="button" onClick={assign} disabled={!selectedUserId || status === 'saving'}>
+            {status === 'saving' ? 'Assigning...' : 'Assign Commissioner'}
+          </Button>
+        </>
+      )}
+
+      {msg && (
+        <p className={`text-sm ${status === 'ok' ? 'text-green-500' : 'text-red-400'}`}>{msg}</p>
+      )}
+    </div>
   );
 }
 
@@ -864,6 +970,15 @@ export default function SettingsContent() {
             </CardHeader>
             <CardContent>
               <LeagueInfoForm initial={leagueInfo} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Commissioner</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CommissionerAssignmentForm />
             </CardContent>
           </Card>
 
