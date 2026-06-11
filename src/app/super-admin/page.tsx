@@ -195,7 +195,7 @@ export default async function SuperAdminPage() {
             { href: '/setup', icon: '⚙️', label: 'Setup Wizard' },
             { href: '/admin/users', icon: '👤', label: 'User Management' },
             { href: '/admin/suggestions', icon: '💡', label: 'Suggestions' },
-            { href: '/admin/newsletter', icon: '📧', label: 'Newsletter' },
+            { href: '/newsletter', icon: '📧', label: 'Newsletter' },
           ].map((item) => (
             <Link
               key={item.href}

@@ -7,6 +7,7 @@
 
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
+import { DEFAULT_LEAGUE_FEATURES, type LeagueFeatureKey } from '@/lib/config/platform';
 
 export type League = {
   id: string;
@@ -115,4 +116,25 @@ export async function getLeagueBySlug(slug: string): Promise<League | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Resolve the current league from a route slug (/l/[leagueSlug]).
+ * Only returns active, setup-completed leagues.
+ */
+export async function getCurrentLeagueBySlug(slug: string): Promise<League | null> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) return null;
+  const league = await getLeagueBySlug(normalized);
+  if (!league || !league.isActive) return null;
+  return league;
+}
+
+/**
+ * Effective feature flags for a league: defaults merged with any overrides
+ * stored under `leagues.config.features`.
+ */
+export function getLeagueFeatures(league: League): Record<LeagueFeatureKey, boolean> {
+  const overrides = (league.config?.features ?? {}) as Partial<Record<LeagueFeatureKey, boolean>>;
+  return { ...DEFAULT_LEAGUE_FEATURES, ...overrides };
 }

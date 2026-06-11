@@ -64,10 +64,10 @@ Triggers the batch flush:
 Add to `.env.local`:
 ```bash
 # Discord webhook for trade block updates
-DISCORD_TRADE_BLOCK_WEBHOOK_URL=https://discord.com/api/webhooks/1472419947346133023/pFDzEk4ItK4YkFHAs8wDddiftIRBf1AMh6jS9Tx0CK2pft_MXahP20TdqJZI3OoW-E2H
+DISCORD_TRADE_BLOCK_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
 
 # Site URL for links in messages
-SITE_URL=https://eastvswest.win
+SITE_URL=https://your-league-site.example.com
 
 # Optional: protect cron endpoint
 CRON_SECRET=your-secret-here

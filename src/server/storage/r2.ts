@@ -190,16 +190,12 @@ export async function putObjectBytes(params: { key: string; body: Uint8Array | A
   await client.send(new PutObjectCommand({ Bucket: BUCKET(), Key: params.key, Body: body, ContentType: params.contentType || 'application/octet-stream' }));
 }
 
-export async function getObjectText(params: { key: string }): Promise<string | null> {
-  await boot();
-  const m: Mode = chosenMode || 'path';
-  const client = getClient(m);
-  const res = await client.send(new GetObjectCommand({ Bucket: BUCKET(), Key: params.key }));
-  const body: unknown = (res as unknown as { Body?: unknown }).Body;
+async function readObjectBody(body: unknown): Promise<Buffer | null> {
   if (!body) return null;
   const tts = (body as { transformToString?: unknown }).transformToString;
   if (typeof tts === 'function') {
-    return await (tts as () => Promise<string>)();
+    const text = await (tts as () => Promise<string>)();
+    return Buffer.from(text, 'utf8');
   }
   try {
     const chunks: Uint8Array[] = [];
@@ -210,11 +206,27 @@ export async function getObjectText(params: { key: string }): Promise<string | n
       (on as (event: string, cb: () => void) => void).call(body, 'end', () => resolve());
       (on as (event: string, cb: (err: unknown) => void) => void).call(body, 'error', reject);
     });
-    const buf = Buffer.concat(chunks);
-    return buf.toString('utf8');
+    return Buffer.concat(chunks);
   } catch {
     return null;
   }
+}
+
+export async function getObjectText(params: { key: string }): Promise<string | null> {
+  await boot();
+  const m: Mode = chosenMode || 'path';
+  const client = getClient(m);
+  const res = await client.send(new GetObjectCommand({ Bucket: BUCKET(), Key: params.key }));
+  const buf = await readObjectBody((res as unknown as { Body?: unknown }).Body);
+  return buf ? buf.toString('utf8') : null;
+}
+
+export async function getObjectBytes(params: { key: string }): Promise<Buffer | null> {
+  await boot();
+  const m: Mode = chosenMode || 'path';
+  const client = getClient(m);
+  const res = await client.send(new GetObjectCommand({ Bucket: BUCKET(), Key: params.key }));
+  return readObjectBody((res as unknown as { Body?: unknown }).Body);
 }
 
 export async function listKeys(params: { prefix: string; max?: number }): Promise<string[]> {

@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     const hasMemberships = userLeagues.length > 0;
     const isMember = userLeagues.some((item) => item.leagueId === id);
     if (hasMemberships && !isMember) {
-      return NextResponse.redirect(new URL(`/leagues/${slug}`, req.url));
+      return NextResponse.redirect(new URL(`/l/${slug}`, req.url));
     }
   }
 

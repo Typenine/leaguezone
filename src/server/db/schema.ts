@@ -3,6 +3,8 @@ import { pgTable, uuid, varchar, text, timestamp, jsonb, pgEnum, index, integer,
 export const roleEnum = pgEnum('user_role', ['admin', 'user']);
 export const suggestionStatusEnum = pgEnum('suggestion_status', ['draft', 'open', 'accepted', 'rejected']);
 export const taxiEventEnum = pgEnum('taxi_event', ['add', 'remove', 'promote', 'demote']);
+export const newsletterSourceTypeEnum = pgEnum('newsletter_source_type', ['editor', 'docx', 'html', 'pdf']);
+export const newsletterStatusEnum = pgEnum('newsletter_status', ['draft', 'published']);
 
 // ============ Leagues (Multi-League Support) ============
 
@@ -203,6 +205,29 @@ export const tradeBlockEvents = pgTable('trade_block_events', {
   teamCreatedIdx: index('trade_block_events_team_created_idx').on(t.team, t.createdAt),
   sentAtIdx: index('trade_block_events_sent_at_idx').on(t.sentAt),
   leagueIdx: index('trade_block_events_league_idx').on(t.leagueId),
+}));
+
+export const newsletterEpisodes = pgTable('newsletter_episodes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  leagueId: uuid('league_id').notNull().references(() => leagues.id, { onDelete: 'cascade' }),
+  season: integer('season').notNull(),
+  week: integer('week'),
+  episodeNumber: integer('episode_number').notNull().default(1),
+  slug: varchar('slug', { length: 128 }).notNull(),
+  title: varchar('title', { length: 512 }).notNull(),
+  summary: text('summary'),
+  contentHtml: text('content_html'),
+  sourceType: newsletterSourceTypeEnum('source_type').notNull().default('editor'),
+  sourceFileKey: text('source_file_key'),
+  coverImageKey: text('cover_image_key'),
+  status: newsletterStatusEnum('status').notNull().default('draft'),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  leagueSlugIdx: index('newsletter_episodes_league_slug_idx').on(t.leagueId, t.slug),
+  leagueStatusPublishedIdx: index('newsletter_episodes_league_status_published_idx').on(t.leagueId, t.status, t.publishedAt),
+  leagueSeasonIdx: index('newsletter_episodes_league_season_idx').on(t.leagueId, t.season, t.week, t.episodeNumber),
 }));
 
 // R2 storage config

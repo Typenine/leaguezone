@@ -23,12 +23,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fantasy Football League",
-  description: "Dynasty fantasy football league management",
-  icons: {
-    icon: '/assets/teams/East v West Logos/EvW Clancy logo.png',
-    apple: '/assets/teams/East v West Logos/EvW Clancy logo.png',
-  },
+  title: "League HQ — Custom Fantasy League Websites",
+  description: "Custom fantasy football league websites for serious dynasty commissioners.",
 };
 
 export default async function RootLayout({

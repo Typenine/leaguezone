@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 export default function SuperAdminLoginPage() {
@@ -9,22 +9,45 @@ export default function SuperAdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = searchParams?.get('next') || '/newsletter';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch('/api/super-admin-login', {
+      const trimmed = key.trim();
+      let ok = false;
+
+      const superRes = await fetch('/api/super-admin-login', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ key: key.trim() }),
+        credentials: 'include',
+        body: JSON.stringify({ key: trimmed }),
       });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.error || 'Invalid key');
+      if (superRes.ok) {
+        ok = true;
+      } else {
+        // Fall back to league admin PIN (EVW_ADMIN_SECRET, default 002023)
+        const leagueRes = await fetch('/api/admin-login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ key: trimmed }),
+        });
+        if (leagueRes.ok) {
+          ok = true;
+        } else {
+          const j = await leagueRes.json().catch(() => ({}));
+          throw new Error(j?.error || 'Invalid admin key');
+        }
       }
-      router.push('/super-admin');
+
+      if (ok) {
+        router.push(nextPath);
+        router.refresh();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -40,7 +63,7 @@ export default function SuperAdminLoginPage() {
             <div className="text-4xl mb-3">🌐</div>
             <h1 className="text-xl font-bold text-[var(--text)]">Admin Mode Login</h1>
             <p className="text-sm text-[var(--muted)] mt-1">
-              Enter your admin key to access the global admin dashboard.
+              Enter your league admin PIN or site admin key to manage newsletters, settings, and more.
             </p>
           </div>
 
@@ -58,7 +81,7 @@ export default function SuperAdminLoginPage() {
                 autoComplete="current-password"
                 autoFocus
                 className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-strong,var(--surface))] px-3 py-2 text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
-                placeholder="Enter admin key"
+                placeholder="League admin PIN"
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
               />

@@ -1,4 +1,4 @@
-﻿import { cookies } from 'next/headers';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { verifySession } from '@/lib/server/auth';
 import { getAllLeagues } from '@/lib/server/league-config';
@@ -8,56 +8,9 @@ import LeagueWebsiteSearch from '@/components/LeagueWebsiteSearch';
 import LeagueCard from '@/components/ui/LeagueCard';
 import LeagueIcon from '@/components/ui/LeagueIcon';
 import type { LeagueIconName } from '@/components/ui/LeagueIcon';
+import { PLATFORM, PRODUCT_FEATURES, HOW_IT_WORKS, PRICING_TIERS, leagueUrl } from '@/lib/config/platform';
 
 export const dynamic = 'force-dynamic';
-
-const MARKETING_FEATURES = [
-  {
-    eyebrow: 'Command',
-    title: 'Live league command center',
-    description: 'Standings, weekly matchups, rosters, transactions, and records stay organized in one polished home base.',
-    icon: 'command',
-  },
-  {
-    eyebrow: 'Archive',
-    title: 'Built for dynasty history',
-    description: 'Track champions, all-time records, draft results, trade trees, and league rules across seasons.',
-    icon: 'history',
-  },
-  {
-    eyebrow: 'Data',
-    title: 'Data-connected league hub',
-    description: 'Connect your league source once and keep the site current without turning every page into a spreadsheet.',
-    icon: 'data',
-  },
-  {
-    eyebrow: 'Admin',
-    title: 'Commissioner tools',
-    description: 'Invite managers, manage league branding, review suggestions, and keep everyone aligned.',
-    icon: 'commissioner',
-  },
-] satisfies Array<{ eyebrow: string; title: string; description: string; icon: LeagueIconName }>;
-
-const EDITORIAL_BLOCKS = [
-  {
-    eyebrow: 'For commissioners',
-    title: 'Run the league like a clubhouse, not a spreadsheet.',
-    description: 'Give every manager the same source of truth for rules, standings, trades, draft context, league history, and announcements.',
-    icon: 'commissioner',
-  },
-  {
-    eyebrow: 'For managers',
-    title: 'Make the site useful between Sundays.',
-    description: 'Surface the things managers actually come back for: upcoming matchups, recent movement, rivalry context, records, and team identity.',
-    icon: 'managers',
-  },
-  {
-    eyebrow: 'For draft day',
-    title: 'Turn draft night into an event.',
-    description: 'Use boards, clocks, pick animations, team panels, and trade tools to make the draft feel intentional and league-specific.',
-    icon: 'draft',
-  },
-] satisfies Array<{ eyebrow: string; title: string; description: string; icon: LeagueIconName }>;
 
 function getInitials(name: string): string {
   return name
@@ -89,8 +42,8 @@ function LeagueLogo({ league }: { league: Pick<LeagueSummary, 'name' | 'logoUrl'
 
 function MyLeagueCard({ league }: { league: UserLeague }) {
   return (
-    <a
-      href={`/leagues/${league.leagueSlug}`}
+    <Link
+      href={leagueUrl(league.leagueSlug)}
       className="league-card group block p-5"
     >
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -108,10 +61,10 @@ function MyLeagueCard({ league }: { league: UserLeague }) {
       </h3>
       <p className="mt-1 text-sm text-[var(--muted)]">{league.teamName}</p>
       <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-[var(--accent)]">
-        Open league homepage
+        Open league site
         <span aria-hidden="true">-&gt;</span>
       </span>
-    </a>
+    </Link>
   );
 }
 
@@ -119,19 +72,19 @@ function PublicLeagueCard({ league }: { league: LeagueSummary }) {
   const accent = league.primaryColor || 'var(--accent)';
 
   return (
-    <a
-      href={`/leagues/${league.slug}`}
+    <Link
+      href={leagueUrl(league.slug)}
       className="league-card group flex items-center gap-4 p-4"
     >
       <LeagueLogo league={league} />
       <div className="min-w-0 flex-1">
         <h3 className="truncate font-bold text-[var(--text)] group-hover:text-[var(--accent)]">{league.name}</h3>
         <p className="text-sm text-[var(--muted)]">
-          {league.shortName || (league.foundedYear ? `Est. ${league.foundedYear}` : 'League dashboard')}
+          {league.shortName || (league.foundedYear ? `Est. ${league.foundedYear}` : 'League site')}
         </p>
       </div>
       <span className="text-sm font-bold" style={{ color: accent }}>View</span>
-    </a>
+    </Link>
   );
 }
 
@@ -208,48 +161,48 @@ export default async function RootPage() {
 
   return (
     <div className="home-page overflow-hidden">
+      {/* Hero */}
       <section className="relative border-b border-[var(--border)]">
         <div className="absolute inset-0 bg-[var(--home-hero)]" />
         <div className="container relative mx-auto grid gap-12 px-4 py-16 sm:py-24 lg:grid-cols-[1fr_0.9fr] lg:items-center">
           <div className="max-w-3xl">
             <div className="mb-6 inline-flex rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-2 text-sm font-semibold text-[var(--muted)]">
-              Custom league websites for serious commissioners
+              Works alongside Sleeper — built for dynasty leagues
             </div>
             <h1 className="display-heading text-[var(--text)]">
-              Your fantasy league deserves a real home.
+              {PLATFORM.tagline}
             </h1>
             <p className="mt-6 max-w-2xl text-lg text-[var(--muted)] sm:text-xl">
-              Give managers a polished front door with live league data, clean navigation, history, trades, rules, and commissioner tools in one branded command center.
+              {PLATFORM.description}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              {userLeagues.length > 0 ? (
-                <a
-                  href={`/leagues/${userLeagues[0].leagueSlug}`}
-                  className="inline-flex items-center justify-center rounded-full bg-[var(--accent)] px-7 py-3 text-base font-bold text-white shadow-lg transition hover:opacity-90"
-                  style={{ color: 'white' }}
+              <Link
+                href="/demo"
+                className="inline-flex items-center justify-center rounded-full bg-[var(--accent)] px-7 py-3 text-base font-bold text-white shadow-lg transition hover:opacity-90"
+                style={{ color: 'white' }}
+              >
+                View Demo League
+              </Link>
+              {userId ? (
+                <Link
+                  href="/app"
+                  className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-7 py-3 text-base font-bold text-[var(--text)] transition hover:border-[var(--accent)]/60"
                 >
-                  Go to my league
-                </a>
+                  Open my dashboard
+                </Link>
               ) : (
                 <Link
                   href="/register"
-                  className="inline-flex items-center justify-center rounded-full bg-[var(--accent)] px-7 py-3 text-base font-bold text-white shadow-lg transition hover:opacity-90"
-                  style={{ color: 'white' }}
+                  className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-7 py-3 text-base font-bold text-[var(--text)] transition hover:border-[var(--accent)]/60"
                 >
-                  Create your account
+                  Start a Beta Build
                 </Link>
               )}
-              <Link
-                href={userId && userLeagues.length === 1 ? `/api/league/select?id=${userLeagues[0].leagueId}&next=/home` : userId ? '#my-leagues' : '/login'}
-                className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-7 py-3 text-base font-bold text-[var(--text)] transition hover:border-[var(--accent)]/60"
-              >
-                {userId ? (userLeagues.length === 1 ? 'Open dashboard' : 'Choose a league') : 'Sign in'}
-              </Link>
             </div>
             <div className="mt-10 grid max-w-xl grid-cols-3 gap-4">
               {[
                 ['24/7', 'league access'],
-                ['Live', 'league data'],
+                ['Live', 'Sleeper data'],
                 ['All-time', 'history'],
               ].map(([value, label]) => (
                 <div key={label} className="rounded-2xl border border-[var(--border)] bg-[var(--home-panel)] p-4 shadow-sm">
@@ -263,53 +216,99 @@ export default async function RootPage() {
         </div>
       </section>
 
+      {/* Features */}
       <section className="container mx-auto px-4 py-16 sm:py-20">
         <div className="mb-10 grid gap-4 lg:grid-cols-[0.8fr_1fr] lg:items-end">
           <div>
             <p className="eyebrow">Platform features</p>
-            <h2 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[var(--text)] sm:text-5xl">A league site with a point of view.</h2>
+            <h2 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[var(--text)] sm:text-5xl">The features Sleeper doesn&apos;t do.</h2>
           </div>
           <p className="max-w-2xl text-lg leading-8 text-[var(--muted)]">
-            The homepage should feel like a weekly league magazine, a manager portal, and a commissioner desk all in one place.
+            Sleeper handles rosters and scoring. {PLATFORM.name} handles identity, history, rules, and league culture — the things that make a dynasty league feel permanent.
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {MARKETING_FEATURES.map((feature) => (
+          {PRODUCT_FEATURES.map((feature) => (
             <LeagueCard
               key={feature.title}
               eyebrow={feature.eyebrow}
               title={feature.title}
               description={feature.description}
-              icon={feature.icon}
+              icon={feature.icon as LeagueIconName}
             />
+          ))}
+        </div>
+        <div className="mt-8 text-center">
+          <Link href="/features" className="text-sm font-bold text-[var(--accent)] hover:underline">
+            See all features -&gt;
+          </Link>
+        </div>
+      </section>
+
+      {/* Demo preview */}
+      <section className="border-y border-[var(--border)] bg-[var(--home-hero)]">
+        <div className="container mx-auto grid gap-10 px-4 py-16 lg:grid-cols-[0.72fr_1fr] lg:items-center">
+          <div>
+            <p className="eyebrow">See it live</p>
+            <h2 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[var(--text)] sm:text-5xl">Tour a real league site.</h2>
+            <p className="mt-5 text-lg leading-8 text-[var(--muted)]">
+              The demo league is a live, working league headquarters — branded homepage, team pages, draft hub, trade block, and a decade of league history.
+            </p>
+            <Link
+              href="/demo"
+              className="mt-7 inline-flex items-center justify-center rounded-full bg-[var(--accent)] px-7 py-3 text-base font-bold text-white shadow-lg transition hover:opacity-90"
+              style={{ color: 'white' }}
+            >
+              Open the demo league
+            </Link>
+          </div>
+          <ProductPreview />
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="container mx-auto px-4 py-16 sm:py-20">
+        <p className="eyebrow">How it works</p>
+        <h2 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[var(--text)] sm:text-5xl">Launch in an afternoon.</h2>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {HOW_IT_WORKS.map((item) => (
+            <div key={item.step} className="league-card p-5">
+              <p className="text-sm font-black text-[var(--accent)]">{item.step}</p>
+              <h3 className="mt-2 text-lg font-black text-[var(--text)]">{item.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.description}</p>
+            </div>
           ))}
         </div>
       </section>
 
+      {/* Pricing preview */}
       <section className="border-y border-[var(--border)] bg-[var(--home-hero)]">
-        <div className="container mx-auto grid gap-10 px-4 py-16 lg:grid-cols-[0.72fr_1fr] lg:items-center">
-          <div>
-            <p className="eyebrow">Editorial structure</p>
-            <h2 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[var(--text)] sm:text-5xl">Built around the rhythms of a season.</h2>
-            <p className="mt-5 text-lg leading-8 text-[var(--muted)]">
-              The design separates commissioner work, manager activity, and draft-day energy so the site feels organized instead of busy.
-            </p>
+        <div className="container mx-auto px-4 py-16 sm:py-20">
+          <div className="mb-10 text-center">
+            <p className="eyebrow">Pricing</p>
+            <h2 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[var(--text)] sm:text-5xl">Simple plans, league-first.</h2>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {EDITORIAL_BLOCKS.map((block) => (
-              <LeagueCard
-                key={block.title}
-                eyebrow={block.eyebrow}
-                title={block.title}
-                description={block.description}
-                icon={block.icon}
-                className="bg-[var(--home-panel)]"
-              />
+          <div className="grid gap-4 lg:grid-cols-3">
+            {PRICING_TIERS.map((tier) => (
+              <div key={tier.name} className={`league-card p-6 ${tier.highlighted ? 'border-[var(--accent)]' : ''}`}>
+                <h3 className="text-lg font-black text-[var(--text)]">{tier.name}</h3>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-3xl font-black text-[var(--text)]">{tier.price}</span>
+                  <span className="text-sm text-[var(--muted)]">{tier.period}</span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{tier.description}</p>
+              </div>
             ))}
+          </div>
+          <div className="mt-8 text-center">
+            <Link href="/pricing" className="text-sm font-bold text-[var(--accent)] hover:underline">
+              Full pricing details -&gt;
+            </Link>
           </div>
         </div>
       </section>
 
+      {/* My leagues / sign in */}
       <section className="container mx-auto px-4 py-16 sm:py-20">
         <div className="mb-12">
           <LeagueWebsiteSearch />
@@ -322,11 +321,9 @@ export default async function RootPage() {
                 <p className="eyebrow">My Leagues</p>
                 <h2 className="mt-3 text-3xl font-black text-[var(--text)]">Pick up where you left off.</h2>
               </div>
-              {userLeagues.length === 1 && (
-                <a href={`/api/league/select?id=${userLeagues[0].leagueId}&next=/home`} className="text-sm font-bold text-[var(--accent)] hover:underline">
-                  Open active dashboard
-                </a>
-              )}
+              <Link href="/app" className="text-sm font-bold text-[var(--accent)] hover:underline">
+                Open dashboard
+              </Link>
             </div>
             {userLeagues.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -349,7 +346,7 @@ export default async function RootPage() {
             <p className="eyebrow">For managers</p>
             <h2 className="mt-3 text-3xl font-black text-[var(--text)]">Already in a league?</h2>
             <p className="mx-auto mt-3 max-w-2xl text-[var(--muted)]">
-              Sign in to see your leagues, open your active dashboard, and jump straight to the pages your league uses most.
+              Sign in to see your leagues, open your league sites, and jump straight to the pages your league uses most.
             </p>
             <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
               <Link href="/login" className="inline-flex justify-center rounded-full bg-[var(--accent)] px-6 py-3 font-bold text-white" style={{ color: 'white' }}>
@@ -366,7 +363,7 @@ export default async function RootPage() {
           <div id="available-leagues" className="mt-16">
             <div className="mb-6">
               <p className="eyebrow">League access</p>
-              <h2 className="mt-3 text-2xl font-black text-[var(--text)]">Available league homepages</h2>
+              <h2 className="mt-3 text-2xl font-black text-[var(--text)]">Leagues hosted here</h2>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {leagues.map((league) => (
@@ -380,7 +377,7 @@ export default async function RootPage() {
           <div className="league-card mt-16 p-8 text-center">
             <h2 className="text-2xl font-black text-[var(--text)]">No leagues configured yet</h2>
             <p className="mx-auto mt-2 max-w-xl text-[var(--muted)]">
-              Finish setup to connect your league data, add branding, and launch the first league homepage.
+              Finish setup to connect your league data, add branding, and launch the first league site.
             </p>
             <Link href="/setup" className="mt-5 inline-flex rounded-full bg-[var(--accent)] px-6 py-3 font-bold text-white" style={{ color: 'white' }}>
               Go to setup

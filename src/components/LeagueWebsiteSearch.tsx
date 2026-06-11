@@ -146,7 +146,7 @@ export default function LeagueWebsiteSearch() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href={`/leagues/${match.slug}`} className="btn btn-secondary text-sm px-3 py-1.5">
+              <Link href={`/l/${match.slug}`} className="btn btn-secondary text-sm px-3 py-1.5">
                 View homepage
               </Link>
               <Button type="button" size="sm" onClick={() => setRequestOpen((open) => !open)}>

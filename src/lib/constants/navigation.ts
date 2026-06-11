@@ -67,5 +67,6 @@ export const USER_NAV_CONFIG: UserNavItem[] = [
     ],
   },
   { id: 'suggestions', label: 'Suggestions', href: '/suggestions' },
+  { id: 'newsletter', label: 'Newsletter', href: '/newsletter' },
   { id: 'settings', label: 'Settings', href: '/settings' },
 ];

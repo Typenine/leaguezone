@@ -18,6 +18,11 @@ const WEBSITE_TOKENS = {
 function shouldUseLeagueTheme(pathname: string): boolean {
   if (pathname === '/') return false;
   if (pathname.startsWith('/leagues/')) return false;
+  // League sites under /l/ apply their own colors in the league layout,
+  // scoped to the league resolved from the route slug (not the cookie).
+  if (pathname.startsWith('/l/')) return false;
+  if (pathname === '/features' || pathname === '/pricing' || pathname === '/demo') return false;
+  if (pathname === '/app' || pathname.startsWith('/app/')) return false;
   if (pathname.startsWith('/setup')) return false;
   if (pathname.startsWith('/join/')) return false;
   if (pathname.startsWith('/login')) return false;

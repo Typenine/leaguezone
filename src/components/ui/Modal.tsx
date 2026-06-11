@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode, useEffect, useRef } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export function Modal({
   open,
@@ -21,11 +22,20 @@ export function Modal({
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const titleIdRef = useRef<string>(`modal-title-${Math.random().toString(36).slice(2)}`);
+  const [mounted, setMounted] = useState(false);
+  const [backdropReady, setBackdropReady] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Close on ESC and keep focus trapped within the dialog
   useEffect(() => {
     if (!open) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const frame = requestAnimationFrame(() => setBackdropReady(true));
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -61,19 +71,24 @@ export function Modal({
     }
 
     return () => {
+      cancelAnimationFrame(frame);
+      setBackdropReady(false);
       document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus?.();
     };
   }, [open, onClose, autoFocusPanel]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50">
+  return createPortal(
+    <div className="fixed inset-0 z-[100]">
       <div
-        className="fixed inset-0 bg-black/50"
+        className="fixed inset-0 bg-black/60"
         aria-hidden="true"
-        onClick={onClose}
+        onMouseDown={(e) => {
+          if (backdropReady && e.target === e.currentTarget) onClose();
+        }}
       />
       <div className="fixed inset-0 overflow-y-auto">
         <div className="flex min-h-full items-center justify-center p-4">
@@ -112,7 +127,8 @@ export function Modal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -18,6 +18,7 @@ const NAV_SECTIONS = [
   { href: '/transactions', label: 'Transactions',  icon: '📝', description: 'All pickups, drops, and moves' },
   { href: '/suggestions',  label: 'Suggestions',   icon: '💡', description: 'Rule proposals and league voting' },
   { href: '/history',      label: 'History',       icon: '📜', description: 'Champions, records, and past seasons' },
+  { href: '/newsletter',   label: 'Newsletter',    icon: '📰', description: 'Weekly recaps and league podcast' },
   { href: '/rules',        label: 'Rules',         icon: '📋', description: 'League constitution and settings' },
 ];
 

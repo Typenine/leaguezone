@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { presignPut, presignGet, publicUrl } from '@/server/storage/r2';
 import { isAdminCookieValue } from '@/lib/auth/admin';
+import { requireNewsletterManager } from '@/lib/server/newsletter';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,12 @@ function makeKey(hint?: string, extHint?: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!isAdminCookieValue(req.cookies.get('evw_admin')?.value)) {
+    const body = await req.json().catch(() => ({}));
+    const keyHint = typeof body.key === 'string' ? body.key : undefined;
+    const isNewsletterUpload = typeof keyHint === 'string' && keyHint.startsWith('newsletters/');
+    const allowed = isAdminCookieValue(req.cookies.get('evw_admin')?.value)
+      || (isNewsletterUpload && await requireNewsletterManager());
+    if (!allowed) {
       return Response.json({ error: 'forbidden' }, { status: 403 });
     }
 
@@ -33,9 +39,7 @@ export async function POST(req: NextRequest) {
     requireEnv('R2_SECRET_ACCESS_KEY');
     requireEnv('R2_BUCKET');
 
-    const body = await req.json().catch(() => ({}));
     const contentType = typeof body.contentType === 'string' ? body.contentType : 'application/octet-stream';
-    const keyHint = typeof body.key === 'string' ? body.key : undefined;
     const ext = typeof body.ext === 'string' ? body.ext : undefined;
     const key = keyHint && keyHint.length > 0 ? keyHint : makeKey(undefined, ext);
 

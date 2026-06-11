@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Label from '@/components/ui/Label';
 import { USER_NAV_CONFIG, type UserNavItem } from '@/lib/constants/navigation';
+import { PLATFORM } from '@/lib/config/platform';
 
 // ── path helpers ──────────────────────────────────────────────────────────────
 
@@ -157,37 +158,51 @@ export default function Navbar() {
     (async () => {
       try {
         setAuthLoading(true);
-        const r = await fetch('/api/auth/me', { cache: 'no-store' });
+        const r = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' });
+        const adminCheck = await fetch('/api/admin-login', { cache: 'no-store', credentials: 'include' }).catch(() => null);
+        const adminJson = adminCheck?.ok ? await adminCheck.json().catch(() => ({})) : {};
         if (!mounted) return;
         if (r.ok) {
           const j = await r.json();
+          const adminFlag = Boolean(j.isAdmin) || Boolean(adminJson.isAdmin);
           if (j?.authenticated && j?.user) {
             setSessionUser(j.user as SessionUser);
             setActiveTeam((j.activeTeam as ActiveTeam) || null);
             setUserLeagues(Array.isArray(j.leagues) ? (j.leagues as UserLeagueSummary[]) : []);
-            setIsAdmin(Boolean(j.isAdmin));
+            setIsAdmin(adminFlag);
             setIsSiteAdmin(Boolean(j.isSiteAdmin));
           } else if (j?.authenticated && j?.claims?.team) {
             // Legacy team session — treat team name as display name
             const team = j.claims.team as string;
             setSessionUser({ id: team, displayName: team, email: '', emailVerified: true });
             setUserLeagues([]);
-            setIsAdmin(Boolean(j.isAdmin));
+            setIsAdmin(adminFlag);
             setIsSiteAdmin(Boolean(j.isSiteAdmin));
           } else {
             setSessionUser(null);
             setActiveTeam(null);
             setUserLeagues([]);
-            setIsAdmin(Boolean(j?.isAdmin));
+            setIsAdmin(adminFlag);
             setIsSiteAdmin(Boolean(j?.isSiteAdmin));
           }
         } else {
+          const j = await r.json().catch(() => ({}));
           setSessionUser(null);
           setActiveTeam(null);
           setUserLeagues([]);
+          setIsAdmin(Boolean(j?.isAdmin) || Boolean(adminJson.isAdmin));
+          setIsSiteAdmin(Boolean(j?.isSiteAdmin));
         }
       } catch {
-        if (mounted) { setSessionUser(null); setActiveTeam(null); setUserLeagues([]); }
+        if (mounted) {
+          setSessionUser(null);
+          setActiveTeam(null);
+          setUserLeagues([]);
+          fetch('/api/admin-login', { cache: 'no-store', credentials: 'include' })
+            .then((r) => r.json())
+            .then((j) => { if (mounted) setIsAdmin(Boolean(j?.isAdmin)); })
+            .catch(() => {});
+        }
       } finally {
         if (mounted) setAuthLoading(false);
       }
@@ -234,6 +249,17 @@ export default function Navbar() {
     router.push('/login');
   };
 
+  const handleAdminLogout = async () => {
+    try { await fetch('/api/admin-login', { method: 'DELETE' }); } catch {}
+    if (isSiteAdmin) {
+      try { await fetch('/api/super-admin-login', { method: 'DELETE' }); } catch {}
+      setIsSiteAdmin(false);
+    }
+    setIsAdmin(false);
+    setAccountMenuOpen(false);
+    router.refresh();
+  };
+
   const handleSiteAdminLogout = async () => {
     try { await fetch('/api/super-admin-login', { method: 'DELETE' }); } catch {}
     setIsAdmin(false);
@@ -277,15 +303,28 @@ export default function Navbar() {
 
   const displayName = sessionUser?.displayName || sessionUser?.email || '';
   const isLoggedIn = Boolean(sessionUser) || isAdmin;
+  const accountButtonLabel = authLoading
+    ? 'Loading…'
+    : isAdmin && !sessionUser
+      ? 'Signed in as Admin'
+      : isAdmin && sessionUser
+        ? `${displayName} (Admin)`
+        : sessionUser
+          ? displayName
+          : 'Sign in';
   const isMarketingHome = pathname === '/';
-  const isLeagueHomepage = pathname.startsWith('/leagues/');
-  const isPortalSurface = isMarketingHome || isLeagueHomepage;
+  const isPlatformPage = ['/features', '/pricing', '/demo'].includes(pathname) || pathname === '/app' || pathname.startsWith('/app/');
+  // League sites under /l/[slug] render their own league header + nav below
+  // this bar, so the platform bar stays minimal there.
+  const isLeagueSite = pathname.startsWith('/l/') || pathname.startsWith('/leagues/');
+  const isPortalSurface = isMarketingHome || isPlatformPage || isLeagueSite;
   const portalMenuItems = [
     { href: '/', label: 'Home' },
-    { href: '/#my-leagues', label: 'My Leagues' },
-    { href: '/#available-leagues', label: 'Available Leagues' },
-    activeTeam
-      ? { href: `/api/league/select?id=${encodeURIComponent(activeTeam.leagueId)}&next=${encodeURIComponent('/home')}`, label: 'Dashboard' }
+    { href: '/features', label: 'Features' },
+    { href: '/pricing', label: 'Pricing' },
+    { href: '/demo', label: 'Demo' },
+    sessionUser
+      ? { href: '/app', label: 'Dashboard' }
       : { href: '/login', label: 'Sign In' },
   ];
   const leagueMenuItems = [
@@ -297,9 +336,10 @@ export default function Navbar() {
     { href: '/history', label: 'History' },
     { href: '/rules', label: 'Rules' },
     { href: '/suggestions', label: 'Suggestions' },
+    { href: '/newsletter', label: 'Newsletter' },
     { href: '/settings', label: 'Settings' },
   ];
-  const menuBarItems = isPortalSurface ? portalMenuItems : leagueMenuItems;
+  const menuBarItems = isLeagueSite ? [] : isPortalSurface ? portalMenuItems : leagueMenuItems;
 
   // ── render ────────────────────────────────────────────────────────────────────
   return (
@@ -314,16 +354,22 @@ export default function Navbar() {
           {/* Left: logo + nav links */}
           <div className="flex items-center">
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Link href={isPortalSurface ? '/' : activeTeam?.leagueSlug ? `/leagues/${activeTeam.leagueSlug}` : '/'} aria-label="Website home" className="flex-shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={isPortalSurface ? '/assets/teams/East v West Logos/EvW Clancy logo.png' : leagueLogoUrl || '/assets/teams/East v West Logos/EvW Clancy logo.png'}
-                  alt={isPortalSurface ? 'Website logo' : 'League logo'}
-                  className="h-9 w-9 rounded-lg object-contain"
-                />
+              <Link href={isPortalSurface ? '/' : activeTeam?.leagueSlug ? `/l/${activeTeam.leagueSlug}` : '/'} aria-label="Website home" className="flex-shrink-0">
+                {!isPortalSurface && leagueLogoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={leagueLogoUrl}
+                    alt="League logo"
+                    className="h-9 w-9 rounded-lg object-contain"
+                  />
+                ) : (
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent)] text-xs font-black text-white" aria-hidden="true">
+                    HQ
+                  </span>
+                )}
               </Link>
               <Link href={isPortalSurface ? '/' : '/home'} className="font-bold text-xl leading-none">
-                {isPortalSurface ? 'League HQ' : leagueName ?? 'Fantasy League'}
+                {isPortalSurface ? PLATFORM.name : leagueName ?? 'Fantasy League'}
               </Link>
             </div>
             {!isPortalSurface && <div className="hidden">
@@ -447,36 +493,50 @@ export default function Navbar() {
 
             {/* Desktop account area */}
             <div className="hidden md:flex items-center gap-2">
-              {isLoggedIn ? (
+              {authLoading ? (
+                <span className="text-sm text-[var(--muted)] px-2">Loading…</span>
+              ) : isLoggedIn ? (
                 <div className="relative" ref={accountMenuRef}>
                   <button
+                    type="button"
                     aria-label="Account menu"
-                    className="rounded-full overflow-hidden border-2 border-[var(--accent)]/40 hover:border-[var(--accent)] transition-colors"
-                    style={isSiteAdmin ? { borderColor: '#f59e0b' } : undefined}
+                    className={`inline-flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--surface-strong)] ${
+                      isAdmin ? 'text-amber-500' : 'text-[var(--text)]'
+                    }`}
                     onClick={() => setAccountMenuOpen((v) => !v)}
-                    title={displayName}
+                    title={accountButtonLabel}
                     aria-expanded={accountMenuOpen}
                   >
                     {sessionUser ? (
-                      <UserAvatar displayName={displayName} size={32} />
+                      <UserAvatar displayName={displayName} size={28} />
                     ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src="/assets/teams/East v West Logos/EvW Clancy logo.png" alt="Admin" width={32} height={32} className="w-8 h-8 object-contain" />
+                      <UserAvatar displayName="Admin" size={28} />
                     )}
+                    <span className="text-sm font-semibold max-w-[11rem] truncate hidden sm:inline">
+                      {accountButtonLabel}
+                    </span>
+                    <span aria-hidden="true" className="text-xs opacity-70">▾</span>
                   </button>
-                  {/* Admin badge */}
-                  {isSiteAdmin && (
-                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 border border-[var(--surface)] text-[8px] flex items-center justify-center font-bold text-amber-900" title="Admin Mode">A</span>
+                  {isAdmin && (
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 border border-[var(--surface)] text-[8px] flex items-center justify-center font-bold text-amber-900" title="League Admin">A</span>
                   )}
 
                   {accountMenuOpen && (
                     <div className="absolute right-0 mt-2 w-72 league-surface border border-[var(--border)] rounded shadow-lg p-1 z-50">
 
+                      {/* Admin-only session (no user account) */}
+                      {!sessionUser && isAdmin && (
+                        <div className="px-3 py-2 border-b border-[var(--border)] mb-1">
+                          <div className="text-sm font-semibold text-amber-500">Signed in as Admin</div>
+                          <div className="text-xs text-[var(--muted)] mt-0.5">League admin mode is active</div>
+                        </div>
+                      )}
+
                       {/* User identity */}
                       {sessionUser && (
                         <div className="px-3 py-2 border-b border-[var(--border)] mb-1">
                           <div className="text-sm font-semibold text-[var(--text)] truncate">{displayName}</div>
-                          {activeTeam && (
+                          {activeTeam ? (
                             <div className="text-xs text-[var(--muted)] truncate mt-0.5">
                               {activeTeam.teamName}
                               {activeTeam.isCommissioner && (
@@ -485,7 +545,9 @@ export default function Navbar() {
                                 </span>
                               )}
                             </div>
-                          )}
+                          ) : isAdmin ? (
+                            <div className="text-xs text-amber-500 font-medium mt-0.5">League Admin</div>
+                          ) : null}
                           {!sessionUser.emailVerified && (
                             <div className="text-xs text-amber-500 mt-0.5">⚠ Email not verified</div>
                           )}
@@ -524,10 +586,10 @@ export default function Navbar() {
                         </>
                       )}
 
-                      {/* Site admin tools */}
+                      {/* Site admin tools (host-level) */}
                       {isSiteAdmin && (
                         <>
-                          <div className="px-2 py-1 text-xs font-semibold text-amber-500 uppercase tracking-wide">Admin Mode</div>
+                          <div className="px-2 py-1 text-xs font-semibold text-amber-500 uppercase tracking-wide">Site Admin</div>
                           <button
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                             onClick={() => { setAccountMenuOpen(false); router.push('/super-admin'); }}
@@ -538,16 +600,18 @@ export default function Navbar() {
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm text-red-500"
                             onClick={() => { setAccountMenuOpen(false); handleSiteAdminLogout(); }}
                           >
-                            Exit Admin Mode
+                            Exit Site Admin
                           </button>
                           <div className="my-1 border-t border-[var(--border)]" />
                         </>
                       )}
 
-                      {/* Commissioner tools */}
-                      {activeTeam?.isCommissioner && (
+                      {/* League admin / commissioner tools */}
+                      {(isAdmin || activeTeam?.isCommissioner) && (
                         <>
-                          <div className="px-2 py-1 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Commissioner</div>
+                          <div className="px-2 py-1 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">
+                            {activeTeam?.isCommissioner ? 'Commissioner' : 'League Admin'}
+                          </div>
                           <button
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                             onClick={() => { setAccountMenuOpen(false); router.push('/settings'); }}
@@ -556,16 +620,24 @@ export default function Navbar() {
                           </button>
                           <button
                             className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
+                            onClick={() => { setAccountMenuOpen(false); router.push('/newsletter'); }}
+                          >
+                            Newsletter
+                          </button>
+                          <button
+                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
                             onClick={() => { setAccountMenuOpen(false); router.push('/admin/suggestions'); }}
                           >
                             Suggestions
                           </button>
-                          <button
-                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm"
-                            onClick={() => { setAccountMenuOpen(false); router.push('/admin/newsletter'); }}
-                          >
-                            Newsletter
-                          </button>
+                          {isAdmin && (
+                            <button
+                              className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm text-red-500"
+                              onClick={handleAdminLogout}
+                            >
+                              Exit Admin Mode
+                            </button>
+                          )}
                           <div className="my-1 border-t border-[var(--border)]" />
                         </>
                       )}
@@ -593,13 +665,23 @@ export default function Navbar() {
                           )}
                         </>
                       )}
-                      <button
-                        className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm text-red-500"
-                        onClick={() => { setAccountMenuOpen(false); handleLogout(); }}
-                        disabled={authLoading}
-                      >
-                        Sign out
-                      </button>
+                      {sessionUser ? (
+                        <button
+                          className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm text-red-500"
+                          onClick={() => { setAccountMenuOpen(false); handleLogout(); }}
+                          disabled={authLoading}
+                        >
+                          Sign out
+                        </button>
+                      ) : isAdmin ? (
+                        <button
+                          className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm text-red-500"
+                          onClick={() => { setAccountMenuOpen(false); handleAdminLogout(); }}
+                          disabled={authLoading}
+                        >
+                          Exit Admin Mode
+                        </button>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -635,7 +717,7 @@ export default function Navbar() {
                       </Link>
                       <div className="my-1 border-t border-[var(--border)]" />
                       <Link
-                        href="/super-admin/login"
+                        href={`/super-admin/login?next=${encodeURIComponent(pathname)}`}
                         className="block rounded px-3 py-2 text-sm hover:bg-[var(--surface-strong)] text-amber-500"
                         onClick={() => setAccountMenuOpen(false)}
                       >
@@ -671,7 +753,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      <div className="border-t border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-strong)_50%,transparent)]">
+      {menuBarItems.length > 0 && <div className="border-t border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-strong)_50%,transparent)]">
         <div className="container mx-auto px-4">
           <div className="flex min-h-10 items-center gap-2 overflow-x-auto py-1.5">
             {menuBarItems.map((item) => {
@@ -697,11 +779,23 @@ export default function Navbar() {
             })}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Mobile menu */}
       <div className={`${mobileMenuOpen ? 'block' : 'hidden'} md:hidden relative z-40`} id="mobile-menu" aria-labelledby="mobile-menu-button">
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+          {isPortalSurface && portalMenuItems.map((item) => (
+            <LinkButton
+              key={`${item.href}-${item.label}`}
+              href={item.href}
+              variant={pathname === item.href ? 'secondary' : 'ghost'}
+              size="lg"
+              className="block text-left"
+              onClick={closeMobile}
+            >
+              {item.label}
+            </LinkButton>
+          ))}
           {!isPortalSurface && USER_NAV_CONFIG.map((item) => {
             const itemActive = isNavItemActive(item, pathname, currentQuery);
             const hasChildren = Boolean(item.children && item.children.length > 0);
@@ -771,13 +865,21 @@ export default function Navbar() {
           <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between gap-2">
             {isLoggedIn ? (
               <div className="flex items-center gap-2 w-full">
-                {sessionUser && <UserAvatar displayName={displayName} size={28} />}
-                <span className="text-sm text-[var(--text)] truncate flex-1">{displayName}</span>
-                {isSiteAdmin ? (
-                  <Button size="sm" variant="ghost" onClick={() => { closeMobile(); handleSiteAdminLogout(); }}>Exit Admin</Button>
+                {sessionUser ? (
+                  <UserAvatar displayName={displayName} size={28} />
                 ) : (
-                  <Button size="sm" variant="ghost" onClick={() => { closeMobile(); handleLogout(); }}>Sign out</Button>
+                  <UserAvatar displayName="Admin" size={28} />
                 )}
+                <span className={`text-sm truncate flex-1 ${isAdmin ? 'text-amber-500 font-semibold' : 'text-[var(--text)]'}`}>
+                  {accountButtonLabel}
+                </span>
+                {isAdmin && !sessionUser ? (
+                  <Button size="sm" variant="ghost" onClick={() => { closeMobile(); handleAdminLogout(); }}>Exit Admin</Button>
+                ) : isSiteAdmin ? (
+                  <Button size="sm" variant="ghost" onClick={() => { closeMobile(); handleSiteAdminLogout(); }}>Exit Admin</Button>
+                ) : sessionUser ? (
+                  <Button size="sm" variant="ghost" onClick={() => { closeMobile(); handleLogout(); }}>Sign out</Button>
+                ) : null}
               </div>
             ) : (
               <div className="flex gap-2 w-full">
