@@ -1,4 +1,8 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LeagueZone HQ
+
+Custom fantasy football league websites for serious dynasty commissioners. A branded league headquarters that works alongside Sleeper — team pages, rulebook, draft hub, trade block, suggestions, voting, and league history in one polished home.
+
+This is a [Next.js](https://nextjs.org) project.
 
 ## Getting Started
 

@@ -218,7 +218,7 @@ export default function LandingPage() {
       {/* Simple Footer */}
       <footer className="py-8 px-4 border-t border-[var(--border)]">
         <div className="max-w-6xl mx-auto text-center text-sm text-[var(--muted)]">
-          <p>Fantasy Football League Website Template</p>
+          <p>LeagueZone HQ</p>
           <p className="mt-1">Built for dynasty leagues. Powered by Sleeper.</p>
         </div>
       </footer>

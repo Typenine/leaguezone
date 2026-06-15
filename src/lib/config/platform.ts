@@ -6,17 +6,17 @@
  */
 
 export const PLATFORM = {
-  name: 'League HQ',
+  name: 'LeagueZone HQ',
   tagline: 'Custom fantasy football league websites for serious dynasty commissioners.',
   description:
     'A branded league headquarters that works alongside Sleeper — team pages, rulebook, draft hub, trade block, suggestions, voting, and league history in one polished home.',
   /** Contact target for setup requests while self-serve creation is not built. */
   contactEmail: 'commissioner@example.com',
   disclaimer:
-    'League HQ is an independent product and is not affiliated with, endorsed by, or sponsored by the NFL, Sleeper, ESPN, Yahoo, or any other league platform.',
+    'LeagueZone HQ is an independent product and is not affiliated with, endorsed by, or sponsored by the NFL, Sleeper, ESPN, Yahoo, or any other league platform.',
 } as const;
 
-/** Slug of the first seeded/default league, used for the public demo. */
+/** Slug of the demo league (East v. West). This is auto-seeded in db-seed.mjs for the public demo. */
 export const DEFAULT_LEAGUE_SLUG = 'east-v-west';
 
 // ---------------------------------------------------------------------------

@@ -23,8 +23,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "League HQ — Custom Fantasy League Websites",
+  title: "LeagueZone HQ — Custom Fantasy League Websites",
   description: "Custom fantasy football league websites for serious dynasty commissioners.",
+  icons: {
+    icon: "/assets/LeagueZone HQ Logo.png",
+    shortcut: "/assets/LeagueZone HQ Logo.png",
+    apple: "/assets/LeagueZone HQ Logo.png",
+  },
 };
 
 export default async function RootLayout({
