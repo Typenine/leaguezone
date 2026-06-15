@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 
+// Decode session token without verifying signature (we verify server-side)
+function decodeSession(token: string): { emailVerified?: boolean; type?: string; sub?: string } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const data = parts[0];
+    const json = JSON.parse(Buffer.from(data, 'base64url').toString('utf8'));
+    return json;
+  } catch {
+    return null;
+  }
+}
+
 // Paths to protect (require session cookie)
 const PROTECTED_PREFIXES = [
   '/trade-block',
@@ -56,6 +69,18 @@ export async function middleware(req: NextRequest) {
   const cookie = req.cookies.get('evw_session')?.value || '';
   if (!cookie) {
     const url = new URL('/login', req.url);
+    url.searchParams.set('next', pathname + (search || ''));
+    return NextResponse.redirect(url);
+  }
+
+  // Check email verification for protected paths (skip for admin users)
+  const session = decodeSession(cookie);
+  const isVerified = session?.emailVerified === true;
+  const isUserSession = session?.type === 'user';
+  
+  // Allow admins without verification; require verification for regular users
+  if (isUserSession && !isVerified && pathname !== '/verify-email') {
+    const url = new URL('/verify-email', req.url);
     url.searchParams.set('next', pathname + (search || ''));
     return NextResponse.redirect(url);
   }

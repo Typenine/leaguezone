@@ -331,7 +331,7 @@ export default function Navbar() {
     { href: '/home', label: 'Home' },
     { href: '/teams', label: 'Teams' },
     { href: '/standings', label: 'Standings' },
-    { href: '/draft?view=next', label: 'Draft' },
+    // Draft hidden until system complete: { href: '/draft?view=next', label: 'Draft' },
     { href: '/trades', label: 'Trades' },
     { href: '/history', label: 'History' },
     { href: '/rules', label: 'Rules' },

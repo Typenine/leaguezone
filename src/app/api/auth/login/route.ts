@@ -8,12 +8,23 @@ import {
   SESSION_COOKIE,
   getUserLeagues,
 } from '@/lib/server/user-auth';
+import { rateLimitByIp, AUTH_RATE_LIMITS } from '@/lib/server/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit check
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const limit = await rateLimitByIp(ip, 'login', AUTH_RATE_LIMITS.login);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many login attempts. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((limit.resetAt - Date.now()) / 1000)) } }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const email = typeof body.email === 'string' ? body.email.trim() : '';
     const password = typeof body.password === 'string' ? body.password : '';

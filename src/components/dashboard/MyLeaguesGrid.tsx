@@ -53,26 +53,72 @@ function LeagueDashboardCard({ league }: { league: UserLeague }) {
 export default function MyLeaguesGrid({ leagues }: { leagues: UserLeague[] }) {
   if (leagues.length === 0) {
     return (
-      <div className="league-card border-dashed p-10 text-center">
-        <h3 className="text-xl font-black text-[var(--text)]">No leagues yet</h3>
-        <p className="mx-auto mt-2 max-w-md text-[var(--muted)]">
-          Ask your commissioner for an invite link, or request a new league site and we&apos;ll help you set it up.
-        </p>
-        <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-          <Link
-            href="/setup"
-            className="inline-flex justify-center rounded-full bg-[var(--accent)] px-6 py-3 font-bold text-white"
-            style={{ color: 'white' }}
-          >
-            Create League
-          </Link>
-          <a
-            href={`mailto:${PLATFORM.contactEmail}`}
-            className="inline-flex justify-center rounded-full border border-[var(--border)] px-6 py-3 font-bold text-[var(--text)]"
-          >
-            Request Setup
-          </a>
+      <div className="space-y-6">
+        {/* Join a League Card */}
+        <div className="league-card p-8">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center text-2xl">
+              👋
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-[var(--text)]">Join an Existing League</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Already have a team in a league? Ask your commissioner for an invite link, then click it to claim your roster.
+              </p>
+              <div className="mt-4 flex items-center gap-3 text-sm text-[var(--muted)]">
+                <span className="flex items-center gap-1">
+                  <span className="w-5 h-5 rounded-full bg-[var(--surface-strong)] flex items-center justify-center text-xs font-bold">1</span>
+                  Get invite link
+                </span>
+                <span>→</span>
+                <span className="flex items-center gap-1">
+                  <span className="w-5 h-5 rounded-full bg-[var(--surface-strong)] flex items-center justify-center text-xs font-bold">2</span>
+                  Click to claim
+                </span>
+                <span>→</span>
+                <span className="flex items-center gap-1">
+                  <span className="w-5 h-5 rounded-full bg-[var(--surface-strong)] flex items-center justify-center text-xs font-bold">3</span>
+                  Access your team
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Create a League Card */}
+        <div className="league-card p-8">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[var(--accent)]/10 flex items-center justify-center text-2xl">
+              ⭐
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-[var(--text)]">Start a New League</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Want to run your own league? Set up a branded league site with standings, trades, voting, and history.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href="/setup"
+                  className="inline-flex justify-center rounded-full bg-[var(--accent)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+                  style={{ color: 'white' }}
+                >
+                  Create League
+                </Link>
+                <a
+                  href={`mailto:${PLATFORM.contactEmail}`}
+                  className="inline-flex justify-center rounded-full border border-[var(--border)] px-5 py-2.5 text-sm font-bold text-[var(--text)] transition hover:border-[var(--accent)]/60"
+                >
+                  Request Help
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Help tip */}
+        <p className="text-center text-sm text-[var(--muted)]">
+          Not sure? <a href={`mailto:${PLATFORM.contactEmail}`} className="text-[var(--accent)] hover:underline">Contact us</a> and we&apos;ll point you in the right direction.
+        </p>
       </div>
     );
   }

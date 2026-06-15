@@ -7,6 +7,7 @@ import { verifySession } from '@/lib/server/auth';
 import { isSiteAdminCookieValue, isAdminCookieValue } from '@/lib/auth/admin';
 import { getUserLeagues } from '@/lib/server/user-auth';
 import { InviteButton } from './InviteButton';
+import { OnboardingHelp } from '@/components/OnboardingHelp';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,7 @@ const NAV_SECTIONS = [
   { href: '/standings',    label: 'Standings',     icon: '🏆', description: 'League standings and win/loss records' },
   { href: '/matchups',     label: 'Matchups',      icon: '🏈', description: 'Weekly matchup scores and results' },
   { href: '/teams',        label: 'Teams',         icon: '👥', description: 'Rosters, profiles, and team pages' },
+  // Draft hidden until system complete
   { href: '/trades',       label: 'Trades',        icon: '🔄', description: 'Trade history and trade trees' },
   { href: '/transactions', label: 'Transactions',  icon: '📝', description: 'All pickups, drops, and moves' },
   { href: '/suggestions',  label: 'Suggestions',   icon: '💡', description: 'Rule proposals and league voting' },
@@ -122,18 +124,44 @@ export default async function HomePage() {
     // No memberships yet
     if (userLeagues.length === 0 && !isAdmin) {
       return (
-        <div className="container mx-auto px-4 py-20 max-w-lg text-center">
-          <div className="text-5xl mb-4">🏈</div>
-          <h1 className="text-2xl font-bold text-[var(--text)] mb-2">You&apos;re not in a league yet</h1>
-          <p className="text-[var(--muted)] mb-8">
-            Ask your commissioner for an invite link to join a league.
+        <div className="container mx-auto px-4 py-20 max-w-lg">
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-4">🏈</div>
+            <h1 className="text-2xl font-bold text-[var(--text)] mb-2">You&apos;re not in a league yet</h1>
+            <p className="text-[var(--muted)] mb-4">
+              To join a league, you&apos;ll need an invite link from your commissioner.
+            </p>
+          </div>
+
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6 mb-6">
+            <h2 className="font-semibold text-[var(--text)] mb-3 flex items-center gap-2">
+              <span>📋</span> How to Join a League
+            </h2>
+            <ol className="text-sm text-[var(--muted)] space-y-3 list-decimal list-inside">
+              <li>Contact your league commissioner and ask for an invite link</li>
+              <li>Click the link or paste the invite code during registration</li>
+              <li>Your team roster will be automatically connected to your account</li>
+              <li>Access standings, trades, and league voting right away</li>
+            </ol>
+          </div>
+
+          <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded-xl p-4">
+            <p className="text-sm text-[var(--text)]">
+              <strong>Commissioner?</strong>{' '}
+              <Link href="/" className="text-[var(--accent)] hover:underline">
+                Set up your league here
+              </Link>
+            </p>
+          </div>
+
+          <p className="text-center mt-8">
+            <Link
+              href="/"
+              className="text-[var(--muted)] hover:text-[var(--text)] text-sm"
+            >
+              ← Back to home
+            </Link>
           </p>
-          <Link
-            href="/"
-            className="text-[var(--accent)] hover:underline text-sm"
-          >
-            ← Back to home
-          </Link>
         </div>
       );
     }
@@ -257,6 +285,9 @@ export default async function HomePage() {
           </ul>
         </div>
       )}
+
+      {/* Help widget for new users */}
+      <OnboardingHelp />
     </div>
   );
 }

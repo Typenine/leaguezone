@@ -11,7 +11,6 @@ export default function RegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const inviteCode = searchParams?.get('invite') || '';
-  const next = searchParams?.get('next') || '/home';
 
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -39,7 +38,8 @@ export default function RegisterContent() {
       if (inviteCode) {
         router.push(`/join/${inviteCode}`);
       } else {
-        router.push(next);
+        // New users without invite go to /app with welcome banner
+        router.push('/app?welcome=true');
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Registration failed');

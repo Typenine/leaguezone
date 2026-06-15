@@ -15,12 +15,23 @@ import {
   generateSecureToken,
 } from '@/lib/server/user-auth';
 import { sendEmailVerification } from '@/lib/server/email';
+import { rateLimitByIp, AUTH_RATE_LIMITS } from '@/lib/server/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit check
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const limit = await rateLimitByIp(ip, 'register', AUTH_RATE_LIMITS.register);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many registration attempts. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((limit.resetAt - Date.now()) / 1000)) } }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const email = typeof body.email === 'string' ? body.email.trim() : '';
     const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : '';
