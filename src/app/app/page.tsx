@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export default async function AppDashboardPage({
   searchParams,
 }: {
-  searchParams?: { welcome?: string };
+  searchParams?: Promise<{ welcome?: string }>;
 }) {
   const cookieJar = await cookies();
   const sessionToken = cookieJar.get('evw_session')?.value || '';
@@ -20,7 +20,8 @@ export default async function AppDashboardPage({
   if (!userId) redirect('/login?next=/app');
 
   const userLeagues = await getUserLeagues(userId);
-  const showWelcome = searchParams?.welcome === 'true';
+  const params = await searchParams;
+  const showWelcome = params?.welcome === 'true';
 
   return (
     <div className="container mx-auto px-4 py-10">
