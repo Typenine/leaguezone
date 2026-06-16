@@ -363,9 +363,8 @@ export default function Navbar() {
                     className="h-9 w-9 rounded-lg object-contain"
                   />
                 ) : (
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent)] text-xs font-black text-white" aria-hidden="true">
-                    HQ
-                  </span>
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src="/assets/LeagueZone HQ Logo.png" alt="" className="h-9 w-9 rounded-lg object-contain" aria-hidden="true" />
                 )}
               </Link>
               <Link href={isPortalSurface ? '/' : '/home'} className="font-bold text-xl leading-none">
@@ -781,42 +780,81 @@ export default function Navbar() {
         </div>
       </div>}
 
-      {/* Mobile menu */}
-      <div className={`${mobileMenuOpen ? 'block' : 'hidden'} md:hidden relative z-40`} id="mobile-menu" aria-labelledby="mobile-menu-button">
-        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-          {isPortalSurface && portalMenuItems.map((item) => (
-            <LinkButton
-              key={`${item.href}-${item.label}`}
-              href={item.href}
-              variant={pathname === item.href ? 'secondary' : 'ghost'}
-              size="lg"
-              className="block text-left"
-              onClick={closeMobile}
-            >
-              {item.label}
-            </LinkButton>
-          ))}
+      {/* Mobile menu — slide-in drawer */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm md:hidden" onClick={closeMobile} aria-hidden="true" />
+      )}
+      <div
+        className={`fixed top-0 right-0 h-full w-72 max-w-[85vw] z-50 md:hidden flex flex-col bg-[var(--surface)] border-l border-[var(--border)] shadow-2xl transform transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        id="mobile-menu"
+        aria-labelledby="mobile-menu-button"
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-4 h-16 border-b border-[var(--border)] flex-shrink-0">
+          <div className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/LeagueZone HQ Logo.png" alt="" className="h-7 w-7 rounded object-contain" aria-hidden="true" />
+            <span className="font-bold text-[var(--text)] text-sm">{isPortalSurface ? PLATFORM.name : leagueName ?? 'League'}</span>
+          </div>
+          <button
+            type="button"
+            onClick={closeMobile}
+            className="p-2 rounded-lg hover:bg-[var(--surface-strong)] text-[var(--muted)] hover:text-[var(--text)] transition-colors"
+            aria-label="Close menu"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Drawer nav links */}
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
+          {isPortalSurface && portalMenuItems.map((item) => {
+            const active = pathname === item.href;
+            return (
+              <Link
+                key={`${item.href}-${item.label}`}
+                href={item.href}
+                className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}
+                onClick={closeMobile}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
           {!isPortalSurface && USER_NAV_CONFIG.map((item) => {
             const itemActive = isNavItemActive(item, pathname, currentQuery);
             const hasChildren = Boolean(item.children && item.children.length > 0);
 
             if (!hasChildren && item.href) {
               return (
-                <LinkButton key={item.id} href={item.href} aria-current={isHrefActive(pathname, currentQuery, item.href) ? 'page' : undefined} variant={itemActive ? 'secondary' : 'ghost'} size="lg" className="block text-left" onClick={closeMobile}>
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  aria-current={isHrefActive(pathname, currentQuery, item.href) ? 'page' : undefined}
+                  className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${itemActive ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}
+                  onClick={closeMobile}
+                >
                   {item.label}
-                </LinkButton>
+                </Link>
               );
             }
 
             const expanded = Boolean(mobileExpanded[item.id]);
             return (
-              <div key={item.id} className="border border-[var(--border)] rounded-md">
-                <button type="button" className={`w-full flex items-center justify-between px-3 py-2 text-left ${itemActive ? 'text-[var(--text)] font-medium' : 'text-[var(--muted)]'}`} onClick={() => toggleMobileSection(item.id)} aria-expanded={expanded}>
+              <div key={item.id}>
+                <button
+                  type="button"
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${itemActive ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}
+                  onClick={() => toggleMobileSection(item.id)}
+                  aria-expanded={expanded}
+                >
                   <span>{item.label}</span>
-                  <span aria-hidden="true">{expanded ? '▾' : '▸'}</span>
+                  <span aria-hidden="true" className={`text-xs transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}>▸</span>
                 </button>
                 {expanded && (
-                  <div className="px-2 pb-2 space-y-1">
+                  <div className="ml-3 mt-0.5 pl-3 border-l border-[var(--border)] space-y-0.5">
                     {(() => {
                       const bestChild = findBestActive(item.children || [], pathname, currentQuery);
                       return (item.children || []).map((child) => {
@@ -824,7 +862,7 @@ export default function Navbar() {
                         const childBranchActive = bestChild?.id === child.id || (child.children || []).some((g) => g.id === bestChild?.id);
                         if (!hasGrandChildren) {
                           return (
-                            <Link key={child.id} href={child.href || '#'} onClick={closeMobile} className={`block rounded px-2 py-1.5 text-sm ${childBranchActive ? 'bg-[var(--surface-strong)] text-[var(--text)] font-medium' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}>
+                            <Link key={child.id} href={child.href || '#'} onClick={closeMobile} className={`flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${childBranchActive ? 'text-[var(--accent)] font-medium' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}>
                               {child.label}
                             </Link>
                           );
@@ -832,19 +870,21 @@ export default function Navbar() {
                         const childExpanded = Boolean(mobileExpanded[child.id]);
                         const bestGrand = findBestActive(child.children || [], pathname, currentQuery);
                         return (
-                          <div key={child.id} className="border border-[var(--border)] rounded-md">
-                            <div className="w-full flex items-center justify-between px-2 py-1.5 text-sm">
-                              <Link href={child.href || '#'} onClick={closeMobile} className={`${childBranchActive ? 'text-[var(--text)] font-medium' : 'text-[var(--text)]'} hover:underline`}>{child.label}</Link>
-                              <button type="button" className={`${childBranchActive ? 'text-[var(--text)] font-medium' : 'text-[var(--muted)]'}`} onClick={() => toggleMobileSection(child.id)} aria-expanded={childExpanded} aria-label={`Toggle ${child.label} submenu`}>
+                          <div key={child.id}>
+                            <div className="flex items-center">
+                              <Link href={child.href || '#'} onClick={closeMobile} className={`flex-1 px-3 py-2 rounded-l-lg text-sm ${childBranchActive ? 'text-[var(--accent)] font-medium' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}>
+                                {child.label}
+                              </Link>
+                              <button type="button" className="p-2 text-xs text-[var(--muted)] hover:text-[var(--text)]" onClick={() => toggleMobileSection(child.id)} aria-expanded={childExpanded} aria-label={`Toggle ${child.label} submenu`}>
                                 <span aria-hidden="true">{childExpanded ? '▾' : '▸'}</span>
                               </button>
                             </div>
                             {childExpanded && (
-                              <div className="px-2 pb-2 space-y-1">
+                              <div className="ml-3 pl-3 border-l border-[var(--border)] space-y-0.5">
                                 {(child.children || []).map((grand) => {
                                   const grandActive = bestGrand?.id === grand.id;
                                   return (
-                                    <Link key={grand.id} href={grand.href || '#'} onClick={closeMobile} className={`block rounded px-2 py-1.5 text-sm ${grandActive ? 'bg-[var(--surface-strong)] text-[var(--text)] font-medium' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}>
+                                    <Link key={grand.id} href={grand.href || '#'} onClick={closeMobile} className={`flex items-center px-3 py-2 rounded-lg text-sm ${grandActive ? 'text-[var(--accent)] font-medium' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}>
                                       {grand.label}
                                     </Link>
                                   );
@@ -860,29 +900,32 @@ export default function Navbar() {
               </div>
             );
           })}
+        </div>
 
-          {/* Mobile account area */}
-          <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between gap-2">
+        {/* Drawer footer — account */}
+        <div className="border-t border-[var(--border)] px-3 py-4 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
             {isLoggedIn ? (
-              <div className="flex items-center gap-2 w-full">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
                 {sessionUser ? (
                   <UserAvatar displayName={displayName} size={28} />
                 ) : (
                   <UserAvatar displayName="Admin" size={28} />
                 )}
-                <span className={`text-sm truncate flex-1 ${isAdmin ? 'text-amber-500 font-semibold' : 'text-[var(--text)]'}`}>
+                <span className={`text-sm truncate flex-1 font-medium ${isAdmin ? 'text-amber-500' : 'text-[var(--text)]'}`}>
                   {accountButtonLabel}
                 </span>
                 {isAdmin && !sessionUser ? (
-                  <Button size="sm" variant="ghost" onClick={() => { closeMobile(); handleAdminLogout(); }}>Exit Admin</Button>
+                  <Button size="sm" variant="ghost" onClick={() => { closeMobile(); handleAdminLogout(); }}>Exit</Button>
                 ) : isSiteAdmin ? (
-                  <Button size="sm" variant="ghost" onClick={() => { closeMobile(); handleSiteAdminLogout(); }}>Exit Admin</Button>
+                  <Button size="sm" variant="ghost" onClick={() => { closeMobile(); handleSiteAdminLogout(); }}>Exit</Button>
                 ) : sessionUser ? (
                   <Button size="sm" variant="ghost" onClick={() => { closeMobile(); handleLogout(); }}>Sign out</Button>
                 ) : null}
               </div>
             ) : (
-              <div className="flex gap-2 w-full">
+              <div className="flex gap-2 flex-1">
                 <LinkButton href={`/login?next=${encodeURIComponent(pathname)}`} variant="ghost" size="sm" className="flex-1 text-center" onClick={closeMobile}>
                   Sign in
                 </LinkButton>

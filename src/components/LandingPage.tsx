@@ -1,36 +1,37 @@
 'use client';
 
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import Button from '@/components/ui/Button';
+import { BarChart2, Trophy, Zap, ArrowLeftRight, Vote, Palette } from 'lucide-react';
 
 const FEATURES = [
   {
-    icon: '📊',
+    icon: BarChart2,
     title: 'Live Standings & Matchups',
     description: 'Real-time standings, weekly matchups, and head-to-head records synced directly from Sleeper.',
   },
   {
-    icon: '🏆',
+    icon: Trophy,
     title: 'League History',
     description: 'Track championships, playoff brackets, and historical records across all your seasons.',
   },
   {
-    icon: '📈',
+    icon: Zap,
     title: 'Draft Hub',
     description: 'View past drafts, upcoming draft info, and live draft boards with pick tracking.',
   },
   {
-    icon: '🔄',
+    icon: ArrowLeftRight,
     title: 'Trade & Transaction Tracking',
     description: 'Complete transaction history with trade trees showing how assets moved through your league.',
   },
   {
-    icon: '💡',
+    icon: Vote,
     title: 'League Suggestions',
     description: 'Democratic rule change proposals with voting and ballot tracking for your league constitution.',
   },
   {
-    icon: '🎨',
+    icon: Palette,
     title: 'Custom Branding',
     description: 'Personalize with your league colors, logo, team colors, and custom rules document.',
   },
@@ -41,187 +42,159 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      {/* Hero Section */}
-      <header className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[var(--accent)] opacity-90" />
-        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-        
-        <div className="relative max-w-6xl mx-auto px-4 py-24 sm:py-32">
-          <div className="text-center">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
-              Your Dynasty League,<br />
-              <span className="text-[color-mix(in_srgb,var(--accent)_30%,#fff)]">Elevated</span>
-            </h1>
-            <p className="text-xl text-white/80 max-w-2xl mx-auto mb-8">
-              A beautiful, feature-rich website for your fantasy football dynasty league. 
-              Connect your Sleeper league and get started in minutes.
+
+      {/* ── Hero ── */}
+      <section className="relative overflow-hidden bg-[var(--surface)] border-b border-[var(--border)]">
+        <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent)]/8 via-transparent to-transparent pointer-events-none" />
+        <div className="relative max-w-5xl mx-auto px-6 py-20 sm:py-28">
+          <div className="flex flex-col items-center text-center gap-6">
+            <Image
+              src="/assets/LeagueZone HQ Logo.png"
+              alt="LeagueZone HQ"
+              width={80}
+              height={80}
+              className="rounded-2xl shadow-lg"
+              priority
+            />
+            <div className="space-y-3">
+              <p className="text-xs font-bold tracking-widest uppercase text-[var(--accent)]">LeagueZone HQ</p>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[var(--text)] leading-[1.05] tracking-tight">
+                Your dynasty league<br />
+                <span className="text-[var(--accent)]">deserves a real home.</span>
+              </h1>
+            </div>
+            <p className="text-base sm:text-lg text-[var(--muted)] max-w-xl leading-relaxed">
+              A branded headquarters for serious fantasy football leagues. Connects to Sleeper. Built for commissioners who care.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                onClick={() => router.push('/setup')}
-                className="text-lg px-8 py-3"
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <button
+                onClick={() => router.push('/register')}
+                className="px-8 py-3 rounded-full bg-[var(--accent)] text-white font-bold text-sm hover:opacity-90 transition-opacity"
               >
-                Set Up Your League
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-                className="text-lg px-8 py-3 bg-white/10 hover:bg-white/20 text-white border-white/20"
+                Get started free
+              </button>
+              <button
+                onClick={() => router.push('/demo')}
+                className="px-8 py-3 rounded-full border border-[var(--border)] text-[var(--text)] font-bold text-sm hover:bg-[var(--surface-strong)] transition-colors"
               >
-                See Features
-              </Button>
+                View demo →
+              </button>
             </div>
           </div>
         </div>
-      </header>
+      </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-[var(--text)] mb-4">
-              Everything Your League Needs
+      {/* ── Features ── */}
+      <section id="features" className="py-20 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <h2 className="text-2xl sm:text-3xl font-black text-[var(--text)] mb-3">
+              Everything your league needs
             </h2>
-            <p className="text-[var(--muted)] max-w-2xl mx-auto">
-              Built specifically for dynasty fantasy football leagues. Syncs with Sleeper 
-              to give your league a professional home base.
+            <p className="text-[var(--muted)] text-sm">
+              Built for dynasty. Syncs with Sleeper automatically.
             </p>
           </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FEATURES.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <div
+                  key={feature.title}
+                  className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]/40 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center mb-4">
+                    <Icon size={16} className="text-[var(--accent)]" />
+                  </div>
+                  <h3 className="text-sm font-bold text-[var(--text)] mb-1.5">{feature.title}</h3>
+                  <p className="text-[var(--muted)] text-sm leading-relaxed">{feature.description}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {FEATURES.map((feature) => (
-              <div
-                key={feature.title}
-                className="p-6 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--accent)]/50 transition-colors"
-              >
-                <div className="text-4xl mb-4">{feature.icon}</div>
-                <h3 className="text-lg font-semibold text-[var(--text)] mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-[var(--muted)] text-sm">
-                  {feature.description}
-                </p>
-              </div>
+      {/* ── Sleeper callout ── */}
+      <section className="py-16 px-6 bg-[var(--surface)] border-y border-[var(--border)]">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-start sm:items-center gap-8">
+          <div className="flex-1">
+            <p className="text-xs font-bold tracking-widest uppercase text-[var(--accent)] mb-2">Powered by Sleeper</p>
+            <h2 className="text-xl sm:text-2xl font-black text-[var(--text)] mb-3">No manual updates. Ever.</h2>
+            <p className="text-[var(--muted)] text-sm leading-relaxed max-w-lg">
+              Connect your Sleeper league once. Rosters, matchups, transactions, and standings stay in sync automatically.
+            </p>
+          </div>
+          <div className="flex flex-wrap sm:flex-col gap-2 shrink-0">
+            {['Real-time sync', 'No manual updates', 'Historical data', 'Multi-season'].map((tag) => (
+              <span key={tag} className="px-3 py-1.5 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs font-semibold whitespace-nowrap">
+                ✓ {tag}
+              </span>
             ))}
           </div>
         </div>
       </section>
 
-      {/* How It Works Section */}
-      <section className="py-20 px-4 bg-[var(--surface)]">
+      {/* ── Setup steps ── */}
+      <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-[var(--text)] mb-4">
-              Get Started in Minutes
-            </h2>
-            <p className="text-[var(--muted)]">
-              Three simple steps to launch your league website
-            </p>
+          <div className="text-center mb-14">
+            <h2 className="text-2xl sm:text-3xl font-black text-[var(--text)] mb-3">Up and running in minutes</h2>
+            <p className="text-[var(--muted)] text-sm">Three steps. No dev skills required.</p>
           </div>
-
-          <div className="space-y-8">
-            <div className="flex gap-6 items-start">
-              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-xl font-bold">
-                1
+          <div className="grid sm:grid-cols-3 gap-8">
+            {[
+              { n: '01', title: 'Connect Sleeper', desc: "Enter your Sleeper league ID and we'll import your teams, rosters, and history automatically." },
+              { n: '02', title: 'Customize branding', desc: 'Set your league name, colors, logo, and give every franchise its own identity.' },
+              { n: '03', title: 'Invite your league', desc: 'Share invite links so managers can claim their teams and start using the site.' },
+            ].map((step) => (
+              <div key={step.n} className="flex gap-4">
+                <span className="text-4xl font-black text-[var(--accent)]/20 leading-none mt-0.5 select-none tabular-nums">{step.n}</span>
+                <div>
+                  <h3 className="font-bold text-[var(--text)] mb-1.5 text-sm">{step.title}</h3>
+                  <p className="text-sm text-[var(--muted)] leading-relaxed">{step.desc}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-[var(--text)] mb-1">
-                  Connect Your Sleeper League
-                </h3>
-                <p className="text-[var(--muted)]">
-                  Enter your Sleeper league ID and we&apos;ll import your teams, rosters, and historical data automatically.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-6 items-start">
-              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-xl font-bold">
-                2
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-[var(--text)] mb-1">
-                  Customize Your Branding
-                </h3>
-                <p className="text-[var(--muted)]">
-                  Add your league name, colors, logo, and optionally customize each team&apos;s colors for a personalized look.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-6 items-start">
-              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-xl font-bold">
-                3
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-[var(--text)] mb-1">
-                  Invite Your League
-                </h3>
-                <p className="text-[var(--muted)]">
-                  Share invite links with your league members so they can claim their teams and start using the site.
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
-
           <div className="text-center mt-12">
-            <Button
-              onClick={() => router.push('/setup')}
-              className="text-lg px-8 py-3"
+            <button
+              onClick={() => router.push('/register')}
+              className="px-8 py-3 rounded-full bg-[var(--accent)] text-white font-bold text-sm hover:opacity-90 transition-opacity"
             >
-              Start Setup Wizard
-            </Button>
+              Start setup wizard
+            </button>
           </div>
         </div>
       </section>
 
-      {/* Sleeper Integration Section */}
-      <section className="py-20 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--surface)] border border-[var(--border)] mb-6">
-            <span className="text-sm text-[var(--muted)]">Powered by</span>
-            <span className="font-semibold text-[var(--text)]">Sleeper API</span>
-          </div>
-          <h2 className="text-3xl font-bold text-[var(--text)] mb-4">
-            Seamless Sleeper Integration
+      {/* ── CTA ── */}
+      <section className="py-16 px-6 bg-[var(--surface)] border-t border-[var(--border)]">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-2xl sm:text-3xl font-black text-[var(--text)] mb-3">
+            Ready to build something your league will actually use?
           </h2>
-          <p className="text-[var(--muted)] max-w-2xl mx-auto mb-8">
-            Your league data stays in sync automatically. Rosters, matchups, transactions, 
-            and standings update in real-time from Sleeper&apos;s public API.
-          </p>
-          <div className="flex flex-wrap justify-center gap-4 text-sm text-[var(--muted)]">
-            <span className="px-3 py-1 rounded-full bg-[var(--surface)]">✓ Real-time sync</span>
-            <span className="px-3 py-1 rounded-full bg-[var(--surface)]">✓ No manual updates</span>
-            <span className="px-3 py-1 rounded-full bg-[var(--surface)]">✓ Historical data</span>
-            <span className="px-3 py-1 rounded-full bg-[var(--surface)]">✓ Multi-season support</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer CTA */}
-      <section className="py-16 px-4 bg-[var(--accent)]">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-            Ready to elevate your league?
-          </h2>
-          <p className="text-white/80 mb-8">
-            Set up takes less than 5 minutes. Your league deserves a proper home.
-          </p>
-          <Button
-            onClick={() => router.push('/setup')}
-            className="text-lg px-8 py-3 bg-white text-[var(--accent)] hover:bg-white/90"
+          <p className="text-[var(--muted)] mb-8 text-sm">Free during beta. No credit card required.</p>
+          <button
+            onClick={() => router.push('/register')}
+            className="px-10 py-3.5 rounded-full bg-[var(--accent)] text-white font-bold hover:opacity-90 transition-opacity"
           >
-            Get Started Free
-          </Button>
+            Get LeagueZone HQ free
+          </button>
         </div>
       </section>
 
-      {/* Simple Footer */}
-      <footer className="py-8 px-4 border-t border-[var(--border)]">
-        <div className="max-w-6xl mx-auto text-center text-sm text-[var(--muted)]">
-          <p>LeagueZone HQ</p>
-          <p className="mt-1">Built for dynasty leagues. Powered by Sleeper.</p>
+      {/* ── Footer ── */}
+      <footer className="py-8 px-6 border-t border-[var(--border)]">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[var(--muted)]">
+          <div className="flex items-center gap-2.5">
+            <Image src="/assets/LeagueZone HQ Logo.png" alt="" width={24} height={24} className="rounded" />
+            <span className="font-bold text-[var(--text)]">LeagueZone HQ</span>
+          </div>
+          <p>Built for dynasty leagues. Powered by Sleeper.</p>
         </div>
       </footer>
+
     </div>
   );
 }
