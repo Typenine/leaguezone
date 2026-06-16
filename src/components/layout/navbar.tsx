@@ -349,7 +349,7 @@ export default function Navbar() {
       style={{ boxShadow: 'inset 0 -3px 0 var(--accent)' }}
     >
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-20">
 
           {/* Left: logo + inline nav links */}
           <div className="flex items-center gap-6">
@@ -364,7 +364,7 @@ export default function Navbar() {
                   />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src="/assets/LeagueZone HQ Logo.png" alt="" className="h-10 w-10 rounded-xl object-contain" aria-hidden="true" />
+                  <img src="/assets/LeagueZone HQ Logo.png" alt="" className="h-20 w-20 rounded-2xl object-contain" aria-hidden="true" />
                 )}
               </Link>
               <Link href={isPortalSurface ? '/' : '/home'} className="font-black text-lg leading-none tracking-tight">

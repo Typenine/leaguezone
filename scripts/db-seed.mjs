@@ -11,18 +11,14 @@ async function main() {
     process.exit(1);
   }
   const sql = neon(url);
-  // Default league — seeded only when no leagues exist yet, so the setup
-  // wizard still runs normally on fresh installs that skip seeding.
+  // Demo league — always ensure east-v-west exists (ON CONFLICT DO NOTHING is safe to run repeatedly).
   // Slug matches DEFAULT_LEAGUE_SLUG in src/lib/config/platform.ts.
-  const existingLeagues = await sql`SELECT count(*)::int AS count FROM leagues;`;
-  if ((existingLeagues[0]?.count ?? 0) === 0) {
-    await sql`
-      INSERT INTO leagues (slug, name, short_name, founded_year, setup_completed, is_active)
-      VALUES ('east-v-west', 'East v. West', 'EvW', 2017, true, true)
-      ON CONFLICT (slug) DO NOTHING;
-    `;
-    console.log('[db:seed] Seeded default league east-v-west');
-  }
+  await sql`
+    INSERT INTO leagues (slug, name, short_name, founded_year, setup_completed, is_active)
+    VALUES ('east-v-west', 'East v. West', 'EvW', 2017, true, true)
+    ON CONFLICT (slug) DO NOTHING;
+  `;
+  console.log('[db:seed] Ensured demo league east-v-west exists');
   // users
   await sql`INSERT INTO users (email, display_name, role) VALUES ('admin@evw.local','Admin','admin') ON CONFLICT (email) DO NOTHING;`;
   // teams

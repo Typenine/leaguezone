@@ -47,7 +47,7 @@ export default function LoginContent() {
           <img
             src="/assets/LeagueZone HQ Logo.png"
             alt="LeagueZone HQ"
-            className="w-16 h-16 object-contain rounded-xl"
+            className="w-32 h-32 object-contain rounded-2xl"
           />
         </Link>
       </div>
