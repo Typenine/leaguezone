@@ -51,9 +51,9 @@ export default function LandingPage() {
             <Image
               src="/assets/LeagueZone HQ Logo.png"
               alt="LeagueZone HQ"
-              width={80}
-              height={80}
-              className="rounded-2xl shadow-lg"
+              width={140}
+              height={140}
+              className="rounded-3xl shadow-xl"
               priority
             />
             <div className="space-y-3">

@@ -26,10 +26,11 @@ export const metadata: Metadata = {
   title: "LeagueZone HQ — Custom Fantasy League Websites",
   description: "Custom fantasy football league websites for serious dynasty commissioners.",
   icons: {
-    icon: "/assets/LeagueZone HQ Logo.png",
+    icon: [{ url: "/assets/LeagueZone HQ Logo.png", sizes: "512x512", type: "image/png" }],
     shortcut: "/assets/LeagueZone HQ Logo.png",
-    apple: "/assets/LeagueZone HQ Logo.png",
+    apple: [{ url: "/assets/LeagueZone HQ Logo.png", sizes: "512x512" }],
   },
+  viewport: "width=device-width, initial-scale=1",
 };
 
 export default async function RootLayout({

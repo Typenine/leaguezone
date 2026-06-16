@@ -2,11 +2,12 @@
 
 /* Design tokens */
 :root {
-  /* brand */
-  --brand-blue: #0b5f98;
-  --brand-gold: #bf9944;
-  --brand-paper: #fcfcfc;
-  --brand-ink: #050505;
+  /* brand — LeagueZone HQ palette (navy + electric blue) */
+  --brand-blue: #1a52d9;
+  --brand-navy: #0a1c48;
+  --brand-gold: #c0a84a;
+  --brand-paper: #f8faff;
+  --brand-ink: #04090f;
   --accent: var(--brand-blue);
   --danger: #be161e;
   --gold: var(--brand-gold);
@@ -57,10 +58,10 @@ html[data-theme="dark"] {
   --muted: #a6afbd;
   --focus: var(--accent);
   --on-brand: #ffffff;
-  --page-wash: #0b0f13;
-  --home-hero: #111820;
-  --home-panel: #151d25;
-  --editorial-band: #0d1319;
+  --page-wash: #080e1c;
+  --home-hero: #0c1428;
+  --home-panel: #101929;
+  --editorial-band: #090e1a;
   --shadow-elevated: 0 24px 70px rgba(0,0,0,0.34), 0 0 0 1px rgba(255,255,255,0.03) inset;
 }
 
@@ -74,10 +75,10 @@ html[data-theme="light"] {
   --muted: #5b6471;
   --focus: var(--accent);
   --on-brand: #ffffff;
-  --page-wash: #f3f6f9;
-  --home-hero: #eef3f8;
-  --home-panel: #fcfcfc;
-  --editorial-band: #e5ebf2;
+  --page-wash: #f0f4ff;
+  --home-hero: #e8eeff;
+  --home-panel: #f8faff;
+  --editorial-band: #dde6f7;
   --shadow-elevated: 0 24px 70px rgba(15,30,50,0.14), 0 0 0 1px rgba(255,255,255,0.72) inset;
 }
 

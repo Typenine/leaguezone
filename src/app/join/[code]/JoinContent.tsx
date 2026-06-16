@@ -94,9 +94,9 @@ export default function JoinContent({ code, leagueId, leagueName, primaryColor }
         <Link href="/" aria-label="Website home">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/assets/teams/East v West Logos/EvW Clancy logo.png"
-            alt="League logo"
-            className="w-16 h-16 object-contain"
+            src="/assets/LeagueZone HQ Logo.png"
+            alt="LeagueZone HQ"
+            className="w-16 h-16 object-contain rounded-xl"
           />
         </Link>
       </div>

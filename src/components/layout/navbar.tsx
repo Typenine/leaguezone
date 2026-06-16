@@ -313,7 +313,7 @@ export default function Navbar() {
           ? displayName
           : 'Sign in';
   const isMarketingHome = pathname === '/';
-  const isPlatformPage = ['/features', '/pricing', '/demo'].includes(pathname) || pathname === '/app' || pathname.startsWith('/app/');
+  const isPlatformPage = ['/features', '/pricing', '/demo', '/login', '/register', '/setup', '/verify-email'].includes(pathname) || pathname === '/app' || pathname.startsWith('/app/');
   // League sites under /l/[slug] render their own league header + nav below
   // this bar, so the platform bar stays minimal there.
   const isLeagueSite = pathname.startsWith('/l/') || pathname.startsWith('/leagues/');
@@ -346,14 +346,14 @@ export default function Navbar() {
     <>
     <nav
       className="league-surface border-b border-[var(--border)] sticky top-0 backdrop-blur-sm bg-[var(--surface)]/95 z-50"
-      style={{ boxShadow: 'inset 0 -3px 0 var(--gold)' }}
+      style={{ boxShadow: 'inset 0 -3px 0 var(--accent)' }}
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
 
-          {/* Left: logo + nav links */}
-          <div className="flex items-center">
-            <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Left: logo + inline nav links */}
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2.5 flex-shrink-0">
               <Link href={isPortalSurface ? '/' : activeTeam?.leagueSlug ? `/l/${activeTeam.leagueSlug}` : '/'} aria-label="Website home" className="flex-shrink-0">
                 {!isPortalSurface && leagueLogoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -364,15 +364,40 @@ export default function Navbar() {
                   />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src="/assets/LeagueZone HQ Logo.png" alt="" className="h-9 w-9 rounded-lg object-contain" aria-hidden="true" />
+                  <img src="/assets/LeagueZone HQ Logo.png" alt="" className="h-10 w-10 rounded-xl object-contain" aria-hidden="true" />
                 )}
               </Link>
-              <Link href={isPortalSurface ? '/' : '/home'} className="font-bold text-xl leading-none">
+              <Link href={isPortalSurface ? '/' : '/home'} className="font-black text-lg leading-none tracking-tight">
                 {isPortalSurface ? PLATFORM.name : leagueName ?? 'Fantasy League'}
               </Link>
             </div>
-            {!isPortalSurface && <div className="hidden">
-              <div className="ml-10 flex items-center gap-1" ref={desktopMenuRef}>
+
+            {/* Desktop portal nav — inline in main bar */}
+            {isPortalSurface && (
+              <div className="hidden md:flex items-center gap-0.5">
+                {portalMenuItems.map((item) => {
+                  const active = item.href === '/' ? pathname === '/' : isHrefActive(pathname, currentQuery, item.href);
+                  return (
+                    <Link
+                      key={`portal-${item.href}`}
+                      href={item.href}
+                      aria-current={active ? 'page' : undefined}
+                      className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
+                        active
+                          ? 'text-[var(--accent)] bg-[var(--accent)]/10'
+                          : 'text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--surface-strong)]'
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Desktop league nav — inline in main bar */}
+            {!isPortalSurface && !isLeagueSite && (
+              <div className="hidden md:flex items-center gap-0.5" ref={desktopMenuRef}>
                 {USER_NAV_CONFIG.map((item) => {
                   const itemActive = isNavItemActive(item, pathname, currentQuery);
                   const hasChildren = Boolean(item.children && item.children.length > 0);
@@ -473,7 +498,7 @@ export default function Navbar() {
                   );
                 })}
               </div>
-            </div>}
+            )}
           </div>
 
           {/* Right: theme + account */}
@@ -752,7 +777,8 @@ export default function Navbar() {
         </div>
       </div>
 
-      {menuBarItems.length > 0 && <div className="border-t border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-strong)_50%,transparent)]">
+      {/* League-site sub-nav (only for /l/[slug] pages which have their own nav) */}
+      {isLeagueSite && menuBarItems.length > 0 && <div className="border-t border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-strong)_50%,transparent)]">
         <div className="container mx-auto px-4">
           <div className="flex min-h-10 items-center gap-2 overflow-x-auto py-1.5">
             {menuBarItems.map((item) => {
