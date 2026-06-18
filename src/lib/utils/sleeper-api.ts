@@ -1940,6 +1940,45 @@ export async function getLeaguePlayoffBrackets(leagueId: string, options?: Sleep
 }
 
 /**
+ * Resolve null t1/t2 values in bracket games using the bracket graph.
+ * Sleeper only sets t1/t2 when a game starts; for historical leagues the API
+ * often returns null even for completed games. We reconstruct participants by
+ * following t1_from/t2_from → w/l of the referenced game.
+ */
+function fillBracketParticipants<T extends SleeperBracketGame>(games: T[]): T[] {
+  // Work on shallow copies so we don't mutate the original raw API response.
+  const filled = games.map((g) => ({ ...g })) as T[];
+
+  // Index by match number so we can resolve references quickly.
+  const byMatch = new Map<number, T>();
+  for (const g of filled) {
+    if (g.m != null) byMatch.set(g.m, g);
+  }
+
+  // Process in ascending round order so earlier rounds are resolved first.
+  const sorted = [...filled].sort((a, b) => (a.r ?? 0) - (b.r ?? 0) || (a.m ?? 0) - (b.m ?? 0));
+
+  for (const g of sorted) {
+    if (g.t1 == null && g.t1_from != null) {
+      const srcM = g.t1_from.w ?? g.t1_from.l;
+      if (srcM != null) {
+        const src = byMatch.get(srcM);
+        if (src) g.t1 = (g.t1_from.w != null ? src.w : src.l) ?? null;
+      }
+    }
+    if (g.t2 == null && g.t2_from != null) {
+      const srcM = g.t2_from.w ?? g.t2_from.l;
+      if (srcM != null) {
+        const src = byMatch.get(srcM);
+        if (src) g.t2 = (g.t2_from.w != null ? src.w : src.l) ?? null;
+      }
+    }
+  }
+
+  return filled;
+}
+
+/**
  * Fetch playoff brackets and attach scores for each game by correlating rounds
  * to league playoff weeks from league settings. If scores are 0-0 (unplayed),
  * they will be omitted (left as null).
@@ -1948,10 +1987,15 @@ export async function getLeaguePlayoffBracketsWithScores(
   leagueId: string,
   options?: SleeperFetchOptions
 ): Promise<{ winners: SleeperBracketGameWithScore[]; losers: SleeperBracketGameWithScore[] }> {
-  const [league, { winners, losers }] = await Promise.all([
+  const [league, rawBrackets] = await Promise.all([
     getLeague(leagueId, options),
     getLeaguePlayoffBrackets(leagueId, options),
   ]);
+
+  // Resolve null t1/t2 caused by Sleeper not backfilling participant IDs in
+  // historical bracket data — later rounds often have only w/l set.
+  const winners = fillBracketParticipants(rawBrackets.winners);
+  const losers = fillBracketParticipants(rawBrackets.losers);
 
   const settings = (league?.settings || {}) as {
     playoff_week_start?: number;
@@ -2025,11 +2069,14 @@ export async function derivePodiumFromWinnersBracketByYear(
     const leagueId = getLeagueIdForSeason(year);
     if (!leagueId) return null;
 
-    const [games, rosterIdToName] = await Promise.all([
+    const [rawGames, rosterIdToName] = await Promise.all([
       getLeagueWinnersBracket(leagueId, options).catch(() => [] as SleeperBracketGame[]),
       getRosterIdToTeamNameMap(leagueId, options).catch(() => new Map<number, string>()),
     ]);
-    if (!games || games.length === 0) return null;
+    if (!rawGames || rawGames.length === 0) return null;
+
+    // Resolve null t1/t2 using the bracket graph before grouping by round.
+    const games = fillBracketParticipants(rawGames);
 
     // Group by round and find the maximum round number
     const byRound: Record<number, SleeperBracketGame[]> = {};
@@ -2056,14 +2103,15 @@ export async function derivePodiumFromWinnersBracketByYear(
     const expectedChampion = CHAMPIONS[year as keyof typeof CHAMPIONS]?.champion;
     const expectedChampionRid = expectedChampion && expectedChampion !== 'TBD' ? findRosterIdByTeamName(expectedChampion) : null;
 
-    // Final game heuristics: prefer the game whose winner matches expected champion; otherwise, pick the game
-    // in the last round with both participants present and a winner (w) recorded.
+    // Final game heuristics: prefer the game whose winner matches expected champion; otherwise, pick
+    // any game in the last round that has a recorded winner (t1/t2 may still be null after filling if
+    // the season is ongoing, but w/l are set once the game completes).
     let finalGame: SleeperBracketGame | undefined = undefined;
     if (expectedChampionRid != null) {
       finalGame = lastRoundGames.find((g) => g.w === expectedChampionRid);
     }
     if (!finalGame) {
-      finalGame = lastRoundGames.find((g) => (g.t1 != null && g.t2 != null && g.w != null));
+      finalGame = lastRoundGames.find((g) => g.w != null);
     }
 
     const championRid = finalGame?.w ?? null;

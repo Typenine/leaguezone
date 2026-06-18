@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getTeamLogoPath, getTeamColorStyle, getTeamColors } from '@/lib/utils/team-utils';
+import { TeamLogo } from '@/components/ui/TeamLogo';
 import { CHAMPIONS, CURRENT_SEASON, getLeagueIdForSeason, getAvailableSeasonYears } from '@/lib/constants/league';
 import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
@@ -284,7 +285,7 @@ export default function HistoryContent() {
         const hasAnyScore = [...(brackets.winners || []), ...(brackets.losers || [])].some(
           (g) => (g.t1_points ?? null) !== null || (g.t2_points ?? null) !== null
         );
-        if (bracketYear === '2026' && !hasAnyScore) {
+        if (bracketYear === CURRENT_SEASON && !hasAnyScore) {
           setWinnersBracket([]);
           setLosersBracket([]);
         } else {
@@ -645,12 +646,11 @@ export default function HistoryContent() {
     if (t.length === 0) return null;
     if (t.length === 1) {
       const name = t[0];
-      const logo = getTeamLogoPath(name);
       const link = rosterIds && rosterIds[0] !== undefined ? `/teams/${rosterIds[0]}` : undefined;
       return (
         <div className="mt-2 flex items-center justify-center gap-3">
           <div className="w-14 h-14 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-            <Image src={logo} alt={`${name} logo`} width={56} height={56} className="w-14 h-14 object-contain" />
+            <TeamLogo teamName={name} size={56} className="w-14 h-14 object-contain" />
           </div>
           {link ? (
             <Link href={link} className="text-lg font-semibold text-[var(--accent)] hover:underline">{name}</Link>
@@ -661,14 +661,12 @@ export default function HistoryContent() {
       );
     }
     const [a, b] = t.slice(0, 2);
-    const aLogo = getTeamLogoPath(a);
-    const bLogo = getTeamLogoPath(b);
     const aLink = rosterIds && rosterIds[0] !== undefined ? `/teams/${rosterIds[0]}` : undefined;
     const bLink = rosterIds && rosterIds[1] !== undefined ? `/teams/${rosterIds[1]}` : undefined;
     return (
       <div className="mt-2 flex items-center justify-center gap-3">
         <div className="w-14 h-14 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-          <Image src={aLogo} alt={`${a} logo`} width={56} height={56} className="w-14 h-14 object-contain" />
+          <TeamLogo teamName={a} size={56} className="w-14 h-14 object-contain" />
         </div>
         <div className="flex items-center gap-1 text-lg font-semibold">
           {aLink ? (
@@ -684,7 +682,7 @@ export default function HistoryContent() {
           )}
         </div>
         <div className="w-14 h-14 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-          <Image src={bLogo} alt={`${b} logo`} width={56} height={56} className="w-14 h-14 object-contain" />
+          <TeamLogo teamName={b} size={56} className="w-14 h-14 object-contain" />
         </div>
       </div>
     );
@@ -735,17 +733,7 @@ export default function HistoryContent() {
               style={teamName && teamName !== 'Unrostered' ? { ...getTeamColorStyle(teamName), borderColor: '#ffffff99' } : undefined}
             >
               {teamName && teamName !== 'Unrostered' ? (
-                <Image
-                  src={getTeamLogoPath(teamName)}
-                  alt={teamName}
-                  width={60}
-                  height={60}
-                  className="object-contain"
-                  onError={(e) => {
-                    const t = e.target as HTMLImageElement;
-                    t.style.display = 'none';
-                  }}
-                />
+                <TeamLogo teamName={teamName} size={60} className="object-contain" />
               ) : (
                 <span className="text-xs text-[var(--muted)]">—</span>
               )}
@@ -846,17 +834,7 @@ export default function HistoryContent() {
                             style={champion !== 'TBD' ? { ...getTeamColorStyle(champion), borderColor: '#ffffff99' } : undefined}
                           >
                             {champion !== 'TBD' ? (
-                              <Image
-                                src={getTeamLogoPath(champion)}
-                                alt={champion}
-                                width={80}
-                                height={80}
-                                className="object-contain"
-                                onError={(e) => {
-                                  const t = e.target as HTMLImageElement;
-                                  t.style.display = 'none';
-                                }}
-                              />
+                              <TeamLogo teamName={champion} size={80} className="object-contain" />
                             ) : (
                               <span className="text-5xl">🏆</span>
                             )}
@@ -883,17 +861,7 @@ export default function HistoryContent() {
                             style={runnerUp !== 'TBD' ? { ...getTeamColorStyle(runnerUp), borderColor: '#ffffff99' } : undefined}
                           >
                             {runnerUp !== 'TBD' ? (
-                              <Image
-                                src={getTeamLogoPath(runnerUp)}
-                                alt={runnerUp}
-                                width={56}
-                                height={56}
-                                className="object-contain"
-                                onError={(e) => {
-                                  const t = e.target as HTMLImageElement;
-                                  t.style.display = 'none';
-                                }}
-                              />
+                              <TeamLogo teamName={runnerUp} size={56} className="object-contain" />
                             ) : (
                               <span className="text-xl">🥈</span>
                             )}
@@ -920,17 +888,7 @@ export default function HistoryContent() {
                             style={thirdPlace !== 'TBD' ? { ...getTeamColorStyle(thirdPlace), borderColor: '#ffffff99' } : undefined}
                           >
                             {thirdPlace !== 'TBD' ? (
-                              <Image
-                                src={getTeamLogoPath(thirdPlace)}
-                                alt={thirdPlace}
-                                width={56}
-                                height={56}
-                                className="object-contain"
-                                onError={(e) => {
-                                  const t = e.target as HTMLImageElement;
-                                  t.style.display = 'none';
-                                }}
-                              />
+                              <TeamLogo teamName={thirdPlace} size={56} className="object-contain" />
                             ) : (
                               <span className="text-xl">🥉</span>
                             )}
@@ -1020,7 +978,7 @@ export default function HistoryContent() {
                             {nm !== 'BYE' && rid != null ? (
                               <Link href={`/teams/${rid}`} className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity" title={nm} style={{ color: textColor }}>
                                 <div className="w-[42px] h-[42px] rounded-full overflow-hidden border shrink-0 bg-white/20" style={{ borderColor: 'rgba(255,255,255,0.4)' }}>
-                                  <Image src={getTeamLogoPath(nm)} alt={nm} width={42} height={42} className="object-contain w-[42px] h-[42px]" />
+                                  <TeamLogo teamName={nm} size={42} className="w-[42px] h-[42px] object-contain" />
                                 </div>
                                 <span className="truncate text-xs font-medium">
                                   {seed ? `#${seed} ` : ''}{nm}
@@ -1174,7 +1132,7 @@ export default function HistoryContent() {
                             {nm !== 'BYE' && rid != null ? (
                               <Link href={`/teams/${rid}`} className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity" title={nm} style={{ color: textColor }}>
                                 <div className="w-[42px] h-[42px] rounded-full overflow-hidden border shrink-0 bg-white/20" style={{ borderColor: 'rgba(255,255,255,0.4)' }}>
-                                  <Image src={getTeamLogoPath(nm)} alt={nm} width={42} height={42} className="object-contain w-[42px] h-[42px]" />
+                                  <TeamLogo teamName={nm} size={42} className="w-[42px] h-[42px] object-contain" />
                                 </div>
                                 <span className="truncate text-xs font-medium">
                                   {seed ? `#${seed} ` : ''}{nm}
@@ -1352,7 +1310,7 @@ export default function HistoryContent() {
                             <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center gap-3">
                                 <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                  <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="object-contain" />
+                                  <TeamLogo teamName={row.teamName} size={24} className="object-contain" />
                                 </div>
                                 {teamLink}
                               </div>
@@ -1431,7 +1389,7 @@ export default function HistoryContent() {
                             <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center gap-3">
                                 <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                  <Image src={getTeamLogoPath(f.teamName)} alt={`${f.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
+                                  <TeamLogo teamName={f.teamName} size={24} className="w-6 h-6 object-contain" />
                                 </div>
                                 {nameLink}
                               </div>
@@ -1509,7 +1467,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
                                   <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                    <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
+                                    <TeamLogo teamName={row.teamName} size={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
                                 </div>
@@ -1571,7 +1529,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
                                   <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                    <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
+                                    <TeamLogo teamName={row.teamName} size={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
                                 </div>
@@ -1642,7 +1600,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
                                   <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                    <Image src={getTeamLogoPath(r.teamName)} alt={`${r.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
+                                    <TeamLogo teamName={r.teamName} size={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
                                 </div>
@@ -1708,7 +1666,7 @@ export default function HistoryContent() {
                           <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center gap-3">
                               <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
+                                <TeamLogo teamName={row.teamName} size={24} className="w-6 h-6 object-contain" />
                               </div>
                               {nameLink}
                             </div>
@@ -1775,7 +1733,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
                                   <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                    <Image src={getTeamLogoPath(r.teamName)} alt={`${r.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
+                                    <TeamLogo teamName={r.teamName} size={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
                                 </div>
@@ -1844,7 +1802,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
                                   <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                    <Image src={getTeamLogoPath(r.teamName)} alt={`${r.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
+                                    <TeamLogo teamName={r.teamName} size={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
                                 </div>
@@ -1913,7 +1871,7 @@ export default function HistoryContent() {
                               <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-3">
                                   <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                    <Image src={getTeamLogoPath(r.teamName)} alt={`${r.teamName} logo`} width={24} height={24} className="w-6 h-6 object-contain" />
+                                    <TeamLogo teamName={r.teamName} size={24} className="w-6 h-6 object-contain" />
                                   </div>
                                   {nameLink}
                                 </div>
@@ -1967,7 +1925,7 @@ export default function HistoryContent() {
                             <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center gap-3">
                                 <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                  <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="object-contain" />
+                                  <TeamLogo teamName={row.teamName} size={24} className="object-contain" />
                                 </div>
                                 {teamLink}
                               </div>
@@ -2021,7 +1979,7 @@ export default function HistoryContent() {
                             <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center gap-3">
                                 <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                  <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="object-contain" />
+                                  <TeamLogo teamName={row.teamName} size={24} className="object-contain" />
                                 </div>
                                 {teamLink}
                               </div>
@@ -2075,7 +2033,7 @@ export default function HistoryContent() {
                             <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center gap-3">
                                 <div className="w-6 h-6 rounded-full league-surface border border-[var(--border)] overflow-hidden flex items-center justify-center shrink-0">
-                                  <Image src={getTeamLogoPath(row.teamName)} alt={`${row.teamName} logo`} width={24} height={24} className="object-contain" />
+                                  <TeamLogo teamName={row.teamName} size={24} className="object-contain" />
                                 </div>
                                 {teamLink}
                               </div>
@@ -2117,17 +2075,7 @@ export default function HistoryContent() {
                 const headerContent = (
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden" style={{ background: 'color-mix(in srgb, var(--on-brand) 20%, transparent)' }}>
-                      <Image
-                        src={getTeamLogoPath(f.teamName)}
-                        alt={f.teamName}
-                        width={28}
-                        height={28}
-                        className="object-contain"
-                        onError={(e) => {
-                          const t = e.target as HTMLImageElement;
-                          t.style.display = 'none';
-                        }}
-                      />
+                      <TeamLogo teamName={f.teamName} size={28} className="object-contain" />
                     </div>
                     <CardTitle className="text-current text-lg">{f.teamName}</CardTitle>
                   </div>

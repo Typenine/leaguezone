@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 
@@ -24,6 +24,8 @@ const SETUP_STEPS: SetupStep[] = [
 
 export default function SetupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isNewLeague = searchParams.get('new') === '1';
   const [steps, setSteps] = useState<SetupStep[]>(SETUP_STEPS);
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -39,25 +41,25 @@ export default function SetupPage() {
 
         if (statusRes.ok) {
           const data = await statusRes.json();
-          if (data.setupCompleted) {
+          // Allow site admins to start a new league even if one is already set up
+          const meData = meRes ? await meRes.json().catch(() => ({})) : {};
+          if (data.setupCompleted && !(isNewLeague && meData.isSiteAdmin)) {
             router.push('/');
             return;
           }
 
-          let completedSteps: string[] = data.completedSteps || [];
+          // When starting a new league, always begin with empty steps
+          let completedSteps: string[] = isNewLeague ? [] : (data.completedSteps || []);
 
           // If already signed in as admin, auto-skip the admin account creation step
-          if (meRes) {
-            const meData = await meRes.json().catch(() => ({}));
-            if (meData.isAdmin && !completedSteps.includes('admin')) {
-              try {
-                const skipRes = await fetch('/api/setup/admin');
-                if (skipRes.ok) {
-                  completedSteps = [...completedSteps, 'admin'];
-                }
-              } catch {
-                // Non-fatal: step will be skipped when navigated to directly
+          if (meData.isAdmin && !completedSteps.includes('admin')) {
+            try {
+              const skipRes = await fetch('/api/setup/admin');
+              if (skipRes.ok) {
+                completedSteps = [...completedSteps, 'admin'];
               }
+            } catch {
+              // Non-fatal: step will be skipped when navigated to directly
             }
           }
 
@@ -78,7 +80,7 @@ export default function SetupPage() {
       setLoading(false);
     }
     checkSetup();
-  }, [router]);
+  }, [router, isNewLeague]);
 
   const handleStepClick = (index: number) => {
     // Can only go to completed steps or next incomplete step

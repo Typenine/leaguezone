@@ -89,7 +89,7 @@ export default async function SuperAdminPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-[var(--text)] text-lg">Leagues</h2>
           <Link
-            href="/setup"
+            href="/setup?new=1"
             className="text-sm px-3 py-1.5 rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
           >
             + Add League

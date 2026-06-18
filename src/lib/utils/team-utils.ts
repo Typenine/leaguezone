@@ -136,7 +136,11 @@ const OWNER_NAME_CACHE = new Map<string, string>();
  * Call this from getTeamsData() after building TeamData objects.
  */
 export function cacheOwnerName(ownerId: string, name: string): void {
-  if (ownerId && name && name !== 'Unknown Team') {
+  // First-write-wins: seasons are loaded most-recent-first, so the first cached
+  // name for an owner is their current team name. Don't overwrite it with an
+  // older season's name — that ensures franchise stats stay consistent even when
+  // teams have renamed between seasons.
+  if (ownerId && name && name !== 'Unknown Team' && !OWNER_NAME_CACHE.has(ownerId)) {
     OWNER_NAME_CACHE.set(ownerId, name);
   }
 }

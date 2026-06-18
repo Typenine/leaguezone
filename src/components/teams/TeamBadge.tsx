@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { getTeamLogoPath, getTeamColorStyle, getTeamColors } from "@/lib/utils/team-utils";
+import { DefaultTeamHelmet } from "@/components/ui/DefaultTeamHelmet";
 import { cn } from "@/lib/utils/cn";
 
 export default function TeamBadge({
@@ -22,20 +23,12 @@ export default function TeamBadge({
   const style = getTeamColorStyle(team, "primary");
   const colors = getTeamColors(team);
 
-  const initials = team
-    .split(/\s+/)
-    .map((w) => w.charAt(0))
-    .join("")
-    .slice(0, 3)
-    .toUpperCase();
-
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <div
         className="flex items-center justify-center rounded-full overflow-hidden border"
         style={{ width: px, height: px, borderColor: colors.secondary, ...style }}
       >
-        {/* Prefer image; fallback shows initials with team color */}
         {imgOk ? (
           <Image
             src={logo}
@@ -46,7 +39,7 @@ export default function TeamBadge({
             onError={() => setImgOk(false)}
           />
         ) : (
-          <span className="text-[10px] font-bold leading-none select-none">{initials}</span>
+          <DefaultTeamHelmet teamName={team} size={px} />
         )}
       </div>
       {showName && (
