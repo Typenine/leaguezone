@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { Trade, fetchTradeById, getRelatedTrades } from '@/lib/utils/trades';
 import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
 import SectionHeader from '@/components/ui/SectionHeader';
-import { getTeamLogoPath, getTeamColorStyle } from '@/lib/utils/team-utils';
+import { getTeamColorStyle } from '@/lib/utils/team-utils';
+import { TeamLogo } from '@/components/ui/TeamLogo';
 
 export default function TradeDetailPage() {
   const params = useParams();
@@ -137,17 +137,7 @@ export default function TradeDetailPage() {
                   style={getTeamColorStyle(team.name)}
                 >
                   <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
-                    <Image
-                      src={getTeamLogoPath(team.name)}
-                      alt={team.name}
-                      width={28}
-                      height={28}
-                      className="object-contain"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                      }}
-                    />
+                    <TeamLogo teamName={team.name} size={28} className="object-contain" />
                   </div>
                   <h2 className="font-bold text-lg">{team.name} received:</h2>
                 </div>

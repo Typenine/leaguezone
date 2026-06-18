@@ -12,13 +12,13 @@ export async function GET() {
     const db = getDb();
     const res = activeLeagueId
       ? await db.execute(sql`
-          SELECT name, short_name, logo_url
+          SELECT name, short_name, logo_url, founded_year
           FROM leagues
           WHERE setup_completed = true AND id = ${activeLeagueId}::uuid
           LIMIT 1
         `)
       : await db.execute(sql`
-          SELECT name, short_name, logo_url
+          SELECT name, short_name, logo_url, founded_year
           FROM leagues
           WHERE setup_completed = true
           ORDER BY created_at DESC
@@ -30,10 +30,11 @@ export async function GET() {
         name: row.name as string,
         shortName: (row.short_name as string | null) ?? null,
         logoUrl: (row.logo_url as string | null) ?? null,
+        foundedYear: (row.founded_year as number | null) ?? null,
       });
     }
-    return NextResponse.json({ name: null, shortName: null, logoUrl: null });
+    return NextResponse.json({ name: null, shortName: null, logoUrl: null, foundedYear: null });
   } catch {
-    return NextResponse.json({ name: null, shortName: null, logoUrl: null });
+    return NextResponse.json({ name: null, shortName: null, logoUrl: null, foundedYear: null });
   }
 }

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import CountdownTimer from '@/components/ui/countdown-timer';
+import { TeamLogo } from '@/components/ui/TeamLogo';
 import { CURRENT_SEASON, NEXT_DRAFT_SEASON, getLeagueIdForSeason, getPastDraftSeasonYears } from '@/lib/constants/league';
 import EmptyState from '@/components/ui/empty-state';
 import LoadingState from '@/components/ui/loading-state';
@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import Label from '@/components/ui/Label';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
-import { getTeamColorStyle, getTeamLogoPath } from '@/lib/utils/team-utils';
+import { getTeamColorStyle } from '@/lib/utils/team-utils';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react';
@@ -619,28 +619,11 @@ export default function DraftContent() {
                                             >
                                               <div className="pl-3 py-2 flex items-start justify-between gap-3">
                                                 <div className="flex items-start min-w-0">
-                                                  <div 
+                                                  <div
                                                     className="w-12 h-12 rounded-full flex items-center justify-center mr-3 overflow-hidden flex-shrink-0"
                                                     style={{ backgroundColor: 'var(--accent)', color: 'var(--on-brand)' }}
                                                   >
-                                                    <Image
-                                                      src={getTeamLogoPath(p.team)}
-                                                      alt={p.team}
-                                                      width={36}
-                                                      height={36}
-                                                      className="object-contain"
-                                                      onError={(e) => {
-                                                        const target = e.target as HTMLImageElement;
-                                                        target.style.display = 'none';
-                                                        const parent = target.parentElement;
-                                                        if (parent) {
-                                                          const fallback = document.createElement('div');
-                                                          fallback.className = 'flex items-center justify-center h-full w-full';
-                                                          fallback.innerHTML = `<span class=\"text-xs font-bold\">${p.team.charAt(0)}</span>`;
-                                                          parent.appendChild(fallback);
-                                                        }
-                                                      }}
-                                                    />
+                                                    <TeamLogo teamName={p.team} size={36} className="object-contain" />
                                                   </div>
                                                   <div className="min-w-0">
                                                     <div className="flex items-center justify-between gap-3">
@@ -810,14 +793,7 @@ function TradeBreakdown({ summary }: { summary: string | undefined }) {
           >
             <div className="flex items-center gap-2 min-w-0 mb-2">
               <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-[var(--border)]/50" style={style}>
-                <Image
-                  src={getTeamLogoPath(side.team)}
-                  alt=""
-                  width={28}
-                  height={28}
-                  className="object-contain"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
+                <TeamLogo teamName={side.team} size={28} className="object-contain" />
               </div>
               <span className="font-semibold text-[var(--text)] truncate">{side.team}</span>
             </div>
@@ -843,14 +819,7 @@ function TeamHopChip({ team }: { team: string }) {
       style={tint ? { backgroundColor: tint } : undefined}
     >
       <span className="w-7 h-7 rounded-full flex items-center justify-center overflow-hidden shrink-0" style={style}>
-        <Image
-          src={getTeamLogoPath(team)}
-          alt=""
-          width={22}
-          height={22}
-          className="object-contain"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-        />
+        <TeamLogo teamName={team} size={22} className="object-contain" />
       </span>
       <span className="text-xs font-medium text-[var(--text)] break-words leading-tight max-w-[min(200px,45vw)]">{team}</span>
     </span>
@@ -1032,7 +1001,7 @@ function DraftOrderView() {
                       <>
                         <div className="text-xs font-semibold w-8 shrink-0 text-[var(--muted)]">#{p.slot}</div>
                         <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden shrink-0" style={style}>
-                          <Image src={getTeamLogoPath(p.ownerTeam)} alt={p.ownerTeam} width={24} height={24} className="object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          <TeamLogo teamName={p.ownerTeam} size={24} className="object-contain" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-medium truncate text-[var(--text)]">{p.ownerTeam}</div>

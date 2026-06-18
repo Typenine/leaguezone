@@ -1,8 +1,8 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
-import { getTeamLogoPath, getTeamColorStyle } from '@/lib/utils/team-utils';
+import { getTeamColorStyle } from '@/lib/utils/team-utils';
+import { TeamLogo } from '@/components/ui/TeamLogo';
 import { Card, CardContent } from '@/components/ui/Card';
 
 interface MatchupCardProps {
@@ -46,28 +46,11 @@ export default function MatchupCard({
         
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center">
-            <div 
-              className="w-8 h-8 rounded-full flex items-center justify-center mr-3 overflow-hidden" 
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center mr-3 overflow-hidden"
               style={awayStyle}
             >
-              <Image
-                src={getTeamLogoPath(awayTeam)}
-                alt={awayTeam}
-                width={24}
-                height={24}
-                className="object-contain"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  const parent = target.parentElement;
-                  if (parent) {
-                    const fallback = document.createElement('div');
-                    fallback.className = 'flex items-center justify-center h-full w-full';
-                    fallback.innerHTML = `<span class="text-xs font-bold">${awayTeam.charAt(0)}</span>`;
-                    parent.appendChild(fallback);
-                  }
-                }}
-              />
+              <TeamLogo teamName={awayTeam} size={24} className="object-contain" />
             </div>
             <Link
               href={`/teams/${awayRosterId}`}
@@ -84,28 +67,11 @@ export default function MatchupCard({
         
         <div className="flex justify-between items-center">
           <div className="flex items-center">
-            <div 
-              className="w-8 h-8 rounded-full flex items-center justify-center mr-3 overflow-hidden" 
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center mr-3 overflow-hidden"
               style={homeStyle}
             >
-              <Image
-                src={getTeamLogoPath(homeTeam)}
-                alt={homeTeam}
-                width={24}
-                height={24}
-                className="object-contain"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  const parent = target.parentElement;
-                  if (parent) {
-                    const fallback = document.createElement('div');
-                    fallback.className = 'flex items-center justify-center h-full w-full';
-                    fallback.innerHTML = `<span class='text-xs font-bold'>${homeTeam.charAt(0)}</span>`;
-                    parent.appendChild(fallback);
-                  }
-                }}
-              />
+              <TeamLogo teamName={homeTeam} size={24} className="object-contain" />
             </div>
             <Link
               href={`/teams/${homeRosterId}`}

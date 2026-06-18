@@ -9,6 +9,7 @@ import Input from '@/components/ui/Input';
 import Label from '@/components/ui/Label';
 import Select from '@/components/ui/Select';
 import { CURRENT_SEASON, NEXT_DRAFT_SEASON } from '@/lib/constants/league';
+import { DefaultTeamHelmet, HELMET_PALETTE } from '@/components/ui/DefaultTeamHelmet';
 
 type AuthState = {
   authenticated: boolean;
@@ -19,6 +20,7 @@ type AuthState = {
 type LeagueInfo = {
   name: string | null;
   shortName: string | null;
+  foundedYear: number | null;
 };
 
 type DraftOrderSettingsData = {
@@ -107,6 +109,7 @@ function ChangePinForm({ team }: { team: string }) {
 function LeagueInfoForm({ initial }: { initial: LeagueInfo }) {
   const [name, setName] = useState(initial.name ?? '');
   const [shortName, setShortName] = useState(initial.shortName ?? '');
+  const [foundedYear, setFoundedYear] = useState(initial.foundedYear ? String(initial.foundedYear) : '');
   const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
   const [msg, setMsg] = useState('');
 
@@ -116,7 +119,7 @@ function LeagueInfoForm({ initial }: { initial: LeagueInfo }) {
     const res = await fetch('/api/settings/league', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.trim(), shortName: shortName.trim() }),
+      body: JSON.stringify({ name: name.trim(), shortName: shortName.trim(), foundedYear: foundedYear ? parseInt(foundedYear, 10) : null }),
     });
     if (res.ok) { setStatus('ok'); setMsg('League info saved'); }
     else { const d = await res.json(); setStatus('error'); setMsg(d?.error || 'Save failed'); }
@@ -133,6 +136,11 @@ function LeagueInfoForm({ initial }: { initial: LeagueInfo }) {
         <Label htmlFor="league-short">Short Name / Abbreviation</Label>
         <Input id="league-short" value={shortName} onChange={e => setShortName(e.target.value)} placeholder="MFL" maxLength={10} />
         <p className="text-xs text-[var(--muted)] mt-1">Used in the footer and compact displays</p>
+      </div>
+      <div>
+        <Label htmlFor="league-founded">Founded Year</Label>
+        <Input id="league-founded" type="number" value={foundedYear} onChange={e => setFoundedYear(e.target.value)} placeholder="2017" min={1900} max={2100} />
+        <p className="text-xs text-[var(--muted)] mt-1">Shown as &ldquo;Est. YYYY&rdquo; on the league homepage</p>
       </div>
       {msg && (
         <p className={`text-sm ${status === 'ok' ? 'text-green-500' : 'text-red-400'}`}>{msg}</p>
@@ -808,11 +816,63 @@ function RulesEditorForm() {
   );
 }
 
+// ─── Helmet color picker ────────────────────────────────────────────────────────
+function HelmetColorPicker({
+  value,
+  onChange,
+  teamName,
+}: {
+  value: number | null;
+  onChange: (idx: number | null) => void;
+  teamName: string;
+}) {
+  return (
+    <div>
+      <Label>Default Helmet Color</Label>
+      <p className="text-xs text-[var(--muted)] mb-2">
+        Used as your team logo when no custom logo is uploaded. Click a helmet to select it.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {HELMET_PALETTE.map((color, idx) => {
+          const selected = value === idx;
+          return (
+            <button
+              key={idx}
+              type="button"
+              title={color.label}
+              aria-label={`${color.label}${selected ? ' (selected)' : ''}`}
+              onClick={() => onChange(selected ? null : idx)}
+              className="rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+              style={{
+                outline: selected ? `3px solid ${color.color}` : '3px solid transparent',
+                outlineOffset: '2px',
+                opacity: value !== null && !selected ? 0.5 : 1,
+              }}
+            >
+              <DefaultTeamHelmet teamName={teamName} size={40} colorIndex={idx} />
+            </button>
+          );
+        })}
+      </div>
+      {value !== null && (
+        <button
+          type="button"
+          className="mt-2 text-xs text-[var(--muted)] hover:text-[var(--text)] underline"
+          onClick={() => onChange(null)}
+        >
+          Reset to automatic color
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── User: team profile editor ─────────────────────────────────────────────────
 function TeamProfileForm({ team }: { team: string }) {
   const [logoUrl, setLogoUrl] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#3b82f6');
   const [secondaryColor, setSecondaryColor] = useState('#1e40af');
+  const [helmetColorIndex, setHelmetColorIndex] = useState<number | null>(null);
   const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
   const [msg, setMsg] = useState('');
 
@@ -821,6 +881,7 @@ function TeamProfileForm({ team }: { team: string }) {
       if (d.logoUrl) setLogoUrl(d.logoUrl);
       if (d.primaryColor) setPrimaryColor(d.primaryColor);
       if (d.secondaryColor) setSecondaryColor(d.secondaryColor);
+      if (typeof d.helmetColorIndex === 'number') setHelmetColorIndex(d.helmetColorIndex);
     }).catch(() => {});
   }, []);
 
@@ -830,7 +891,12 @@ function TeamProfileForm({ team }: { team: string }) {
     const res = await fetch('/api/settings/team', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ logoUrl: logoUrl.trim() || null, primaryColor, secondaryColor }),
+      body: JSON.stringify({
+        logoUrl: logoUrl.trim() || null,
+        primaryColor,
+        secondaryColor,
+        helmetColorIndex,
+      }),
     });
     if (res.ok) { setStatus('ok'); setMsg('Team profile saved'); }
     else { const d = await res.json(); setStatus('error'); setMsg(d?.error || 'Save failed'); }
@@ -839,16 +905,27 @@ function TeamProfileForm({ team }: { team: string }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="text-sm text-[var(--muted)]">Customise your team profile for <strong className="text-[var(--text)]">{team}</strong></p>
+
       <div>
-        <Label htmlFor="team-logo-url">Team Logo URL</Label>
+        <Label htmlFor="team-logo-url">Custom Logo URL</Label>
+        <p className="text-xs text-[var(--muted)] mb-1">Enter a URL to use a custom logo image instead of a helmet.</p>
         <Input id="team-logo-url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://example.com/team-logo.png" />
         {logoUrl && (
-          <div className="mt-2">
+          <div className="mt-2 flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={logoUrl} alt="Logo preview" className="w-12 h-12 object-contain rounded border border-[var(--border)]" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+            <button type="button" className="text-xs text-[var(--muted)] hover:text-[var(--text)] underline" onClick={() => setLogoUrl('')}>
+              Remove logo
+            </button>
           </div>
         )}
       </div>
+
+      <HelmetColorPicker
+        value={helmetColorIndex}
+        onChange={setHelmetColorIndex}
+        teamName={team}
+      />
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="team-primary-color">Primary Color</Label>
@@ -931,11 +1008,11 @@ function DiscordWebhooksForm() {
 export default function SettingsContent() {
   const router = useRouter();
   const [auth, setAuth] = useState<AuthState | null>(null);
-  const [leagueInfo, setLeagueInfo] = useState<LeagueInfo>({ name: null, shortName: null });
+  const [leagueInfo, setLeagueInfo] = useState<LeagueInfo>({ name: null, shortName: null, foundedYear: null });
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(setAuth).catch(() => setAuth({ authenticated: false, isAdmin: false }));
-    fetch('/api/league/info').then(r => r.json()).then(d => setLeagueInfo({ name: d.name, shortName: d.shortName })).catch(() => {});
+    fetch('/api/league/info').then(r => r.json()).then(d => setLeagueInfo({ name: d.name, shortName: d.shortName, foundedYear: d.foundedYear ?? null })).catch(() => {});
   }, []);
 
   if (!auth) {

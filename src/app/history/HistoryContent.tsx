@@ -281,17 +281,8 @@ export default function HistoryContent() {
           getTeamsData(leagueId, { signal: ac.signal, timeoutMs: DEFAULT_TIMEOUT, forceFresh: true }),
         ]);
         if (cancelled) return;
-        // For current season, suppress brackets if there are no scores yet (start of season)
-        const hasAnyScore = [...(brackets.winners || []), ...(brackets.losers || [])].some(
-          (g) => (g.t1_points ?? null) !== null || (g.t2_points ?? null) !== null
-        );
-        if (bracketYear === CURRENT_SEASON && !hasAnyScore) {
-          setWinnersBracket([]);
-          setLosersBracket([]);
-        } else {
-          setWinnersBracket(brackets.winners || []);
-          setLosersBracket(brackets.losers || []);
-        }
+        setWinnersBracket(brackets.winners || []);
+        setLosersBracket(brackets.losers || []);
         setBracketNameMap(nameMap);
         // Build seeds by rosterId using final regular-season standings (wins desc, then PF desc)
         try {

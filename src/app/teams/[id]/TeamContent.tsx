@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import Tabs from '@/components/ui/Tabs';
 import { 
   getTeamsData, 
@@ -22,7 +21,8 @@ import {
 } from '@/lib/utils/sleeper-api';
 import { getHeadToHeadAllTime } from '@/lib/utils/headtohead';
 import { LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
-import { getTeamLogoPath, getTeamColorStyle, getTeamColors, resolveCanonicalTeamName } from '@/lib/utils/team-utils';
+import { getTeamColorStyle, getTeamColors, resolveCanonicalTeamName } from '@/lib/utils/team-utils';
+import { TeamLogo } from '@/components/ui/TeamLogo';
 import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
 import SectionHeader from '@/components/ui/SectionHeader';
@@ -990,35 +990,15 @@ export default function TeamContent() {
   type TabsAccentVars = React.CSSProperties & { '--accent'?: string };
   const tabsAccentVars: TabsAccentVars = { '--accent': teamColors.primary };
   
-  // Function to handle missing logo images
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const target = e.target as HTMLImageElement;
-    target.style.display = 'none';
-    const parent = target.parentElement;
-    if (parent) {
-      const fallback = document.createElement('div');
-      fallback.className = 'flex items-center justify-center h-full w-full';
-      fallback.innerHTML = `<span class="text-4xl font-bold">${target.alt.charAt(0)}</span>`;
-      parent.appendChild(fallback);
-    }
-  };
-  
   return (
     <div className="container mx-auto px-4 py-8" style={themeVars}>
       <div className="w-full h-1.5 rounded-full mb-6 brand-fill" />
       <div className="flex flex-col items-center mb-4">
-        <div 
-          className="w-32 h-32 rounded-full flex items-center justify-center mb-4 overflow-hidden" 
+        <div
+          className="w-32 h-32 rounded-full flex items-center justify-center mb-4 overflow-hidden"
           style={getTeamColorStyle(teamName)}
         >
-          <Image
-            src={getTeamLogoPath(teamName)}
-            alt={teamName}
-            width={100}
-            height={100}
-            className="object-contain p-2"
-            onError={handleImageError}
-          />
+          <TeamLogo teamName={teamName} size={100} className="object-contain p-2" />
         </div>
       </div>
       <SectionHeader

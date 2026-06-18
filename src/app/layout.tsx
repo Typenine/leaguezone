@@ -9,6 +9,7 @@ import Navbar from "@/components/layout/navbar";
 import Footer from "@/components/layout/footer";
 import SetupCheck from "@/components/SetupCheck";
 import LeagueThemeScope from "@/components/LeagueThemeScope";
+import { TeamLogoProvider } from "@/contexts/TeamLogoContext";
 import { getLeagueIdsFromDb, getLeagueBranding } from "@/lib/server/league-config";
 import { discoverLeagueChain } from "@/lib/utils/sleeper-api";
 
@@ -142,17 +143,19 @@ export default async function RootLayout({
         <Suspense fallback={null}>
           <LeagueThemeScope />
         </Suspense>
-        <Suspense fallback={null}>
-          <SetupCheck>
-            <Suspense fallback={null}>
-              <Navbar />
-            </Suspense>
-            <main className="flex-grow">
-              {children}
-            </main>
-            <Footer />
-          </SetupCheck>
-        </Suspense>
+        <TeamLogoProvider>
+          <Suspense fallback={null}>
+            <SetupCheck>
+              <Suspense fallback={null}>
+                <Navbar />
+              </Suspense>
+              <main className="flex-grow">
+                {children}
+              </main>
+              <Footer />
+            </SetupCheck>
+          </Suspense>
+        </TeamLogoProvider>
         <Analytics />
       </body>
     </html>

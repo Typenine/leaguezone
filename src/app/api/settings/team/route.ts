@@ -51,6 +51,7 @@ export async function GET() {
       logoUrl: teamLogos[team] ?? null,
       primaryColor: teamColors[team]?.primary ?? null,
       secondaryColor: teamColors[team]?.secondary ?? null,
+      helmetColorIndex: (teamColors[team] as { helmetIndex?: number | null } | undefined)?.helmetIndex ?? null,
     });
   } catch {
     return NextResponse.json({ logoUrl: null, primaryColor: null, secondaryColor: null });
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
   const logoUrl = typeof body.logoUrl === 'string' ? body.logoUrl.trim() || null : null;
   const primaryColor = typeof body.primaryColor === 'string' ? body.primaryColor.trim() || null : null;
   const secondaryColor = typeof body.secondaryColor === 'string' ? body.secondaryColor.trim() || null : null;
+  const helmetColorIndex = typeof body.helmetColorIndex === 'number' ? Math.max(0, Math.floor(body.helmetColorIndex)) : null;
 
   try {
     const jar = await cookies();
@@ -80,11 +82,12 @@ export async function POST(req: NextRequest) {
     };
 
     if (logoUrl !== undefined) teamLogos[team] = logoUrl;
-    if (primaryColor !== undefined || secondaryColor !== undefined) {
+    if (primaryColor !== undefined || secondaryColor !== undefined || helmetColorIndex !== undefined) {
       teamColors[team] = {
         ...teamColors[team],
         ...(primaryColor !== undefined ? { primary: primaryColor } : {}),
         ...(secondaryColor !== undefined ? { secondary: secondaryColor } : {}),
+        ...(helmetColorIndex !== undefined ? { helmetIndex: helmetColorIndex } : {}),
       };
     }
 

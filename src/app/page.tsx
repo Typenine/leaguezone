@@ -191,7 +191,7 @@ export default async function RootPage() {
                   href="/register"
                   className="inline-flex items-center justify-center border border-white/25 text-white font-bold uppercase tracking-wider px-8 py-3.5 text-sm transition hover:border-white/50 hover:bg-white/5"
                 >
-                  Start a Beta Build
+                  Launch Your League
                 </Link>
               )}
             </div>

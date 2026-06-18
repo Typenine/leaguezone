@@ -2,14 +2,14 @@
 
  import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CURRENT_SEASON, LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
 import { getTeamsData, TeamData } from '@/lib/utils/sleeper-api';
 import { Trade, fetchTradesByYear, fetchTradesAllTime } from '@/lib/utils/trades';
 import ErrorState from '@/components/ui/error-state';
 import EmptyState from '@/components/ui/empty-state';
-import { getTeamLogoPath, getTeamColorStyle } from '@/lib/utils/team-utils';
+import { getTeamColorStyle } from '@/lib/utils/team-utils';
+import { TeamLogo } from '@/components/ui/TeamLogo';
 import TradeBlockTab from '@/components/trades/TradeBlockTab';
 import { Chip } from '@/components/ui/Chip';
 import SectionHeader from '@/components/ui/SectionHeader';
@@ -493,24 +493,7 @@ function TradesContent() {
                             className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden"
                             style={getTeamColorStyle(team.name)}
                           >
-                            <Image
-                              src={getTeamLogoPath(team.name)}
-                              alt={team.name}
-                              width={24}
-                              height={24}
-                              className="object-contain"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                const parent = target.parentElement;
-                                if (parent) {
-                                  const fallback = document.createElement('div');
-                                  fallback.className = 'flex items-center justify-center h-full w-full';
-                                  fallback.innerHTML = `<span class="text-xs font-bold">${team.name.charAt(0)}</span>`;
-                                  parent.appendChild(fallback);
-                                }
-                              }}
-                            />
+                            <TeamLogo teamName={team.name} size={24} className="object-contain" />
                           </div>
                           <h4
                             className="font-bold"

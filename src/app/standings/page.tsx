@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 import { getTeamsData, TeamData, getCurrentStreaksForLeague } from '@/lib/utils/sleeper-api';
 import { LEAGUE_IDS } from '@/lib/constants/league';
-import { getTeamLogoPath, getTeamColorStyle } from '@/lib/utils/team-utils';
+import { getTeamColorStyle } from '@/lib/utils/team-utils';
+import { TeamLogo } from '@/components/ui/TeamLogo';
 import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -257,28 +257,11 @@ export default function StandingsPage() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
-                    <div 
-                      className="w-8 h-8 rounded-full flex items-center justify-center mr-3 overflow-hidden" 
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center mr-3 overflow-hidden"
                       style={getTeamColorStyle(team.teamName)}
                     >
-                      <Image
-                        src={getTeamLogoPath(team.teamName)}
-                        alt={team.teamName}
-                        width={24}
-                        height={24}
-                        className="object-contain"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const parent = target.parentElement;
-                          if (parent) {
-                            const fallback = document.createElement('div');
-                            fallback.className = 'flex items-center justify-center h-full w-full';
-                            fallback.innerHTML = `<span class="text-xs font-bold">${team.teamName.charAt(0)}</span>`;
-                            parent.appendChild(fallback);
-                          }
-                        }}
-                      />
+                      <TeamLogo teamName={team.teamName} size={24} className="object-contain" />
                     </div>
                     <div className="text-sm font-medium" style={{ color: (team.teamName === 'Double Trouble' || team.teamName === 'BeerNeverBrokeMyHeart') ? getTeamColorStyle(team.teamName, 'tertiary').backgroundColor : getTeamColorStyle(team.teamName).backgroundColor }}>
                       {team.teamName}

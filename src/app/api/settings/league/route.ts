@@ -19,11 +19,11 @@ async function requireAdmin(): Promise<boolean> {
 export async function GET() {
   try {
     const db = getDb();
-    const res = await db.execute(sql`SELECT name, short_name FROM leagues WHERE setup_completed = true ORDER BY created_at DESC LIMIT 1`);
+    const res = await db.execute(sql`SELECT name, short_name, founded_year FROM leagues WHERE setup_completed = true ORDER BY created_at DESC LIMIT 1`);
     const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-    return NextResponse.json({ name: row?.name ?? null, shortName: row?.short_name ?? null });
+    return NextResponse.json({ name: row?.name ?? null, shortName: row?.short_name ?? null, foundedYear: row?.founded_year ?? null });
   } catch {
-    return NextResponse.json({ name: null, shortName: null });
+    return NextResponse.json({ name: null, shortName: null, foundedYear: null });
   }
 }
 
@@ -35,9 +35,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const name = typeof body.name === 'string' ? body.name.trim() : null;
     const shortName = typeof body.shortName === 'string' ? body.shortName.trim() : null;
+    const foundedYear = body.foundedYear != null ? parseInt(String(body.foundedYear), 10) || null : null;
     const db = getDb();
     await db.execute(sql`
-      UPDATE leagues SET name = ${name}, short_name = ${shortName}
+      UPDATE leagues SET name = ${name}, short_name = ${shortName}, founded_year = ${foundedYear}
       WHERE setup_completed = true
     `);
     return NextResponse.json({ ok: true });

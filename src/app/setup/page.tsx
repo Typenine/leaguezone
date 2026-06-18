@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 
@@ -24,8 +24,6 @@ const SETUP_STEPS: SetupStep[] = [
 
 export default function SetupPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isNewLeague = searchParams.get('new') === '1';
   const [steps, setSteps] = useState<SetupStep[]>(SETUP_STEPS);
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -33,6 +31,9 @@ export default function SetupPage() {
   useEffect(() => {
     // Check if setup is already completed
     async function checkSetup() {
+      // Read directly from window.location so the value is always current on the client
+      const isNewLeague = new URLSearchParams(window.location.search).get('new') === '1';
+
       try {
         const [statusRes, meRes] = await Promise.all([
           fetch('/api/setup/status'),
@@ -80,7 +81,7 @@ export default function SetupPage() {
       setLoading(false);
     }
     checkSetup();
-  }, [router, isNewLeague]);
+  }, [router]);
 
   const handleStepClick = (index: number) => {
     // Can only go to completed steps or next incomplete step

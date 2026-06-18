@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { getTeamsData, getTeamAllTimeStatsByOwner, TeamData } from '@/lib/utils/sleeper-api';
 import { LEAGUE_IDS } from '@/lib/constants/league';
-import { getTeamLogoPath, getTeamColorStyle } from '@/lib/utils/team-utils';
+import { getTeamColorStyle } from '@/lib/utils/team-utils';
+import { TeamLogo } from '@/components/ui/TeamLogo';
 import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -48,19 +48,6 @@ export default function TeamsPage() {
     fetchTeams();
   }, [fetchTeams]);
   
-  // Function to handle missing logo images
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const target = e.target as HTMLImageElement;
-    target.style.display = 'none';
-    const parent = target.parentElement;
-    if (parent) {
-      const fallback = document.createElement('div');
-      fallback.className = 'flex items-center justify-center h-full w-full';
-      fallback.innerHTML = `<span class="text-5xl font-bold">${target.alt.charAt(0)}</span>`;
-      parent.appendChild(fallback);
-    }
-  };
-  
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -91,18 +78,11 @@ export default function TeamsPage() {
             className="block transition-transform duration-200 hover:opacity-90"
           >
             <Card className="overflow-hidden" style={{ borderTop: `4px solid ${getTeamColorStyle(team.teamName).backgroundColor as string}` }}>
-              <div 
-                className="h-32 flex items-center justify-center relative" 
+              <div
+                className="h-32 flex items-center justify-center relative"
                 style={getTeamColorStyle(team.teamName)}
               >
-                <Image
-                  src={getTeamLogoPath(team.teamName)}
-                  alt={team.teamName}
-                  width={100}
-                  height={100}
-                  className="object-contain p-2"
-                  onError={handleImageError}
-                />
+                <TeamLogo teamName={team.teamName} size={100} className="object-contain p-2" />
               </div>
               <CardContent>
                 <h3 className="font-bold text-center text-lg">{team.teamName}</h3>
