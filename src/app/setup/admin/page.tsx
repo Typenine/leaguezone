@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -11,6 +11,8 @@ export default function SetupAdminPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [adminCheckDone, setAdminCheckDone] = useState(false);
+  const [isAlreadyAdmin, setIsAlreadyAdmin] = useState(false);
   
   const [email, setEmail] = useState('');
   const [pin, setPin] = useState(['', '', '', '', '', '']);
@@ -19,6 +21,27 @@ export default function SetupAdminPage() {
   
   const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
   const confirmPinRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    async function checkAdminStatus() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json().catch(() => ({}));
+        if (data.isAdmin) {
+          setIsAlreadyAdmin(true);
+          const skipRes = await fetch('/api/setup/admin');
+          if (skipRes.ok) {
+            router.push('/setup/auth');
+            return;
+          }
+        }
+      } catch {
+        // fall through to normal form
+      }
+      setAdminCheckDone(true);
+    }
+    checkAdminStatus();
+  }, [router]);
 
   const handlePinChange = (index: number, value: string, isConfirm: boolean) => {
     // Only allow digits
@@ -143,6 +166,26 @@ export default function SetupAdminPage() {
       </div>
     );
   };
+
+  if (!adminCheckDone) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+        {isAlreadyAdmin ? (
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-500/10 border border-green-500/30 mb-2">
+              <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-[var(--text)] font-medium">Already signed in as admin</p>
+            <p className="text-sm text-[var(--muted)]">Skipping account creation...</p>
+          </div>
+        ) : (
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]" />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[var(--background)] py-12 px-4">

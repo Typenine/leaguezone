@@ -345,8 +345,8 @@ export default function Navbar() {
   return (
     <>
     <nav
-      className="league-surface border-b border-[var(--border)] sticky top-0 backdrop-blur-sm bg-[var(--surface)]/95 z-50"
-      style={{ boxShadow: 'inset 0 -3px 0 var(--accent)' }}
+      className="sticky top-0 z-50"
+      style={{ background: 'var(--brand-navy)', boxShadow: 'inset 0 -4px 0 var(--brand-blue)' }}
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
@@ -364,10 +364,10 @@ export default function Navbar() {
                   />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src="/assets/LeagueZone HQ Logo.png" alt="" className="h-20 w-20 rounded-2xl object-contain" aria-hidden="true" />
+                  <img src="/assets/LeagueZone HQ Logo.png" alt="" className="h-14 w-14 rounded-xl object-contain" aria-hidden="true" />
                 )}
               </Link>
-              <Link href={isPortalSurface ? '/' : '/home'} className="font-black text-lg leading-none tracking-tight">
+              <Link href={isPortalSurface ? '/' : '/home'} className="font-black text-xl leading-none tracking-tight text-white">
                 {isPortalSurface ? PLATFORM.name : leagueName ?? 'Fantasy League'}
               </Link>
             </div>
@@ -384,8 +384,8 @@ export default function Navbar() {
                       aria-current={active ? 'page' : undefined}
                       className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
                         active
-                          ? 'text-[var(--accent)] bg-[var(--accent)]/10'
-                          : 'text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--surface-strong)]'
+                          ? 'text-white bg-white/20 font-bold'
+                          : 'text-white/65 hover:text-white hover:bg-white/10'
                       }`}
                     >
                       {item.label}
@@ -411,6 +411,7 @@ export default function Navbar() {
                         aria-current={isHrefActive(pathname, currentQuery, item.href) ? 'page' : undefined}
                         variant={itemActive ? 'secondary' : 'ghost'}
                         size="md"
+                        className={itemActive ? 'text-white bg-white/20 hover:bg-white/25' : 'text-white/65 hover:text-white hover:bg-white/10'}
                       >
                         {item.label}
                       </LinkButton>
@@ -423,7 +424,7 @@ export default function Navbar() {
                         type="button"
                         variant={itemActive ? 'secondary' : 'ghost'}
                         size="sm"
-                        className="inline-flex items-center gap-1"
+                        className={`inline-flex items-center gap-1 ${itemActive ? 'text-white bg-white/20 hover:bg-white/25' : 'text-white/65 hover:text-white hover:bg-white/10'}`}
                         aria-haspopup="menu"
                         aria-expanded={menuOpen}
                         aria-controls={`desktop-menu-${item.id}`}
@@ -508,7 +509,7 @@ export default function Navbar() {
                 href={`/api/league/select?id=${encodeURIComponent(activeTeam.leagueId)}&next=${encodeURIComponent('/home')}`}
                 variant="secondary"
                 size="sm"
-                className="hidden sm:inline-flex"
+                className="hidden sm:inline-flex bg-white/10 text-white border border-white/20 hover:bg-white/20"
               >
                 Open Dashboard
               </LinkButton>
@@ -518,14 +519,14 @@ export default function Navbar() {
             {/* Desktop account area */}
             <div className="hidden md:flex items-center gap-2">
               {authLoading ? (
-                <span className="text-sm text-[var(--muted)] px-2">Loading…</span>
+                <span className="text-sm text-white/50 px-2">Loading…</span>
               ) : isLoggedIn ? (
                 <div className="relative" ref={accountMenuRef}>
                   <button
                     type="button"
                     aria-label="Account menu"
-                    className={`inline-flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--surface-strong)] ${
-                      isAdmin ? 'text-amber-500' : 'text-[var(--text)]'
+                    className={`inline-flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/10 ${
+                      isAdmin ? 'text-amber-400' : 'text-white'
                     }`}
                     onClick={() => setAccountMenuOpen((v) => !v)}
                     title={accountButtonLabel}
@@ -716,7 +717,7 @@ export default function Navbar() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="inline-flex items-center gap-1"
+                    className="inline-flex items-center gap-1 text-white/65 hover:text-white hover:bg-white/10"
                     onClick={() => setAccountMenuOpen((v) => !v)}
                     aria-expanded={accountMenuOpen}
                     aria-haspopup="menu"
@@ -760,6 +761,7 @@ export default function Navbar() {
                 type="button"
                 variant="ghost"
                 size="sm"
+                className="text-white hover:bg-white/10"
                 aria-controls="mobile-menu"
                 aria-expanded={mobileMenuOpen}
                 aria-label="Toggle main menu"
@@ -778,7 +780,7 @@ export default function Navbar() {
       </div>
 
       {/* League-site sub-nav (only for /l/[slug] pages which have their own nav) */}
-      {isLeagueSite && menuBarItems.length > 0 && <div className="border-t border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-strong)_50%,transparent)]">
+      {isLeagueSite && menuBarItems.length > 0 && <div style={{ background: 'rgba(0,0,0,0.25)', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
         <div className="container mx-auto px-4">
           <div className="flex min-h-10 items-center gap-2 overflow-x-auto py-1.5">
             {menuBarItems.map((item) => {
@@ -794,8 +796,8 @@ export default function Navbar() {
                   aria-current={active ? 'page' : undefined}
                   className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
                     active
-                      ? 'bg-[var(--surface-strong)] text-[var(--text)]'
-                      : 'text-[var(--muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--text)]'
+                      ? 'bg-white/20 text-white'
+                      : 'text-white/60 hover:bg-white/10 hover:text-white'
                   }`}
                 >
                   {item.label}

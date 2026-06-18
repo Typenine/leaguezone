@@ -20,6 +20,7 @@ import {
   getSuggestionBallotAddedAtMap,
 } from '@/server/db/queries';
 import { requireTeamUser } from '@/lib/server/session';
+import { getDiscordWebhooks } from '@/lib/server/league-config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,14 +45,14 @@ export type Suggestion = {
 
 const DATA_PATH = path.join(process.cwd(), 'data', 'suggestions.json');
 const NOTIFY_EMAIL = process.env.SUGGESTIONS_NOTIFY_EMAIL || '';
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_SUGGESTIONS_WEBHOOK_URL;
 const SITE_URL = process.env.SITE_URL;
 
 // Track posted suggestion IDs to prevent duplicates (in-memory, resets on restart)
 const postedToDiscord = new Set<string>();
 
 async function postToDiscord(suggestion: Suggestion, teamName?: string): Promise<void> {
-  if (!DISCORD_WEBHOOK_URL) return;
+  const { suggestions: webhookUrl } = await getDiscordWebhooks();
+  if (!webhookUrl) return;
   if (postedToDiscord.has(suggestion.id)) return; // idempotent
   postedToDiscord.add(suggestion.id);
 
@@ -91,7 +92,7 @@ async function postToDiscord(suggestion: Suggestion, teamName?: string): Promise
   };
 
   const doPost = async (): Promise<Response> => {
-    return fetch(DISCORD_WEBHOOK_URL!, {
+    return fetch(webhookUrl!, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

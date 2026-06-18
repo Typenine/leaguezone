@@ -182,6 +182,41 @@ export async function getLeagueBySlug(slug: string): Promise<LeagueHomepageData 
   }
 }
 
+export interface DiscordWebhooks {
+  suggestions: string | null;
+  trades: string | null;
+  tradeBlock: string | null;
+}
+
+/** Read Discord webhook URLs for the active league.
+ *  Priority: DB (leagues.config.discordWebhooks) → env vars.
+ *  This lets commissioners configure webhooks via the settings UI without
+ *  needing access to server env vars. */
+export async function getDiscordWebhooks(leagueId?: string): Promise<DiscordWebhooks> {
+  const envFallback: DiscordWebhooks = {
+    suggestions: process.env.DISCORD_SUGGESTIONS_WEBHOOK_URL || null,
+    trades: process.env.DISCORD_TRADES_WEBHOOK_URL || null,
+    tradeBlock: process.env.DISCORD_TRADE_BLOCK_WEBHOOK_URL || null,
+  };
+  try {
+    const db = getDb();
+    const res = leagueId
+      ? await db.execute(sql`SELECT config FROM leagues WHERE setup_completed = true AND id = ${leagueId}::uuid LIMIT 1`)
+      : await db.execute(sql`SELECT config FROM leagues WHERE setup_completed = true ORDER BY created_at DESC LIMIT 1`);
+    const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+    if (!row) return envFallback;
+    const config = (row.config as Record<string, unknown>) ?? {};
+    const stored = (config.discordWebhooks as Partial<DiscordWebhooks>) ?? {};
+    return {
+      suggestions: (stored.suggestions as string | null | undefined) || envFallback.suggestions,
+      trades: (stored.trades as string | null | undefined) || envFallback.trades,
+      tradeBlock: (stored.tradeBlock as string | null | undefined) || envFallback.tradeBlock,
+    };
+  } catch {
+    return envFallback;
+  }
+}
+
 export async function getLeagueBranding(leagueId?: string): Promise<LeagueBranding> {
   const fallback: LeagueBranding = {
     name: '',

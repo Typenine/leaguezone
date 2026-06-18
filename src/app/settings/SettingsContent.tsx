@@ -871,6 +871,62 @@ function TeamProfileForm({ team }: { team: string }) {
   );
 }
 
+// ─── Admin: Discord webhooks ─────────────────────────────────────────────────
+function DiscordWebhooksForm() {
+  const [suggestions, setSuggestions] = useState('');
+  const [trades, setTrades] = useState('');
+  const [tradeBlock, setTradeBlock] = useState('');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    fetch('/api/settings/discord').then(r => r.json()).then(d => {
+      setSuggestions(d.suggestions ?? '');
+      setTrades(d.trades ?? '');
+      setTradeBlock(d.tradeBlock ?? '');
+    }).catch(() => {});
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('saving');
+    const res = await fetch('/api/settings/discord', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        suggestions: suggestions.trim() || null,
+        trades: trades.trim() || null,
+        tradeBlock: tradeBlock.trim() || null,
+      }),
+    });
+    if (res.ok) { setStatus('ok'); setMsg('Webhooks saved'); }
+    else { const d = await res.json(); setStatus('error'); setMsg(d?.error || 'Save failed'); }
+  };
+
+  const webhookField = (label: string, hint: string, value: string, setter: (v: string) => void) => (
+    <div>
+      <Label>{label}</Label>
+      <Input
+        value={value}
+        onChange={e => setter(e.target.value)}
+        placeholder="https://discord.com/api/webhooks/..."
+      />
+      <p className="text-xs text-[var(--muted)] mt-1">{hint}</p>
+    </div>
+  );
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <p className="text-sm text-[var(--muted)]">Paste Discord webhook URLs to enable notifications. Leave blank to disable a channel. These override any server environment variables.</p>
+      {webhookField('Suggestions Webhook', 'Posted when a league member submits a new suggestion.', suggestions, setSuggestions)}
+      {webhookField('Trades Webhook', 'Posted when a trade is completed or pending (via cron notifier).', trades, setTrades)}
+      {webhookField('Trade Block Webhook', 'Posted when a team updates their trade block (Clancy reporter).', tradeBlock, setTradeBlock)}
+      {msg && <p className={`text-sm ${status === 'ok' ? 'text-green-500' : 'text-red-400'}`}>{msg}</p>}
+      <Button type="submit" disabled={status === 'saving'}>{status === 'saving' ? 'Saving…' : 'Save Webhooks'}</Button>
+    </form>
+  );
+}
+
 // ─── Main settings page ───────────────────────────────────────────────────────
 export default function SettingsContent() {
   const router = useRouter();
@@ -1027,6 +1083,13 @@ export default function SettingsContent() {
             <CardHeader><CardTitle>Rules</CardTitle></CardHeader>
             <CardContent>
               <RulesEditorForm />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Discord Webhooks</CardTitle></CardHeader>
+            <CardContent>
+              <DiscordWebhooksForm />
             </CardContent>
           </Card>
 

@@ -124,44 +124,45 @@ export default async function HomePage() {
     // No memberships yet
     if (userLeagues.length === 0 && !isAdmin) {
       return (
-        <div className="container mx-auto px-4 py-20 max-w-lg">
-          <div className="text-center mb-8">
-            <div className="text-5xl mb-4">🏈</div>
-            <h1 className="text-2xl font-bold text-[var(--text)] mb-2">You&apos;re not in a league yet</h1>
-            <p className="text-[var(--muted)] mb-4">
-              To join a league, you&apos;ll need an invite link from your commissioner.
-            </p>
+        <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen">
+          <div style={{ background: 'linear-gradient(160deg, var(--brand-navy) 0%, var(--brand-ink) 70%)' }} className="border-b border-white/10 py-16">
+            <div className="container mx-auto px-4 max-w-lg text-center">
+              <div className="text-5xl mb-5">🏈</div>
+              <div className="flex items-center justify-center gap-3 mb-3">
+                <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+                <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Not yet in a league</span>
+                <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+              </div>
+              <h1 className="text-3xl font-black text-white uppercase leading-none">You&apos;re not in a league yet</h1>
+              <p className="text-white/55 mt-3">To join a league, you&apos;ll need an invite link from your commissioner.</p>
+            </div>
           </div>
-
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6 mb-6">
-            <h2 className="font-semibold text-[var(--text)] mb-3 flex items-center gap-2">
-              <span>📋</span> How to Join a League
-            </h2>
-            <ol className="text-sm text-[var(--muted)] space-y-3 list-decimal list-inside">
-              <li>Contact your league commissioner and ask for an invite link</li>
-              <li>Click the link or paste the invite code during registration</li>
-              <li>Your team roster will be automatically connected to your account</li>
-              <li>Access standings, trades, and league voting right away</li>
-            </ol>
-          </div>
-
-          <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded-xl p-4">
-            <p className="text-sm text-[var(--text)]">
-              <strong>Commissioner?</strong>{' '}
-              <Link href="/" className="text-[var(--accent)] hover:underline">
-                Set up your league here
+          <div className="container mx-auto px-4 py-10 max-w-lg">
+            <div className="border border-white/10 bg-white/[0.03] p-6 mb-4">
+              <h2 className="font-black text-white text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+                <span className="text-[var(--brand-gold)]">📋</span> How to Join a League
+              </h2>
+              <ol className="text-sm text-white/55 space-y-3 list-decimal list-inside leading-relaxed">
+                <li>Contact your league commissioner and ask for an invite link</li>
+                <li>Click the link or paste the invite code during registration</li>
+                <li>Your team roster will be automatically connected to your account</li>
+                <li>Access standings, trades, and league voting right away</li>
+              </ol>
+            </div>
+            <div className="border border-[var(--brand-gold)]/30 bg-[var(--brand-gold)]/5 p-4 mb-6">
+              <p className="text-sm text-white/70">
+                <strong className="text-[var(--brand-gold)]">Commissioner?</strong>{' '}
+                <Link href="/" className="text-[var(--brand-gold)] hover:underline font-bold">
+                  Set up your league here
+                </Link>
+              </p>
+            </div>
+            <p className="text-center">
+              <Link href="/" className="text-white/35 hover:text-white/70 text-sm uppercase tracking-wider transition-colors">
+                ← Back to home
               </Link>
             </p>
           </div>
-
-          <p className="text-center mt-8">
-            <Link
-              href="/"
-              className="text-[var(--muted)] hover:text-[var(--text)] text-sm"
-            >
-              ← Back to home
-            </Link>
-          </p>
         </div>
       );
     }
@@ -170,13 +171,22 @@ export default async function HomePage() {
     const activeMembership = userLeagues.find((l) => l.leagueId === activeLeagueId);
     if (userLeagues.length > 1 && !activeMembership) {
       return (
-        <div className="container mx-auto px-4 py-10 max-w-2xl">
-          <h1 className="text-3xl font-bold text-[var(--text)] mb-2">Your Leagues</h1>
-          <p className="text-[var(--muted)] mb-8">Select a league to view.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {userLeagues.map((lg) => (
-              <LeaguePickerCard key={lg.leagueId} league={lg} />
-            ))}
+        <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen">
+          <div style={{ background: 'linear-gradient(160deg, var(--brand-navy) 0%, var(--brand-ink) 70%)' }} className="border-b border-white/10">
+            <div className="container mx-auto px-4 py-10 max-w-2xl">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+                <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Select a League</span>
+              </div>
+              <h1 className="text-4xl font-black text-white uppercase leading-none">Your Leagues</h1>
+            </div>
+          </div>
+          <div className="container mx-auto px-4 py-10 max-w-2xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {userLeagues.map((lg) => (
+                <LeaguePickerCard key={lg.leagueId} league={lg} />
+              ))}
+            </div>
           </div>
         </div>
       );
@@ -195,99 +205,112 @@ export default async function HomePage() {
   const accent = league?.primaryColor || 'var(--accent)';
 
   return (
-    <div className="container mx-auto px-4 py-10">
-      {/* League header */}
-      <div className="mb-10 flex items-center gap-5">
-        {league?.logoUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={league.logoUrl}
-            alt={league.name}
-            className="w-16 h-16 rounded-xl object-contain border border-[var(--border)]"
-          />
-        )}
-        <div>
-          <h1 className="text-3xl font-bold text-[var(--text)]">
-            {league?.name ?? 'League Home'}
-          </h1>
-          {league?.shortName && (
-            <p className="text-[var(--muted)] mt-0.5">{league.shortName}</p>
-          )}
-          {league?.foundedYear && (
-            <p className="text-xs text-[var(--muted)] mt-0.5">Est. {league.foundedYear}</p>
-          )}
-        </div>
-      </div>
+    <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen">
 
-      {/* Nav cards grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
-        {NAV_SECTIONS.map((section) => (
-          <Link
-            key={section.href}
-            href={section.href}
-            className="p-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]/60 hover:bg-[color-mix(in_srgb,var(--accent)_5%,var(--surface))] transition-all group"
-          >
-            <div className="text-3xl mb-3">{section.icon}</div>
-            <div className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)] transition-colors">
-              {section.label}
+      {/* ── League header ─────────────────────────────────────── */}
+      <div style={{ background: 'linear-gradient(160deg, var(--brand-navy) 0%, var(--brand-ink) 70%)' }} className="border-b border-white/10">
+        <div className="container mx-auto px-4 py-10 flex items-center gap-6">
+          {league?.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={league.logoUrl}
+              alt={league.name}
+              className="w-20 h-20 object-contain border border-[var(--brand-gold)]/30 shrink-0"
+            />
+          )}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="block w-4 h-px bg-[var(--brand-gold)]" />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">League HQ</span>
             </div>
-            <div className="text-sm text-[var(--muted)] mt-1">
-              {section.description}
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      {/* League Members */}
-      {members.length > 0 && (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
-          <div className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
-            <h2 className="font-semibold text-[var(--text)]">League Members</h2>
-            <span className="text-sm text-[var(--muted)]">
-              {claimedCount} / {members.length} signed up
-            </span>
+            <h1 className="text-4xl sm:text-5xl font-black text-white uppercase leading-none tracking-tighter">
+              {league?.name ?? 'League Home'}
+            </h1>
+            {league?.shortName && (
+              <p className="text-white/50 mt-1 text-sm uppercase tracking-wider">{league.shortName}</p>
+            )}
+            {league?.foundedYear && (
+              <p className="text-xs text-white/35 mt-0.5 uppercase tracking-wider">Est. {league.foundedYear}</p>
+            )}
           </div>
-          <ul className="divide-y divide-[var(--border)]">
-            {members.map((member) => {
-              const claimed = !!member.claimedAt;
-              return (
-                <li key={member.id} className="flex items-center gap-3 px-6 py-3">
-                  <span
-                    className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs"
-                    style={{
-                      backgroundColor: claimed ? '#22c55e22' : 'var(--surface-strong, #f3f4f6)',
-                      color: claimed ? '#16a34a' : 'var(--muted)',
-                    }}
-                    title={claimed ? 'Signed up' : 'Not yet signed up'}
-                  >
-                    {claimed ? '✓' : '⏱'}
-                  </span>
-
-                  <span
-                    className="font-medium text-sm"
-                    style={{ color: claimed ? 'var(--text)' : 'var(--muted)' }}
-                  >
-                    {member.teamName}
-                  </span>
-
-                  {claimed ? (
-                    <span className="text-xs font-medium" style={{ color: accent }}>
-                      Active
-                    </span>
-                  ) : (
-                    <span className="text-xs text-[var(--muted)] italic">Pending</span>
-                  )}
-
-                  <InviteButton teamName={member.teamName} inviteCode={member.inviteCode} />
-                </li>
-              );
-            })}
-          </ul>
         </div>
-      )}
+      </div>
 
-      {/* Help widget for new users */}
-      <OnboardingHelp />
+      <div className="container mx-auto px-4 py-10">
+
+        {/* ── Nav tiles grid ───────────────────────────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-white/10 mb-12">
+          {NAV_SECTIONS.map((section) => (
+            <Link
+              key={section.href}
+              href={section.href}
+              className="group bg-[var(--brand-ink)] border-t-2 border-[var(--brand-gold)]/40 p-5 hover:border-[var(--brand-gold)] hover:bg-[#071020] transition-all"
+            >
+              <div className="text-2xl mb-3 leading-none">{section.icon}</div>
+              <div className="font-black text-sm text-white uppercase tracking-wide group-hover:text-[var(--brand-gold)] transition-colors">
+                {section.label}
+              </div>
+              <div className="text-xs text-white/40 mt-1 leading-relaxed">
+                {section.description}
+              </div>
+              <div className="mt-3 text-[var(--brand-gold)] text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                →
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* ── League Members ───────────────────────────────────── */}
+        {members.length > 0 && (
+          <div className="border border-white/10 overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#071020]">
+              <div className="flex items-center gap-3">
+                <span className="block w-4 h-px bg-[var(--brand-gold)]" />
+                <h2 className="font-black text-white text-sm uppercase tracking-wider">League Members</h2>
+              </div>
+              <span className="text-xs font-bold text-white/35 uppercase tracking-wider">
+                {claimedCount} / {members.length} signed up
+              </span>
+            </div>
+            <ul className="divide-y divide-white/5">
+              {members.map((member) => {
+                const claimed = !!member.claimedAt;
+                return (
+                  <li key={member.id} className="flex items-center gap-3 px-6 py-3 hover:bg-white/[0.03] transition-colors">
+                    <span
+                      className="flex-shrink-0 w-5 h-5 flex items-center justify-center text-[10px] font-black"
+                      style={{
+                        backgroundColor: claimed ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.05)',
+                        color: claimed ? '#22c55e' : 'rgba(255,255,255,0.25)',
+                      }}
+                      title={claimed ? 'Signed up' : 'Not yet signed up'}
+                    >
+                      {claimed ? '✓' : '○'}
+                    </span>
+                    <span
+                      className="font-semibold text-sm flex-1 truncate"
+                      style={{ color: claimed ? 'white' : 'rgba(255,255,255,0.35)' }}
+                    >
+                      {member.teamName}
+                    </span>
+                    {claimed ? (
+                      <span className="text-[10px] font-black uppercase tracking-wider shrink-0" style={{ color: accent }}>
+                        Active
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-white/25 uppercase tracking-wider shrink-0">Pending</span>
+                    )}
+                    <InviteButton teamName={member.teamName} inviteCode={member.inviteCode} />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {/* Help widget for new users */}
+        <OnboardingHelp />
+      </div>
     </div>
   );
 }
@@ -301,18 +324,18 @@ function LeaguePickerCard({
   return (
     <a
       href={`/api/league/select?id=${league.leagueId}&next=/home`}
-      className="block w-full text-left rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 hover:border-[var(--accent)]/60 transition-all"
+      className="group block w-full text-left border border-white/10 bg-white/[0.03] p-5 hover:border-[var(--brand-gold)]/50 hover:bg-[#071020] transition-all"
     >
-        <div className="font-semibold text-[var(--text)]">{league.leagueName}</div>
-        <div className="text-sm text-[var(--muted)] mt-1">
-          {league.teamName}
-          {league.isCommissioner && (
-            <span className="ml-2 text-xs text-[var(--accent)] font-medium">
-              <span className="text-[var(--gold)]" aria-label="Commissioner">★</span> Commissioner
-            </span>
-          )}
-        </div>
-        <div className="mt-3 text-xs font-semibold text-[var(--accent)]">Open dashboard</div>
+      <div className="font-black text-white uppercase tracking-tight group-hover:text-[var(--brand-gold)] transition-colors">{league.leagueName}</div>
+      <div className="text-sm text-white/45 mt-1">
+        {league.teamName}
+        {league.isCommissioner && (
+          <span className="ml-2 text-xs text-[var(--brand-gold)] font-bold">
+            ★ Commissioner
+          </span>
+        )}
+      </div>
+      <div className="mt-3 text-xs font-black text-[var(--brand-gold)] uppercase tracking-wider">Open dashboard →</div>
     </a>
   );
 }

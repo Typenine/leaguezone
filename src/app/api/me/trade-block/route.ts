@@ -3,6 +3,7 @@ import { requireTeamUser } from '@/lib/server/session';
 import { readUserDoc, writeUserDoc, TradeAsset, TradeWants } from '@/lib/server/user-store';
 import { getTeamAssets } from '@/lib/server/trade-assets';
 import { postToDiscordWebhook } from '@/lib/utils/discord';
+import { getDiscordWebhooks } from '@/lib/server/league-config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -120,7 +121,7 @@ export async function PUT(req: NextRequest) {
     });
     
     if (message) {
-      const webhookUrl = process.env.DISCORD_TRADE_BLOCK_WEBHOOK_URL;
+      const { tradeBlock: webhookUrl } = await getDiscordWebhooks();
       if (webhookUrl) {
         const tradeBlockUrl = baseUrl ? `${baseUrl}/trades/block` : `${process.env.SITE_URL ?? ''}/trades/block`;
         const urlSuffix = `\n\n${tradeBlockUrl}`;

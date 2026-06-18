@@ -22,6 +22,7 @@ import { eq, and } from 'drizzle-orm';
 import { isCronAuthorized } from '@/lib/server/cron-auth';
 import { CURRENT_SEASON } from '@/lib/constants/league';
 import { getAllPlayersCached } from '@/lib/utils/sleeper-api';
+import { getDiscordWebhooks } from '@/lib/server/league-config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -530,7 +531,7 @@ export async function GET(req: NextRequest) {
 
   const seasonScopedLeagueId = process.env[`SLEEPER_LEAGUE_ID_${CURRENT_SEASON}`];
   const leagueId = process.env.SLEEPER_LEAGUE_ID || seasonScopedLeagueId;
-  const webhookUrl = process.env.DISCORD_TRADES_WEBHOOK_URL;
+  const { trades: webhookUrl } = await getDiscordWebhooks();
   const siteUrl = process.env.SITE_URL || '';
 
   if (!leagueId) {
@@ -538,7 +539,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (!webhookUrl) {
-    return NextResponse.json({ error: 'DISCORD_TRADES_WEBHOOK_URL not configured' }, { status: 500 });
+    return NextResponse.json({ error: 'Discord trades webhook not configured' }, { status: 500 });
   }
 
   try {

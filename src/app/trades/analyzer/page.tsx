@@ -63,19 +63,20 @@ function studMultiplier(value: number): number {
 }
 
 function depthDiscount(posOrder: number, rawValue: number, bestValue: number): number {
-  const posFactor = posOrder <= 2 ? 1.0 : posOrder === 3 ? 0.92 : posOrder === 4 ? 0.85 : 0.78;
+  const posDiscount = posOrder <= 2 ? 1.0 : posOrder === 3 ? 0.92 : posOrder === 4 ? 0.85 : 0.78;
   const rel = bestValue > 0 ? rawValue / bestValue : 1.0;
-  const relFactor = rel >= 0.70 ? 1.0 : rel >= 0.50 ? 0.94 : rel >= 0.30 ? 0.86 : rel >= 0.15 ? 0.74 : 0.62;
-  return Math.min(posFactor, relFactor);
+  const valDiscount = rel >= 0.70 ? 1.0 : rel >= 0.50 ? 0.94 : rel >= 0.30 ? 0.86 : rel >= 0.15 ? 0.74 : 0.62;
+  const effectivePosPenalty = (bestValue > 0 && rawValue / bestValue >= 0.85) ? 1.0 : posDiscount;
+  return Math.min(effectivePosPenalty, valDiscount);
 }
 
-function calcEffectiveTotal(assets: SelectedAsset[], source: ValueSource): number {
+function calcEffectiveTotal(assets: SelectedAsset[], source: ValueSource, studScale: number = 1): number {
   if (!assets.length) return 0;
   const sorted = [...assets].sort((a, b) => getDisplayValue(b, source) - getDisplayValue(a, source));
   const best = getDisplayValue(sorted[0], source);
   return sorted.reduce((sum, asset, i) => {
     const raw = getDisplayValue(asset, source);
-    return sum + raw * studMultiplier(raw) * depthDiscount(i + 1, raw, best);
+    return sum + raw * studMultiplier(raw * studScale) * depthDiscount(i + 1, raw, best);
   }, 0);
 }
 
@@ -93,18 +94,18 @@ function calcDisplayAdj(assets: SelectedAsset[], source: ValueSource, pieceDiff:
 
 function getGradeLetter(ratio: number, isWinner: boolean): string {
   if (ratio >= 0.95) return 'A';
-  if (ratio >= 0.90) return isWinner ? 'A-' : 'B+';
-  if (ratio >= 0.80) return isWinner ? 'B+' : 'B';
-  if (ratio >= 0.70) return isWinner ? 'B' : 'C+';
-  if (ratio >= 0.60) return isWinner ? 'B-' : 'C';
-  return isWinner ? 'A' : 'D';
+  if (isWinner) return 'A';
+  if (ratio >= 0.85) return 'B+';
+  if (ratio >= 0.70) return 'B';
+  if (ratio >= 0.55) return 'C+';
+  return 'D';
 }
 
 function gradeColor(grade: string): string {
-  if (grade === 'A' || grade === 'A-') return '#22c55e';
+  if (grade === 'A') return '#22c55e';
   if (grade === 'B+' || grade === 'B') return '#eab308';
-  if (grade === 'B-' || grade === 'C+') return '#f97316';
-  if (grade === 'C' || grade === 'D') return '#ef4444';
+  if (grade === 'C+') return '#f97316';
+  if (grade === 'D') return '#ef4444';
   return 'var(--muted)';
 }
 
@@ -136,7 +137,7 @@ function assetFromValue(v: TradeValue, isPick: boolean): SelectedAsset {
 
 // --- Analysis Logic ---
 
-function analyzeTrade(sideA: SelectedAsset[], sideB: SelectedAsset[], source: ValueSource): AnalysisResult {
+function analyzeTrade(sideA: SelectedAsset[], sideB: SelectedAsset[], source: ValueSource, studScale: number = 1): AnalysisResult {
   const rawTotalA = sideA.reduce((s, a) => s + getDisplayValue(a, source), 0);
   const rawTotalB = sideB.reduce((s, a) => s + getDisplayValue(a, source), 0);
 
@@ -149,8 +150,8 @@ function analyzeTrade(sideA: SelectedAsset[], sideB: SelectedAsset[], source: Va
   }
 
   // Use effective totals (stud premium + depth discount) for all ratio/verdict math
-  const effA = calcEffectiveTotal(sideA, source);
-  const effB = calcEffectiveTotal(sideB, source);
+  const effA = calcEffectiveTotal(sideA, source, studScale);
+  const effB = calcEffectiveTotal(sideB, source, studScale);
   const rawRatio = Math.min(effA, effB) / Math.max(effA, effB, 1);
   const notes: string[] = [];
   let adjustedRatio = rawRatio;
@@ -186,16 +187,16 @@ function analyzeTrade(sideA: SelectedAsset[], sideB: SelectedAsset[], source: Va
   const diff = Math.abs(rawTotalA - rawTotalB);
 
   let verdict: string;
-  if (adjustedRatio >= 0.92) verdict = 'Fair Trade';
-  else if (adjustedRatio >= 0.80) verdict = 'Slight Edge';
-  else if (adjustedRatio >= 0.65) verdict = 'Uneven';
+  if (adjustedRatio >= 0.95) verdict = 'Fair Trade';
+  else if (adjustedRatio >= 0.85) verdict = 'Slight Edge';
+  else if (adjustedRatio >= 0.70) verdict = 'Uneven';
   else verdict = 'One-Sided';
 
   const sideAGrade = getGradeLetter(adjustedRatio, winner === 'A' || winner === null);
   const sideBGrade = getGradeLetter(adjustedRatio, winner === 'B' || winner === null);
 
   let counterHint: string | null = null;
-  if (adjustedRatio < 0.80 && winner && diff > 0)
+  if (adjustedRatio < 0.85 && winner && diff > 0)
     counterHint = `Side ${winner === 'A' ? 'B' : 'A'} is short ~${formatValue(diff)} pts. Adding or swapping a player would help balance this.`;
 
   // Display-only Value Adjustment — only for the fewer-piece side
@@ -542,9 +543,9 @@ function FairnessMeter({ analysis, totalA, totalB }: { analysis: AnalysisResult;
   const pctB = 100 - pctA;
 
   let verdictColor = '#22c55e';
-  if (adjustedRatio < 0.65) verdictColor = '#ef4444';
-  else if (adjustedRatio < 0.80) verdictColor = '#f97316';
-  else if (adjustedRatio < 0.92) verdictColor = '#eab308';
+  if (adjustedRatio < 0.70) verdictColor = '#ef4444';
+  else if (adjustedRatio < 0.85) verdictColor = '#f97316';
+  else if (adjustedRatio < 0.95) verdictColor = '#eab308';
 
   return (
     <div className="py-2">
@@ -744,7 +745,15 @@ function TradeAnalyzerContent() {
   }, [sideA, sideB, router]);
 
   const excluded = useMemo(() => { const s = new Set<string>(); for (const a of [...sideA, ...sideB]) s.add(a.key); return s; }, [sideA, sideB]);
-  const analysis = useMemo(() => analyzeTrade(sideA, sideB, source), [sideA, sideB, source]);
+  const studScale = useMemo(() => {
+    if (!values.length) return 1;
+    const maxRaw = values.reduce((max, v) => {
+      const val = source === 'fc' ? (v.fcValue ?? v.value) : source === 'ktc' ? (v.ktcValue ?? v.value) : v.value;
+      return Math.max(max, val);
+    }, 0);
+    return maxRaw > 0 ? 9999 / maxRaw : 1;
+  }, [values, source]);
+  const analysis = useMemo(() => analyzeTrade(sideA, sideB, source, studScale), [sideA, sideB, source, studScale]);
   const totalA = sideA.reduce((s, a) => s + getDisplayValue(a, source), 0);
   const totalB = sideB.reduce((s, a) => s + getDisplayValue(a, source), 0);
   const tradeActive = sideA.length > 0 && sideB.length > 0;

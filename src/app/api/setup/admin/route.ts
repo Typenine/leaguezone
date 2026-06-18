@@ -1,6 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
+import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
+
+export async function GET(request: NextRequest) {
+  const adminCookie = request.cookies.get('evw_admin')?.value;
+  const siteAdminCookie = request.cookies.get('site_admin')?.value;
+  if (!isAdminCookieValue(adminCookie) && !isSiteAdminCookieValue(siteAdminCookie)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const db = getDb();
+    const leagueRes = await db.execute(sql`
+      SELECT id FROM leagues WHERE setup_completed = false ORDER BY created_at DESC LIMIT 1
+    `);
+    const leagueRow = (leagueRes as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+
+    if (!leagueRow) {
+      return NextResponse.json({ error: 'No league found. Please start setup from the beginning.' }, { status: 400 });
+    }
+
+    await db.execute(sql`
+      UPDATE leagues SET
+        config = jsonb_set(
+          COALESCE(config, '{}'),
+          '{completedSetupSteps}',
+          (
+            SELECT COALESCE(config->'completedSetupSteps', '[]'::jsonb) || '["admin"]'::jsonb
+            FROM leagues WHERE id = ${leagueRow.id}::uuid
+          )
+        ),
+        updated_at = now()
+      WHERE id = ${leagueRow.id}::uuid
+    `);
+
+    return NextResponse.json({ success: true, skipped: true });
+  } catch (error) {
+    console.error('[setup/admin] GET Error:', error);
+    return NextResponse.json({ error: 'Failed to skip admin step' }, { status: 500 });
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {

@@ -1,6 +1,7 @@
 import { getPendingTradeBlockEvents, getUserDocByTeam, markTradeBlockEventsSent, setUserDoc } from '@/server/db/queries.fixed';
 import { TradeAsset, TradeWants } from '@/lib/server/user-store';
 import { getAllPlayersCached } from '@/lib/utils/sleeper-api';
+import { getDiscordWebhooks } from '@/lib/server/league-config';
 
 type TradeBlockEvent = {
   id: string;
@@ -204,9 +205,9 @@ function formatSchefterMessage(batch: TeamBatch, baseUrl: string | null): string
 }
 
 async function postToDiscord(message: string): Promise<boolean> {
-  const webhookUrl = process.env.DISCORD_TRADE_BLOCK_WEBHOOK_URL;
+  const { tradeBlock: webhookUrl } = await getDiscordWebhooks();
   if (!webhookUrl) {
-    console.warn('DISCORD_TRADE_BLOCK_WEBHOOK_URL not configured');
+    console.warn('Discord trade block webhook not configured');
     return false;
   }
   

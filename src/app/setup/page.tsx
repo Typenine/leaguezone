@@ -32,25 +32,45 @@ export default function SetupPage() {
     // Check if setup is already completed
     async function checkSetup() {
       try {
-        const res = await fetch('/api/setup/status');
-        if (res.ok) {
-          const data = await res.json();
+        const [statusRes, meRes] = await Promise.all([
+          fetch('/api/setup/status'),
+          fetch('/api/auth/me').catch(() => null),
+        ]);
+
+        if (statusRes.ok) {
+          const data = await statusRes.json();
           if (data.setupCompleted) {
             router.push('/');
             return;
           }
-          // Update steps based on saved progress
-          if (data.completedSteps) {
-            setSteps(prev => prev.map(step => ({
-              ...step,
-              completed: data.completedSteps.includes(step.id)
-            })));
-            // Find first incomplete step
-            const firstIncomplete = SETUP_STEPS.findIndex(
-              s => !data.completedSteps.includes(s.id)
-            );
-            setCurrentStep(firstIncomplete >= 0 ? firstIncomplete : 0);
+
+          let completedSteps: string[] = data.completedSteps || [];
+
+          // If already signed in as admin, auto-skip the admin account creation step
+          if (meRes) {
+            const meData = await meRes.json().catch(() => ({}));
+            if (meData.isAdmin && !completedSteps.includes('admin')) {
+              try {
+                const skipRes = await fetch('/api/setup/admin');
+                if (skipRes.ok) {
+                  completedSteps = [...completedSteps, 'admin'];
+                }
+              } catch {
+                // Non-fatal: step will be skipped when navigated to directly
+              }
+            }
           }
+
+          // Update steps based on saved progress
+          setSteps(prev => prev.map(step => ({
+            ...step,
+            completed: completedSteps.includes(step.id)
+          })));
+          // Find first incomplete step
+          const firstIncomplete = SETUP_STEPS.findIndex(
+            s => !completedSteps.includes(s.id)
+          );
+          setCurrentStep(firstIncomplete >= 0 ? firstIncomplete : 0);
         }
       } catch {
         // API not ready yet, show setup
