@@ -55,7 +55,7 @@ export default function ForgotPasswordContent() {
           Enter your email and we&apos;ll send a reset link.
         </p>
 
-        <Card>
+        <Card style={{ background: '#0d1422' }}>
           <CardContent className="pt-6 space-y-5">
             {submitted ? (
               <div className="text-center space-y-4 py-4">

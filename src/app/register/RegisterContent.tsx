@@ -79,7 +79,7 @@ export default function RegisterContent() {
           </Link>
         </p>
 
-        <Card>
+        <Card style={{ background: '#0d1422' }}>
           <CardContent className="pt-6 space-y-5">
             <div>
               <Label htmlFor="email" className={labelCls}>Email</Label>

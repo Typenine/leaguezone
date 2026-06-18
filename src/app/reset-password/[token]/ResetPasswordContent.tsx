@@ -67,7 +67,7 @@ export default function ResetPasswordContent({ token }: { token: string }) {
           Choose a new password for your account.
         </p>
 
-        <Card>
+        <Card style={{ background: '#0d1422' }}>
           <CardContent className="pt-6 space-y-5">
             {done ? (
               <div className="text-center space-y-3 py-4">

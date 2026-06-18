@@ -16,7 +16,7 @@ export default function LeagueNav({ links, accent }: { links: LeagueNavLink[]; a
   const pathname = usePathname();
 
   return (
-    <nav aria-label="League navigation" className="border-b border-[var(--border)] bg-[var(--surface)]">
+    <nav aria-label="League navigation" style={{ background: 'var(--brand-navy)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
       <div className="container mx-auto px-4">
         <div className="flex items-center gap-1 overflow-x-auto py-2">
           {links.map((link) => {
@@ -32,9 +32,9 @@ export default function LeagueNav({ links, accent }: { links: LeagueNavLink[]; a
                 className={`relative shrink-0 rounded-full px-4 py-2 text-sm font-bold transition-colors ${
                   active
                     ? 'text-white'
-                    : 'text-[var(--muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--text)]'
+                    : 'text-white/50 hover:bg-white/10 hover:text-white'
                 }`}
-                style={active ? { backgroundColor: accent || 'var(--accent)' } : undefined}
+                style={active ? { backgroundColor: accent || 'var(--brand-gold)' } : undefined}
               >
                 {link.label}
               </Link>

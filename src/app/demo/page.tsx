@@ -42,7 +42,8 @@ export default async function DemoPage() {
                 <Link
                   key={league.slug}
                   href={leagueUrl(league.slug)}
-                  className="league-card flex items-center gap-4 p-5 group"
+                  style={{ background: '#0d1422', borderTop: '2px solid rgba(192,168,74,0.35)' }}
+                  className="flex items-center gap-4 p-5 group border border-white/8 hover:border-[var(--brand-gold)]/50 transition-colors"
                 >
                   {league.logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -79,7 +80,7 @@ export default async function DemoPage() {
 
   return (
     <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen flex items-center justify-center py-24 px-4">
-      <div className="league-card mx-auto max-w-xl p-10 text-center">
+      <div style={{ background: '#0d1422', borderTop: '2px solid rgba(192,168,74,0.35)' }} className="mx-auto max-w-xl p-10 text-center border border-white/8">
         <div className="flex items-center justify-center gap-3 mb-3">
           <span className="block w-6 h-px bg-[var(--brand-gold)]" />
           <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Demo</span>

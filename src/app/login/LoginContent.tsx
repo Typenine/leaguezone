@@ -66,7 +66,7 @@ export default function LoginContent() {
           </Link>
         </p>
 
-        <Card>
+        <Card style={{ background: '#0d1422' }}>
           <CardContent className="pt-6 space-y-5">
             <div>
               <Label htmlFor="email" className="mb-2 block text-[10px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">Email</Label>

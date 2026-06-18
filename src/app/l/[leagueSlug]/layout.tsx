@@ -42,15 +42,14 @@ export default async function LeagueLayout({
     >
       {/* League identity header */}
       <header
-        className="border-b border-[var(--border)] bg-[var(--surface)]"
-        style={{ boxShadow: `inset 0 -3px 0 ${accent}` }}
+        style={{ background: 'var(--brand-navy)', boxShadow: `inset 0 -3px 0 ${accent}`, borderBottom: '1px solid rgba(255,255,255,0.08)' }}
       >
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between gap-3 py-3">
             <Link href={leagueUrl(league.slug)} className="flex min-w-0 items-center gap-3">
               <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border)]"
-                style={{ backgroundColor: `color-mix(in srgb, ${accent} 18%, transparent)` }}
+                className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10"
+                style={{ backgroundColor: `color-mix(in srgb, ${accent} 18%, #0a1c48)` }}
               >
                 {league.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -60,8 +59,8 @@ export default async function LeagueLayout({
                 )}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-lg font-black leading-tight text-[var(--text)]">{league.name}</p>
-                <p className="truncate text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                <p className="truncate text-lg font-black leading-tight text-white">{league.name}</p>
+                <p className="truncate text-xs font-semibold uppercase tracking-[0.18em] text-white/45">
                   {league.shortName || 'League Headquarters'}
                   {league.foundedYear ? ` · Est. ${league.foundedYear}` : ''}
                 </p>
@@ -70,7 +69,7 @@ export default async function LeagueLayout({
             {/* League switcher placeholder — becomes a real switcher with multi-league accounts */}
             <Link
               href="/app/leagues"
-              className="hidden shrink-0 items-center gap-2 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--muted)] transition hover:border-[var(--accent)]/60 hover:text-[var(--text)] sm:inline-flex"
+              className="hidden shrink-0 items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/50 transition hover:border-white/30 hover:text-white sm:inline-flex"
             >
               Switch league
               <span aria-hidden="true" className="text-xs">▾</span>

@@ -114,7 +114,7 @@ export default function JoinContent({ code, leagueId, leagueName, primaryColor }
         Join the league
       </h1>
 
-      <Card>
+      <Card style={{ background: '#0d1422' }}>
         <CardContent className="pt-6">
           {authState === 'loading' && (
             <p className="text-center text-white/40 py-6 text-sm uppercase tracking-wider">Loading…</p>

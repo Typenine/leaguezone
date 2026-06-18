@@ -31,7 +31,11 @@ export default function PricingPage() {
           {PRICING_TIERS.map((tier) => (
             <div
               key={tier.name}
-              className={`league-card flex flex-col p-6 ${tier.highlighted ? 'border-[var(--brand-gold)] bg-[var(--brand-gold)]/5' : ''}`}
+              style={{
+                background: tier.highlighted ? 'rgba(192,168,74,0.06)' : '#0d1422',
+                borderTop: `2px solid ${tier.highlighted ? 'var(--brand-gold)' : 'rgba(192,168,74,0.3)'}`,
+              }}
+              className={`flex flex-col p-6 border ${tier.highlighted ? 'border-[var(--brand-gold)]/60' : 'border-white/8'}`}
             >
               {tier.highlighted && (
                 <span className="mb-4 text-[10px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)] block">
