@@ -16,14 +16,16 @@ export default async function AppLeaguesPage() {
   const userLeagues = await getUserLeagues(userId);
 
   return (
-    <div className="container mx-auto px-4 py-10">
-      <div className="mb-8">
-        <p className="eyebrow">Dashboard</p>
-        <h1 className="mt-3 text-3xl font-black tracking-[-0.04em] text-[var(--text)] sm:text-4xl">My Leagues</h1>
-        <p className="mt-2 text-[var(--muted)]">All the leagues connected to your account.</p>
-      </div>
+    <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen">
+      <div className="container mx-auto px-4 py-10">
+        <div className="mb-8">
+          <p className="eyebrow">Dashboard</p>
+          <h1 className="mt-2 text-3xl font-black uppercase tracking-tight text-white sm:text-4xl">My Leagues</h1>
+          <p className="mt-2 text-[var(--muted)]">All the leagues connected to your account.</p>
+        </div>
 
-      <MyLeaguesGrid leagues={userLeagues} />
+        <MyLeaguesGrid leagues={userLeagues} />
+      </div>
     </div>
   );
 }

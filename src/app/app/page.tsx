@@ -24,65 +24,71 @@ export default async function AppDashboardPage({
   const showWelcome = params?.welcome === 'true';
 
   return (
-    <div className="container mx-auto px-4 py-10">
-      {/* Welcome banner for new users */}
+    <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen">
+      {/* Welcome banner */}
       {showWelcome && (
-        <div className="mb-8 bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded-xl p-6">
-          <div className="flex items-start gap-4">
-            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[var(--accent)] flex items-center justify-center text-2xl">
-              🎉
-            </div>
-            <div className="flex-1">
-              <h2 className="text-lg font-bold text-[var(--text)]">Welcome to {PLATFORM.name}!</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Your account is ready. To get started, join an existing league using an invite link from your commissioner, 
-                or create your own league if you&apos;re a commissioner.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <a
-                  href="#my-leagues"
-                  className="inline-flex items-center justify-center rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-bold text-white transition hover:opacity-90"
-                >
-                  Get Started Below
-                </a>
-                <Link
-                  href="/features"
-                  className="inline-flex items-center justify-center rounded-full border border-[var(--border)] px-4 py-2 text-sm font-bold text-[var(--text)] transition hover:border-[var(--accent)]/60"
-                >
-                  Explore Features
-                </Link>
+        <div style={{ background: 'linear-gradient(160deg, var(--brand-navy) 0%, var(--brand-ink) 70%)' }} className="border-b border-white/10">
+          <div className="container mx-auto px-4 py-8">
+            <div className="flex items-start gap-5">
+              <div className="flex-shrink-0 w-12 h-12 bg-[var(--brand-gold)]/15 border border-[var(--brand-gold)]/30 flex items-center justify-center text-2xl">
+                🎉
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="block w-4 h-px bg-[var(--brand-gold)]" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Welcome</span>
+                </div>
+                <h2 className="text-xl font-black text-white uppercase">Welcome to {PLATFORM.name}!</h2>
+                <p className="mt-1 text-sm text-white/55">
+                  Your account is ready. Join a league using an invite link from your commissioner, or create your own.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <a
+                    href="#my-leagues"
+                    className="inline-flex items-center justify-center bg-[var(--brand-gold)] text-[var(--brand-ink)] px-4 py-2 text-xs font-black uppercase tracking-wider transition hover:brightness-110"
+                  >
+                    Get Started
+                  </a>
+                  <Link
+                    href="/features"
+                    className="inline-flex items-center justify-center border border-white/20 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider transition hover:bg-white/5"
+                  >
+                    Explore Features
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <div id="my-leagues" className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="eyebrow">Dashboard</p>
-          <h1 className="mt-3 text-3xl font-black tracking-[-0.04em] text-[var(--text)] sm:text-4xl">My Leagues</h1>
-          <p className="mt-2 text-[var(--muted)]">
-            Open your league sites, jump into your dashboards, and manage the leagues you run.
-          </p>
+      <div className="container mx-auto px-4 py-10">
+        <div id="my-leagues" className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <p className="eyebrow">Dashboard</p>
+            <h1 className="mt-2 text-3xl font-black uppercase tracking-tight text-white sm:text-4xl">My Leagues</h1>
+            <p className="mt-2 text-[var(--muted)]">
+              Open your league sites, jump into your dashboards, and manage the leagues you run.
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Link
+              href="/setup"
+              className="inline-flex items-center justify-center bg-[var(--brand-gold)] text-[var(--brand-ink)] px-5 py-2.5 text-xs font-black uppercase tracking-wider transition hover:brightness-110"
+            >
+              Create League
+            </Link>
+            <a
+              href={`mailto:${PLATFORM.contactEmail}`}
+              className="inline-flex items-center justify-center border border-white/20 text-white px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition hover:bg-white/5"
+            >
+              Request Setup
+            </a>
+          </div>
         </div>
-        <div className="flex shrink-0 gap-2">
-          <Link
-            href="/setup"
-            className="inline-flex items-center justify-center rounded-full bg-[var(--accent)] px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
-            style={{ color: 'white' }}
-          >
-            Create League
-          </Link>
-          <a
-            href={`mailto:${PLATFORM.contactEmail}`}
-            className="inline-flex items-center justify-center rounded-full border border-[var(--border)] px-5 py-2.5 text-sm font-bold text-[var(--text)] transition hover:border-[var(--accent)]/60"
-          >
-            Request Setup
-          </a>
-        </div>
-      </div>
 
-      <MyLeaguesGrid leagues={userLeagues} />
+        <MyLeaguesGrid leagues={userLeagues} />
+      </div>
     </div>
   );
 }

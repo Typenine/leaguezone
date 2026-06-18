@@ -22,72 +22,81 @@ export default async function DemoPage() {
   // If no explicit demo but leagues exist, show them as a list (don't auto-redirect)
   if (leagues.length > 0) {
     return (
-      <div className="container mx-auto px-4 py-16">
-        <div className="max-w-2xl mx-auto">
-          <div className="text-center mb-10">
-            <p className="eyebrow">Demo</p>
-            <h1 className="mt-3 text-3xl font-black text-[var(--text)]">Explore League Sites</h1>
-            <p className="mt-3 text-[var(--muted)]">
-              View live league headquarters to see the platform in action.
-            </p>
-          </div>
+      <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen">
+        <div className="container mx-auto px-4 py-16">
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center mb-10">
+              <div className="flex items-center justify-center gap-3 mb-3">
+                <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+                <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Demo</span>
+                <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+              </div>
+              <h1 className="text-3xl font-black uppercase tracking-tight text-white">Explore League Sites</h1>
+              <p className="mt-3 text-white/50">
+                View live league headquarters to see the platform in action.
+              </p>
+            </div>
 
-          <div className="space-y-4">
-            {leagues.map((league) => (
-              <Link
-                key={league.slug}
-                href={leagueUrl(league.slug)}
-                className="league-card flex items-center gap-4 p-5 hover:border-[var(--accent)]/60 transition-colors"
-              >
-                {league.logoUrl ? (
-                  <img src={league.logoUrl} alt="" className="w-12 h-12 rounded-lg object-contain" />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center text-lg font-bold text-[var(--accent)]">
-                    {league.name.slice(0, 2).toUpperCase()}
+            <div className="space-y-3">
+              {leagues.map((league) => (
+                <Link
+                  key={league.slug}
+                  href={leagueUrl(league.slug)}
+                  className="league-card flex items-center gap-4 p-5 group"
+                >
+                  {league.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={league.logoUrl} alt="" className="w-12 h-12 object-contain" />
+                  ) : (
+                    <div className="w-12 h-12 bg-[var(--brand-gold)]/10 border border-[var(--brand-gold)]/20 flex items-center justify-center text-sm font-black text-[var(--brand-gold)]">
+                      {league.name.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <h3 className="font-black uppercase tracking-wide text-white text-sm">{league.name}</h3>
+                    <p className="text-xs text-white/45 mt-0.5">
+                      {league.shortName || (league.foundedYear ? `Est. ${league.foundedYear}` : 'League site')}
+                    </p>
                   </div>
-                )}
-                <div className="flex-1">
-                  <h3 className="font-bold text-[var(--text)]">{league.name}</h3>
-                  <p className="text-sm text-[var(--muted)]">
-                    {league.shortName || (league.foundedYear ? `Est. ${league.foundedYear}` : 'League site')}
-                  </p>
-                </div>
-                <span className="text-sm font-bold text-[var(--accent)]">View →</span>
-              </Link>
-            ))}
-          </div>
+                  <span className="text-xs font-black uppercase tracking-wider text-[var(--brand-gold)] opacity-0 group-hover:opacity-100 transition-opacity">View →</span>
+                </Link>
+              ))}
+            </div>
 
-          <div className="mt-10 text-center">
-            <p className="text-sm text-[var(--muted)]">
-              Want your own league site?{' '}
-              <Link href="/register" className="text-[var(--accent)] hover:underline font-medium">
-                Get started here
-              </Link>
-            </p>
+            <div className="mt-10 text-center">
+              <p className="text-sm text-white/40">
+                Want your own league site?{' '}
+                <Link href="/register" className="text-[var(--brand-gold)] hover:underline font-bold">
+                  Get started here
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // No leagues at all - show setup message
   return (
-    <div className="container mx-auto px-4 py-24">
+    <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen flex items-center justify-center py-24 px-4">
       <div className="league-card mx-auto max-w-xl p-10 text-center">
-        <p className="eyebrow">Demo</p>
-        <h1 className="mt-3 text-3xl font-black text-[var(--text)]">Demo league coming soon</h1>
-        <p className="mt-3 text-[var(--muted)]">
+        <div className="flex items-center justify-center gap-3 mb-3">
+          <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+          <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Demo</span>
+          <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+        </div>
+        <h1 className="text-3xl font-black uppercase tracking-tight text-white">Demo league coming soon</h1>
+        <p className="mt-3 text-white/50">
           No demo league is configured on this deployment yet. Reach out and we&apos;ll walk you through a live league site.
         </p>
         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
           <a
             href={`mailto:${PLATFORM.contactEmail}`}
-            className="inline-flex justify-center rounded-full bg-[var(--accent)] px-6 py-3 font-bold text-white"
-            style={{ color: 'white' }}
+            className="inline-flex justify-center bg-[var(--brand-gold)] text-[var(--brand-ink)] px-6 py-3 text-xs font-black uppercase tracking-wider transition hover:brightness-110"
           >
             Request a walkthrough
           </a>
-          <Link href="/features" className="inline-flex justify-center rounded-full border border-[var(--border)] px-6 py-3 font-bold text-[var(--text)]">
+          <Link href="/features" className="inline-flex justify-center border border-white/20 text-white px-6 py-3 text-xs font-bold uppercase tracking-wider transition hover:bg-white/5">
             Explore features
           </Link>
         </div>

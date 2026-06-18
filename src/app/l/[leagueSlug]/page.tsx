@@ -46,35 +46,38 @@ export default async function LeagueHomePage({
   );
 
   return (
-    <div className="container mx-auto px-4 py-10">
+    <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen">
       <section
-        className="overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-elevated)]"
-        style={{ borderTop: `5px solid ${accent}` }}
+        style={{ background: 'linear-gradient(160deg, var(--brand-navy) 0%, var(--brand-ink) 70%)', borderTop: `4px solid ${accent}` }}
+        className="border-b border-white/10"
       >
-        <div className="grid gap-8 p-6 md:grid-cols-[1fr_0.72fr] md:p-10">
+        <div className="container mx-auto px-4 py-10 grid gap-8 md:grid-cols-[1fr_0.72fr] md:py-14">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em]" style={{ color: secondary }}>
-              {league.shortName || 'League Headquarters'}
-            </p>
-            <h1 className="mt-2 text-4xl font-black tracking-[-0.05em] text-[var(--text)] sm:text-5xl">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="block w-4 h-px" style={{ background: secondary }} />
+              <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: secondary }}>
+                {league.shortName || 'League Headquarters'}
+              </p>
+            </div>
+            <h1 className="text-4xl font-black uppercase leading-none tracking-tighter text-white sm:text-5xl">
               {league.name}
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-[var(--muted)]">
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-white/60">
               The official home of {league.name} — standings, teams, draft, trades, rules, and league history in one place.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a
                 href={dashboardHref(league.id)}
-                className="inline-flex items-center justify-center rounded-full px-7 py-3 text-base font-bold text-white shadow-lg transition hover:opacity-90"
-                style={{ backgroundColor: accent, color: 'white' }}
+                className="inline-flex items-center justify-center px-7 py-3 text-sm font-black uppercase tracking-widest transition hover:brightness-110"
+                style={{ backgroundColor: accent, color: 'var(--brand-ink)' }}
               >
                 {membership ? 'Open my dashboard' : 'Enter league dashboard'}
               </a>
               {!membership && (
                 <Link
                   href="/login"
-                  className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-7 py-3 text-base font-bold text-[var(--text)] transition hover:border-[var(--accent)]/60"
+                  className="inline-flex items-center justify-center border border-white/25 text-white px-7 py-3 text-sm font-bold uppercase tracking-wider transition hover:bg-white/5"
                 >
                   Sign in to join
                 </Link>
@@ -82,26 +85,26 @@ export default async function LeagueHomePage({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.22em]" style={{ color: secondary }}>League Details</p>
+          <div className="border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: secondary }}>League Details</p>
             <dl className="mt-5 space-y-4 text-sm">
               <div>
-                <dt className="text-[var(--muted)]">League name</dt>
-                <dd className="mt-1 font-semibold text-[var(--text)]">{league.name}</dd>
+                <dt className="text-white/40 uppercase text-[10px] tracking-wider">League name</dt>
+                <dd className="mt-1 font-black text-white">{league.name}</dd>
               </div>
               {league.foundedYear && (
                 <div>
-                  <dt className="text-[var(--muted)]">Founded</dt>
-                  <dd className="mt-1 font-semibold text-[var(--text)]">{league.foundedYear}</dd>
+                  <dt className="text-white/40 uppercase text-[10px] tracking-wider">Founded</dt>
+                  <dd className="mt-1 font-black text-white">{league.foundedYear}</dd>
                 </div>
               )}
               {membership && (
                 <div>
-                  <dt className="text-[var(--muted)]">Your team</dt>
-                  <dd className="mt-1 font-semibold text-[var(--text)]">
+                  <dt className="text-white/40 uppercase text-[10px] tracking-wider">Your team</dt>
+                  <dd className="mt-1 font-black text-white">
                     {membership.teamName}
                     {membership.isCommissioner && (
-                      <span className="ml-2 text-xs text-[var(--gold)]" aria-label="Commissioner">★ Commissioner</span>
+                      <span className="ml-2 text-[10px] text-[var(--brand-gold)] font-black">★ Commissioner</span>
                     )}
                   </dd>
                 </div>
@@ -111,19 +114,19 @@ export default async function LeagueHomePage({
         </div>
       </section>
 
-      <section className="mt-8">
+      <section className="container mx-auto px-4 py-8">
         <h2 className="sr-only">League sections</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-px md:grid-cols-2 lg:grid-cols-3 bg-white/10">
           {sections.map((item) => (
             <Link
               key={item.segment}
               href={leagueUrl(league.slug, item.segment)}
-              className="league-card group p-5"
+              className="group bg-[var(--brand-ink)] border-t-2 border-[var(--brand-gold)]/40 p-5 hover:border-[var(--brand-gold)] hover:bg-[#071020] transition-all"
             >
-              <h3 className="text-lg font-black text-[var(--text)] group-hover:text-[var(--accent)]">{item.label}</h3>
-              <p className="mt-2 text-sm text-[var(--muted)]">{SECTION_DESCRIPTIONS[item.segment] || ''}</p>
-              <span className="mt-4 inline-flex text-sm font-bold" style={{ color: accent }}>
-                Open {item.label}
+              <h3 className="text-sm font-black uppercase tracking-wide text-white group-hover:text-[var(--brand-gold)] transition-colors">{item.label}</h3>
+              <p className="mt-2 text-xs text-white/45 leading-relaxed">{SECTION_DESCRIPTIONS[item.segment] || ''}</p>
+              <span className="mt-4 inline-flex text-xs font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: accent }}>
+                Open {item.label} →
               </span>
             </Link>
           ))}

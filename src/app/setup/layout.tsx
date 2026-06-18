@@ -12,7 +12,7 @@ export default function SetupLayout({
 }) {
   // Setup pages use a minimal layout without the main navbar/footer
   return (
-    <div className="min-h-screen bg-[var(--background)]">
+    <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen">
       {children}
     </div>
   );

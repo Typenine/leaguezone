@@ -13,8 +13,8 @@
   --gold: var(--brand-gold);
 
   /* radius */
-  --radius-card: 18px;
-  --radius-pill: 9999px;
+  --radius-card: 0px;
+  --radius-pill: 3px;
 
   /* spacing scale (px) */
   --space-1: 4px;
@@ -51,18 +51,18 @@
 :root,
 html[data-theme="dark"] {
   --bg: var(--brand-ink);
-  --surface: #101418;
-  --surface-strong: #181f26;
-  --border: #2b3540;
+  --surface: #0d1422;
+  --surface-strong: #121a2c;
+  --border: #1e2d42;
   --text: #edf1f7;
-  --muted: #a6afbd;
+  --muted: #8a9ab0;
   --focus: var(--accent);
   --on-brand: #ffffff;
-  --page-wash: #080e1c;
-  --home-hero: #0c1428;
-  --home-panel: #101929;
-  --editorial-band: #090e1a;
-  --shadow-elevated: 0 24px 70px rgba(0,0,0,0.34), 0 0 0 1px rgba(255,255,255,0.03) inset;
+  --page-wash: #060c18;
+  --home-hero: #0a1428;
+  --home-panel: #0d1929;
+  --editorial-band: #07101e;
+  --shadow-elevated: 0 24px 70px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03) inset;
 }
 
 /* Light theme */
@@ -116,22 +116,21 @@ body::before {
 .league-surface {
   background-color: var(--surface);
   border-color: var(--border);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
 }
 
 .league-card {
   background-color: var(--surface);
   border: 1px solid var(--border);
-  border-radius: calc(var(--radius-card) + 6px);
-  box-shadow: var(--shadow-soft);
-  transition: transform var(--motion) var(--motion-ease), border-color var(--motion) var(--motion-ease), box-shadow var(--motion) var(--motion-ease), background-color var(--motion) var(--motion-ease);
+  border-top: 2px solid rgba(192, 168, 74, 0.35);
+  border-radius: 0;
+  box-shadow: none;
+  transition: border-color var(--motion) var(--motion-ease), background-color var(--motion) var(--motion-ease);
 }
 
 .league-card:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
-  box-shadow: var(--shadow-elevated);
+  border-color: var(--border);
+  border-top-color: rgba(192, 168, 74, 0.7);
+  background-color: var(--surface-strong);
 }
 
 /* Subtle surface tint (for light headers/stripes) */
@@ -165,9 +164,9 @@ body::before {
 /* Text color for brand overlays */
 .text-on-brand { color: var(--on-brand); }
 
-/* Solid blue accent stripe (for thin markers) */
+/* Gold accent stripe (for thin markers) */
 .accent-stripe {
-  background: var(--accent);
+  background: var(--brand-gold);
 }
 
 /* Accent token utilities (solid blue accents) */
@@ -190,10 +189,10 @@ h3, .h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); font-weight: 600; 
 small, .text-small { font-size: var(--fs-small); line-height: var(--lh-small); }
 
 .eyebrow {
-  color: var(--accent);
-  font-size: 0.75rem;
-  font-weight: 850;
-  letter-spacing: 0.22em;
+  color: var(--brand-gold);
+  font-size: 0.6875rem;
+  font-weight: 900;
+  letter-spacing: 0.28em;
   line-height: 1.2;
   text-transform: uppercase;
 }
@@ -240,22 +239,24 @@ hr { border-color: var(--border); opacity: 0.7; }
   transition: transform var(--motion-fast) var(--motion-ease), background-color var(--motion) var(--motion-ease), color var(--motion) var(--motion-ease), box-shadow var(--motion) var(--motion-ease), filter var(--motion) var(--motion-ease);
 }
 .btn-primary {
-  background-color: var(--accent);
-  color: white;
+  background-color: var(--brand-gold);
+  color: var(--brand-ink);
   padding: 0.5rem 0.9rem;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
-.btn-primary:hover { filter: brightness(1.05); }
+.btn-primary:hover { filter: brightness(1.1); }
 .btn:active { transform: translateY(1px); }
-.btn-primary:focus { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+.btn-primary:focus { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-gold) 35%, transparent); }
 .btn-secondary {
   background-color: transparent;
   color: var(--text);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border: 1px solid rgba(255,255,255,0.18);
   padding: 0.5rem 0.9rem;
 }
-.btn-secondary:hover { background-color: color-mix(in srgb, var(--accent) 10%, transparent); }
-.btn-secondary:focus { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+.btn-secondary:hover { background-color: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.35); }
+.btn-secondary:focus { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-gold) 25%, transparent); }
 
 /* React Flow theming */
 .react-flow__node .league-node {

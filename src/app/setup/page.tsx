@@ -94,26 +94,31 @@ export default function SetupPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]" />
+      <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-[var(--brand-gold)] border-t-transparent animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)] py-12 px-4">
+    <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen py-12 px-4">
       <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-[var(--text)] mb-2">
+        <div className="text-center mb-10">
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+            <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">League Setup</span>
+            <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+          </div>
+          <h1 className="text-3xl font-black uppercase tracking-tight text-white mb-2">
             Welcome to Your Fantasy League
           </h1>
-          <p className="text-[var(--muted)]">
+          <p className="text-white/50">
             Let&apos;s set up your league website in a few easy steps.
           </p>
         </div>
 
         <Card className="p-6">
-          <div className="space-y-4">
+          <div className="space-y-2">
             {steps.map((step, index) => {
               const isActive = index === currentStep;
               const isCompleted = step.completed;
@@ -124,40 +129,40 @@ export default function SetupPage() {
                   key={step.id}
                   onClick={() => handleStepClick(index)}
                   disabled={isLocked}
-                  className={`w-full text-left p-4 rounded-lg border transition-all ${
+                  className={`w-full text-left p-4 border transition-all ${
                     isActive
-                      ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]'
+                      ? 'border-[var(--brand-gold)] bg-[var(--brand-gold)]/8'
                       : isCompleted
                       ? 'border-green-500/30 bg-green-500/5'
                       : isLocked
-                      ? 'border-[var(--border)] opacity-50 cursor-not-allowed'
-                      : 'border-[var(--border)] hover:border-[var(--accent)]/50'
+                      ? 'border-[var(--border)] opacity-40 cursor-not-allowed'
+                      : 'border-[var(--border)] hover:border-[var(--brand-gold)]/40'
                   }`}
                 >
                   <div className="flex items-center gap-4">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                      className={`w-8 h-8 flex items-center justify-center text-xs font-black ${
                         isCompleted
                           ? 'bg-green-500 text-white'
                           : isActive
-                          ? 'bg-[var(--accent)] text-white'
-                          : 'bg-[var(--surface)] text-[var(--muted)]'
+                          ? 'bg-[var(--brand-gold)] text-[var(--brand-ink)]'
+                          : 'bg-[var(--surface-strong)] text-[var(--muted)]'
                       }`}
                     >
                       {isCompleted ? '✓' : index + 1}
                     </div>
                     <div className="flex-1">
-                      <div className="font-medium text-[var(--text)]">{step.title}</div>
-                      <div className="text-sm text-[var(--muted)]">{step.description}</div>
+                      <div className="font-black uppercase tracking-wide text-sm text-[var(--text)]">{step.title}</div>
+                      <div className="text-xs text-[var(--muted)] mt-0.5">{step.description}</div>
                     </div>
                     {isActive && (
                       <svg
-                        className="w-5 h-5 text-[var(--accent)]"
+                        className="w-4 h-4 text-[var(--brand-gold)]"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                       </svg>
                     )}
                   </div>
@@ -173,7 +178,7 @@ export default function SetupPage() {
           </div>
         </Card>
 
-        <p className="text-center text-sm text-[var(--muted)] mt-6">
+        <p className="text-center text-xs text-white/25 mt-6">
           You can always change these settings later in the admin panel.
         </p>
       </div>

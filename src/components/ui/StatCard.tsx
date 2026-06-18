@@ -18,11 +18,11 @@ export function StatCard({
   return (
     <Card className={className}>
       <CardHeader className="flex items-center justify-between">
-        <CardTitle className="text-sm text-[var(--muted)]">{label}</CardTitle>
+        <CardTitle className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">{label}</CardTitle>
         {icon}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-semibold text-[var(--text)]">{value}</div>
+        <div className="text-2xl font-black text-[var(--text)]">{value}</div>
         {delta && (
           <div
             className={[

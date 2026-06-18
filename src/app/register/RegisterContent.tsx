@@ -48,100 +48,110 @@ export default function RegisterContent() {
     }
   };
 
+  const inputCls = "w-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-2.5 text-[var(--text)] focus:outline-none focus:border-[var(--brand-gold)]/60 focus:ring-1 focus:ring-[var(--brand-gold)]/30 transition-colors";
+  const labelCls = "mb-2 block text-[10px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]";
+
   return (
-    <div className="container mx-auto px-4 py-10 max-w-md">
-      {/* Logo */}
-      <div className="flex justify-center mb-6">
-        <Link href="/" aria-label="Website home">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/assets/LeagueZone HQ Logo.png"
-            alt="LeagueZone HQ"
-            className="w-32 h-32 object-contain rounded-2xl"
-          />
-        </Link>
+    <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen flex items-center justify-center py-12 px-4">
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          <Link href="/" aria-label="Website home">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/LeagueZone HQ Logo.png"
+              alt="LeagueZone HQ"
+              className="w-20 h-20 object-contain"
+            />
+          </Link>
+        </div>
+
+        <div className="flex items-center justify-center gap-3 mb-3">
+          <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+          <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Create Account</span>
+          <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+        </div>
+        <h1 className="text-3xl font-black text-center text-white uppercase tracking-tight mb-2">Join the league</h1>
+        <p className="text-center text-sm text-white/45 mb-8">
+          Already have one?{' '}
+          <Link href="/login" className="text-[var(--brand-gold)] hover:underline font-bold">
+            Sign in
+          </Link>
+        </p>
+
+        <Card>
+          <CardContent className="pt-6 space-y-5">
+            <div>
+              <Label htmlFor="email" className={labelCls}>Email</Label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+                className={inputCls}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="displayName" className={labelCls}>Display name</Label>
+              <input
+                id="displayName"
+                type="text"
+                autoComplete="name"
+                placeholder="Your name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+                className={inputCls}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="password" className={labelCls}>Password</Label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+                className={inputCls}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="confirmPassword" className={labelCls}>Confirm password</Label>
+              <input
+                id="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Repeat your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+                className={inputCls}
+              />
+            </div>
+
+            {error && (
+              <div className="text-sm text-red-400 border border-red-500/30 bg-red-500/10 px-3 py-2" role="alert">{error}</div>
+            )}
+
+            <Button
+              onClick={handleSubmit}
+              disabled={!email || !displayName || !password || !confirmPassword || loading}
+              variant="primary"
+              className="w-full"
+            >
+              {loading ? 'Creating account…' : 'Create account'}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
-
-      <h1 className="text-2xl font-bold text-center text-[var(--text)] mb-2">Create your account</h1>
-      <p className="text-center text-sm text-[var(--muted)] mb-6">
-        Already have one?{' '}
-        <Link href="/login" className="text-[var(--accent)] hover:underline">
-          Sign in
-        </Link>
-      </p>
-
-      <Card>
-        <CardContent className="pt-6 space-y-5">
-          <div>
-            <Label htmlFor="email" className="mb-2 block">Email</Label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-              className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-strong)]"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="displayName" className="mb-2 block">Display name</Label>
-            <input
-              id="displayName"
-              type="text"
-              autoComplete="name"
-              placeholder="Your name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-              className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-strong)]"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="password" className="mb-2 block">Password</Label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              placeholder="At least 8 characters"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-              className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-strong)]"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="confirmPassword" className="mb-2 block">Confirm password</Label>
-            <input
-              id="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Repeat your password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-              className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-strong)]"
-            />
-          </div>
-
-          {error && (
-            <div className="text-sm text-red-500" role="alert">{error}</div>
-          )}
-
-          <Button
-            onClick={handleSubmit}
-            disabled={!email || !displayName || !password || !confirmPassword || loading}
-            variant="primary"
-            className="w-full"
-          >
-            {loading ? 'Creating account…' : 'Create account'}
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }
