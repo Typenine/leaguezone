@@ -78,18 +78,40 @@ export async function POST(req: NextRequest) {
       // Don't block registration if email fails
     }
 
-    // If an invite code was provided, look it up so we can set active_league_id
+    // If an invite code was provided, look it up and claim it
     let activeLeagueId: string | null = null;
     if (inviteCode) {
       try {
         const db = getDb();
-        const res = await db.execute(sql`
-          SELECT league_id::text AS league_id FROM league_invites
-          WHERE invite_code = ${inviteCode} LIMIT 1
+        // Find the unclaimed invite
+        const inviteRes = await db.execute(sql`
+          SELECT id, league_id::text AS league_id, claimed_by
+          FROM league_invites
+          WHERE invite_code = ${inviteCode}
+          LIMIT 1
         `);
-        const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
-        if (rows[0]) activeLeagueId = rows[0].league_id as string;
-      } catch { /* ignore */ }
+        const inviteRows = (inviteRes as { rows?: Array<Record<string, unknown>> }).rows ?? [];
+        const invite = inviteRows[0];
+        if (invite) {
+          if (invite.claimed_by) {
+            // Already claimed — do not block registration but don't claim again
+            activeLeagueId = invite.league_id as string;
+          } else {
+            // Claim the invite for this new user
+            const claimRes = await db.execute(sql`
+              UPDATE league_invites
+              SET claimed_by = ${user.id}::uuid, claimed_at = NOW()
+              WHERE invite_code = ${inviteCode}
+                AND claimed_by IS NULL
+              RETURNING league_id::text AS league_id
+            `);
+            const claimRows = (claimRes as { rows?: Array<Record<string, unknown>> }).rows ?? [];
+            if (claimRows[0]) activeLeagueId = claimRows[0].league_id as string;
+          }
+        }
+      } catch (e) {
+        console.error('Invite claim during registration failed', e);
+      }
     }
 
     // Sign session

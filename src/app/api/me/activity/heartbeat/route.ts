@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { requireTeamUser } from '@/lib/server/session';
+import { getActiveLeagueMembership } from '@/lib/server/membership';
 import { putObjectText } from '@/server/storage/r2';
 import { isAdminCookieValue } from '@/lib/auth/admin';
 
@@ -8,13 +9,24 @@ export const dynamic = 'force-dynamic';
 
 export async function POST() {
   try {
-    const ident = await requireTeamUser();
     let team: string | null = null;
     let userId: string | null = null;
-    if (ident) {
-      team = ident.team;
-      userId = ident.userId;
+
+    // Try account session first
+    const membership = await getActiveLeagueMembership();
+    if (membership.ok) {
+      team = membership.membership.teamName;
+      userId = membership.membership.userId;
     } else {
+      // Fall back to legacy PIN session
+      const ident = await requireTeamUser();
+      if (ident) {
+        team = ident.team;
+        userId = ident.userId;
+      }
+    }
+
+    if (!team || !userId) {
       // Allow admin heartbeat
       try {
         const jar = await cookies();
@@ -25,6 +37,18 @@ export async function POST() {
         }
       } catch {}
     }
+    if (!team || !userId) {
+      // Allow admin heartbeat
+      try {
+        const jar = await cookies();
+        const admin = jar.get('evw_admin')?.value;
+        if (isAdminCookieValue(admin)) {
+          team = 'ADMIN';
+          userId = 'admin';
+        }
+      } catch {}
+    }
+
     if (!team || !userId) return Response.json({ ok: false }, { status: 200 });
 
     const ts = new Date().toISOString();

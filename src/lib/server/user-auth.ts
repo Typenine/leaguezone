@@ -126,21 +126,47 @@ export interface UserLeague {
 export async function getUserLeagues(userId: string): Promise<UserLeague[]> {
   try {
     const db = getDb();
-    const res = await db.execute(sql`
+    // Primary: leagues the user has claimed an invite for
+    const claimedRes = await db.execute(sql`
       SELECT
         li.league_id::text AS league_id,
         l.slug             AS league_slug,
         l.name             AS league_name,
         li.team_name,
         li.roster_id,
+        true               AS is_commissioner_check,
         (l.commissioner_user_id = ${userId}::uuid) AS is_commissioner
       FROM league_invites li
       JOIN leagues l ON l.id = li.league_id AND l.setup_completed = true
       WHERE li.claimed_by = ${userId}::uuid
       ORDER BY l.created_at DESC
     `);
-    const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
-    return rows.map((r) => ({
+    const claimedRows = (claimedRes as { rows?: Array<Record<string, unknown>> }).rows ?? [];
+    const claimedLeagueIds = new Set(claimedRows.map((r) => r.league_id as string));
+
+    // Commissioner-only: leagues the user created but hasn't claimed a team invite for yet
+    const ownedRes = await db.execute(sql`
+      SELECT
+        l.id::text         AS league_id,
+        l.slug             AS league_slug,
+        l.name             AS league_name,
+        'Commissioner'     AS team_name,
+        NULL::int          AS roster_id,
+        true               AS is_commissioner
+      FROM leagues l
+      WHERE l.commissioner_user_id = ${userId}::uuid
+        AND l.setup_completed = true
+      ORDER BY l.created_at DESC
+    `);
+    const ownedRows = (ownedRes as { rows?: Array<Record<string, unknown>> }).rows ?? [];
+
+    const combined = [
+      ...claimedRows,
+      // Only add owned rows for leagues not already in the claimed list
+      ...ownedRows.filter((r) => !claimedLeagueIds.has(r.league_id as string)),
+    ];
+
+    return combined.map((r) => ({
       leagueId: r.league_id as string,
       leagueSlug: r.league_slug as string,
       leagueName: r.league_name as string,

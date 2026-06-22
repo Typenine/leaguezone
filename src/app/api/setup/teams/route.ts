@@ -1,25 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
+import { requireUser } from '@/lib/server/session';
 
-// GET - Load teams from league config
-export async function GET() {
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+async function resolveSetupLeague(userId: string, bodyLeagueId?: string) {
+  const jar = await cookies();
+  const leagueId =
+    (typeof bodyLeagueId === 'string' ? bodyLeagueId : null) ||
+    jar.get('setup_league_id')?.value ||
+    jar.get('active_league_id')?.value ||
+    null;
+  if (!leagueId) return null;
+
+  const db = getDb();
+  const ownerCheck = await db.execute(sql`
+    SELECT id, config FROM leagues
+    WHERE id = ${leagueId}::uuid
+      AND (commissioner_user_id = ${userId}::uuid OR commissioner_user_id IS NULL)
+    LIMIT 1
+  `);
+  const rows = (ownerCheck as { rows?: Array<Record<string, unknown>> }).rows ?? [];
+  return rows[0] ? { leagueId, row: rows[0] } : null;
+}
+
+export async function GET(request: NextRequest) {
   try {
-    const db = getDb();
+    const session = await requireUser();
+    if (!session) return NextResponse.json({ teams: [] }, { status: 401 });
 
-    const leagueRes = await db.execute(sql`
-      SELECT config FROM leagues WHERE setup_completed = false ORDER BY created_at DESC LIMIT 1
-    `);
-    
-    const leagueRow = (leagueRes as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-    
-    if (!leagueRow) {
-      return NextResponse.json({ teams: [] });
-    }
+    const url = new URL(request.url);
+    const qLeagueId = url.searchParams.get('leagueId') || undefined;
+    const resolved = await resolveSetupLeague(session.userId, qLeagueId);
+    if (!resolved) return NextResponse.json({ teams: [] });
 
-    const config = (leagueRow.config as Record<string, unknown>) || {};
+    const config = (resolved.row.config as Record<string, unknown>) || {};
     const teams = (config.teams as Array<{ rosterId: number; teamName: string; ownerName: string }>) || [];
-
     return NextResponse.json({ teams });
   } catch (error) {
     console.error('[setup/teams GET] Error:', error);
@@ -27,29 +46,23 @@ export async function GET() {
   }
 }
 
-// POST - Save team colors
 export async function POST(request: NextRequest) {
   try {
+    const session = await requireUser();
+    if (!session) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+
     const body = await request.json();
-    const { teamColors } = body;
+    const { teamColors, leagueId: bodyLeagueId } = body;
 
-    const db = getDb();
-
-    const leagueRes = await db.execute(sql`
-      SELECT id FROM leagues WHERE setup_completed = false ORDER BY created_at DESC LIMIT 1
-    `);
-    
-    const leagueRow = (leagueRes as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-    
-    if (!leagueRow) {
+    const resolved = await resolveSetupLeague(session.userId, bodyLeagueId);
+    if (!resolved) {
       return NextResponse.json(
         { error: 'No league found. Please start setup from the beginning.' },
         { status: 400 }
       );
     }
 
-    const leagueId = leagueRow.id;
-
+    const db = getDb();
     await db.execute(sql`
       UPDATE leagues SET
         team_colors = ${JSON.stringify(teamColors || {})}::jsonb,
@@ -58,19 +71,16 @@ export async function POST(request: NextRequest) {
           '{completedSetupSteps}',
           (
             SELECT COALESCE(config->'completedSetupSteps', '[]'::jsonb) || '["teams"]'::jsonb
-            FROM leagues WHERE id = ${leagueId}::uuid
+            FROM leagues WHERE id = ${resolved.leagueId}::uuid
           )
         ),
         updated_at = now()
-      WHERE id = ${leagueId}::uuid
+      WHERE id = ${resolved.leagueId}::uuid
     `);
 
-    return NextResponse.json({ success: true, leagueId });
+    return NextResponse.json({ success: true, leagueId: resolved.leagueId });
   } catch (error) {
     console.error('[setup/teams POST] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to save team colors' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to save team colors' }, { status: 500 });
   }
 }

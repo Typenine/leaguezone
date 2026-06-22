@@ -2,18 +2,26 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { sql } from 'drizzle-orm';
 import { isAdminCookieValue } from '@/lib/auth/admin';
+import { getActiveLeagueMembership } from '@/lib/server/membership';
 import { getDb } from '@/server/db/client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+async function requireCommissionerOrAdmin(): Promise<boolean> {
   const jar = await cookies();
-  if (!isAdminCookieValue(jar.get('evw_admin')?.value)) {
+  if (isAdminCookieValue(jar.get('evw_admin')?.value)) return true;
+  const m = await getActiveLeagueMembership();
+  return m.ok && m.membership.isCommissioner;
+}
+
+export async function GET() {
+  if (!(await requireCommissionerOrAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
+    const jar = await cookies();
     const activeLeagueId = jar.get('active_league_id')?.value || undefined;
     const db = getDb();
     const res = activeLeagueId

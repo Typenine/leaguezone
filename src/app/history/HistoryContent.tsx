@@ -56,6 +56,29 @@ function isAbortError(e: unknown): boolean {
   return hasName(e) && e.name === 'AbortError';
 }
 
+// Resolve null t1/t2 slots in bracket games by following t1_from/t2_from links.
+// Sleeper doesn't pre-populate team slots for later rounds; they're determined
+// by following the winner (w) or loser (l) of a referenced match number.
+function resolveBracketTeams<T extends { r: number; m: number; t1?: number | null; t2?: number | null; w?: number | null; l?: number | null; t1_from?: { w?: number; l?: number } | null; t2_from?: { w?: number; l?: number } | null }>(games: T[]): T[] {
+  // Build match number → { winner, loser } from completed games
+  const matchResult = new Map<number, { w: number | null; l: number | null }>();
+  for (const g of games) {
+    if (g.m != null) matchResult.set(g.m, { w: g.w ?? null, l: g.l ?? null });
+  }
+  const resolveSlot = (existing: number | null | undefined, from?: { w?: number; l?: number } | null): number | null | undefined => {
+    if (existing != null) return existing;
+    if (!from) return existing;
+    if (from.w != null) return matchResult.get(from.w)?.w ?? existing;
+    if (from.l != null) return matchResult.get(from.l)?.l ?? existing;
+    return existing;
+  };
+  return games.map(g => ({
+    ...g,
+    t1: resolveSlot(g.t1, g.t1_from),
+    t2: resolveSlot(g.t2, g.t2_from),
+  }));
+}
+
 // Local util: convert hex like #rrggbb to rgba(..., alpha)
 function hexToRgba(hex: string, alpha = 1): string {
   const clean = hex.replace('#', '');
@@ -281,8 +304,8 @@ export default function HistoryContent() {
           getTeamsData(leagueId, { signal: ac.signal, timeoutMs: DEFAULT_TIMEOUT, forceFresh: true }),
         ]);
         if (cancelled) return;
-        setWinnersBracket(brackets.winners || []);
-        setLosersBracket(brackets.losers || []);
+        setWinnersBracket(resolveBracketTeams(brackets.winners || []));
+        setLosersBracket(resolveBracketTeams(brackets.losers || []));
         setBracketNameMap(nameMap);
         // Build seeds by rosterId using final regular-season standings (wins desc, then PF desc)
         try {

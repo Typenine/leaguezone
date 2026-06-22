@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
+import { getActiveLeagueMembership } from '@/lib/server/membership';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
 import { getLeagueIdsFromDb } from '@/lib/server/league-config';
@@ -13,10 +14,11 @@ import { getLeagueIdsFromDb } from '@/lib/server/league-config';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-async function requireAdmin(): Promise<boolean> {
+async function requireCommissionerOrAdmin(): Promise<boolean> {
   const jar = await cookies();
-  return isAdminCookieValue(jar.get('evw_admin')?.value)
-    || isSiteAdminCookieValue(jar.get('site_admin')?.value);
+  if (isAdminCookieValue(jar.get('evw_admin')?.value) || isSiteAdminCookieValue(jar.get('site_admin')?.value)) return true;
+  const m = await getActiveLeagueMembership();
+  return m.ok && m.membership.isCommissioner;
 }
 
 type SeasonEntry = { year: string; leagueId: string; isCurrent: boolean };
@@ -81,7 +83,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await requireAdmin())) {
+  if (!(await requireCommissionerOrAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const body = await req.json().catch(() => ({}));

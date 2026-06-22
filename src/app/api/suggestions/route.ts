@@ -166,10 +166,23 @@ async function readSuggestionsLocalAll(): Promise<Suggestion[]> {
   return Object.values(out);
 }
 
-export async function GET() {
-  // legacy params ignored
+export async function GET(request: Request) {
+  // Resolve active league for filtering
+  let activeLeagueId: string | null = null;
   try {
-    const rows = await dbListSuggestions();
+    const url = new URL(request.url);
+    const qLeague = url.searchParams.get('leagueId');
+    if (qLeague) {
+      activeLeagueId = qLeague;
+    } else {
+      const { cookies } = await import('next/headers');
+      const jar = await cookies();
+      activeLeagueId = jar.get('active_league_id')?.value || null;
+    }
+  } catch {}
+
+  try {
+    const rows = await dbListSuggestions(activeLeagueId);
     if (Array.isArray(rows) && rows.length > 0) {
       type Row = { id: string; text: string; category: string | null; createdAt: string | Date; status?: string; resolvedAt?: Date | null };
       let items = (rows as Row[]).map((r) => ({
@@ -240,7 +253,8 @@ export async function GET() {
       try {
         const kv = await getKV();
         if (kv) {
-          const mapRaw = (await kv.get('suggestions:sponsors')) as string | null;
+          const kvKey = activeLeagueId ? `league:${activeLeagueId}:suggestions:sponsors` : 'suggestions:sponsors';
+          const mapRaw = (await kv.get(kvKey)) as string | null;
           if (mapRaw) {
             const map = JSON.parse(mapRaw) as Record<string, string>;
             items = items.map((it) => ({ ...it, sponsorTeam: map[it.id] || it.sponsorTeam }));
@@ -289,6 +303,20 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    // Resolve active league for scoping
+    let postLeagueId: string | null = null;
+    try {
+      const url = new URL(request.url);
+      const qLeague = url.searchParams.get('leagueId');
+      if (qLeague) {
+        postLeagueId = qLeague;
+      } else {
+        const { cookies } = await import('next/headers');
+        const jar = await cookies();
+        postLeagueId = jar.get('active_league_id')?.value || null;
+      }
+    } catch {}
+
     const body = await request.json().catch(() => ({}));
     const content = typeof body.content === 'string' ? body.content.trim() : '';
     const category = typeof body.category === 'string' ? body.category.trim() : undefined;
@@ -391,7 +419,7 @@ export async function POST(request: Request) {
           createdAt: new Date().toISOString(),
         };
         try {
-          const row = await dbCreateSuggestion({ userId: null, text: s.content, category: s.category || null });
+          const row = await dbCreateSuggestion({ userId: null, leagueId: postLeagueId, text: s.content, category: s.category || null });
           if (row && row.id) {
             s.id = String(row.id);
             s.createdAt = new Date(row.createdAt).toISOString();
@@ -428,7 +456,7 @@ export async function POST(request: Request) {
         if (identTeam) {
           const kv = await getKV();
           if (kv) {
-            const key = 'suggestions:sponsors';
+            const key = postLeagueId ? `league:${postLeagueId}:suggestions:sponsors` : 'suggestions:sponsors';
             const raw = (await kv.get(key)) as string | null;
             const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
             for (let i = 0; i < created.length; i++) {
@@ -506,7 +534,7 @@ export async function POST(request: Request) {
     }
     // DB first
     try {
-      const row = await dbCreateSuggestion({ userId: null, text: item.content, category: item.category || null });
+      const row = await dbCreateSuggestion({ userId: null, leagueId: postLeagueId, text: item.content, category: item.category || null });
       if (row && row.id) {
         item.id = String(row.id);
         item.createdAt = new Date(row.createdAt).toISOString();
@@ -539,7 +567,7 @@ export async function POST(request: Request) {
       if (sponsorTeam) {
         const kv = await getKV();
         if (kv) {
-          const key = 'suggestions:sponsors';
+          const key = postLeagueId ? `league:${postLeagueId}:suggestions:sponsors` : 'suggestions:sponsors';
           const raw = (await kv.get(key)) as string | null;
           const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
           map[item.id] = sponsorTeam;

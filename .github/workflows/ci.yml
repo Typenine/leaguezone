@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+        env:
+          # No production credentials needed — unit tests use mocked DB/cookies
+          NODE_ENV: test
+
+  e2e-tests:
+    name: E2E tests (local server)
+    runs-on: ubuntu-latest
+    # Only run e2e when a TEST_BASE_URL is available or on main branch
+    # In CI we start a local dev server against a test DB
+    if: ${{ vars.SKIP_E2E != 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Build app (no migration — no prod DB in CI)
+        run: npx next build
+        env:
+          SKIP_MIGRATION: 'true'
+          # Stub required env vars so Next.js doesn't crash at build time
+          DATABASE_URL: 'postgresql://ci:ci@localhost/ci'
+          NEXTAUTH_SECRET: 'ci-secret-placeholder'
+          ADMIN_PASSWORD_HASH: 'ci-placeholder'
+          KV_REST_API_URL: 'https://ci.kv.vercel.app'
+          KV_REST_API_TOKEN: 'ci-token'
+      - name: Start server
+        run: npm start &
+        env:
+          DATABASE_URL: 'postgresql://ci:ci@localhost/ci'
+          NEXTAUTH_SECRET: 'ci-secret-placeholder'
+          ADMIN_PASSWORD_HASH: 'ci-placeholder'
+          KV_REST_API_URL: 'https://ci.kv.vercel.app'
+          KV_REST_API_TOKEN: 'ci-token'
+      - name: Wait for server
+        run: npx wait-on http://localhost:3000 --timeout 30000
+      - run: npm run test:e2e
+        env:
+          TEST_BASE_URL: 'http://localhost:3000'

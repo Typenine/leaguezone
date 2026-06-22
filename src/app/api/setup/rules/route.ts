@@ -1,28 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
+import { requireUser } from '@/lib/server/session';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await requireUser();
+    if (!session) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+
     const body = await request.json();
-    const { rulesContent, rulesFileKey } = body;
+    const { rulesContent, rulesFileKey, leagueId: bodyLeagueId } = body;
 
-    const db = getDb();
+    const jar = await cookies();
+    const leagueId =
+      (typeof bodyLeagueId === 'string' ? bodyLeagueId : null) ||
+      jar.get('setup_league_id')?.value ||
+      jar.get('active_league_id')?.value ||
+      null;
 
-    const leagueRes = await db.execute(sql`
-      SELECT id FROM leagues WHERE setup_completed = false ORDER BY created_at DESC LIMIT 1
-    `);
-    
-    const leagueRow = (leagueRes as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-    
-    if (!leagueRow) {
-      return NextResponse.json(
-        { error: 'No league found. Please start setup from the beginning.' },
-        { status: 400 }
-      );
+    if (!leagueId) {
+      return NextResponse.json({ error: 'No league found. Please start setup from the beginning.' }, { status: 400 });
     }
 
-    const leagueId = leagueRow.id;
+    const db = getDb();
+    const ownerCheck = await db.execute(sql`
+      SELECT id FROM leagues
+      WHERE id = ${leagueId}::uuid
+        AND (commissioner_user_id = ${session.userId}::uuid OR commissioner_user_id IS NULL)
+      LIMIT 1
+    `);
+    if (!(ownerCheck as { rows?: unknown[] }).rows?.length) {
+      return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
+    }
 
     await db.execute(sql`
       UPDATE leagues SET
@@ -43,9 +56,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, leagueId });
   } catch (error) {
     console.error('[setup/rules] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to save rules' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to save rules' }, { status: 500 });
   }
 }

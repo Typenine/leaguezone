@@ -1,8 +1,12 @@
 /**
  * League Context Helper
- * Provides the current league context for multi-league support.
- * Returns the first active league from the database.
- * Future: derive from request context (subdomain, path, session).
+ * Provides the current league context scoped to the active request.
+ * The active league is resolved from:
+ *   1. An explicit slug (from /l/[leagueSlug] routes)
+ *   2. The active_league_id cookie (from the user's selected league)
+ *
+ * Does NOT fall back to "most recently created league" to prevent cross-league
+ * data leakage on a multi-tenant platform.
  */
 
 import { getDb } from '@/server/db/client';
@@ -24,111 +28,91 @@ export type League = {
   isActive: boolean;
 };
 
-let _cachedLeague: League | null = null;
-let _cachedLeagueId: string | null = null;
+function rowToLeague(row: Record<string, unknown>): League {
+  return {
+    id: String(row.id),
+    slug: String(row.slug),
+    name: String(row.name),
+    shortName: row.short_name ? String(row.short_name) : null,
+    sleeperLeagueId: row.sleeper_league_id ? String(row.sleeper_league_id) : null,
+    sleeperLeagueIds: (row.sleeper_league_ids as Record<string, string>) || {},
+    logoUrl: row.logo_url ? String(row.logo_url) : null,
+    primaryColor: row.primary_color ? String(row.primary_color) : null,
+    secondaryColor: row.secondary_color ? String(row.secondary_color) : null,
+    config: (row.config as Record<string, unknown>) || {},
+    foundedYear: row.founded_year ? Number(row.founded_year) : null,
+    isActive: Boolean(row.is_active),
+  };
+}
 
 /**
- * Get the current league context.
- * Returns the first active, setup-completed league from the database.
- * Returns null if no league is configured yet.
+ * Get the league for a given DB league ID.
+ * Only returns active, setup-completed leagues.
  */
-export async function getCurrentLeague(): Promise<League | null> {
-  if (_cachedLeague) return _cachedLeague;
-
+export async function getLeagueById(leagueId: string): Promise<League | null> {
   try {
     const db = getDb();
     const res = await db.execute(sql`
-      SELECT * FROM leagues WHERE setup_completed = true AND is_active = true ORDER BY created_at ASC LIMIT 1
+      SELECT * FROM leagues WHERE id = ${leagueId}::uuid AND setup_completed = true AND is_active = true LIMIT 1
     `);
-
     const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-    if (row) {
-      _cachedLeague = {
-        id: String(row.id),
-        slug: String(row.slug),
-        name: String(row.name),
-        shortName: row.short_name ? String(row.short_name) : null,
-        sleeperLeagueId: row.sleeper_league_id ? String(row.sleeper_league_id) : null,
-        sleeperLeagueIds: (row.sleeper_league_ids as Record<string, string>) || {},
-        logoUrl: row.logo_url ? String(row.logo_url) : null,
-        primaryColor: row.primary_color ? String(row.primary_color) : null,
-        secondaryColor: row.secondary_color ? String(row.secondary_color) : null,
-        config: (row.config as Record<string, unknown>) || {},
-        foundedYear: row.founded_year ? Number(row.founded_year) : null,
-        isActive: Boolean(row.is_active),
-      };
-      _cachedLeagueId = _cachedLeague.id;
-      return _cachedLeague;
-    }
-  } catch {
-    // DB not available or table not created yet
-  }
-
-  return null;
-}
-
-/**
- * Get the current league ID.
- * Returns null if no league is configured yet.
- */
-export async function getCurrentLeagueId(): Promise<string | null> {
-  if (_cachedLeagueId) return _cachedLeagueId;
-  const league = await getCurrentLeague();
-  return league?.id || null;
-}
-
-/**
- * Clear the cached league data.
- * Call this if league config is updated.
- */
-export function clearLeagueCache(): void {
-  _cachedLeague = null;
-  _cachedLeagueId = null;
-}
-
-/**
- * Get a league by its slug.
- */
-export async function getLeagueBySlug(slug: string): Promise<League | null> {
-  try {
-    const db = getDb();
-    const res = await db.execute(sql`
-      SELECT * FROM leagues WHERE slug = ${slug} LIMIT 1
-    `);
-
-    const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-    if (!row) return null;
-
-    return {
-      id: String(row.id),
-      slug: String(row.slug),
-      name: String(row.name),
-      shortName: row.short_name ? String(row.short_name) : null,
-      sleeperLeagueId: row.sleeper_league_id ? String(row.sleeper_league_id) : null,
-      sleeperLeagueIds: (row.sleeper_league_ids as Record<string, string>) || {},
-      logoUrl: row.logo_url ? String(row.logo_url) : null,
-      primaryColor: row.primary_color ? String(row.primary_color) : null,
-      secondaryColor: row.secondary_color ? String(row.secondary_color) : null,
-      config: (row.config as Record<string, unknown>) || {},
-      foundedYear: row.founded_year ? Number(row.founded_year) : null,
-      isActive: Boolean(row.is_active),
-    };
+    return row ? rowToLeague(row) : null;
   } catch {
     return null;
   }
 }
 
 /**
- * Resolve the current league from a route slug (/l/[leagueSlug]).
+ * Get a league by its slug.
  * Only returns active, setup-completed leagues.
  */
-export async function getCurrentLeagueBySlug(slug: string): Promise<League | null> {
+export async function getLeagueBySlug(slug: string): Promise<League | null> {
   const normalized = slug.trim().toLowerCase();
   if (!normalized) return null;
-  const league = await getLeagueBySlug(normalized);
-  if (!league || !league.isActive) return null;
-  return league;
+  try {
+    const db = getDb();
+    const res = await db.execute(sql`
+      SELECT * FROM leagues WHERE slug = ${normalized} AND setup_completed = true AND is_active = true LIMIT 1
+    `);
+    const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+    return row ? rowToLeague(row) : null;
+  } catch {
+    return null;
+  }
 }
+
+/** Alias for getLeagueBySlug — kept for call-site compatibility. */
+export async function getCurrentLeagueBySlug(slug: string): Promise<League | null> {
+  return getLeagueBySlug(slug);
+}
+
+/**
+ * Get the current league from the active_league_id cookie.
+ * Returns null if no active league is selected.
+ *
+ * IMPORTANT: This must only be called from Server Components or API routes
+ * (requires next/headers). Do NOT fall back to "most recently created league"
+ * as that would bleed East v. West data into other leagues.
+ */
+export async function getCurrentLeague(): Promise<League | null> {
+  try {
+    const { cookies } = await import('next/headers');
+    const jar = await cookies();
+    const leagueId = jar.get('active_league_id')?.value;
+    if (!leagueId) return null;
+    return getLeagueById(leagueId);
+  } catch {
+    return null;
+  }
+}
+
+export async function getCurrentLeagueId(): Promise<string | null> {
+  const league = await getCurrentLeague();
+  return league?.id ?? null;
+}
+
+/** No-op — kept for backwards compatibility; there is no longer a module-level cache. */
+export function clearLeagueCache(): void {}
 
 /**
  * Effective feature flags for a league: defaults merged with any overrides

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { requireTeamUser } from '@/lib/server/session';
+import { requireActiveLeagueMembership } from '@/lib/server/membership';
 import { readUserDoc, writeUserDoc, TradeAsset, TradeWants } from '@/lib/server/user-store';
 import { getTeamAssets } from '@/lib/server/trade-assets';
 import { postToDiscordWebhook } from '@/lib/utils/discord';
@@ -9,45 +9,43 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const ident = await requireTeamUser();
-  if (!ident) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  const doc = await readUserDoc(ident.userId, ident.team);
+  let membership;
+  try { membership = await requireActiveLeagueMembership(); } catch (e) { return e as Response; }
+  const doc = await readUserDoc(membership.userId, membership.teamName, membership.leagueId);
   return Response.json({ tradeBlock: doc.tradeBlock || [], tradeWants: doc.tradeWants || { text: '', positions: [] } });
 }
 
 export async function PUT(req: NextRequest) {
-  const ident = await requireTeamUser();
-  if (!ident) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  let membership;
+  try { membership = await requireActiveLeagueMembership(); } catch (e) { return e as Response; }
+
   const body = await req.json().catch(() => ({}));
   const items = Array.isArray(body?.tradeBlock) ? (body.tradeBlock as TradeAsset[]) : null;
   const wants = (body?.tradeWants ?? {}) as TradeWants;
   if (!items) return Response.json({ error: 'tradeBlock array required' }, { status: 400 });
 
-  const assets = await getTeamAssets(ident.team);
+  const assets = await getTeamAssets(membership.teamName, membership.leagueId, membership.rosterId);
   const allowedPickYears = new Set(assets.picks.map((p) => p.year));
 
   const filtered: TradeAsset[] = [];
-  const isPlayer = (x: unknown): x is { type: 'player'; playerId: string } => !!x && typeof x === 'object' && (x as Record<string, unknown>).type === 'player' && typeof (x as Record<string, unknown>).playerId === 'string';
+  const isPlayer = (x: unknown): x is { type: 'player'; playerId: string } =>
+    !!x && typeof x === 'object' && (x as Record<string, unknown>).type === 'player' && typeof (x as Record<string, unknown>).playerId === 'string';
   const isPick = (x: unknown): x is { type: 'pick'; year: number; round: number; originalTeam?: string } => {
     if (!x || typeof x !== 'object') return false;
     const o = x as Record<string, unknown>;
     return o.type === 'pick' && typeof o.year === 'number' && typeof o.round === 'number';
   };
-  const isFaab = (x: unknown): x is { type: 'faab'; amount?: number } => !!x && typeof x === 'object' && (x as Record<string, unknown>).type === 'faab';
+  const isFaab = (x: unknown): x is { type: 'faab'; amount?: number } =>
+    !!x && typeof x === 'object' && (x as Record<string, unknown>).type === 'faab';
 
   for (const it of items.slice(0, 200)) {
     if (isPlayer(it)) {
-      const pid = it.playerId;
-      if (pid && assets.players.includes(pid)) filtered.push({ type: 'player', playerId: pid });
+      if (it.playerId && assets.players.includes(it.playerId)) filtered.push({ type: 'player', playerId: it.playerId });
     } else if (isPick(it)) {
-      const yr = it.year;
-      const rd = it.round;
-      // Allow picks for years the team actually owns (current + next two years)
+      const { year: yr, round: rd } = it;
       if (Number.isFinite(yr) && allowedPickYears.has(yr) && Number.isFinite(rd) && rd >= 1 && rd <= 10) {
         const reqOrig = typeof (it as { originalTeam?: string }).originalTeam === 'string' ? (it as { originalTeam?: string }).originalTeam : undefined;
-        let owned = reqOrig
-          ? assets.picks.find((p) => p.year === yr && p.round === rd && p.originalTeam === reqOrig)
-          : undefined;
+        let owned = reqOrig ? assets.picks.find((p) => p.year === yr && p.round === rd && p.originalTeam === reqOrig) : undefined;
         if (!owned) owned = assets.picks.find((p) => p.year === yr && p.round === rd);
         if (owned) filtered.push({ type: 'pick', year: yr, round: rd, originalTeam: owned.originalTeam });
       }
@@ -59,14 +57,15 @@ export async function PUT(req: NextRequest) {
     }
   }
 
-  const doc = await readUserDoc(ident.userId, ident.team);
+  const doc = await readUserDoc(membership.userId, membership.teamName, membership.leagueId);
   const oldBlock = doc.tradeBlock || [];
   const oldWants = doc.tradeWants || null;
-  
+
+  doc.leagueId = membership.leagueId;
+  doc.team = membership.teamName;
   doc.tradeBlock = filtered;
   const pos = Array.isArray(wants.positions) ? wants.positions.map(String).slice(0, 12) : [];
   const text = typeof wants.text === 'string' ? wants.text.slice(0, 300) : undefined;
-  // Validate contact preferences
   const mRaw = typeof wants.contactMethod === 'string' ? wants.contactMethod.toLowerCase() : undefined;
   const allowed = new Set(['text', 'discord', 'snap', 'sleeper']);
   const contactMethod = allowed.has(mRaw as string) ? (mRaw as 'text' | 'discord' | 'snap' | 'sleeper') : undefined;
@@ -74,14 +73,10 @@ export async function PUT(req: NextRequest) {
   let snap: string | undefined;
   if (contactMethod === 'text') {
     const raw = typeof wants.phone === 'string' ? wants.phone : '';
-    const digits = raw.replace(/[^0-9+]/g, '');
-    // Keep a leading + if present, otherwise just digits
-    phone = digits.slice(0, 20);
+    phone = raw.replace(/[^0-9+]/g, '').slice(0, 20);
   } else if (contactMethod === 'snap') {
     const raw = typeof wants.snap === 'string' ? wants.snap : '';
-    // Snap usernames: letters, numbers, underscore, dot; 3-15 typical but we allow up to 30
-    const cleaned = raw.replace(/[^a-zA-Z0-9._-]/g, '');
-    snap = cleaned.slice(0, 30);
+    snap = raw.replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 30);
   }
   const newWants: TradeWants = { text, positions: pos, contactMethod, phone, snap };
   doc.tradeWants = newWants;
@@ -90,13 +85,10 @@ export async function PUT(req: NextRequest) {
   doc.updatedAt = updatedAt;
   const ok = await writeUserDoc(doc);
   if (!ok) return Response.json({ error: 'Persist failed' }, { status: 500 });
-  
-  // Post trade block update immediately to Discord (best-effort, don't block response)
+
+  // Post trade block update to Discord (best-effort)
   try {
     const { computeDiff, buildTradeBlockReport, getTradeBlockBaseUrl, getLeagueMarketContext } = await import('@/lib/server/trade-block-narrative');
-
-    // Sanitize oldBlock: strip assets the team no longer owns (traded away) so they
-    // don't appear as "manually removed from trade block" in the Discord message.
     const ownedPlayerSet = new Set(assets.players);
     const ownedPickKeys = new Set(assets.picks.map((p) => `${p.year}-${p.round}-${p.originalTeam}`));
     const sanitizedOldBlock = (oldBlock as TradeAsset[]).filter((a) => {
@@ -104,37 +96,31 @@ export async function PUT(req: NextRequest) {
       if (a.type === 'pick') return ownedPickKeys.has(`${a.year}-${a.round}-${a.originalTeam ?? ''}`);
       return true;
     });
-
     const diff = await computeDiff(sanitizedOldBlock, filtered, oldWants as TradeWants | null, newWants);
     const baseUrl = getTradeBlockBaseUrl();
-    const leagueContext = await getLeagueMarketContext().catch(() => undefined);
-    
+    const leagueContext = await getLeagueMarketContext(membership.leagueId).catch(() => undefined);
     const currentPlayers = filtered.filter((a) => a.type === 'player');
-    
     const message = await buildTradeBlockReport({
-      teamName: ident.team,
+      teamName: membership.teamName,
       diff,
       currentPlayers,
       baseUrl,
       updatedAt,
       leagueContext,
     });
-    
     if (message) {
-      const { tradeBlock: webhookUrl } = await getDiscordWebhooks();
+      const { tradeBlock: webhookUrl } = await getDiscordWebhooks(membership.leagueId);
       if (webhookUrl) {
-        const tradeBlockUrl = baseUrl ? `${baseUrl}/trades/block` : `${process.env.SITE_URL ?? ''}/trades/block`;
+        const tradeBlockUrl = baseUrl ? `${baseUrl}/trades/block` : `${process.env.SITE_URL ?? ''}/l/${membership.leagueSlug}/trade-block`;
         const urlSuffix = `\n\n${tradeBlockUrl}`;
-        const descriptionText = message.endsWith(urlSuffix)
-          ? message.slice(0, -urlSuffix.length).trim()
-          : message.trim();
+        const descriptionText = message.endsWith(urlSuffix) ? message.slice(0, -urlSuffix.length).trim() : message.trim();
         await postToDiscordWebhook(webhookUrl, {
           embeds: [{
-            author: { name: ident.team },
+            author: { name: membership.teamName },
             description: descriptionText,
             url: tradeBlockUrl,
             color: 0xbe161e,
-            footer: { text: 'Fantasy League · Trade Block' },
+            footer: { text: `${membership.leagueName} · Trade Block` },
             timestamp: new Date().toISOString(),
           }],
         }).catch((e) => console.error('Discord webhook error:', e));
@@ -143,6 +129,6 @@ export async function PUT(req: NextRequest) {
   } catch (e) {
     console.error('Trade block webhook error:', e);
   }
-  
+
   return Response.json({ ok: true, tradeBlock: doc.tradeBlock, tradeWants: doc.tradeWants });
 }

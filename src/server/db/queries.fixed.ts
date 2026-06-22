@@ -1499,23 +1499,19 @@ export async function getUserByEmail(email: string) {
   return row || null;
 }
 
-export async function createSuggestion(params: { userId?: string | null; text: string; category?: string | null; createdAt?: Date }) {
+export async function createSuggestion(params: { userId?: string | null; leagueId?: string | null; text: string; category?: string | null; createdAt?: Date }) {
   await ensureSuggestionDisplayNumberColumn();
   const db = getDb();
-  // Create suggestion with atomically assigned display_number in a single statement
-  // Note: This CTE approach is atomic within Postgres. The entire INSERT statement
-  // executes atomically, so MAX(display_number) is evaluated and used within the
-  // same transaction. This prevents duplicate display numbers under normal conditions.
-  // For extreme concurrency, consider using a Postgres SEQUENCE instead.
   const res = await db.execute(sql`
     WITH next_num AS (
       SELECT COALESCE(MAX(display_number), 0) + 1 AS num
       FROM suggestions
     )
-    INSERT INTO suggestions (id, user_id, text, category, status, created_at, display_number)
+    INSERT INTO suggestions (id, user_id, league_id, text, category, status, created_at, display_number)
     VALUES (
       gen_random_uuid(),
       ${params.userId || null}::uuid,
+      ${params.leagueId || null}::uuid,
       ${params.text},
       ${params.category || null},
       'open',
@@ -1551,8 +1547,14 @@ export async function createSuggestion(params: { userId?: string | null; text: s
   };
 }
 
-export async function listSuggestions() {
+export async function listSuggestions(leagueId?: string | null) {
   const db = getDb();
+  if (leagueId) {
+    const res = await db.execute(sql`
+      SELECT * FROM suggestions WHERE league_id = ${leagueId}::uuid ORDER BY created_at DESC
+    `);
+    return (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
+  }
   const rows = await db.select().from(suggestions).orderBy(desc(suggestions.createdAt));
   return rows;
 }
@@ -2239,8 +2241,18 @@ export async function getFirstTaxiSeenForPlayer(params: { season: number; teamId
   return rows[0] || null as null | { season: number; week: number; runTs: Date; runType: string };
 }
 
-export async function getUserDoc(userId: string) {
+export async function getUserDoc(userId: string, leagueId?: string | null) {
   const db = getDb();
+  if (leagueId) {
+    // Prefer the league-scoped row when leagueId is provided
+    const [leagueRow] = await db
+      .select()
+      .from(userDocs)
+      .where(and(eq(userDocs.userId, userId), eq(userDocs.leagueId, leagueId)))
+      .limit(1);
+    if (leagueRow) return leagueRow;
+  }
+  // Fall back to the legacy single-row (no leagueId)
   const [row] = await db.select().from(userDocs).where(eq(userDocs.userId, userId)).limit(1);
   return row || null;
 }
@@ -2258,6 +2270,7 @@ export async function getUserDocByTeam(team: string) {
 
 export async function setUserDoc(doc: {
   userId: string;
+  leagueId?: string | null;
   team: string;
   version: number;
   updatedAt: Date;
@@ -2266,6 +2279,30 @@ export async function setUserDoc(doc: {
   tradeWants?: { text?: string; positions?: string[] } | null;
 }) {
   const db = getDb();
+  if (doc.leagueId) {
+    // Use raw SQL upsert targeting the (user_id, league_id) partial unique index
+    const res = await db.execute(sql`
+      INSERT INTO user_docs (user_id, league_id, team, version, updated_at, votes, trade_block, trade_wants)
+      VALUES (
+        ${doc.userId}, ${doc.leagueId}::uuid, ${doc.team}, ${doc.version}, ${doc.updatedAt.toISOString()}::timestamptz,
+        ${doc.votes ? JSON.stringify(doc.votes) : null}::jsonb,
+        ${doc.tradeBlock ? JSON.stringify(doc.tradeBlock) : null}::jsonb,
+        ${doc.tradeWants ? JSON.stringify(doc.tradeWants) : null}::jsonb
+      )
+      ON CONFLICT (user_id, league_id) WHERE league_id IS NOT NULL
+      DO UPDATE SET
+        team        = EXCLUDED.team,
+        version     = EXCLUDED.version,
+        updated_at  = EXCLUDED.updated_at,
+        votes       = EXCLUDED.votes,
+        trade_block = EXCLUDED.trade_block,
+        trade_wants = EXCLUDED.trade_wants
+      RETURNING *
+    `);
+    const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
+    return rows[0] || null;
+  }
+  // Legacy: upsert on userId PK only
   const [row] = await db
     .insert(userDocs)
     .values({

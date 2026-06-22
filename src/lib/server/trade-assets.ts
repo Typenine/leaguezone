@@ -295,8 +295,15 @@ export type TradeBlockLeagueContext = {
   ownerships: Array<NextDraftOwnership | null>;
 };
 
-export async function loadTradeBlockLeagueContext(): Promise<TradeBlockLeagueContext> {
-  const leagueId = LEAGUE_IDS.CURRENT;
+export async function loadTradeBlockLeagueContext(dbLeagueId?: string | null): Promise<TradeBlockLeagueContext> {
+  let leagueId = LEAGUE_IDS.CURRENT;
+  if (dbLeagueId) {
+    try {
+      const { getLeagueIdsFromDb } = await import('@/lib/server/league-config');
+      const ids = await getLeagueIdsFromDb(dbLeagueId);
+      if (ids.current) leagueId = ids.current;
+    } catch {}
+  }
   const league = await getLeague(leagueId).catch(() => null);
   const rosters = await getLeagueRosters(leagueId).catch(() => []);
   const nameMap = await getRosterIdToTeamNameMap(leagueId).catch(() => new Map<number, string>());
@@ -366,8 +373,8 @@ export function teamAssetsFromContext(team: string, ctx: TradeBlockLeagueContext
   return { players: rosterPlayers, picks, faab: faabAvail };
 }
 
-export async function getTeamAssets(team: string): Promise<TeamAssets> {
-  const ctx = await loadTradeBlockLeagueContext();
+export async function getTeamAssets(team: string, dbLeagueId?: string | null, _rosterId?: number | null): Promise<TeamAssets> {
+  const ctx = await loadTradeBlockLeagueContext(dbLeagueId);
   return teamAssetsFromContext(team, ctx);
 }
 

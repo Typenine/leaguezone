@@ -10,8 +10,8 @@ export const PLATFORM = {
   tagline: 'Custom fantasy football league websites for serious dynasty commissioners.',
   description:
     'A branded league headquarters that works alongside Sleeper — team pages, rulebook, draft hub, trade block, suggestions, voting, and league history in one polished home.',
-  /** Contact target for setup requests while self-serve creation is not built. */
-  contactEmail: 'commissioner@example.com',
+  /** Contact target for setup requests and support. */
+  contactEmail: process.env.PLATFORM_CONTACT_EMAIL || 'hello@leaguezonehq.com',
   disclaimer:
     'LeagueZone HQ is an independent product and is not affiliated with, endorsed by, or sponsored by the NFL, Sleeper, ESPN, Yahoo, or any other league platform.',
 } as const;

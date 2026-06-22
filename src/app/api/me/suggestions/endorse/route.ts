@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getActiveLeagueMembership } from '@/lib/server/membership';
 import { requireTeamUser } from '@/lib/server/session';
 import {
   addSuggestionEndorsement,
@@ -23,30 +24,15 @@ async function postBallotEligibleDiscord(
 ) {
   if (!DISCORD_WEBHOOK_URL) return;
   const base = (SITE_URL || '').replace(/\/$/, '');
-  // Use stable detail URL (not anchor)
   const link = base ? `${base}/suggestions/${suggestionId}` : undefined;
-
-  // Build embed with title, category, count, and proposer info
   const embedTitle = title ? `🗳️ Ballot Eligible: ${title}` : '🗳️ Ballot Eligible';
   let description = `**This suggestion has reached the ballot!**\n\n`;
   description += `**Endorsements:** ${eligibleCount}/3 (threshold met)\n`;
   if (category) description += `**Category:** ${category}\n`;
   if (proposerTeam) description += `**Proposed by:** ${proposerTeam}\n`;
   if (link) description += `\n🔗 **[View Suggestion](${link})**`;
-
-  const embed = {
-    title: embedTitle,
-    description,
-    url: link,
-    color: 0x16a34a, // green
-    timestamp: new Date().toISOString(),
-  };
-
-  // Plain text link at top level for maximum visibility - include title for identification
-  const plainContent = link
-    ? `🗳️ **Ballot Eligible${title ? `: ${title}` : ''}** (${eligibleCount}/3 endorsements)\n${link}`
-    : undefined;
-
+  const embed = { title: embedTitle, description, url: link, color: 0x16a34a, timestamp: new Date().toISOString() };
+  const plainContent = link ? `🗳️ **Ballot Eligible${title ? `: ${title}` : ''}** (${eligibleCount}/3 endorsements)\n${link}` : undefined;
   const payload = { content: plainContent, embeds: [embed], allowed_mentions: { parse: [] } };
   const doPost = async (): Promise<Response> => fetch(DISCORD_WEBHOOK_URL!, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
   try {
@@ -67,13 +53,24 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function PUT(req: NextRequest) {
-  const ident = await requireTeamUser();
-  if (!ident) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  // Resolve team identity — prefer new account-based session, fall back to legacy PIN session
+  let teamName: string | null = null;
+
+  const membershipResult = await getActiveLeagueMembership();
+  if (membershipResult.ok && membershipResult.membership.teamName) {
+    teamName = membershipResult.membership.teamName;
+  } else {
+    // Legacy PIN fallback
+    const legacyIdent = await requireTeamUser();
+    if (legacyIdent?.team) teamName = legacyIdent.team;
+  }
+
+  if (!teamName) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
   type EndorseBody = { suggestionId?: string; endorse?: boolean };
   const body = (await req.json().catch(() => ({}))) as EndorseBody;
   const suggestionId = typeof body.suggestionId === 'string' ? body.suggestionId.trim() : '';
-  const endorseRaw = body.endorse;
-  const endorse = typeof endorseRaw === 'boolean' ? endorseRaw : null;
+  const endorse = typeof body.endorse === 'boolean' ? body.endorse : null;
   if (!suggestionId) return Response.json({ error: 'suggestionId required' }, { status: 400 });
   if (endorse === null) return Response.json({ error: 'endorse boolean required' }, { status: 400 });
 
@@ -87,18 +84,11 @@ export async function PUT(req: NextRequest) {
     const isVague = vagueMap[suggestionId] === true;
     const hasVoteTag = !!voteTagMap[suggestionId];
     if (isVague || hasVoteTag) {
-      return Response.json(
-        { error: 'Cannot endorse a suggestion that has been voted on or needs clarification.' },
-        { status: 403 }
-      );
+      return Response.json({ error: 'Cannot endorse a suggestion that has been voted on or needs clarification.' }, { status: 403 });
     }
-    // Block self-endorsement (proposer cannot endorse their own suggestion)
     const proposer = proposerMap[suggestionId];
-    if (proposer && proposer === ident.team && endorse) {
-      return Response.json(
-        { error: 'You cannot endorse your own proposal.' },
-        { status: 403 }
-      );
+    if (proposer && proposer === teamName && endorse) {
+      return Response.json({ error: 'You cannot endorse your own proposal.' }, { status: 403 });
     }
   } catch (e) {
     console.warn('[endorse] Failed to check vague/voteTag/proposer', e);
@@ -106,15 +96,13 @@ export async function PUT(req: NextRequest) {
 
   try {
     const ok = endorse
-      ? await addSuggestionEndorsement(suggestionId, ident.team)
-      : await removeSuggestionEndorsement(suggestionId, ident.team);
+      ? await addSuggestionEndorsement(suggestionId, teamName)
+      : await removeSuggestionEndorsement(suggestionId, teamName);
     if (!ok) return Response.json({ error: 'Persist failed' }, { status: 500 });
-    // If endorsed, check ballot eligibility atomically and notify once
     if (endorse) {
       try {
         const { becameEligible, eligibleCount } = await markBallotEligibleIfThreshold(suggestionId);
         if (becameEligible) {
-          // Fetch title, category, and proposer for the Discord message
           let title: string | undefined;
           let category: string | undefined;
           let proposerTeam: string | undefined;

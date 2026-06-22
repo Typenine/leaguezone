@@ -570,9 +570,12 @@ function formatPickTags(tags: string[]): string[] {
   });
 }
 
-export async function getLeagueMarketContext(): Promise<LeagueMarketContext> {
+export async function getLeagueMarketContext(leagueId?: string | null): Promise<LeagueMarketContext> {
   const { listAllUserDocs } = await import('@/server/db/queries');
-  const allDocs = await listAllUserDocs().catch(() => []);
+  const allDocsRaw = await listAllUserDocs().catch(() => []);
+  const allDocs = leagueId
+    ? allDocsRaw.filter((d: Record<string, unknown>) => !d.leagueId || d.leagueId === leagueId)
+    : allDocsRaw;
   
   const teamsSeekingPositions: Record<string, number> = {};
   const teamsSeekingPickRounds: Record<string, number> = {};

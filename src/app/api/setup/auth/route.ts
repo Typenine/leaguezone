@@ -1,31 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
+import { requireUser } from '@/lib/server/session';
 
-// GET - Load teams with invite codes
-export async function GET() {
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+async function resolveLeagueId(userId: string, bodyLeagueId?: string): Promise<string | null> {
+  const jar = await cookies();
+  return (
+    (typeof bodyLeagueId === 'string' ? bodyLeagueId : null) ||
+    jar.get('setup_league_id')?.value ||
+    jar.get('active_league_id')?.value ||
+    null
+  );
+}
+
+export async function GET(request: NextRequest) {
   try {
-    const db = getDb();
+    const session = await requireUser();
+    if (!session) return NextResponse.json({ teams: [] }, { status: 401 });
 
-    const leagueRes = await db.execute(sql`
-      SELECT id FROM leagues WHERE setup_completed = false ORDER BY created_at DESC LIMIT 1
+    const url = new URL(request.url);
+    const leagueId = await resolveLeagueId(session.userId, url.searchParams.get('leagueId') || undefined);
+    if (!leagueId) return NextResponse.json({ teams: [] });
+
+    const db = getDb();
+    const ownerCheck = await db.execute(sql`
+      SELECT id FROM leagues
+      WHERE id = ${leagueId}::uuid
+        AND (commissioner_user_id = ${session.userId}::uuid OR commissioner_user_id IS NULL)
+      LIMIT 1
     `);
-    
-    const leagueRow = (leagueRes as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-    
-    if (!leagueRow) {
-      return NextResponse.json({ teams: [] });
-    }
+    if (!(ownerCheck as { rows?: unknown[] }).rows?.length) return NextResponse.json({ teams: [] });
 
     const invitesRes = await db.execute(sql`
-      SELECT team_name, invite_code FROM league_invites WHERE league_id = ${leagueRow.id}::uuid
+      SELECT team_name, invite_code FROM league_invites WHERE league_id = ${leagueId}::uuid ORDER BY team_name
     `);
-
-    const teams = ((invitesRes as { rows?: Array<Record<string, unknown>> }).rows || []).map(row => ({
+    const teams = ((invitesRes as { rows?: Array<Record<string, unknown>> }).rows || []).map((row) => ({
       teamName: row.team_name,
       inviteCode: row.invite_code,
     }));
-
     return NextResponse.json({ teams });
   } catch (error) {
     console.error('[setup/auth GET] Error:', error);
@@ -33,37 +49,36 @@ export async function GET() {
   }
 }
 
-// POST - Save auth settings and complete setup
 export async function POST(request: NextRequest) {
   try {
+    const session = await requireUser();
+    if (!session) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+
     const body = await request.json();
-    const { authMethod, defaultPin } = body;
+    const { authMethod, defaultPin, leagueId: bodyLeagueId } = body;
 
-    const db = getDb();
-
-    const leagueRes = await db.execute(sql`
-      SELECT id FROM leagues WHERE setup_completed = false ORDER BY created_at DESC LIMIT 1
-    `);
-    
-    const leagueRow = (leagueRes as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-    
-    if (!leagueRow) {
-      return NextResponse.json(
-        { error: 'No league found. Please start setup from the beginning.' },
-        { status: 400 }
-      );
+    const leagueId = await resolveLeagueId(session.userId, bodyLeagueId);
+    if (!leagueId) {
+      return NextResponse.json({ error: 'No league found. Please start setup from the beginning.' }, { status: 400 });
     }
 
-    const leagueId = leagueRow.id;
+    const db = getDb();
+    const ownerCheck = await db.execute(sql`
+      SELECT id FROM leagues
+      WHERE id = ${leagueId}::uuid
+        AND (commissioner_user_id = ${session.userId}::uuid OR commissioner_user_id IS NULL)
+      LIMIT 1
+    `);
+    if (!(ownerCheck as { rows?: unknown[] }).rows?.length) {
+      return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
+    }
 
-    // If using default PIN, update all invites
     if (authMethod === 'pin' && defaultPin) {
       await db.execute(sql`
         UPDATE league_invites SET default_pin = ${defaultPin} WHERE league_id = ${leagueId}::uuid
       `);
     }
 
-    // Update league config and mark setup as complete
     await db.execute(sql`
       UPDATE leagues SET
         setup_completed = true,
@@ -77,18 +92,19 @@ export async function POST(request: NextRequest) {
             )
           ),
           '{authMethod}',
-          ${JSON.stringify(authMethod)}::jsonb
+          ${JSON.stringify(authMethod || 'invite')}::jsonb
         ),
         updated_at = now()
       WHERE id = ${leagueId}::uuid
     `);
 
+    // Clear the setup cookie now that setup is complete
+    const jar = await cookies();
+    jar.delete('setup_league_id');
+
     return NextResponse.json({ success: true, leagueId });
   } catch (error) {
     console.error('[setup/auth POST] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to save auth settings' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to save auth settings' }, { status: 500 });
   }
 }

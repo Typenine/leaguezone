@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { sql } from 'drizzle-orm';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
+import { getActiveLeagueMembership } from '@/lib/server/membership';
 import { getDb } from '@/server/db/client';
 
 export const runtime = 'nodejs';
@@ -27,12 +28,22 @@ async function isAdminRequest() {
   return isAdminCookieValue(jar.get('evw_admin')?.value) || isSiteAdminCookieValue(jar.get('site_admin')?.value);
 }
 
+async function requireCommissionerOrAdmin(): Promise<{ ok: boolean; leagueId?: string }> {
+  if (await isAdminRequest()) {
+    const jar = await cookies();
+    return { ok: true, leagueId: jar.get('active_league_id')?.value };
+  }
+  const m = await getActiveLeagueMembership();
+  if (m.ok && m.membership.isCommissioner) return { ok: true, leagueId: m.membership.leagueId };
+  return { ok: false };
+}
+
 export async function GET() {
-  if (!(await isAdminRequest())) {
+  const auth = await requireCommissionerOrAdmin();
+  if (!auth.ok) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  const activeLeagueId = await getActiveLeagueId();
+  const activeLeagueId = auth.leagueId;
   if (!activeLeagueId) return NextResponse.json({ error: 'No active league selected' }, { status: 400 });
 
   try {

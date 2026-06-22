@@ -7,19 +7,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifySession } from '@/lib/server/auth';
+import { getActiveLeagueMembership } from '@/lib/server/membership';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-async function getTeamFromCookie(): Promise<string | null> {
+/** Resolve team name and active league from either account session or legacy PIN session. */
+async function resolveTeamContext(): Promise<{ team: string; leagueId: string | undefined } | null> {
+  // Try account-based session first
+  const membership = await getActiveLeagueMembership();
+  if (membership.ok) {
+    return { team: membership.membership.teamName, leagueId: membership.membership.leagueId };
+  }
+
+  // Fall back to legacy PIN session (evw_session cookie)
   const jar = await cookies();
   const token = jar.get('evw_session')?.value || '';
   if (!token) return null;
   try {
     const claims = verifySession(token);
-    return (claims?.team as string) || (claims?.sub as string) || null;
+    const team = (claims?.team as string) || (claims?.sub as string) || null;
+    if (!team) return null;
+    const activeLeagueId = jar.get('active_league_id')?.value || undefined;
+    return { team, leagueId: activeLeagueId };
   } catch {
     return null;
   }
@@ -34,13 +46,11 @@ async function getLeagueRow(activeLeagueId?: string) {
 }
 
 export async function GET() {
-  const team = await getTeamFromCookie();
-  if (!team) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const ctx = await resolveTeamContext();
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const jar = await cookies();
-    const activeLeagueId = jar.get('active_league_id')?.value || undefined;
-    const row = await getLeagueRow(activeLeagueId);
+    const row = await getLeagueRow(ctx.leagueId);
     if (!row) return NextResponse.json({ logoUrl: null, primaryColor: null, secondaryColor: null });
 
     const config = (row.config as Record<string, unknown>) ?? {};
@@ -48,10 +58,10 @@ export async function GET() {
     const teamColors = (config.teamColors as Record<string, { primary?: string; secondary?: string }>) ?? {};
 
     return NextResponse.json({
-      logoUrl: teamLogos[team] ?? null,
-      primaryColor: teamColors[team]?.primary ?? null,
-      secondaryColor: teamColors[team]?.secondary ?? null,
-      helmetColorIndex: (teamColors[team] as { helmetIndex?: number | null } | undefined)?.helmetIndex ?? null,
+      logoUrl: teamLogos[ctx.team] ?? null,
+      primaryColor: teamColors[ctx.team]?.primary ?? null,
+      secondaryColor: teamColors[ctx.team]?.secondary ?? null,
+      helmetColorIndex: (teamColors[ctx.team] as { helmetIndex?: number | null } | undefined)?.helmetIndex ?? null,
     });
   } catch {
     return NextResponse.json({ logoUrl: null, primaryColor: null, secondaryColor: null });
@@ -59,8 +69,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const team = await getTeamFromCookie();
-  if (!team) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const ctx = await resolveTeamContext();
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const logoUrl = typeof body.logoUrl === 'string' ? body.logoUrl.trim() || null : null;
@@ -69,9 +79,7 @@ export async function POST(req: NextRequest) {
   const helmetColorIndex = typeof body.helmetColorIndex === 'number' ? Math.max(0, Math.floor(body.helmetColorIndex)) : null;
 
   try {
-    const jar = await cookies();
-    const activeLeagueId = jar.get('active_league_id')?.value || undefined;
-    const row = await getLeagueRow(activeLeagueId);
+    const row = await getLeagueRow(ctx.leagueId);
     if (!row) return NextResponse.json({ error: 'No league found' }, { status: 404 });
 
     const rowId = row.id as string;
@@ -81,10 +89,10 @@ export async function POST(req: NextRequest) {
       ...((config.teamColors as Record<string, { primary?: string; secondary?: string }>) ?? {}),
     };
 
-    if (logoUrl !== undefined) teamLogos[team] = logoUrl;
+    if (logoUrl !== undefined) teamLogos[ctx.team] = logoUrl;
     if (primaryColor !== undefined || secondaryColor !== undefined || helmetColorIndex !== undefined) {
-      teamColors[team] = {
-        ...teamColors[team],
+      teamColors[ctx.team] = {
+        ...teamColors[ctx.team],
         ...(primaryColor !== undefined ? { primary: primaryColor } : {}),
         ...(secondaryColor !== undefined ? { secondary: secondaryColor } : {}),
         ...(helmetColorIndex !== undefined ? { helmetIndex: helmetColorIndex } : {}),

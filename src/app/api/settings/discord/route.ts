@@ -1,23 +1,17 @@
 /**
  * GET  /api/settings/discord  – read Discord webhook URLs for the active league
- * POST /api/settings/discord  – save Discord webhook URLs (admin only)
- *   body: { suggestions?, trades?, tradeBlock? }
- *   Stored in leagues.config.discordWebhooks; env vars remain as fallback.
+ * POST /api/settings/discord  – save Discord webhook URLs (commissioner only)
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { isAdminCookieValue } from '@/lib/auth/admin';
+import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
 import { getDiscordWebhooks } from '@/lib/server/league-config';
+import { requireLeagueCommissioner } from '@/lib/server/membership';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-async function requireAdmin(): Promise<boolean> {
-  const jar = await cookies();
-  return isAdminCookieValue(jar.get('evw_admin')?.value);
-}
 
 async function getActiveLeagueId(): Promise<string | undefined> {
   const jar = await cookies();
@@ -35,21 +29,33 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const jar = await cookies();
+  const isSiteAdmin = isSiteAdminCookieValue(jar.get('site_admin')?.value);
+  const isLegacyAdmin = isAdminCookieValue(jar.get('evw_admin')?.value) || isSiteAdmin;
+
+  let leagueId: string | null = jar.get('active_league_id')?.value || null;
+
+  if (!isLegacyAdmin) {
+    try {
+      const membership = await requireLeagueCommissioner();
+      leagueId = membership.leagueId;
+    } catch {
+      return NextResponse.json({ error: 'Commissioner access required' }, { status: 403 });
+    }
   }
+
+  if (!leagueId) {
+    return NextResponse.json({ error: 'No active league selected' }, { status: 400 });
+  }
+
   try {
     const body = await req.json();
     const suggestions = typeof body.suggestions === 'string' ? body.suggestions.trim() || null : null;
     const trades = typeof body.trades === 'string' ? body.trades.trim() || null : null;
     const tradeBlock = typeof body.tradeBlock === 'string' ? body.tradeBlock.trim() || null : null;
 
-    const leagueId = await getActiveLeagueId();
     const db = getDb();
-
-    const res = leagueId
-      ? await db.execute(sql`SELECT id, config FROM leagues WHERE setup_completed = true AND id = ${leagueId}::uuid LIMIT 1`)
-      : await db.execute(sql`SELECT id, config FROM leagues WHERE setup_completed = true ORDER BY created_at DESC LIMIT 1`);
+    const res = await db.execute(sql`SELECT id, config FROM leagues WHERE id = ${leagueId}::uuid AND setup_completed = true LIMIT 1`);
     const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
     if (!row) return NextResponse.json({ error: 'No league found' }, { status: 404 });
 
@@ -59,7 +65,7 @@ export async function POST(req: NextRequest) {
     await db.execute(sql`
       UPDATE leagues
       SET config = ${JSON.stringify(newConfig)}::jsonb, updated_at = now()
-      WHERE id = ${row.id as string}::uuid
+      WHERE id = ${leagueId}::uuid
     `);
 
     return NextResponse.json({ ok: true });
