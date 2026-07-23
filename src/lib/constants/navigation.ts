@@ -1,3 +1,5 @@
+import { PLATFORM_FEATURES } from '@/lib/config/features';
+
 export type UserNavItem = {
   id: string;
   label: string;
@@ -67,6 +69,8 @@ export const USER_NAV_CONFIG: UserNavItem[] = [
     ],
   },
   { id: 'suggestions', label: 'Suggestions', href: '/suggestions' },
-  { id: 'newsletter', label: 'Newsletter', href: '/newsletter' },
+  ...(PLATFORM_FEATURES.newsletter
+    ? [{ id: 'newsletter', label: 'Newsletter', href: '/newsletter' } satisfies UserNavItem]
+    : []),
   { id: 'settings', label: 'Settings', href: '/settings' },
 ];

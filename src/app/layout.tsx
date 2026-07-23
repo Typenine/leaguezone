@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import { cookies } from 'next/headers';
 
 import Navbar from '@/components/layout/navbar';
+import GlobalLeagueSwitcher from '@/components/GlobalLeagueSwitcher';
 import Footer from '@/components/layout/footer';
 import SetupCheck from '@/components/SetupCheck';
 import LeagueThemeScope from '@/components/LeagueThemeScope';
@@ -138,6 +139,9 @@ export default async function RootLayout({
             <SetupCheck>
               <Suspense fallback={null}>
                 <Navbar />
+              </Suspense>
+              <Suspense fallback={null}>
+                <GlobalLeagueSwitcher />
               </Suspense>
               <main className="flex-grow">{children}</main>
               <Footer />

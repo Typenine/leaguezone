@@ -38,6 +38,16 @@ test.describe('Public product pages', () => {
     const body = await page.content();
     expect(body.toLowerCase()).toMatch(/not found|404|invalid/);
   });
+
+  test('newsletter is dormant by default', async ({ page, request }) => {
+    await page.goto(BASE_URL + '/newsletter');
+    await expect(page.getByText('Newsletter is dormant', { exact: true })).toBeVisible();
+
+    const response = await request.get(BASE_URL + '/api/newsletter/episodes', { maxRedirects: 0 });
+    expect(response.status()).toBe(410);
+    const body = await response.json();
+    expect(body).toMatchObject({ error: 'Newsletter feature is currently dormant.' });
+  });
 });
 
 test.describe('Authentication boundaries', () => {

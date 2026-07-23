@@ -39,7 +39,6 @@ function hasUsableSessionCookie(token: string, now = Date.now()): boolean {
   return typeof legacyTeam === 'string' && legacyTeam.length > 0;
 }
 
-// Paths to protect (require session cookie)
 const PROTECTED_PREFIXES = [
   '/trade-block',
   '/vote',
@@ -49,14 +48,12 @@ const PROTECTED_PREFIXES = [
 ];
 
 function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
+  return PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 function unauthenticatedResponse(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  // API callers need a real 401 response. Redirecting a fetch request to the
-  // HTML login page causes JSON parsing failures and repeated sign-in prompts.
   if (pathname.startsWith('/api/')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -66,23 +63,49 @@ function unauthenticatedResponse(req: NextRequest) {
   return NextResponse.redirect(url);
 }
 
+function newsletterDormantResponse(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const isApi = pathname === '/api/newsletter' || pathname.startsWith('/api/newsletter/');
+
+  if (isApi) {
+    return NextResponse.json(
+      { error: 'Newsletter feature is currently dormant.' },
+      { status: 410 },
+    );
+  }
+
+  if (pathname !== '/newsletter') {
+    return NextResponse.redirect(new URL('/newsletter', req.url));
+  }
+
+  return null;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const adminCookie = req.cookies.get('evw_admin')?.value || '';
   const siteAdminCookie = req.cookies.get('site_admin')?.value || '';
   const isAdmin = isAdminCookieValue(adminCookie) || isSiteAdminCookieValue(siteAdminCookie);
 
-  // Optional: draft preview lock using EVW_PREVIEW_SECRET
+  const newsletterEnabled = process.env.NEXT_PUBLIC_NEWSLETTER_ENABLED === 'true';
+  const isNewsletterPath = pathname === '/newsletter'
+    || pathname.startsWith('/newsletter/')
+    || pathname === '/api/newsletter'
+    || pathname.startsWith('/api/newsletter/');
+
+  if (!newsletterEnabled && isNewsletterPath) {
+    const dormantResponse = newsletterDormantResponse(req);
+    if (dormantResponse) return dormantResponse;
+  }
+
   const previewSecret = process.env.EVW_PREVIEW_SECRET || '';
   const isDraftFeaturePath = pathname === '/draft/room' || pathname === '/draft/overlay' || pathname === '/admin/draft' || pathname.startsWith('/api/draft');
   if (previewSecret && isDraftFeaturePath) {
-    // Allow admin or site admin cookie
     const draftAdminCookie = req.cookies.get('evw_admin')?.value || '';
     const siteAdminCk = req.cookies.get('site_admin')?.value || '';
     if (isAdminCookieValue(draftAdminCookie) || isSiteAdminCookieValue(siteAdminCk)) {
-      // admin allowed
+      // Admin allowed.
     } else {
-      // Support one-time unlock via query param ?preview_key=SECRET (sets evw_preview cookie)
       const key = req.nextUrl.searchParams.get('preview_key');
       if (key && key === previewSecret) {
         const url = new URL(req.url);
@@ -104,7 +127,6 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // Allow admin to access Draft Room without a user session
   if (pathname === '/draft/room' && isAdmin) {
     return NextResponse.next();
   }
@@ -128,5 +150,7 @@ export const config = {
     '/draft/:path*',
     '/admin/draft',
     '/api/draft/:path*',
+    '/newsletter/:path*',
+    '/api/newsletter/:path*',
   ],
 };

@@ -10,18 +10,12 @@ export const PLATFORM = {
   tagline: 'Custom fantasy football league websites for serious dynasty commissioners.',
   description:
     'A branded league headquarters that works alongside Sleeper — team pages, rulebook, draft hub, trade block, suggestions, voting, and league history in one polished home.',
-  /** Contact target for setup requests and support. */
   contactEmail: process.env.PLATFORM_CONTACT_EMAIL || 'hello@leaguezonehq.com',
   disclaimer:
     'LeagueZone HQ is an independent product and is not affiliated with, endorsed by, or sponsored by the NFL, Sleeper, ESPN, Yahoo, or any other league platform.',
 } as const;
 
-/** Slug of the demo league (East v. West). This is auto-seeded in db-seed.mjs for the public demo. */
 export const DEFAULT_LEAGUE_SLUG = 'east-v-west';
-
-// ---------------------------------------------------------------------------
-// Marketing content
-// ---------------------------------------------------------------------------
 
 export const PRODUCT_FEATURES = [
   {
@@ -123,16 +117,12 @@ export const PRICING_TIERS = [
     price: 'TBD',
     period: 'per season',
     description: 'Custom branding and white-glove setup for leagues that want everything.',
-    features: ['Everything in Commissioner', 'Custom branding & colors', 'Discord announcements', 'Newsletter & podcast hub', 'Priority support'],
+    features: ['Everything in Commissioner', 'Custom branding & colors', 'Discord announcements', 'Advanced imports & archives', 'Priority support'],
     cta: 'Request setup',
     href: '/register',
     highlighted: false,
   },
 ] as const;
-
-// ---------------------------------------------------------------------------
-// League-site navigation (feature-aware)
-// ---------------------------------------------------------------------------
 
 export type LeagueFeatureKey =
   | 'teams'
@@ -142,7 +132,6 @@ export type LeagueFeatureKey =
   | 'suggestions'
   | 'history';
 
-/** All features enabled by default; leagues can disable via `leagues.config.features`. */
 export const DEFAULT_LEAGUE_FEATURES: Record<LeagueFeatureKey, boolean> = {
   teams: true,
   rulebook: true,
@@ -153,12 +142,9 @@ export const DEFAULT_LEAGUE_FEATURES: Record<LeagueFeatureKey, boolean> = {
 };
 
 export type LeagueNavItem = {
-  /** Path segment appended to /l/[leagueSlug] ('' = league home). */
   segment: string;
   label: string;
-  /** Feature flag controlling visibility; undefined = always shown. */
   feature?: LeagueFeatureKey;
-  /** Only shown to commissioners/admins. */
   adminOnly?: boolean;
 };
 
