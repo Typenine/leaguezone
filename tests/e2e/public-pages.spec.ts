@@ -1,6 +1,5 @@
 /**
- * E2E tests for public LeagueZone HQ product pages.
- * These should render platform branding, NOT East v. West league branding.
+ * Core product, auth-boundary, and responsive smoke tests.
  */
 import { test, expect } from '@playwright/test';
 
@@ -9,22 +8,24 @@ const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
 test.describe('Public product pages', () => {
   test('homepage shows LeagueZone HQ branding', async ({ page }) => {
     await page.goto(BASE_URL + '/');
-    await expect(page.getByText('LeagueZone HQ', { exact: false })).toBeVisible();
-    // Should NOT show East v. West specific branding on the product homepage
-    // (It may appear in a "demo league" section, but not as the primary identity)
+    await expect(page.getByText('LeagueZone HQ', { exact: false }).first()).toBeVisible();
   });
 
-  test('/features page loads without league-specific branding', async ({ page }) => {
+  test('/features page loads with product metadata', async ({ page }) => {
     await page.goto(BASE_URL + '/features');
-    // Should show the product features page
-    const title = await page.title();
-    expect(title.toLowerCase()).toContain('leaguezone');
+    await expect(page).toHaveTitle(/leaguezone/i);
   });
 
-  test('/login page shows platform login form', async ({ page }) => {
+  test('/login page shows a usable account form without horizontal overflow', async ({ page }) => {
     await page.goto(BASE_URL + '/login');
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
+
+    const dimensions = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
   });
 
   test('/register page shows registration form', async ({ page }) => {
@@ -32,21 +33,33 @@ test.describe('Public product pages', () => {
     await expect(page.locator('input[type="email"]')).toBeVisible();
   });
 
-  test('invalid invite code shows 404', async ({ page }) => {
+  test('invalid invite code shows a not-found state', async ({ page }) => {
     await page.goto(BASE_URL + '/join/INVALIDCODE999');
-    // Should show 404 or "not found" page
-    const status = page.url();
-    // Either redirected to 404 or content shows not found
     const body = await page.content();
     expect(body.toLowerCase()).toMatch(/not found|404|invalid/);
   });
 });
 
+test.describe('Authentication boundaries', () => {
+  test('protected browser pages preserve the requested destination', async ({ page }) => {
+    await page.goto(BASE_URL + '/trade-block');
+    const destination = new URL(page.url());
+    expect(destination.pathname).toBe('/login');
+    expect(destination.searchParams.get('next')).toBe('/trade-block');
+  });
+
+  test('protected APIs return JSON 401 instead of login HTML', async ({ request }) => {
+    const response = await request.get(BASE_URL + '/api/trade-block', { maxRedirects: 0 });
+    expect(response.status()).toBe(401);
+    expect(response.headers()['content-type']).toContain('application/json');
+    const body = await response.json();
+    expect(body).toMatchObject({ error: 'Unauthorized' });
+  });
+});
+
 test.describe('League-specific pages', () => {
-  test('/l/east-v-west loads the East v. West league', async ({ page }) => {
+  test('/l/east-v-west resolves without an application error URL', async ({ page }) => {
     await page.goto(BASE_URL + '/l/east-v-west');
-    // Page should load (either show the league or a not-found message if not seeded)
-    const statusOk = !page.url().includes('error');
-    expect(statusOk).toBe(true);
+    expect(page.url()).not.toContain('/error');
   });
 });

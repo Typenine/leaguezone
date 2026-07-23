@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { GET as getRosters } from '@/app/api/export/rosters/route';
 import { GET as getRules } from '@/app/api/export/rules/route';
 import { GET as getDrafts } from '@/app/api/export/drafts/route';
@@ -50,12 +50,12 @@ function buildEntitiesIndex(payload: Record<string, unknown>): { players: Player
     }
 
     const teamSet = new Set<string>();
-    const tbs = rosters.teamsBySeason;
-    if (tbs && typeof tbs === 'object') {
-      for (const seasonTeams of Object.values(tbs) as Array<unknown>) {
+    const teamsBySeason = rosters.teamsBySeason;
+    if (teamsBySeason && typeof teamsBySeason === 'object') {
+      for (const seasonTeams of Object.values(teamsBySeason) as Array<unknown>) {
         if (!Array.isArray(seasonTeams)) continue;
-        for (const t of seasonTeams as Array<{ teamName?: string }>) {
-          const name = t?.teamName;
+        for (const team of seasonTeams as Array<{ teamName?: string }>) {
+          const name = team?.teamName;
           if (typeof name === 'string' && name.trim().length > 0) {
             teamSet.add(name);
           }
@@ -76,8 +76,6 @@ function buildEntitiesIndex(payload: Record<string, unknown>): { players: Player
 
 export async function GET() {
   try {
-    // Map logical keys to their route handlers. Calling these directly bypasses
-    // any HTTP-layer auth/middleware and runs entirely on the server.
     const handlers: Record<string, () => Promise<Response>> = {
       rosters: () => getRosters(),
       rules: () => getRules(),
@@ -87,14 +85,11 @@ export async function GET() {
     };
 
     const entries = Object.entries(handlers);
-
     const settled = await Promise.allSettled(
-      entries.map(async ([key, fn]) => {
+      entries.map(async ([key, handler]) => {
         try {
-          const res = await fn();
-          const json = await res
-            .json()
-            .catch(() => null as unknown);
+          const response = await handler();
+          const json = await response.json().catch(() => null as unknown);
           if (json === null) {
             return {
               key,
@@ -103,12 +98,12 @@ export async function GET() {
             };
           }
           return { key, data: json as unknown, error: null as string | null };
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
           return {
             key,
             data: null as unknown,
-            error: `Export handler for ${key} failed: ${msg}`,
+            error: `Export handler for ${key} failed: ${message}`,
           };
         }
       }),
@@ -125,14 +120,9 @@ export async function GET() {
         if (error) errors[key] = error;
       } else {
         payload[key] = null;
-        errors[key] =
-          result.reason instanceof Error
-            ? result.reason.message
-            : String(result.reason);
+        errors[key] = result.reason instanceof Error ? result.reason.message : String(result.reason);
       }
     });
-
-    const entities = buildEntitiesIndex(payload);
 
     const body = {
       meta: {
@@ -141,7 +131,7 @@ export async function GET() {
         generatedAt: new Date().toISOString(),
       },
       ...payload,
-      entities,
+      entities: buildEntitiesIndex(payload),
       errors: Object.keys(errors).length ? errors : undefined,
     };
 
@@ -149,15 +139,11 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Content-Disposition':
-          'attachment; filename="league-export-all.json"',
+        'Content-Disposition': 'attachment; filename="league-export-all.json"',
       },
     });
-  } catch (err) {
-    console.error('export/all GET error', err);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 },
-    );
+  } catch (error) {
+    console.error('export/all GET error', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -1,37 +1,42 @@
-﻿import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
-import "./globals.css";
-import { Suspense } from "react";
-import { cookies } from "next/headers";
+import type { Metadata, Viewport } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
+import './globals.css';
+import { Suspense } from 'react';
+import { cookies } from 'next/headers';
 
-import Navbar from "@/components/layout/navbar";
-import Footer from "@/components/layout/footer";
-import SetupCheck from "@/components/SetupCheck";
-import LeagueThemeScope from "@/components/LeagueThemeScope";
-import { TeamLogoProvider } from "@/contexts/TeamLogoContext";
-import { getLeagueIdsFromDb, getLeagueBranding } from "@/lib/server/league-config";
-import { discoverLeagueChain } from "@/lib/utils/sleeper-api";
+import Navbar from '@/components/layout/navbar';
+import Footer from '@/components/layout/footer';
+import SetupCheck from '@/components/SetupCheck';
+import LeagueThemeScope from '@/components/LeagueThemeScope';
+import { TeamLogoProvider } from '@/contexts/TeamLogoContext';
+import { getLeagueIdsFromDb, getLeagueBranding } from '@/lib/server/league-config';
+import { discoverLeagueChain } from '@/lib/utils/sleeper-api';
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: "LeagueZone HQ — Custom Fantasy League Websites",
-  description: "Custom fantasy football league websites for serious dynasty commissioners.",
+  title: 'LeagueZone HQ — Custom Fantasy League Websites',
+  description: 'Custom fantasy football league websites for serious dynasty commissioners.',
   icons: {
-    icon: [{ url: "/assets/LeagueZone HQ Logo.png", sizes: "512x512", type: "image/png" }],
-    shortcut: "/assets/LeagueZone HQ Logo.png",
-    apple: [{ url: "/assets/LeagueZone HQ Logo.png", sizes: "512x512" }],
+    icon: [{ url: '/assets/LeagueZone HQ Logo.png', sizes: '512x512', type: 'image/png' }],
+    shortcut: '/assets/LeagueZone HQ Logo.png',
+    apple: [{ url: '/assets/LeagueZone HQ Logo.png', sizes: '512x512' }],
   },
-  viewport: "width=device-width, initial-scale=1",
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default async function RootLayout({
@@ -39,21 +44,16 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Read the active league cookie so multi-league sites show the right data.
   const cookieJar = await cookies();
   const activeLeagueId = cookieJar.get('active_league_id')?.value || undefined;
 
-  // Fetch league IDs server-side so client components can read them from
-  // window.__LEAGUE_CONFIG__ without an extra round-trip.
   let leagueConfig = { current: '', previous: {} as Record<string, string> };
   try {
     leagueConfig = await getLeagueIdsFromDb(activeLeagueId);
   } catch {
-    // If DB isn't ready yet (e.g. pre-setup), leave config empty â€” pages will
-    // show their own empty/setup states.
+    // If DB is not ready yet, pages show their own setup or empty states.
   }
 
-  // Fetch branding for the active league (colors, logo, name).
   let branding = {
     name: '',
     shortName: null as string | null,
@@ -66,23 +66,18 @@ export default async function RootLayout({
   try {
     branding = await getLeagueBranding(activeLeagueId);
   } catch {
-    // Non-fatal
+    // Non-fatal.
   }
 
-  // If no previous seasons were explicitly saved (e.g. user only entered the
-  // current league ID during setup), auto-discover the full history by following
-  // the Sleeper previous_league_id chain. Results are cached in-process (1 hr
-  // TTL on getLeague), so this does not hit the Sleeper API on every request.
   let previousLeagueIds = leagueConfig.previous;
   if (leagueConfig.current && Object.keys(previousLeagueIds).length === 0) {
     try {
       const chain = await discoverLeagueChain(leagueConfig.current);
-      // chain includes current season â€” extract only previous entries
       previousLeagueIds = Object.fromEntries(
-        Object.entries(chain).filter(([, id]) => id !== leagueConfig.current)
+        Object.entries(chain).filter(([, id]) => id !== leagueConfig.current),
       );
     } catch {
-      // Non-fatal â€” history pages will just show only current season
+      // History pages can still render the current season.
     }
   }
 
@@ -102,7 +97,6 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Pre-hydration theme setter â€” avoids flash */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(() => { try {
@@ -115,20 +109,16 @@ export default async function RootLayout({
             } catch (e) {} })();`,
           }}
         />
-        {/* League config injected from DB so client components have the Sleeper
-            league ID without needing SLEEPER_LEAGUE_ID set as a build-time env var. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `window.__LEAGUE_CONFIG__ = ${leagueConfigJson};`,
           }}
         />
-        {/* League branding injected for client-side access */}
         <script
           dangerouslySetInnerHTML={{
             __html: `window.__LEAGUE_BRANDING__ = ${leagueBrandingJson};`,
           }}
         />
-        {/* Expose league colors; LeagueThemeScope decides when they override site tokens. */}
         {(branding.primaryColor || branding.secondaryColor) && (
           <style
             dangerouslySetInnerHTML={{
@@ -149,9 +139,7 @@ export default async function RootLayout({
               <Suspense fallback={null}>
                 <Navbar />
               </Suspense>
-              <main className="flex-grow">
-                {children}
-              </main>
+              <main className="flex-grow">{children}</main>
               <Footer />
             </SetupCheck>
           </Suspense>
@@ -161,5 +149,3 @@ export default async function RootLayout({
     </html>
   );
 }
-
-

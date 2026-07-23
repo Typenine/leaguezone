@@ -22,7 +22,6 @@ export async function GET() {
     return Response.json({ authenticated: false, isAdmin, isSiteAdmin }, { status: 401 });
   }
 
-  // New user-based session
   if (claims.type === 'user') {
     const userId = claims.sub as string;
     const [user, leagues] = await Promise.all([
@@ -33,17 +32,27 @@ export async function GET() {
       return Response.json({ authenticated: false, isAdmin, isSiteAdmin }, { status: 401 });
     }
 
-    // Find which team the user is playing as in the active league
     const activeMembership = activeLeagueId
-      ? leagues.find((l) => l.leagueId === activeLeagueId)
+      ? leagues.find((league) => league.leagueId === activeLeagueId)
       : leagues.length === 1
         ? leagues[0]
         : null;
+
+    // Keep the claims shape for older client components while the platform
+    // transitions to activeTeam. The signed cookie remains the source of truth;
+    // this response is only compatibility metadata.
+    const compatibilityClaims = {
+      type: 'user',
+      sub: userId,
+      exp: claims.exp,
+      team: activeMembership?.teamName,
+    };
 
     return Response.json({
       authenticated: true,
       isAdmin: isAdmin || user.role === 'admin',
       isSiteAdmin,
+      claims: compatibilityClaims,
       user: {
         id: user.id,
         email: user.email,
@@ -58,12 +67,12 @@ export async function GET() {
             leagueId: activeMembership.leagueId,
             leagueSlug: activeMembership.leagueSlug,
             leagueName: activeMembership.leagueName,
+            rosterId: activeMembership.rosterId,
             isCommissioner: activeMembership.isCommissioner,
           }
         : null,
     });
   }
 
-  // Legacy team-based session — keep working
   return Response.json({ authenticated: true, isAdmin, isSiteAdmin, claims });
 }

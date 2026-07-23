@@ -13,6 +13,7 @@
 
 import { cookies } from 'next/headers';
 import { requireUser } from '@/lib/server/session';
+import { getUserLeagues } from '@/lib/server/user-auth';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
 
@@ -51,6 +52,13 @@ export async function getActiveLeagueMembership(
   }
 
   if (!leagueId) {
+    // A restored session may outlive the non-HttpOnly league-selection cookie.
+    // If the user has exactly one league, that context is unambiguous.
+    const leagues = await getUserLeagues(userId);
+    leagueId = leagues.length === 1 ? leagues[0].leagueId : null;
+  }
+
+  if (!leagueId) {
     return { ok: false, status: 403, error: 'No active league selected' };
   }
 
@@ -73,7 +81,6 @@ export async function getActiveLeagueMembership(
     const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
 
     if (rows.length === 0) {
-      // Also allow site admin or commissioner without a claimed invite
       const adminRes = await db.execute(sql`
         SELECT id::text AS id, slug, name,
                (commissioner_user_id = ${userId}::uuid) AS is_commissioner
@@ -85,7 +92,6 @@ export async function getActiveLeagueMembership(
       if (adminRows.length === 0) {
         return { ok: false, status: 403, error: 'Not a member of this league' };
       }
-      // Check if user is the league commissioner or a site admin
       const isCommissioner = Boolean(adminRows[0].is_commissioner);
       const userRes = await db.execute(sql`
         SELECT role FROM users WHERE id = ${userId}::uuid LIMIT 1
@@ -109,44 +115,35 @@ export async function getActiveLeagueMembership(
       };
     }
 
-    const r = rows[0];
+    const row = rows[0];
     return {
       ok: true,
       membership: {
         userId,
-        leagueId: r.league_id as string,
-        leagueSlug: r.league_slug as string,
-        leagueName: r.league_name as string,
-        teamName: r.team_name as string,
-        rosterId: (r.roster_id as number | null) ?? null,
-        isCommissioner: Boolean(r.is_commissioner),
+        leagueId: row.league_id as string,
+        leagueSlug: row.league_slug as string,
+        leagueName: row.league_name as string,
+        teamName: row.team_name as string,
+        rosterId: (row.roster_id as number | null) ?? null,
+        isCommissioner: Boolean(row.is_commissioner),
       },
     };
-  } catch (e) {
-    console.error('[membership] DB error', e);
+  } catch (error) {
+    console.error('[membership] DB error', error);
     return { ok: false, status: 403, error: 'Failed to resolve membership' };
   }
 }
 
-/**
- * Same as getActiveLeagueMembership but throws NextResponse-style errors.
- * Convenience wrapper for route handlers that want to throw on failure.
- */
 export async function requireActiveLeagueMembership(
   explicitLeagueId?: string,
 ): Promise<ActiveLeagueMembership> {
   const result = await getActiveLeagueMembership(explicitLeagueId);
   if (!result.ok) {
-    // Callers should handle the thrown Response
     throw Response.json({ error: result.error }, { status: result.status });
   }
   return result.membership;
 }
 
-/**
- * Like requireActiveLeagueMembership but additionally requires
- * that the caller is the league commissioner or a site admin.
- */
 export async function requireLeagueCommissioner(
   explicitLeagueId?: string,
 ): Promise<ActiveLeagueMembership> {

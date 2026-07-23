@@ -1,6 +1,21 @@
--- Newsletter episodes per league (episodic archive)
-CREATE TYPE newsletter_source_type AS ENUM ('editor', 'docx', 'html', 'pdf');
-CREATE TYPE newsletter_status AS ENUM ('draft', 'published');
+-- Newsletter episodes per league (episodic archive).
+-- The type creation blocks are intentionally idempotent because this migration
+-- existed before the migration ledger was introduced in some environments.
+DO $$
+BEGIN
+  CREATE TYPE newsletter_source_type AS ENUM ('editor', 'docx', 'html', 'pdf');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;
+
+DO $$
+BEGIN
+  CREATE TYPE newsletter_status AS ENUM ('draft', 'published');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS newsletter_episodes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
