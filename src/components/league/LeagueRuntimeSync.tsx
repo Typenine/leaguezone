@@ -6,6 +6,7 @@ type RuntimeConfig = {
   currentLeagueId: string;
   currentSeason: string;
   previousLeagueIds: Record<string, string>;
+  franchiseNamesByOwnerId: Record<string, string>;
 };
 
 type RuntimeBranding = {

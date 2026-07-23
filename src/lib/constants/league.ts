@@ -15,6 +15,7 @@ interface _WindowLeagueConfig {
   currentLeagueId: string;
   currentSeason?: string;
   previousLeagueIds: Record<string, string>;
+  franchiseNamesByOwnerId?: Record<string, string>;
 }
 
 function _getWindowConfig(): _WindowLeagueConfig | null {
@@ -61,6 +62,7 @@ export function getCurrentSeason(): string {
   }
   return process.env.CURRENT_SEASON || _defaultNFLSeason();
 }
+
 
 // Compatibility constants for server-rendered and traditional deployments.
 export const CURRENT_SEASON = process.env.CURRENT_SEASON || _defaultNFLSeason();

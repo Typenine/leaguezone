@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getCurrentLeagueBySlug, getLeagueFeatures } from '@/lib/server/league-context';
+import { getFranchiseNamesByOwnerId } from '@/lib/server/franchise-identities';
 import { LEAGUE_NAV, leagueUrl } from '@/lib/config/platform';
 import LeagueNav from '@/components/league/LeagueNav';
 import LeagueRuntimeSync from '@/components/league/LeagueRuntimeSync';
@@ -58,10 +59,15 @@ export default async function LeagueLayout({
   const previousLeagueIds = Object.fromEntries(
     Object.entries(allLeagueIds).filter(([, id]) => id !== league.sleeperLeagueId),
   );
+  const franchiseNamesByOwnerId = await getFranchiseNamesByOwnerId({
+    sleeperLeagueId: league.sleeperLeagueId,
+    config: league.config,
+  });
   const runtimeConfigValue = {
     currentLeagueId: league.sleeperLeagueId || '',
     currentSeason,
     previousLeagueIds,
+    franchiseNamesByOwnerId,
   };
   const runtimeBrandingValue = {
     name: league.name,
