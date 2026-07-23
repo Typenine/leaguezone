@@ -4,6 +4,7 @@ import { useLayoutEffect } from 'react';
 
 type RuntimeConfig = {
   currentLeagueId: string;
+  currentSeason: string;
   previousLeagueIds: Record<string, string>;
 };
 

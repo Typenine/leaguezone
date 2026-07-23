@@ -13,6 +13,7 @@
 
 interface _WindowLeagueConfig {
   currentLeagueId: string;
+  currentSeason?: string;
   previousLeagueIds: Record<string, string>;
 }
 
@@ -46,20 +47,27 @@ export const LEAGUE_IDS = {
   get PREVIOUS(): Record<string, string> { return _getPreviousLeagueIds(); },
 };
 
-// Update this to the current NFL season year each September, or set CURRENT_SEASON env var.
-// Auto-detection: the NFL season "2025" runs from Sept 2025 – Feb 2026.
-// Before July (months 0–5) we are still in the prior season's offseason, so subtract 1.
+// Calendar fallback for traditional single-league deployments that do not inject
+// an explicit active Sleeper season. The NFL season "2025" runs through early 2026.
 function _defaultNFLSeason(): string {
   const now = new Date();
   return String(now.getMonth() < 6 ? now.getFullYear() - 1 : now.getFullYear());
 }
-export const CURRENT_SEASON = process.env.CURRENT_SEASON || _defaultNFLSeason();
 
-/** Upcoming entry/rookie draft year — always the season after the active NFL season. */
+/** Active season attached to the current Sleeper league ID. */
+export function getCurrentSeason(): string {
+  if (typeof window !== 'undefined') {
+    return _getWindowConfig()?.currentSeason || process.env.CURRENT_SEASON || _defaultNFLSeason();
+  }
+  return process.env.CURRENT_SEASON || _defaultNFLSeason();
+}
+
+// Compatibility constants for server-rendered and traditional deployments.
+export const CURRENT_SEASON = process.env.CURRENT_SEASON || _defaultNFLSeason();
 export const NEXT_DRAFT_SEASON = String(Number(CURRENT_SEASON) + 1);
 
 export function getLeagueIdForSeason(season: string): string | null {
-  if (season === CURRENT_SEASON) return LEAGUE_IDS.CURRENT || null;
+  if (season === getCurrentSeason()) return LEAGUE_IDS.CURRENT || null;
   const prev = LEAGUE_IDS.PREVIOUS[season];
   return prev || null;
 }
@@ -67,12 +75,13 @@ export function getLeagueIdForSeason(season: string): string | null {
 /** All configured seasons (current + previous), most recent first. */
 export function getAvailableSeasonYears(): string[] {
   const prev = Object.keys(LEAGUE_IDS.PREVIOUS || {});
-  return Array.from(new Set([CURRENT_SEASON, ...prev])).sort((a, b) => b.localeCompare(a));
+  return Array.from(new Set([getCurrentSeason(), ...prev])).sort((a, b) => b.localeCompare(a));
 }
 
 /** Completed draft seasons only — excludes the upcoming draft year. */
 export function getPastDraftSeasonYears(): string[] {
-  return getAvailableSeasonYears().filter((year) => year !== NEXT_DRAFT_SEASON);
+  const nextDraftSeason = String(Number(getCurrentSeason()) + 1);
+  return getAvailableSeasonYears().filter((year) => year !== nextDraftSeason);
 }
 
 // Team names — populated by Sleeper API after connection; leave empty for new installs.

@@ -81,10 +81,16 @@ test.describe('League-specific navigation', () => {
     await expect(page.getByText('Current records, points, seeds, and season standings', { exact: true })).toBeVisible();
   });
 
-  test('standings default to the current configured season', async ({ page }) => {
+  test('East v. West standings use its configured 2026 Sleeper season', async ({ page }) => {
     await page.goto(BASE_URL + '/l/east-v-west/standings');
     await expect(page.getByLabel('Season')).toHaveValue('2026');
     await expect(page.getByLabel('Season').locator('option')).toHaveText(['2026', '2025', '2024', '2023']);
+  });
+
+  test('CCL standings remain on 2025 until a 2026 Sleeper league is connected', async ({ page }) => {
+    await page.goto(BASE_URL + '/l/the-ccl/standings');
+    await expect(page.getByLabel('Season')).toHaveValue('2025');
+    await expect(page.getByLabel('Season').locator('option')).toHaveText(['2025', '2024', '2023', '2022', '2021', '2020']);
   });
 
   test('commissioner navigation is hidden from signed-out visitors', async ({ page }) => {

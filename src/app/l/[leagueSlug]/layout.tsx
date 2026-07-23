@@ -52,11 +52,15 @@ export default async function LeagueLayout({
     .filter((item) => (!item.feature || features[item.feature]) && (!item.adminOnly || canAdmin))
     .map((item) => ({ href: leagueUrl(league.slug, item.segment), label: item.label }));
 
+  const allLeagueIds = league.sleeperLeagueIds || {};
+  const currentSeason = Object.entries(allLeagueIds)
+    .find(([, id]) => id === league.sleeperLeagueId)?.[0] || '';
   const previousLeagueIds = Object.fromEntries(
-    Object.entries(league.sleeperLeagueIds || {}).filter(([, id]) => id !== league.sleeperLeagueId),
+    Object.entries(allLeagueIds).filter(([, id]) => id !== league.sleeperLeagueId),
   );
   const runtimeConfigValue = {
     currentLeagueId: league.sleeperLeagueId || '',
+    currentSeason,
     previousLeagueIds,
   };
   const runtimeBrandingValue = {

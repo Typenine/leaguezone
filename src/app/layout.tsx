@@ -33,21 +33,23 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const activeLeagueId = cookieJar.get('active_league_id')?.value || null;
   const activeLeague = activeLeagueId ? await getLeagueById(activeLeagueId) : null;
   const currentLeagueId = activeLeague?.sleeperLeagueId || '';
-  let previousLeagueIds = activeLeague?.sleeperLeagueIds || {};
+  let allLeagueIds = activeLeague?.sleeperLeagueIds || {};
 
-  if (currentLeagueId) {
-    previousLeagueIds = Object.fromEntries(Object.entries(previousLeagueIds).filter(([, id]) => id !== currentLeagueId));
-    if (Object.keys(previousLeagueIds).length === 0) {
-      try {
-        const chain = await discoverLeagueChain(currentLeagueId);
-        previousLeagueIds = Object.fromEntries(Object.entries(chain).filter(([, id]) => id !== currentLeagueId));
-      } catch {
-        // History pages can still render the current season.
-      }
+  if (currentLeagueId && Object.keys(allLeagueIds).length === 0) {
+    try {
+      allLeagueIds = await discoverLeagueChain(currentLeagueId);
+    } catch {
+      // History pages can still render the current season.
     }
   }
 
-  const leagueConfigJson = JSON.stringify({ currentLeagueId, previousLeagueIds }).replace(/</g, '\\u003c');
+  const currentSeason = Object.entries(allLeagueIds)
+    .find(([, id]) => id === currentLeagueId)?.[0] || '';
+  const previousLeagueIds = Object.fromEntries(
+    Object.entries(allLeagueIds).filter(([, id]) => id !== currentLeagueId),
+  );
+
+  const leagueConfigJson = JSON.stringify({ currentLeagueId, currentSeason, previousLeagueIds }).replace(/</g, '\\u003c');
   const leagueBrandingJson = JSON.stringify({
     name: activeLeague?.name || '',
     shortName: activeLeague?.shortName || null,
