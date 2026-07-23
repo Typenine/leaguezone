@@ -11,29 +11,24 @@ import ErrorState from '@/components/ui/error-state';
 import { Card, CardContent } from '@/components/ui/Card';
 import SectionHeader from '@/components/ui/SectionHeader';
 
-export default function TeamsPage() {
+export default function TeamsPage({ leagueSlug }: { leagueSlug?: string } = {}) {
   const [teams, setTeams] = useState<TeamData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allTimeByOwner, setAllTimeByOwner] = useState<Record<string, { wins: number; losses: number; ties: number }>>({});
-  
-  
+
   const fetchTeams = useCallback(async () => {
     try {
       setLoading(true);
       const teamsData = await getTeamsData(LEAGUE_IDS.CURRENT);
       setTeams(teamsData);
-
-      // Aggregate all-time records per owner across seasons
-      const uniqueOwners = Array.from(new Set(teamsData.map(t => t.ownerId)));
-      const pairs = await Promise.all(
-        uniqueOwners.map(async (ownerId) => {
-          const stats = await getTeamAllTimeStatsByOwner(ownerId);
-          return [ownerId, { wins: stats.wins, losses: stats.losses, ties: stats.ties }] as const;
-        })
-      );
+      const uniqueOwners = Array.from(new Set(teamsData.map((team) => team.ownerId)));
+      const pairs = await Promise.all(uniqueOwners.map(async (ownerId) => {
+        const stats = await getTeamAllTimeStatsByOwner(ownerId);
+        return [ownerId, { wins: stats.wins, losses: stats.losses, ties: stats.ties }] as const;
+      }));
       const map: Record<string, { wins: number; losses: number; ties: number }> = {};
-      for (const [ownerId, rec] of pairs) map[ownerId] = rec;
+      for (const [ownerId, record] of pairs) map[ownerId] = record;
       setAllTimeByOwner(map);
       setError(null);
     } catch (err) {
@@ -44,59 +39,34 @@ export default function TeamsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchTeams();
-  }, [fetchTeams]);
-  
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <SectionHeader title="Teams" />
-        <LoadingState message="Loading teams..." />
-      </div>
-    );
-  }
-  
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <SectionHeader title="Teams" />
-        <ErrorState message={error} retry={fetchTeams} homeLink />
-      </div>
-    );
-  }
-  
+  useEffect(() => { fetchTeams(); }, [fetchTeams]);
+
+  if (loading) return <div className="container mx-auto px-4 py-8"><SectionHeader title="Teams" /><LoadingState message="Loading teams..." /></div>;
+  if (error) return <div className="container mx-auto px-4 py-8"><SectionHeader title="Teams" /><ErrorState message={error} retry={fetchTeams} homeLink /></div>;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <SectionHeader title="Teams" />
-      
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {teams.map((team) => (
-          <Link 
-            href={`/teams/${team.rosterId}`} 
-            key={team.rosterId}
-            className="block transition-transform duration-200 hover:opacity-90"
-          >
-            <Card className="overflow-hidden" style={{ borderTop: `4px solid ${getTeamColorStyle(team.teamName).backgroundColor as string}` }}>
-              <div
-                className="h-32 flex items-center justify-center relative"
-                style={getTeamColorStyle(team.teamName)}
-              >
-                <TeamLogo teamName={team.teamName} size={100} className="object-contain p-2" />
-              </div>
-              <CardContent>
-                <h3 className="font-bold text-center text-lg">{team.teamName}</h3>
-                <div className="text-center text-sm text-[var(--muted)] mt-2">
-                  {/* All-time aggregated record */}
-                  {(allTimeByOwner[team.ownerId]?.wins ?? 0)}-
-                  {(allTimeByOwner[team.ownerId]?.losses ?? 0)}
-                  {((allTimeByOwner[team.ownerId]?.ties ?? 0) > 0) ? `-${allTimeByOwner[team.ownerId]!.ties}` : ''}
+      <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
+        {teams.map((team) => {
+          const href = leagueSlug ? `/l/${encodeURIComponent(leagueSlug)}/teams/${team.rosterId}` : `/teams/${team.rosterId}`;
+          return (
+            <Link href={href} key={team.rosterId} className="block transition-transform duration-200 hover:opacity-90">
+              <Card className="overflow-hidden" style={{ borderTop: `4px solid ${getTeamColorStyle(team.teamName).backgroundColor as string}` }}>
+                <div className="relative flex h-32 items-center justify-center" style={getTeamColorStyle(team.teamName)}>
+                  <TeamLogo teamName={team.teamName} size={100} className="object-contain p-2" />
                 </div>
-                
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+                <CardContent>
+                  <h3 className="text-center text-lg font-bold">{team.teamName}</h3>
+                  <div className="mt-2 text-center text-sm text-[var(--muted)]">
+                    {(allTimeByOwner[team.ownerId]?.wins ?? 0)}-{(allTimeByOwner[team.ownerId]?.losses ?? 0)}
+                    {((allTimeByOwner[team.ownerId]?.ties ?? 0) > 0) ? `-${allTimeByOwner[team.ownerId]!.ties}` : ''}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

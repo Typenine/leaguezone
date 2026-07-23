@@ -11,7 +11,6 @@ async function resolveLeague(params: URLSearchParams) {
   const id = params.get('id')?.trim();
   const slug = params.get('slug')?.trim().toLowerCase();
   if (!id && !slug) return null;
-
   const db = getDb();
   const res = id
     ? await db.execute(sql`
@@ -33,21 +32,25 @@ async function resolveLeague(params: URLSearchParams) {
   return (res as { rows?: Array<Record<string, unknown>> }).rows?.[0] ?? null;
 }
 
+function safeDestination(value: string | null): string {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/home';
+  return value;
+}
+
 /**
- * GET /api/league/select?id=[leagueId]
- * Sets the active_league_id cookie and redirects to /home.
+ * GET /api/league/select?id=[leagueId]&next=[path]
+ * Sets the active league context and redirects to a local platform path.
  */
 export async function GET(req: NextRequest) {
   const league = await resolveLeague(req.nextUrl.searchParams).catch(() => null);
-  if (!league) {
-    return NextResponse.redirect(new URL('/', req.url));
-  }
+  if (!league) return NextResponse.redirect(new URL('/', req.url));
 
   const id = league.id as string;
   const slug = league.slug as string;
   const token = req.cookies.get('evw_session')?.value || '';
   const claims = token ? verifySession(token) : null;
-  const isAdmin = isAdminCookieValue(req.cookies.get('evw_admin')?.value) || isSiteAdminCookieValue(req.cookies.get('site_admin')?.value);
+  const isAdmin = isAdminCookieValue(req.cookies.get('evw_admin')?.value)
+    || isSiteAdminCookieValue(req.cookies.get('site_admin')?.value);
 
   if (claims?.type === 'user' && !isAdmin) {
     const userLeagues = await getUserLeagues(claims.sub as string);
@@ -58,15 +61,14 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const next = req.nextUrl.searchParams.get('next') || '/home';
-  const destination = next.startsWith('/') ? next : '/home';
+  const destination = safeDestination(req.nextUrl.searchParams.get('next'));
   const res = NextResponse.redirect(new URL(destination, req.url));
   res.cookies.set('active_league_id', id, {
-    httpOnly: false, // readable client-side for navbar
+    httpOnly: false,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: 60 * 60 * 24 * 30, // 30 days
+    maxAge: 60 * 60 * 24 * 30,
   });
   return res;
 }

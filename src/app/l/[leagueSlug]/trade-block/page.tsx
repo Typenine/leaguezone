@@ -1,5 +1,7 @@
-import { createLeagueBridge } from '@/lib/server/league-bridge';
+import TradeBlockPage from '@/app/trades/block/page';
 
 export const dynamic = 'force-dynamic';
 
-export default createLeagueBridge('/trades/block');
+export default function LeagueTradeBlockPage() {
+  return <TradeBlockPage />;
+}

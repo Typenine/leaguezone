@@ -1,5 +1,7 @@
-import { createLeagueBridge } from '@/lib/server/league-bridge';
+import HistoryPage from '@/app/history/page';
 
 export const dynamic = 'force-dynamic';
 
-export default createLeagueBridge('/history');
+export default function LeagueHistoryPage() {
+  return <HistoryPage />;
+}

@@ -149,14 +149,15 @@ export type LeagueNavItem = {
 };
 
 export const LEAGUE_NAV: LeagueNavItem[] = [
-  { segment: '', label: 'Home' },
+  { segment: '', label: 'League Home' },
   { segment: 'teams', label: 'Teams', feature: 'teams' },
+  { segment: 'standings', label: 'Standings' },
   { segment: 'rulebook', label: 'Rulebook', feature: 'rulebook' },
   { segment: 'draft', label: 'Draft', feature: 'draft' },
   { segment: 'trade-block', label: 'Trade Block', feature: 'tradeBlock' },
   { segment: 'suggestions', label: 'Suggestions', feature: 'suggestions' },
   { segment: 'history', label: 'History', feature: 'history' },
-  { segment: 'admin', label: 'Admin', adminOnly: true },
+  { segment: 'admin', label: 'Commissioner', adminOnly: true },
 ];
 
 export function leagueUrl(slug: string, segment = ''): string {

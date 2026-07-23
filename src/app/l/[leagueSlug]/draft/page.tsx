@@ -1,5 +1,7 @@
-import { createLeagueBridge } from '@/lib/server/league-bridge';
+import DraftPage from '@/app/draft/page';
 
 export const dynamic = 'force-dynamic';
 
-export default createLeagueBridge('/draft?view=next');
+export default function LeagueDraftPage() {
+  return <DraftPage />;
+}

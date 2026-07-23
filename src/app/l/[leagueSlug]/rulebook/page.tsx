@@ -1,5 +1,7 @@
-import { createLeagueBridge } from '@/lib/server/league-bridge';
+import RulesPage from '@/app/rules/page';
 
 export const dynamic = 'force-dynamic';
 
-export default createLeagueBridge('/rules');
+export default function LeagueRulebookPage() {
+  return <RulesPage />;
+}

@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { getNavigationSurface } from '@/lib/navigation/surfaces';
 
 type LeagueBrandingWindow = typeof window & {
   __LEAGUE_BRANDING__?: {
@@ -15,32 +16,13 @@ const WEBSITE_TOKENS = {
   gold: 'var(--brand-gold)',
 };
 
-function shouldUseLeagueTheme(pathname: string): boolean {
-  if (pathname === '/') return false;
-  if (pathname.startsWith('/leagues/')) return false;
-  // League sites under /l/ apply their own colors in the league layout,
-  // scoped to the league resolved from the route slug (not the cookie).
-  if (pathname.startsWith('/l/')) return false;
-  if (pathname === '/features' || pathname === '/pricing' || pathname === '/demo') return false;
-  if (pathname === '/app' || pathname.startsWith('/app/')) return false;
-  if (pathname.startsWith('/setup')) return false;
-  if (pathname.startsWith('/join/')) return false;
-  if (pathname.startsWith('/login')) return false;
-  if (pathname.startsWith('/register')) return false;
-  if (pathname.startsWith('/forgot-password')) return false;
-  if (pathname.startsWith('/reset-password')) return false;
-  if (pathname.startsWith('/verify-email')) return false;
-  if (pathname.startsWith('/super-admin')) return false;
-  return true;
-}
-
 export default function LeagueThemeScope() {
-  const pathname = usePathname();
+  const pathname = usePathname() || '/';
 
   useEffect(() => {
     const root = document.documentElement;
     const branding = (window as LeagueBrandingWindow).__LEAGUE_BRANDING__;
-    const useLeagueTheme = shouldUseLeagueTheme(pathname || '');
+    const useLeagueTheme = getNavigationSurface(pathname) === 'legacy-league';
     const primary = branding?.primaryColor || null;
     const secondary = branding?.secondaryColor || null;
 

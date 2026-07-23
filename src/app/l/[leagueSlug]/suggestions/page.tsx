@@ -1,5 +1,7 @@
-import { createLeagueBridge } from '@/lib/server/league-bridge';
+import SuggestionsPage from '@/app/suggestions/page';
 
 export const dynamic = 'force-dynamic';
 
-export default createLeagueBridge('/suggestions');
+export default function LeagueSuggestionsPage() {
+  return <SuggestionsPage />;
+}
