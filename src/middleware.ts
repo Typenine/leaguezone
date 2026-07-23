@@ -39,6 +39,11 @@ function hasUsableSessionCookie(token: string, now = Date.now()): boolean {
   return typeof legacyTeam === 'string' && legacyTeam.length > 0;
 }
 
+function hasUsableUserSessionCookie(token: string, now = Date.now()): boolean {
+  const session = decodeSession(token);
+  return session?.type === 'user' && hasUsableSessionCookie(token, now);
+}
+
 const PROTECTED_PREFIXES = [
   '/trade-block',
   '/vote',
@@ -98,6 +103,15 @@ export async function middleware(req: NextRequest) {
     if (dormantResponse) return dormantResponse;
   }
 
+  if (pathname === '/' && req.nextUrl.searchParams.get('view') !== 'public') {
+    const sessionCookie = req.cookies.get('evw_session')?.value || '';
+    if (hasUsableUserSessionCookie(sessionCookie)) {
+      const authenticatedHome = req.nextUrl.clone();
+      authenticatedHome.pathname = '/app';
+      return NextResponse.rewrite(authenticatedHome);
+    }
+  }
+
   const previewSecret = process.env.EVW_PREVIEW_SECRET || '';
   const isDraftFeaturePath = pathname === '/draft/room' || pathname === '/draft/overlay' || pathname === '/admin/draft' || pathname.startsWith('/api/draft');
   if (previewSecret && isDraftFeaturePath) {
@@ -143,6 +157,7 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
+    '/',
     '/trade-block/:path*',
     '/vote/:path*',
     '/api/trade-block/:path*',
