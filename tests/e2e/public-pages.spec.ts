@@ -11,6 +11,13 @@ test.describe('Public product pages', () => {
     await expect(page.getByText('LeagueZone HQ', { exact: false }).first()).toBeVisible();
   });
 
+  test('homepage calls to action navigate instead of being masked by setup state', async ({ page }) => {
+    await page.goto(BASE_URL + '/');
+    await page.getByRole('link', { name: 'Launch Your League' }).click();
+    await expect(page).toHaveURL(/\/register$/);
+    await expect(page.locator('input[type="email"]')).toBeVisible();
+  });
+
   test('/features page loads with product metadata', async ({ page }) => {
     await page.goto(BASE_URL + '/features');
     await expect(page).toHaveTitle(/leaguezone/i);

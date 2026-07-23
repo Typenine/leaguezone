@@ -8,7 +8,6 @@ import { cookies } from 'next/headers';
 import Navbar from '@/components/layout/navbar';
 import GlobalLeagueSwitcher from '@/components/GlobalLeagueSwitcher';
 import Footer from '@/components/layout/footer';
-import SetupCheck from '@/components/SetupCheck';
 import LeagueThemeScope from '@/components/LeagueThemeScope';
 import { TeamLogoProvider } from '@/contexts/TeamLogoContext';
 import { getLeagueIdsFromDb, getLeagueBranding } from '@/lib/server/league-config';
@@ -136,17 +135,13 @@ export default async function RootLayout({
         </Suspense>
         <TeamLogoProvider>
           <Suspense fallback={null}>
-            <SetupCheck>
-              <Suspense fallback={null}>
-                <Navbar />
-              </Suspense>
-              <Suspense fallback={null}>
-                <GlobalLeagueSwitcher />
-              </Suspense>
-              <main className="flex-grow">{children}</main>
-              <Footer />
-            </SetupCheck>
+            <Navbar />
           </Suspense>
+          <Suspense fallback={null}>
+            <GlobalLeagueSwitcher />
+          </Suspense>
+          <main className="flex-grow">{children}</main>
+          <Footer />
         </TeamLogoProvider>
         <Analytics />
       </body>

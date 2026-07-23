@@ -110,6 +110,13 @@ export default function GlobalLeagueSwitcher() {
           Open
         </Link>
         <Link
+          href="/"
+          className="shrink-0 text-xs font-bold uppercase tracking-wider text-white/60 transition hover:text-white"
+        >
+          <span className="sm:hidden">HQ</span>
+          <span className="hidden sm:inline">LeagueZone Home</span>
+        </Link>
+        <Link
           href="/app"
           className="shrink-0 text-xs font-bold uppercase tracking-wider text-white/60 transition hover:text-white"
         >
