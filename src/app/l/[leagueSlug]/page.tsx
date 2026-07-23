@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 const SECTION_DESCRIPTIONS: Record<string, string> = {
   teams: 'Rosters, franchise pages, and team identity',
+  standings: 'Current records, points, seeds, and season standings',
   rulebook: 'League constitution, rules, and amendments',
   draft: 'Draft order, pick history, and draft tools',
   'trade-block': 'Who is buying, who is selling, and trade history',

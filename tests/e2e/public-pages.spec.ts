@@ -75,6 +75,18 @@ test.describe('League-specific navigation', () => {
     await expect(page.getByRole('heading', { name: 'Teams', exact: true })).toBeVisible();
   });
 
+  test('East v. West public metadata and standings summary are populated', async ({ page }) => {
+    await page.goto(BASE_URL + '/l/east-v-west');
+    await expect(page.getByText('Est. 2023', { exact: false })).toBeVisible();
+    await expect(page.getByText('Current records, points, seeds, and season standings', { exact: true })).toBeVisible();
+  });
+
+  test('standings default to the current configured season', async ({ page }) => {
+    await page.goto(BASE_URL + '/l/east-v-west/standings');
+    await expect(page.getByLabel('Season')).toHaveValue('2026');
+    await expect(page.getByLabel('Season').locator('option')).toHaveText(['2026', '2025', '2024', '2023']);
+  });
+
   test('commissioner navigation is hidden from signed-out visitors', async ({ page }) => {
     await page.goto(BASE_URL + '/l/east-v-west');
     await expect(page.getByRole('link', { name: 'Commissioner', exact: true })).toHaveCount(0);
