@@ -1,8 +1,6 @@
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { verifySession } from '@/lib/server/auth';
-import { getAllLeagues } from '@/lib/server/league-config';
-import type { LeagueSummary } from '@/lib/server/league-config';
 import { getUserLeagues, type UserLeague } from '@/lib/server/user-auth';
 import LeagueWebsiteSearch from '@/components/LeagueWebsiteSearch';
 import LeagueIcon from '@/components/ui/LeagueIcon';
@@ -10,34 +8,6 @@ import type { LeagueIconName } from '@/components/ui/LeagueIcon';
 import { PLATFORM, PRODUCT_FEATURES, HOW_IT_WORKS, PRICING_TIERS, leagueUrl } from '@/lib/config/platform';
 
 export const dynamic = 'force-dynamic';
-
-function getInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0].toUpperCase())
-    .join('');
-}
-
-function LeagueLogo({ league }: { league: Pick<LeagueSummary, 'name' | 'logoUrl' | 'primaryColor'> }) {
-  const accent = league.primaryColor || 'var(--brand-gold)';
-  const initials = getInitials(league.name);
-
-  return (
-    <div
-      className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden border border-white/15"
-      style={{ backgroundColor: `color-mix(in srgb, ${accent} 20%, #040c1a)` }}
-    >
-      {league.logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={league.logoUrl} alt={league.name} className="h-full w-full object-contain" />
-      ) : (
-        <span className="text-sm font-black" style={{ color: accent }}>{initials}</span>
-      )}
-    </div>
-  );
-}
 
 function MyLeagueCard({ league }: { league: UserLeague }) {
   return (
@@ -60,26 +30,6 @@ function MyLeagueCard({ league }: { league: UserLeague }) {
       <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-[var(--brand-gold)] uppercase tracking-wider">
         Open league site →
       </span>
-    </Link>
-  );
-}
-
-function PublicLeagueCard({ league }: { league: LeagueSummary }) {
-  const accent = league.primaryColor || 'var(--brand-gold)';
-
-  return (
-    <Link
-      href={leagueUrl(league.slug)}
-      className="group flex items-center gap-4 border border-white/10 bg-white/[0.03] p-4 hover:border-[var(--brand-gold)]/50 hover:bg-white/[0.06] transition-all"
-    >
-      <LeagueLogo league={league} />
-      <div className="min-w-0 flex-1">
-        <h3 className="truncate font-black text-white text-sm uppercase tracking-wide group-hover:text-[var(--brand-gold)] transition-colors">{league.name}</h3>
-        <p className="text-xs text-white/45 mt-0.5">
-          {league.shortName || (league.foundedYear ? `Est. ${league.foundedYear}` : 'League site')}
-        </p>
-      </div>
-      <span className="text-sm font-bold shrink-0" style={{ color: accent }}>View →</span>
     </Link>
   );
 }
@@ -153,7 +103,6 @@ export default async function RootPage() {
   const claims = sessionToken ? verifySession(sessionToken) : null;
   const userId = claims?.type === 'user' && typeof claims.sub === 'string' ? claims.sub : null;
   const userLeagues = userId ? await getUserLeagues(userId) : [];
-  const leagues = await getAllLeagues();
 
   return (
     <div style={{ background: 'var(--brand-ink)' }} className="overflow-hidden">
@@ -397,33 +346,6 @@ export default async function RootPage() {
                 Create Account
               </Link>
             </div>
-          </div>
-        )}
-
-        {leagues.length > 0 && (
-          <div id="available-leagues" className="mt-16">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="block w-6 h-px bg-[var(--brand-gold)]" />
-              <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">League Access</span>
-            </div>
-            <h2 className="text-2xl font-black text-white uppercase mb-6">Leagues hosted here</h2>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {leagues.map((league) => (
-                <PublicLeagueCard key={league.id} league={league} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {leagues.length === 0 && (
-          <div className="border border-white/10 mt-16 p-8 text-center">
-            <h2 className="text-2xl font-black text-white uppercase">No leagues configured yet</h2>
-            <p className="mx-auto mt-2 max-w-xl text-white/50">
-              Finish setup to connect your league data, add branding, and launch the first league site.
-            </p>
-            <Link href="/setup" className="mt-5 inline-flex bg-[var(--brand-gold)] text-[var(--brand-ink)] font-black uppercase tracking-wider px-6 py-3 text-sm transition hover:brightness-110">
-              Go to Setup
-            </Link>
           </div>
         )}
       </section>
