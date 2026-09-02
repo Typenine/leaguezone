@@ -1,65 +1,69 @@
-import { TEAM_NAMES } from '@/lib/constants/league';
-import { getUserIdForTeam } from '@/lib/server/user-identity';
-import { readUserDoc, TradeAsset, TradeWants } from '@/lib/server/user-store';
-import { loadTradeBlockLeagueContext, teamAssetsFromContext } from '@/lib/server/trade-assets';
+import { getLeagueBySlug } from '@/lib/server/league-config';
+import { leagueSlugFromTradeBlockReferer } from '@/lib/server/trade-block-request';
+import {
+  listLeagueTradeBlocks,
+  listTradeBlockTeams,
+  type TradeBlockLeague,
+} from '@/lib/server/trade-block-store';
+import {
+  loadTradeBlockLeagueContext,
+  sanitizeTradeBlock,
+  teamAssetsFromContext,
+  TradeBlockProviderError,
+} from '@/lib/server/trade-block-provider';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const leagueSlug = leagueSlugFromTradeBlockReferer(req.headers.get('referer'));
+  if (!leagueSlug) {
+    return Response.json({ error: 'League context required.' }, { status: 400 });
+  }
+
+  const leagueRow = await getLeagueBySlug(leagueSlug);
+  if (!leagueRow) return Response.json({ error: 'League not found.' }, { status: 404 });
+
+  const league: TradeBlockLeague = {
+    id: leagueRow.id,
+    slug: leagueRow.slug,
+    name: leagueRow.name,
+    sleeperLeagueId: leagueRow.sleeperLeagueId,
+  };
+
   try {
-    const rows: Array<{ team: string; tradeBlock: TradeAsset[]; tradeWants: TradeWants | null; updatedAt: string | null }>
-      = [];
+    const [rows, teams] = await Promise.all([
+      listLeagueTradeBlocks(league.id),
+      listTradeBlockTeams(league.id),
+    ]);
 
-    const tradeCtx = await loadTradeBlockLeagueContext();
-
-    for (const team of TEAM_NAMES) {
-      try {
-        const userId = getUserIdForTeam(team);
-        const doc = await readUserDoc(userId, team);
-        let tradeBlock = Array.isArray(doc.tradeBlock) ? doc.tradeBlock : [];
-        try {
-          const assets = teamAssetsFromContext(team, tradeCtx);
-          const playerSet = new Set<string>(assets.players);
-          const ownedYearRound = new Set<string>(assets.picks.map((p) => `${p.year}-${p.round}`));
-          const filtered: TradeAsset[] = [];
-          for (const a of tradeBlock) {
-            if (a && typeof a === 'object') {
-              if ((a as TradeAsset).type === 'player' && typeof (a as { playerId?: string }).playerId === 'string') {
-                if (playerSet.has((a as { playerId: string }).playerId)) filtered.push(a);
-              } else if ((a as TradeAsset).type === 'pick') {
-                const y = (a as { year?: number }).year;
-                const r = (a as { round?: number }).round;
-                if (!(Number.isFinite(y) && Number.isFinite(r))) continue;
-                // Must own some pick with this year+round (origin may vary)
-                const yrKey = `${y}-${r}`;
-                if (!ownedYearRound.has(yrKey)) continue;
-                // Prefer an exact origin match if provided; otherwise fall back to any owned pick of this year+round
-                const reqOrig = (a as { originalTeam?: string }).originalTeam;
-                let match = reqOrig
-                  ? assets.picks.find((p) => p.year === y && p.round === r && p.originalTeam === reqOrig)
-                  : undefined;
-                if (!match) match = assets.picks.find((p) => p.year === y && p.round === r);
-                if (match) {
-                  filtered.push({ type: 'pick', year: y as number, round: r as number, originalTeam: match.originalTeam } as TradeAsset);
-                }
-              } else if ((a as TradeAsset).type === 'faab') {
-                const amt = Number((a as { amount?: number }).amount ?? assets.faab);
-                const safe = Math.max(0, Math.min(assets.faab, Number.isFinite(amt) ? amt : 0));
-                filtered.push({ type: 'faab', amount: safe } as TradeAsset);
-              }
-            }
-          }
-          tradeBlock = filtered;
-        } catch {}
-        rows.push({ team, tradeBlock, tradeWants: doc.tradeWants ?? null, updatedAt: doc.updatedAt || null });
-      } catch {
-        rows.push({ team, tradeBlock: [], tradeWants: null, updatedAt: null });
+    try {
+      const ctx = await loadTradeBlockLeagueContext(league, teams);
+      const validated = rows.map((row) => ({
+        team: row.team,
+        tradeBlock: sanitizeTradeBlock(
+          row.tradeBlock,
+          teamAssetsFromContext(row.team, row.rosterId, ctx),
+        ),
+        tradeWants: row.tradeWants,
+        updatedAt: row.updatedAt,
+      }));
+      return Response.json({ teams: validated, providerAvailable: true });
+    } catch (error) {
+      if (error instanceof TradeBlockProviderError) {
+        // Reading the league trade block should remain available when Sleeper is
+        // temporarily unavailable. We simply cannot revalidate ownership until
+        // the provider recovers.
+        return Response.json({
+          teams: rows.map(({ team, tradeBlock, tradeWants, updatedAt }) => ({ team, tradeBlock, tradeWants, updatedAt })),
+          providerAvailable: false,
+          providerWarning: error.message,
+        });
       }
+      throw error;
     }
-
-    return Response.json({ teams: rows });
-  } catch {
-    return Response.json({ error: 'Failed to load trade blocks' }, { status: 500 });
+  } catch (error) {
+    console.error('[teams/trade-blocks] Failed to load league trade blocks', { leagueId: league.id, error });
+    return Response.json({ error: 'Failed to load trade blocks.' }, { status: 500 });
   }
 }

@@ -1,76 +1,62 @@
 import { NextRequest } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifySession } from '@/lib/server/auth';
-import { readPins } from '@/lib/server/pins';
-import { getObjectText, putObjectText } from '@/server/storage/r2';
+import { requireActiveLeagueMembership, type ActiveLeagueMembership } from '@/lib/server/membership';
+import { readLeagueTradeBlock, writeLeagueTradeBlock } from '@/lib/server/trade-block-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type TradeBlock = {
-  team: string;
-  wants?: string;
-  offers?: string;
-  updatedAt: string;
-};
-
-const FOLDER = 'tradeblock/';
-
-function fileForTeam(team: string) {
-  return `${FOLDER}${encodeURIComponent(team)}.json`;
-}
-
-async function readFromStorage(pathname: string): Promise<TradeBlock | null> {
-  const txt = await getObjectText({ key: pathname });
-  if (!txt) return null;
-  try { return JSON.parse(txt) as TradeBlock; } catch { return null; }
-}
-
-async function writeToStorage(pathname: string, data: unknown) {
-  await putObjectText({ key: pathname, text: JSON.stringify(data, null, 2) });
+async function requireTeamMembership(): Promise<ActiveLeagueMembership> {
+  const membership = await requireActiveLeagueMembership();
+  if (!membership.teamName) {
+    throw Response.json({ error: 'A team membership is required.' }, { status: 403 });
+  }
+  return membership;
 }
 
 export async function GET() {
-  const jar = await cookies();
-  const token = jar.get('evw_session')?.value || '';
-  const claims = token ? verifySession(token) : null;
-  if (!claims || typeof claims.team !== 'string') {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const team = claims.team as string;
-  // Enforce pinVersion so sessions are invalid after PIN reset
+  let membership: ActiveLeagueMembership;
   try {
-    const pins = await readPins();
-    const pv = (pins[team]?.pinVersion ?? 0);
-    const v = (claims as { pv?: unknown }).pv;
-    const cpv = typeof v === 'number' ? v : 0;
-    if (pv > cpv) return Response.json({ error: 'Session expired. Please log in again.' }, { status: 401 });
-  } catch {}
-  const pathname = fileForTeam(team);
-  const data = (await readFromStorage(pathname)) || { team, wants: '', offers: '', updatedAt: new Date().toISOString() };
-  return Response.json(data);
+    membership = await requireTeamMembership();
+  } catch (error) {
+    return error as Response;
+  }
+
+  const doc = await readLeagueTradeBlock({
+    leagueId: membership.leagueId,
+    userId: membership.userId,
+    team: membership.teamName,
+  });
+  return Response.json({
+    team: membership.teamName,
+    wants: doc.tradeWants?.text || '',
+    offers: doc.tradeWants?.offers || '',
+    updatedAt: doc.updatedAt || new Date().toISOString(),
+  });
 }
 
 export async function POST(req: NextRequest) {
-  const jar = await cookies();
-  const token = jar.get('evw_session')?.value || '';
-  const claims = token ? verifySession(token) : null;
-  if (!claims || typeof claims.team !== 'string') {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const team = claims.team as string;
-  // pinVersion enforcement
+  let membership: ActiveLeagueMembership;
   try {
-    const pins = await readPins();
-    const pv = (pins[team]?.pinVersion ?? 0);
-    const v2 = (claims as { pv?: unknown }).pv;
-    const cpv = typeof v2 === 'number' ? v2 : 0;
-    if (pv > cpv) return Response.json({ error: 'Session expired. Please log in again.' }, { status: 401 });
-  } catch {}
+    membership = await requireTeamMembership();
+  } catch (error) {
+    return error as Response;
+  }
+
   const body = await req.json().catch(() => ({}));
-  const wants = typeof body.wants === 'string' ? body.wants : '';
-  const offers = typeof body.offers === 'string' ? body.offers : '';
-  const data: TradeBlock = { team, wants, offers, updatedAt: new Date().toISOString() };
-  await writeToStorage(fileForTeam(team), data);
-  return Response.json(data, { status: 200 });
+  const wants = typeof body.wants === 'string' ? body.wants.slice(0, 300) : '';
+  const offers = typeof body.offers === 'string' ? body.offers.slice(0, 1000) : '';
+  const existing = await readLeagueTradeBlock({
+    leagueId: membership.leagueId,
+    userId: membership.userId,
+    team: membership.teamName,
+  });
+  const updatedAt = await writeLeagueTradeBlock({
+    leagueId: membership.leagueId,
+    userId: membership.userId,
+    team: membership.teamName,
+    tradeBlock: existing.tradeBlock,
+    tradeWants: { ...(existing.tradeWants || {}), text: wants, offers },
+  });
+
+  return Response.json({ team: membership.teamName, wants, offers, updatedAt });
 }

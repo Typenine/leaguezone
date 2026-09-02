@@ -3,7 +3,9 @@
  * Use this in API routes and server components where process.env may not
  * have SLEEPER_LEAGUE_ID set (i.e. the user configured via setup wizard).
  *
- * Priority: env var > DB (so explicit Vercel env vars still work).
+ * When a LeagueZone league ID is supplied, that exact league is authoritative.
+ * Global environment/default-league fallbacks are only allowed when no explicit
+ * LeagueZone league context was provided.
  *
  * If only a current league ID is stored (no previous seasons), the function
  * auto-discovers the full history by walking the Sleeper previous_league_id
@@ -44,54 +46,53 @@ export interface LeagueBranding {
   rulesFileKey: string | null;
 }
 
-export async function getLeagueIdsFromDb(leagueId?: string): Promise<LeagueIdsConfig> {
-  // Explicit env var takes priority — supports traditional Vercel deployments.
-  if (process.env.SLEEPER_LEAGUE_ID) {
+export async function getLeagueIdsFromDb(explicitLeagueId?: string): Promise<LeagueIdsConfig> {
+  // An environment ID is a legacy/default context only. It must never replace
+  // an explicitly selected LeagueZone league.
+  if (!explicitLeagueId && process.env.SLEEPER_LEAGUE_ID) {
     return { current: process.env.SLEEPER_LEAGUE_ID, previous: {} };
   }
 
   try {
     const db = getDb();
-    const defaultLeagueQuery = sql`
-      SELECT id, sleeper_league_id, sleeper_league_ids
-      FROM leagues
-      WHERE setup_completed = true
-      ORDER BY created_at DESC
-      LIMIT 1
-    `;
-
     let row: Record<string, unknown> | undefined;
-    if (leagueId) {
+
+    if (explicitLeagueId) {
       const res = await db.execute(sql`
         SELECT id, sleeper_league_id, sleeper_league_ids
         FROM leagues
         WHERE setup_completed = true
-          AND id = ${leagueId}::uuid
+          AND is_active = true
+          AND id = ${explicitLeagueId}::uuid
+        LIMIT 1
+      `);
+      row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+      // Exact LeagueZone context requested: do not silently substitute another league.
+      if (!row) return { current: '', previous: {} };
+    } else {
+      const res = await db.execute(sql`
+        SELECT id, sleeper_league_id, sleeper_league_ids
+        FROM leagues
+        WHERE setup_completed = true
+          AND is_active = true
+        ORDER BY created_at DESC
         LIMIT 1
       `);
       row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
     }
 
-    // Stale or missing active_league_id cookie — fall back to the default league.
-    if (!row) {
-      const res = await db.execute(defaultLeagueQuery);
-      row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-    }
+    if (!row) return { current: '', previous: {} };
 
-    const current = (row?.sleeper_league_id as string) || '';
-    let allIds = (row?.sleeper_league_ids as Record<string, string>) || {};
+    const current = typeof row.sleeper_league_id === 'string' ? row.sleeper_league_id.trim() : '';
+    let allIds = (row.sleeper_league_ids as Record<string, string>) || {};
 
-    // previous = every season entry whose ID differs from the current one
     let previous: Record<string, string> = {};
     for (const [year, id] of Object.entries(allIds)) {
-      if (id !== current) previous[year] = id;
+      if (id && id !== current) previous[year] = id;
     }
 
-    // If no previous seasons are stored, auto-discover via the Sleeper chain
-    // and persist back to DB so future calls skip the traversal.
     if (current && Object.keys(previous).length === 0) {
       try {
-        // Lazy import to avoid circular deps at module load time
         const { discoverLeagueChain } = await import('@/lib/utils/sleeper-api');
         const chain = await discoverLeagueChain(current);
         const newPrevious: Record<string, string> = {};
@@ -100,9 +101,8 @@ export async function getLeagueIdsFromDb(leagueId?: string): Promise<LeagueIdsCo
         }
         if (Object.keys(newPrevious).length > 0) {
           previous = newPrevious;
-          // Merge into allIds and persist so next call reads from DB
           allIds = { ...allIds, ...chain };
-          const leagueRowId = row?.id as string;
+          const leagueRowId = row.id as string;
           if (leagueRowId) {
             await db.execute(sql`
               UPDATE leagues
@@ -113,7 +113,7 @@ export async function getLeagueIdsFromDb(leagueId?: string): Promise<LeagueIdsCo
           }
         }
       } catch {
-        // Non-fatal — app works with current season only
+        // Non-fatal: current-season data remains usable.
       }
     }
 
