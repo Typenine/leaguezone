@@ -4,13 +4,25 @@ import { notFound } from 'next/navigation';
 import { getCurrentLeagueBySlug, getLeagueFeatures } from '@/lib/server/league-context';
 import { getFranchiseNamesByOwnerId } from '@/lib/server/franchise-identities';
 import { LEAGUE_NAV, leagueUrl } from '@/lib/config/platform';
-import LeagueNav from '@/components/league/LeagueNav';
+import LeagueNav, { type LeagueNavLink } from '@/components/league/LeagueNav';
 import LeagueRuntimeSync from '@/components/league/LeagueRuntimeSync';
 import { verifySession } from '@/lib/server/auth';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { getUserLeagues } from '@/lib/server/user-auth';
 
 export const dynamic = 'force-dynamic';
+
+const LEAGUE_SECTION_SEGMENTS = new Set([
+  'teams',
+  'standings',
+  'matchups',
+  'rosters',
+  'calendar',
+  'rulebook',
+  'hall-of-fame',
+]);
+
+const STANDALONE_NAV_ORDER = ['history', 'draft', 'trade-block', 'news', 'suggestions', 'admin'] as const;
 
 function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
@@ -49,9 +61,43 @@ export default async function LeagueLayout({
   const accent = league.primaryColor || 'var(--brand-blue)';
   const secondary = league.secondaryColor || 'var(--brand-gold)';
 
-  const navLinks = LEAGUE_NAV
-    .filter((item) => (!item.feature || features[item.feature]) && (!item.adminOnly || canAdmin))
-    .map((item) => ({ href: leagueUrl(league.slug, item.segment), label: item.label }));
+  const visibleNavItems = LEAGUE_NAV.filter(
+    (item) => (!item.feature || features[item.feature]) && (!item.adminOnly || canAdmin),
+  );
+
+  const toNavLink = (item: (typeof LEAGUE_NAV)[number]): LeagueNavLink => ({
+    id: item.segment || 'home',
+    href: leagueUrl(league.slug, item.segment),
+    label: item.segment ? item.label : 'Home',
+  });
+
+  const homeItem = visibleNavItems.find((item) => item.segment === '');
+  const leagueChildren = visibleNavItems
+    .filter((item) => LEAGUE_SECTION_SEGMENTS.has(item.segment))
+    .map(toNavLink);
+
+  const orderedStandalone = STANDALONE_NAV_ORDER.flatMap((segment) => {
+    const item = visibleNavItems.find((candidate) => candidate.segment === segment);
+    return item ? [toNavLink(item)] : [];
+  });
+
+  const knownStandaloneSegments = new Set<string>(STANDALONE_NAV_ORDER);
+  const additionalStandalone = visibleNavItems
+    .filter(
+      (item) => item.segment
+        && !LEAGUE_SECTION_SEGMENTS.has(item.segment)
+        && !knownStandaloneSegments.has(item.segment),
+    )
+    .map(toNavLink);
+
+  const navLinks: LeagueNavLink[] = [
+    ...(homeItem ? [toNavLink(homeItem)] : []),
+    ...(leagueChildren.length > 0
+      ? [{ id: 'league', label: 'League', children: leagueChildren }]
+      : []),
+    ...orderedStandalone,
+    ...additionalStandalone,
+  ];
 
   const allLeagueIds = league.sleeperLeagueIds || {};
   const currentSeason = Object.entries(allLeagueIds)
