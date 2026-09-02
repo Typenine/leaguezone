@@ -6,6 +6,7 @@ import { getFranchiseNamesByOwnerId } from '@/lib/server/franchise-identities';
 import { LEAGUE_NAV, leagueUrl } from '@/lib/config/platform';
 import LeagueNav, { type LeagueNavLink } from '@/components/league/LeagueNav';
 import LeagueRuntimeSync from '@/components/league/LeagueRuntimeSync';
+import LeagueMobileNav from '@/components/league/LeagueMobileNav';
 import { verifySession } from '@/lib/server/auth';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { getUserLeagues } from '@/lib/server/user-auth';
@@ -98,6 +99,12 @@ export default async function LeagueLayout({
     ...orderedStandalone,
     ...additionalStandalone,
   ];
+  const mobileLinks = [
+    { href: leagueUrl(league.slug, 'dashboard'), label: 'Dashboard' },
+    ...visibleNavItems
+      .filter((item) => item.segment !== '')
+      .map((item) => ({ href: leagueUrl(league.slug, item.segment), label: item.label })),
+  ];
 
   const allLeagueIds = league.sleeperLeagueIds || {};
   const currentSeason = Object.entries(allLeagueIds)
@@ -124,7 +131,7 @@ export default async function LeagueLayout({
   };
   const runtimeConfig = safeJson(runtimeConfigValue);
   const runtimeBranding = safeJson(runtimeBrandingValue);
-  const dashboardHref = `/api/league/select?id=${encodeURIComponent(league.id)}&next=${encodeURIComponent('/home')}`;
+  const dashboardHref = `/api/league/select?id=${encodeURIComponent(league.id)}&next=${encodeURIComponent(`/l/${league.slug}/dashboard`)}`;
   const adminHref = `/api/league/select?id=${encodeURIComponent(league.id)}&next=${encodeURIComponent('/settings')}`;
 
   return (
@@ -171,7 +178,8 @@ export default async function LeagueLayout({
         </div>
         <LeagueNav links={navLinks} accent={league.primaryColor} />
       </header>
-      <div className="flex-grow">{children}</div>
+      <div className="flex-grow pb-20 md:pb-0">{children}</div>
+      <LeagueMobileNav links={mobileLinks} />
     </div>
   );
 }

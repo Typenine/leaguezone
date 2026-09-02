@@ -238,8 +238,8 @@ export async function getHallOfFameIndex(): Promise<HallOfFameIndexResponse> {
   return { franchises: await getHallOfFameFranchises(), entries };
 }
 
-export async function getPlayerHallOfFameHonors(playerId: string): Promise<PlayerHallOfFameHonor[]> {
-  const rows = await listActiveHallOfFameEntriesForPlayer(playerId);
+export async function getPlayerHallOfFameHonors(playerId: string, leagueId?: string): Promise<PlayerHallOfFameHonor[]> {
+  const rows = await listActiveHallOfFameEntriesForPlayer(playerId, leagueId);
   return Promise.all(rows.map(async (row) => ({
     id: row.id,
     franchiseId: row.franchiseId,

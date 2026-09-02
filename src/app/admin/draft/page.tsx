@@ -434,6 +434,21 @@ function PlayerMediaCard() {
   );
 }
 
+function DraftLifecycleCard() {
+  const [value, setValue] = useState({ state: 'scheduled', date: '', location: '' });
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { fetch('/api/draft/lifecycle', { cache: 'no-store' }).then((response) => response.json()).then((data) => setValue({ state: data.state || 'scheduled', date: data.date ? String(data.date).slice(0, 16) : '', location: data.location || '' })).catch(() => {}); }, []);
+  async function save() {
+    setSaving(true);
+    try {
+      const response = await fetch('/api/draft/lifecycle', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value) });
+      if (!response.ok) throw new Error((await response.json()).error || 'Unable to save');
+    } catch (error) { alert(error instanceof Error ? error.message : 'Unable to save'); }
+    finally { setSaving(false); }
+  }
+  return <Card className="mb-5"><CardHeader><CardTitle>League Draft Availability</CardTitle></CardHeader><CardContent><div className="grid gap-3 md:grid-cols-[180px_1fr_1fr_auto]"><Select aria-label="Draft state" value={value.state} onChange={(event) => setValue((current) => ({ ...current, state: event.target.value }))}><option value="scheduled">Scheduled</option><option value="open">Open to league</option><option value="paused">Paused</option><option value="complete">Complete</option><option value="archived">Archived</option></Select><Input aria-label="Draft date" type="datetime-local" value={value.date} onChange={(event) => setValue((current) => ({ ...current, date: event.target.value }))} /><Input aria-label="Draft location" placeholder="Location or video link" value={value.location} onChange={(event) => setValue((current) => ({ ...current, location: event.target.value }))} /><Button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save availability'}</Button></div></CardContent></Card>;
+}
+
 export default function AdminDraftPage() {
   type ConfirmIntent = {
     action: 'undo' | 'skip_pick' | 'reset_trades' | 'reset' | 'delete';
@@ -951,6 +966,7 @@ export default function AdminDraftPage() {
           </Link>
         </div>
       </div>
+      <DraftLifecycleCard />
       {/* Pending Pick Approval — floating panel */}
       {pendingPick && (
         <div
@@ -2030,4 +2046,3 @@ export default function AdminDraftPage() {
     </div>
   );
 }
-

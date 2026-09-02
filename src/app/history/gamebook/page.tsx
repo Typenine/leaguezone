@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getLeagueStatsDatasetV2 } from '@/lib/stats/league-stats-v2';
+import { getLeagueStatsContextBySlug } from '@/lib/stats/league-stats-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,8 +10,9 @@ export const metadata: Metadata = {
   description: 'Week-by-week League historical scorebooks, matchup results and player leaders.',
 };
 
-export default async function GamebookIndexPage() {
-  const dataset = await getLeagueStatsDatasetV2();
+export default async function GamebookIndexPage({ searchParams }: { searchParams?: Promise<{ _league?: string }> }) {
+  const scoped = await searchParams;
+  const dataset = await getLeagueStatsDatasetV2(await getLeagueStatsContextBySlug(scoped?._league));
   const rows = dataset.seasons
     .map((season) => ({
       season,

@@ -24,7 +24,7 @@ export async function GET() {
     const webhooks = await getDiscordWebhooks(leagueId);
     return NextResponse.json(webhooks);
   } catch {
-    return NextResponse.json({ suggestions: null, trades: null, tradeBlock: null });
+    return NextResponse.json({ suggestions: null, trades: null, tradeBlock: null, hallOfFame: null });
   }
 }
 
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
     const suggestions = typeof body.suggestions === 'string' ? body.suggestions.trim() || null : null;
     const trades = typeof body.trades === 'string' ? body.trades.trim() || null : null;
     const tradeBlock = typeof body.tradeBlock === 'string' ? body.tradeBlock.trim() || null : null;
+    const hallOfFame = typeof body.hallOfFame === 'string' ? body.hallOfFame.trim() || null : null;
 
     const db = getDb();
     const res = await db.execute(sql`SELECT id, config FROM leagues WHERE id = ${leagueId}::uuid AND setup_completed = true LIMIT 1`);
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     if (!row) return NextResponse.json({ error: 'No league found' }, { status: 404 });
 
     const config = (row.config as Record<string, unknown>) ?? {};
-    const newConfig = { ...config, discordWebhooks: { suggestions, trades, tradeBlock } };
+    const newConfig = { ...config, discordWebhooks: { suggestions, trades, tradeBlock, hallOfFame } };
 
     await db.execute(sql`
       UPDATE leagues

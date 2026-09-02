@@ -21,10 +21,9 @@ type DraftSuggestion = {
 
 async function getLeagueRow(jar: Awaited<ReturnType<typeof cookies>>) {
   const activeLeagueId = jar.get('active_league_id')?.value || undefined;
+  if (!activeLeagueId) return null;
   const db = getDb();
-  const res = activeLeagueId
-    ? await db.execute(sql`SELECT id, config FROM leagues WHERE setup_completed = true AND id = ${activeLeagueId}::uuid LIMIT 1`)
-    : await db.execute(sql`SELECT id, config FROM leagues WHERE setup_completed = true ORDER BY created_at DESC LIMIT 1`);
+  const res = await db.execute(sql`SELECT id, config FROM leagues WHERE setup_completed = true AND id::text = ${activeLeagueId} LIMIT 1`);
   return (res as { rows?: Array<Record<string, unknown>> }).rows?.[0] ?? null;
 }
 
@@ -66,7 +65,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const row = await getLeagueRow(jar);
-    if (!row) return NextResponse.json({ error: 'No league found' }, { status: 404 });
+    if (!row) return NextResponse.json({ error: 'Select a league before submitting a suggestion' }, { status: 409 });
     const leagueId = row.id as string;
     const config = (row.config as Record<string, unknown>) ?? {};
     const suggestions: DraftSuggestion[] = Array.isArray(config.draftSuggestions)

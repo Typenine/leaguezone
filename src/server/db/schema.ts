@@ -176,7 +176,8 @@ export const taxiObservations = pgTable('taxi_observations', {
 });
 
 export const userDocs = pgTable('user_docs', {
-  userId: varchar('user_id', { length: 64 }).primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: varchar('user_id', { length: 64 }).notNull(),
   leagueId: uuid('league_id').references(() => leagues.id),
   team: varchar('team', { length: 255 }).notNull(),
   version: integer('version').default(0).notNull(),

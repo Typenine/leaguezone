@@ -13,9 +13,11 @@ export type { MyTeamData } from '@/components/home/useMyTeamDashboard';
 export default function MyTeamCard({
   data,
   phase,
+  basePath = '',
 }: {
   data: MyTeamData;
   phase: HomepagePhase;
+  basePath?: string;
 }) {
-  return <MyTeamCardView model={useMyTeamDashboard(data, phase)} />;
+  return <MyTeamCardView model={useMyTeamDashboard(data, phase)} basePath={basePath} />;
 }

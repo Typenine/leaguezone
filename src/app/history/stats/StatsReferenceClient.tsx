@@ -262,7 +262,7 @@ export default function StatsReferenceClient({ dataset }: { dataset: LeagueStats
         ) : null}
 
         {activeTab === 'players' ? (
-          <ReferenceSection title="Player Index" subtitle={`${filteredPlayers.length.toLocaleString()} players in the current result set. Normal player clicks open the profile modal, which now includes a weekly EVW game log.`}>
+          <ReferenceSection title="Player Index" subtitle={`${filteredPlayers.length.toLocaleString()} players in the current result set. Player clicks open the profile modal, including a weekly league game log.`}>
             <div className="grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 md:grid-cols-4">
               <label className="text-xs font-bold uppercase tracking-wide text-[var(--muted)]">Search<input value={playerSearch} onChange={(event) => setPlayerSearch(event.target.value)} placeholder="Player or team" className="mt-1 w-full rounded-md border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-2 text-sm font-normal normal-case tracking-normal text-[var(--text)]" /></label>
               <label className="text-xs font-bold uppercase tracking-wide text-[var(--muted)]">Position<select value={playerPosition} onChange={(event) => setPlayerPosition(event.target.value)} className="mt-1 w-full rounded-md border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-2 text-sm font-normal normal-case tracking-normal text-[var(--text)]"><option value="ALL">All Positions</option>{positions.map((position) => <option key={position} value={position}>{position}</option>)}</select></label>

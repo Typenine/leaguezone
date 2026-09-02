@@ -6,7 +6,7 @@ import type { StandingsTeam } from '@/components/home/PlayoffRacePanel';
 
 const PLAYOFF_TEAMS = 7;
 
-export default function InSeasonStandings({ standings }: { standings: StandingsTeam[] }) {
+export default function InSeasonStandings({ standings, basePath = '' }: { standings: StandingsTeam[]; basePath?: string }) {
   const rows = [...standings].sort((a, b) => a.seed - b.seed);
   const hasGames = rows.some((team) => team.wins + team.losses > 0);
 
@@ -16,7 +16,7 @@ export default function InSeasonStandings({ standings }: { standings: StandingsT
         title="Standings"
         subtitle={hasGames ? 'Current playoff order' : 'Standings activate as Week 1 results come in'}
         actions={
-          <Link href="/standings" className="text-sm text-[var(--muted)] hover:text-[var(--text)]">
+          <Link href={`${basePath}/standings`} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">
             Full standings →
           </Link>
         }

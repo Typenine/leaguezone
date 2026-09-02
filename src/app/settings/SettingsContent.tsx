@@ -953,6 +953,7 @@ function DiscordWebhooksForm() {
   const [suggestions, setSuggestions] = useState('');
   const [trades, setTrades] = useState('');
   const [tradeBlock, setTradeBlock] = useState('');
+  const [hallOfFame, setHallOfFame] = useState('');
   const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
   const [msg, setMsg] = useState('');
 
@@ -961,6 +962,7 @@ function DiscordWebhooksForm() {
       setSuggestions(d.suggestions ?? '');
       setTrades(d.trades ?? '');
       setTradeBlock(d.tradeBlock ?? '');
+      setHallOfFame(d.hallOfFame ?? '');
     }).catch(() => {});
   }, []);
 
@@ -974,6 +976,7 @@ function DiscordWebhooksForm() {
         suggestions: suggestions.trim() || null,
         trades: trades.trim() || null,
         tradeBlock: tradeBlock.trim() || null,
+        hallOfFame: hallOfFame.trim() || null,
       }),
     });
     if (res.ok) { setStatus('ok'); setMsg('Webhooks saved'); }
@@ -998,6 +1001,7 @@ function DiscordWebhooksForm() {
       {webhookField('Suggestions Webhook', 'Posted when a league member submits a new suggestion.', suggestions, setSuggestions)}
       {webhookField('Trades Webhook', 'Posted when a trade is completed or pending (via cron notifier).', trades, setTrades)}
       {webhookField('Trade Block Webhook', 'Posted when a team updates their trade block (Clancy reporter).', tradeBlock, setTradeBlock)}
+      {webhookField('Hall of Fame Webhook', 'Posted when a franchise inducts a player.', hallOfFame, setHallOfFame)}
       {msg && <p className={`text-sm ${status === 'ok' ? 'text-green-500' : 'text-red-400'}`}>{msg}</p>}
       <Button type="submit" disabled={status === 'saving'}>{status === 'saving' ? 'Saving…' : 'Save Webhooks'}</Button>
     </form>

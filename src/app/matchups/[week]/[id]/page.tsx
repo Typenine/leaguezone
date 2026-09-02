@@ -15,6 +15,8 @@ import {
 import RosterColumn, { type PlayerRow } from '@/components/matchups/RosterColumn';
 import WinProbability from '@/components/matchups/WinProbability';
 import { buildPlayerAvailabilitySnapshot } from '@/lib/utils/player-availability';
+import OpponentScoutingReport from '@/components/matchups/OpponentScoutingReport';
+import { getLeagueBySlug } from '@/lib/server/league-context';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 20;
@@ -25,6 +27,12 @@ function clamp(n: number, min: number, max: number) {
 
 export default async function MatchupDetailPage({ params }: { params?: Promise<Record<string, string | string[] | undefined>> }) {
   const p = (await (params ?? Promise.resolve({}))) as Record<string, string | string[] | undefined>;
+  const slugRaw = p.leagueSlug;
+  const leagueSlug = Array.isArray(slugRaw) ? slugRaw[0] : slugRaw;
+  const dbLeague = leagueSlug ? await getLeagueBySlug(leagueSlug) : null;
+  const leagueId = dbLeague?.sleeperLeagueId || LEAGUE_IDS.CURRENT;
+  const basePath = dbLeague ? `/l/${dbLeague.slug}/matchups` : '/matchups';
+  const teamsBasePath = dbLeague ? `/l/${dbLeague.slug}/teams` : '/teams';
   const weekRaw = p.week;
   const idRaw = p.id;
   const weekStr = Array.isArray(weekRaw) ? weekRaw[0] : weekRaw;
@@ -33,8 +41,6 @@ export default async function MatchupDetailPage({ params }: { params?: Promise<R
   const idParam = Number(idStr);
   const week = clamp(Number.isFinite(weekParam) ? weekParam : 1, 1, 17);
   const matchupId = Number.isFinite(idParam) ? idParam : 0;
-
-  const leagueId = LEAGUE_IDS.CURRENT;
 
   try {
     // Fetch everything we need
@@ -61,9 +67,9 @@ export default async function MatchupDetailPage({ params }: { params?: Promise<R
             actions={
               week > 14
                 ? (
-                  <Link href="/matchups?week=14" className="text-[var(--accent)] hover:underline">← Back to Schedule</Link>
+                  <Link href={`${basePath}?week=14`} className="text-[var(--accent)] hover:underline">← Back to Schedule</Link>
                 ) : (
-                  <Link href={`/matchups?week=${week}`} className="text-[var(--accent)] hover:underline">← Back to Week {week}</Link>
+                  <Link href={`${basePath}?week=${week}`} className="text-[var(--accent)] hover:underline">← Back to Week {week}</Link>
                 )
             }
           />
@@ -150,9 +156,9 @@ export default async function MatchupDetailPage({ params }: { params?: Promise<R
           actions={
             week > 14
               ? (
-                <Link href="/matchups?week=14" className="inline-flex items-center px-4 py-2 rounded-full font-medium league-surface border border-[var(--border)] text-[var(--text)] hover:opacity-90 focus:outline-none focus:ring-2 ring-[var(--focus)] ring-offset-2 ring-offset-[var(--surface)]">← Back to Schedule</Link>
+                <Link href={`${basePath}?week=14`} className="inline-flex items-center px-4 py-2 rounded-full font-medium league-surface border border-[var(--border)] text-[var(--text)] hover:opacity-90 focus:outline-none focus:ring-2 ring-[var(--focus)] ring-offset-2 ring-offset-[var(--surface)]">← Back to Schedule</Link>
               ) : (
-                <Link href={`/matchups?week=${week}`} className="inline-flex items-center px-4 py-2 rounded-full font-medium league-surface border border-[var(--border)] text-[var(--text)] hover:opacity-90 focus:outline-none focus:ring-2 ring-[var(--focus)] ring-offset-2 ring-offset-[var(--surface)]">← Back to Week {week}</Link>
+                <Link href={`${basePath}?week=${week}`} className="inline-flex items-center px-4 py-2 rounded-full font-medium league-surface border border-[var(--border)] text-[var(--text)] hover:opacity-90 focus:outline-none focus:ring-2 ring-[var(--focus)] ring-offset-2 ring-offset-[var(--surface)]">← Back to Week {week}</Link>
               )
           }
         />
@@ -220,6 +226,8 @@ export default async function MatchupDetailPage({ params }: { params?: Promise<R
           />
         </div>
 
+        <OpponentScoutingReport leftName={bName} rightName={aName} leftStarters={bStarters} rightStarters={aStarters} availability={availability} />
+
         {/* Other matchups in this week */}
         {Array.from(byId.entries()).filter(([mid]) => mid !== matchupId).length > 0 && (
           <div className="mb-8">
@@ -242,6 +250,8 @@ export default async function MatchupDetailPage({ params }: { params?: Promise<R
                     homeScore={homeScore}
                     week={week}
                     matchupId={mid}
+                    basePath={basePath}
+                    teamsBasePath={teamsBasePath}
                   />
                 );
               })}
@@ -262,8 +272,8 @@ export default async function MatchupDetailPage({ params }: { params?: Promise<R
         <SectionHeader
           title={`Week ${week} Matchup`}
           actions={week > 14
-            ? <Link href="/matchups?week=14" className="text-[var(--accent)] hover:underline">← Back to Schedule</Link>
-            : <Link href={`/matchups?week=${week}`} className="text-[var(--accent)] hover:underline">← Back to Week {week}</Link>}
+            ? <Link href={`${basePath}?week=14`} className="text-[var(--accent)] hover:underline">← Back to Schedule</Link>
+            : <Link href={`${basePath}?week=${week}`} className="text-[var(--accent)] hover:underline">← Back to Week {week}</Link>}
         />
         <Card className="mt-4">
           <CardContent>

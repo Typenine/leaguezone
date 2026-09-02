@@ -150,11 +150,17 @@ export default function SeasonMatchups({
   maxWeeks,
   season,
   matchups,
+  scheduleHref = '/matchups',
+  dashboardHref = '/',
+  teamsBasePath = '/teams',
 }: {
   selectedWeek: number;
   maxWeeks: number;
   season: string;
   matchups: SeasonHomeMatchup[];
+  scheduleHref?: string;
+  dashboardHref?: string;
+  teamsBasePath?: string;
 }) {
   const [pointsMap, setPointsMap] = useState<Record<string, number>>({});
   const [statuses, setStatuses] = useState<Record<string, TeamStatus>>({});
@@ -248,7 +254,7 @@ export default function SeasonMatchups({
         title="This week in League"
         subtitle={`Week ${selectedWeek}`}
         actions={
-          <Link href="/matchups" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
+          <Link href={scheduleHref} className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
             Full schedule →
           </Link>
         }
@@ -256,7 +262,7 @@ export default function SeasonMatchups({
 
       <div className="mb-5 flex items-center gap-2" aria-label="Select week">
         <Link
-          href={`/?week=${prevWeek}`}
+          href={`${dashboardHref}?week=${prevWeek}`}
           prefetch={false}
           aria-disabled={selectedWeek === 1}
           className={`rounded-md border border-[var(--border)] px-3 py-1.5 text-sm font-semibold ${
@@ -269,7 +275,7 @@ export default function SeasonMatchups({
           Week {selectedWeek}
         </div>
         <Link
-          href={`/?week=${nextWeek}`}
+          href={`${dashboardHref}?week=${nextWeek}`}
           prefetch={false}
           aria-disabled={selectedWeek === maxWeeks}
           className={`rounded-md border border-[var(--border)] px-3 py-1.5 text-sm font-semibold ${
@@ -298,6 +304,8 @@ export default function SeasonMatchups({
               kickoffTime={matchup.kickoffTime}
               week={matchup.week}
               matchupId={matchup.matchupId}
+              basePath={scheduleHref}
+              teamsBasePath={teamsBasePath}
             />
           ))}
         </div>

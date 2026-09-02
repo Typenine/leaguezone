@@ -26,6 +26,8 @@ interface MatchupCardProps {
   week: number;
   matchupId?: number;
   className?: string;
+  basePath?: string;
+  teamsBasePath?: string;
 }
 
 function TeamLine({
@@ -35,6 +37,7 @@ function TeamLine({
   score,
   projectedScore,
   winPct,
+  teamsBasePath,
 }: {
   team: string;
   rosterId: number;
@@ -42,13 +45,14 @@ function TeamLine({
   score?: number;
   projectedScore?: number;
   winPct?: number;
+  teamsBasePath: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-3">
         <BroadcastTeamLogo team={team} accent={accent} size="sm" />
         <Link
-          href={`/teams/${rosterId}`}
+          href={`${teamsBasePath}/${rosterId}`}
           aria-label={`View ${team} team page`}
           className="truncate rounded-sm text-sm font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
           style={broadcastBodyTextStyle}
@@ -90,6 +94,8 @@ export default function MatchupCard({
   week,
   matchupId,
   className = "",
+  basePath = "/matchups",
+  teamsBasePath = "/teams",
 }: MatchupCardProps) {
   const awayAccent = readableAccentOnDark(getTeamColors(awayTeam));
   const homeAccent = readableAccentOnDark(getTeamColors(homeTeam));
@@ -132,6 +138,7 @@ export default function MatchupCard({
           score={awayScore}
           projectedScore={awayProjectedScore}
           winPct={awayWinPct}
+          teamsBasePath={teamsBasePath}
         />
 
         <div className="relative my-3 flex items-center justify-center">
@@ -155,6 +162,7 @@ export default function MatchupCard({
           score={homeScore}
           projectedScore={homeProjectedScore}
           winPct={homeWinPct}
+          teamsBasePath={teamsBasePath}
         />
 
         {awayWinPct !== undefined && homeWinPct !== undefined ? (
@@ -176,7 +184,7 @@ export default function MatchupCard({
         {typeof matchupId === "number" ? (
           <div className="flex justify-end pt-3">
             <Link
-              href={`/matchups/${week}/${matchupId}`}
+              href={`${basePath}/${week}/${matchupId}`}
               className="text-xs font-semibold uppercase tracking-wider transition-colors hover:text-[var(--panel-text)]"
               style={broadcastMutedTextStyle}
               aria-label={`View matchup details for Week ${week}`}

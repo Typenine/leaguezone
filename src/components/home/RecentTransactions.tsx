@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import SectionHeader from '@/components/ui/SectionHeader';
 import { BroadcastPanel } from '@/components/ui/BroadcastPanel';
-import { CURRENT_SEASON } from '@/lib/constants/league';
 import { broadcastBodyTextStyle, broadcastMutedTextStyle, broadcastFaintTextStyle } from '@/lib/ui/broadcast-styles';
 
 type RecentTransaction = {
@@ -30,13 +29,13 @@ function summary(item: RecentTransaction): string {
   return 'Roster transaction';
 }
 
-export default function RecentTransactions() {
+export default function RecentTransactions({ leagueSlug, season }: { leagueSlug: string; season: string }) {
   const [items, setItems] = useState<RecentTransaction[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/home/recent-transactions', { signal: controller.signal })
+    fetch(`/api/home/recent-transactions?league=${encodeURIComponent(leagueSlug)}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data: { items?: RecentTransaction[] }) => setItems(data.items || []))
       .catch((error) => {
@@ -46,14 +45,14 @@ export default function RecentTransactions() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, []);
+  }, [leagueSlug]);
 
   return (
     <section className="mb-10 sm:mb-12">
       <SectionHeader
         title="Recent transactions"
         subtitle="Latest League roster movement"
-        actions={<Link href={`/transactions?season=${CURRENT_SEASON}&type=all`} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">All transactions →</Link>}
+        actions={<Link href={`/l/${leagueSlug}/transactions?season=${season}&type=all`} className="text-sm text-[var(--muted)] hover:text-[var(--text)]">All transactions →</Link>}
       />
       <BroadcastPanel accent="#8b5cf6" title="Transaction wire" meta={loading ? 'Loading' : `${items.length} recent`}>
         {loading ? (

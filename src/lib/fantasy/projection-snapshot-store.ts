@@ -22,6 +22,7 @@ export async function loadProjectionSnapshotsForWeek(args: {
   season: number;
   week: number;
   modelVersion?: string;
+  leagueId?: string;
 }): Promise<LineupOptimizerResponse[]> {
   const url = databaseUrl();
   if (!url) return [];
@@ -33,6 +34,7 @@ export async function loadProjectionSnapshotsForWeek(args: {
       FROM weekly_projection_snapshots
       WHERE season = ${args.season}
         AND week = ${args.week}
+        AND (${args.leagueId || null}::text IS NULL OR league_id = ${args.leagueId || null})
         AND (${version}::text IS NULL OR model_version = ${version})
       ORDER BY team, generated_at DESC
     ` as Array<{ payload: LineupOptimizerResponse }>;
@@ -47,6 +49,7 @@ export async function loadAllProjectionSnapshotsForWeek(args: {
   season: number;
   week: number;
   modelVersion?: string;
+  leagueId?: string;
 }): Promise<LineupOptimizerResponse[]> {
   const url = databaseUrl();
   if (!url) return [];
@@ -58,6 +61,7 @@ export async function loadAllProjectionSnapshotsForWeek(args: {
       FROM weekly_projection_snapshots
       WHERE season = ${args.season}
         AND week = ${args.week}
+        AND (${args.leagueId || null}::text IS NULL OR league_id = ${args.leagueId || null})
         AND (${version}::text IS NULL OR model_version = ${version})
       ORDER BY generated_at ASC
     ` as Array<{ payload: LineupOptimizerResponse }>;

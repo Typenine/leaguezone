@@ -5,6 +5,7 @@ import { getCurrentLeagueBySlug } from '@/lib/server/league-context';
 import { verifySession } from '@/lib/server/auth';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { getUserLeagues } from '@/lib/server/user-auth';
+import NewsModerationPanel from '@/components/news/NewsModerationPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,5 +26,5 @@ export default async function LeagueAdminPage({ params }: { params: Promise<{ le
   }
 
   if (!authorized) redirect(`/l/${encodeURIComponent(league.slug)}`);
-  return <SettingsPage />;
+  return <><SettingsPage /><NewsModerationPanel leagueSlug={league.slug} /></>;
 }

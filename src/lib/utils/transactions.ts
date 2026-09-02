@@ -33,20 +33,20 @@ export type TransactionsSummary = {
   count: number;
 };
 
-export async function listAllSeasons(): Promise<string[]> {
+export async function listAllSeasons(dbLeagueId?: string): Promise<string[]> {
   // Fetch from DB so we get the real league IDs regardless of env vars
-  const config = await getLeagueIdsFromDb().catch(() => null);
+  const config = await getLeagueIdsFromDb(dbLeagueId).catch(() => null);
   const current = config?.current ? CURRENT_SEASON : CURRENT_SEASON; // always include current season label
   const prevYears = config ? Object.keys(config.previous) : Object.keys(LEAGUE_IDS.PREVIOUS || {});
   const uniq = new Set<string>([current, ...prevYears]);
   return Array.from(uniq).sort((a, b) => b.localeCompare(a));
 }
 
-export async function buildTransactionLedger(arg?: { season?: string }): Promise<LeagueTransaction[]> {
+export async function buildTransactionLedger(arg?: { season?: string; dbLeagueId?: string }): Promise<LeagueTransaction[]> {
   const players = await getAllPlayersCached().catch(() => ({} as Record<string, SleeperPlayer>));
 
   // Fetch league IDs from DB so server-side rendering works without SLEEPER_LEAGUE_ID env var
-  const leagueConfig = await getLeagueIdsFromDb().catch(() => undefined);
+  const leagueConfig = await getLeagueIdsFromDb(arg?.dbLeagueId).catch(() => undefined);
   const yearToLeague = await buildYearToLeagueMapUnique({ forceFresh: true }, leagueConfig);
 
   const entries = Object.entries(yearToLeague).filter(([season]) => !arg?.season || arg.season === season);

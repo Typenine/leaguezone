@@ -1,24 +1,21 @@
-import { LEAGUE_IDS, TEAM_NAMES } from "@/lib/constants/league";
 import {
-  buildYearToLeagueMapUnique,
+  getLeague,
   getLeagueMatchups,
   getLeagueRosters,
+  getAllPlayersCached,
   getNFLState,
   getRosterIdToTeamNameMap,
   getTeamsData,
 } from "@/lib/utils/sleeper-api";
-import { getHomepagePhase } from "@/lib/utils/countdown-resolver";
-import { selectCalendar } from "@/lib/constants/league-calendar";
-import { requireTeamUser } from "@/lib/server/session";
-import { getUserIdForTeam } from "@/lib/server/user-identity";
-import { readUserDoc } from "@/lib/server/user-store";
-import { getHeadToHeadAllTime } from "@/lib/utils/headtohead";
+import { getCountdownCards, getHomepagePhase } from "@/lib/utils/countdown-resolver";
+import { buildLeagueCalendar } from "@/lib/constants/league-calendar";
+import type { League } from "@/lib/server/league-context";
 import type { TeamRow } from "@/types/trade-block";
+import type { TradeAsset } from '@/types/trade-block';
 import type { MyTeamData } from "@/components/home/MyTeamCard";
 import type { StandingsTeam } from "@/components/home/PlayoffRacePanel";
 import SeasonWeekHeader from "@/components/home/SeasonWeekHeader";
 import HomepageCountdowns from "@/components/home/HomepageCountdowns";
-import TaxiBanner, { type TaxiFlags } from "@/components/taxi/TaxiBanner";
 import MyTeamCard from "@/components/home/MyTeamCard";
 import SeasonMatchups, {
   type SeasonHomeMatchup,
@@ -30,46 +27,56 @@ import LeaguePulse from "@/components/home/LeaguePulse";
 import WeeklyLeaders from "@/components/home/WeeklyLeaders";
 import AroundTheLeague from "@/components/home/AroundTheLeague";
 import RecentTransactions from "@/components/home/RecentTransactions";
-import HistoricalSpotlight from "@/components/home/HistoricalSpotlight";
-import { loadProjectionSnapshotsForWeek } from "@/lib/fantasy/projection-snapshot-store";
 import {
   buildLeagueProjectionSnapshotsV3,
-  PROJECTION_MODEL_VERSION,
 } from "@/lib/fantasy/weekly-projections-next";
-
-const MAX_REGULAR_WEEKS = 14;
+import { Suspense } from 'react';
+import LeagueHistorySpotlight from '@/components/home/LeagueHistorySpotlight';
+import { listLeagueUserDocs } from '@/server/db/queries.fixed';
+import { loadTradeBlockLeagueContext, teamAssetsFromContext } from '@/lib/server/trade-assets';
 
 export default async function SeasonLaunchHome({
+  league,
+  teamName,
+  rosterId,
   searchParams,
 }: {
+  league: League;
+  teamName?: string | null;
+  rosterId?: number | null;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const now = new Date();
-  const calendar = selectCalendar(now);
-  const presentationPhase = getHomepagePhase(now);
+  const sleeperLeagueId = league.sleeperLeagueId || '';
+  const sleeperLeague = sleeperLeagueId ? await getLeague(sleeperLeagueId).catch(() => null) : null;
+  const seasonYear = String(sleeperLeague?.season || new Date().getUTCFullYear());
+  const calendar = buildLeagueCalendar(league.config, Number(seasonYear));
+  const presentationPhase = getHomepagePhase(now, calendar);
   const isPostDeadline = presentationPhase === "post_deadline_pre_postseason";
-  const authUser = await requireTeamUser().catch(() => null);
+  const settings = (sleeperLeague?.settings || {}) as { playoff_week_start?: number; playoff_start_week?: number; playoff_teams?: number };
+  const configuredWeeks = Number((league.config.season as Record<string, unknown> | undefined)?.regularSeasonWeeks || league.config.regularSeasonWeeks);
+  const playoffStartWeek = Number(settings.playoff_week_start ?? settings.playoff_start_week ?? 15);
+  const maxRegularWeeks = Number.isFinite(configuredWeeks)
+    ? Math.max(1, Math.min(18, configuredWeeks))
+    : Math.max(1, Math.min(18, playoffStartWeek - 1));
 
   const sp = (await (searchParams ?? Promise.resolve({}))) as Record<string, string | string[] | undefined>;
   const requestedRaw = sp.week;
   const requestedStr = Array.isArray(requestedRaw) ? requestedRaw[0] : requestedRaw;
   const requestedWeek = typeof requestedStr === "string" ? Number(requestedStr) : NaN;
-  const hasWeekOverride = Number.isFinite(requestedWeek) && requestedWeek >= 1 && requestedWeek <= MAX_REGULAR_WEEKS;
+  const hasWeekOverride = Number.isFinite(requestedWeek) && requestedWeek >= 1 && requestedWeek <= maxRegularWeeks;
 
-  let leagueId = LEAGUE_IDS.CURRENT;
-  let seasonYear = String(calendar.season);
+  const leagueId = sleeperLeagueId;
   let selectedWeek = 1;
   let standings: StandingsTeam[] = [];
   const matchups: SeasonHomeMatchup[] = [];
   let myTeamData: MyTeamData | null = null;
   let tradeRows: TeamRow[] = [];
+  let positionCounts: Record<string, Record<string, number>> = {};
+  let playerPositions: Record<string, string> = {};
 
   try {
     const nflState = await getNFLState().catch(() => ({ week: 1, display_week: 1, season_has_scores: false }));
-    seasonYear = String((nflState as { season?: string | number }).season ?? calendar.season);
-    const yearMap = await buildYearToLeagueMapUnique().catch(() => ({} as Record<string, string>));
-    leagueId = yearMap[seasonYear] || leagueId;
-
     const rawWeek = Number(
       (nflState as { week?: number; display_week?: number }).week
       ?? (nflState as { display_week?: number }).display_week
@@ -81,15 +88,45 @@ export default async function SeasonLaunchHome({
     let defaultWeek = beforeKickoff || hasScores === false ? 1 : currentWeek;
     const dowET = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "America/New_York" }).format(now);
     if (!beforeKickoff && (dowET === "Mon" || dowET === "Tue")) defaultWeek = Math.max(1, defaultWeek - 1);
-    defaultWeek = Math.min(MAX_REGULAR_WEEKS, Math.max(1, defaultWeek));
+    defaultWeek = Math.min(maxRegularWeeks, Math.max(1, defaultWeek));
     selectedWeek = hasWeekOverride ? requestedWeek : defaultWeek;
 
-    const [teams, rosterNameMap, rosters, sleeperMatchups] = await Promise.all([
+    const [teams, rosterNameMap, rosters, sleeperMatchups, players, tradeDocs, tradeContext] = await Promise.all([
       getTeamsData(leagueId).catch(() => []),
       getRosterIdToTeamNameMap(leagueId).catch(() => new Map<number, string>()),
       getLeagueRosters(leagueId).catch(() => []),
       getLeagueMatchups(leagueId, selectedWeek).catch(() => []),
+      getAllPlayersCached().catch(() => ({})),
+      listLeagueUserDocs(league.id).catch(() => []),
+      loadTradeBlockLeagueContext(league.id).catch(() => null),
     ]);
+
+    playerPositions = Object.fromEntries(Object.entries(players).map(([id, player]) => [id, String(player.position || '')]));
+    positionCounts = Object.fromEntries(rosters.map((roster) => {
+      const team = rosterNameMap.get(roster.roster_id) || `Roster ${roster.roster_id}`;
+      const counts: Record<string, number> = {};
+      for (const playerId of roster.players || []) {
+        const position = playerPositions[playerId] || 'Other';
+        counts[position] = (counts[position] || 0) + 1;
+      }
+      return [team, counts];
+    }));
+
+    tradeRows = tradeDocs.map((doc) => {
+      const raw = Array.isArray(doc.tradeBlock) ? doc.tradeBlock as TradeAsset[] : [];
+      let tradeBlock = raw;
+      if (tradeContext) {
+        const assets = teamAssetsFromContext(doc.team, tradeContext);
+        const playersOwned = new Set(assets.players);
+        tradeBlock = raw.filter((asset) => {
+          if (asset.type === 'player') return playersOwned.has(asset.playerId);
+          if (asset.type === 'pick') return assets.picks.some((pick) => pick.year === asset.year && pick.round === asset.round && pick.originalTeam === asset.originalTeam);
+          if (asset.type === 'faab') return Number(asset.amount || 0) <= assets.faab;
+          return false;
+        });
+      }
+      return { team: doc.team, tradeBlock, tradeWants: doc.tradeWants || null, updatedAt: doc.updatedAt?.toISOString() || null };
+    });
 
     const sortedTeams = [...teams].sort(
       (a, b) => (b.wins ?? 0) - (a.wins ?? 0) || (b.fpts ?? 0) - (a.fpts ?? 0),
@@ -103,21 +140,14 @@ export default async function SeasonLaunchHome({
       seed: index + 1,
     }));
 
-    let projectionSnapshots = await loadProjectionSnapshotsForWeek({
-      season: Number(seasonYear),
-      week: selectedWeek,
-      modelVersion: PROJECTION_MODEL_VERSION,
-    }).catch(() => []);
-
-    const shouldGenerateSelectedWeek = beforeKickoff ? selectedWeek === 1 : selectedWeek === currentWeek;
-    if (shouldGenerateSelectedWeek && projectionSnapshots.length < Math.min(12, rosters.length)) {
-      const generated = await buildLeagueProjectionSnapshotsV3({
+    let projectionSnapshots = await buildLeagueProjectionSnapshotsV3({
         season: seasonYear,
         week: selectedWeek,
-        saveSnapshots: true,
+        saveSnapshots: beforeKickoff ? selectedWeek === 1 : selectedWeek === currentWeek,
+        dbLeagueId: league.id,
       }).catch(() => []);
-      if (generated.length) {
-        projectionSnapshots = generated.map((snapshot) => {
+      if (projectionSnapshots.length) {
+        projectionSnapshots = projectionSnapshots.map((snapshot) => {
           const hasCurrentLineup = (snapshot.currentLineup || []).some((entry) => Boolean(entry.player));
           return {
             ...snapshot,
@@ -126,7 +156,6 @@ export default async function SeasonLaunchHome({
           };
         });
       }
-    }
 
     const projectionByTeam = new Map(
       projectionSnapshots.map((snapshot) => [snapshot.teamName, snapshot] as const),
@@ -182,14 +211,14 @@ export default async function SeasonLaunchHome({
       });
     }
 
-    if (authUser) {
-      const roster = rosters.find((item) => rosterNameMap.get(item.roster_id) === authUser.team);
+    if (teamName) {
+      const roster = rosters.find((item) => item.roster_id === rosterId || rosterNameMap.get(item.roster_id) === teamName);
       if (roster) {
         const teamStanding = standings.find((team) => team.rosterId === roster.roster_id);
         const uniquePlayers = new Set<string>(roster.players || []);
         for (const playerId of [...(roster.taxi || []), ...(roster.reserve || [])]) uniquePlayers.add(playerId);
         myTeamData = {
-          teamName: authUser.team,
+          teamName,
           rosterCount: uniquePlayers.size,
           taxiCount: (roster.taxi || []).length,
           irCount: (roster.reserve || []).length,
@@ -197,51 +226,17 @@ export default async function SeasonLaunchHome({
           losses: teamStanding?.losses ?? roster.settings?.losses ?? 0,
           fpts: teamStanding?.fpts ?? roster.settings?.fpts ?? 0,
           seed: teamStanding?.seed,
-          tradeBlock: [],
-          tradeWants: null,
-          tradeBlockUpdatedAt: null,
-          tradeBlockPlayerIds: [],
-          tradeBlockPickCount: 0,
+          tradeBlock: tradeRows.find((row) => row.team === teamName)?.tradeBlock || [],
+          tradeWants: tradeRows.find((row) => row.team === teamName)?.tradeWants || null,
+          tradeBlockUpdatedAt: tradeRows.find((row) => row.team === teamName)?.updatedAt || null,
+          tradeBlockPlayerIds: (tradeRows.find((row) => row.team === teamName)?.tradeBlock || []).filter((asset) => asset.type === 'player').map((asset) => (asset as { playerId: string }).playerId),
+          tradeBlockPickCount: (tradeRows.find((row) => row.team === teamName)?.tradeBlock || []).filter((asset) => asset.type === 'pick').length,
         };
       }
     }
   } catch {
     // Each section below has a useful empty/loading state.
   }
-
-  try {
-    tradeRows = await Promise.all(
-      TEAM_NAMES.map(async (team) => {
-        try {
-          const userId = getUserIdForTeam(team);
-          const doc = await readUserDoc(userId, team);
-          const row: TeamRow = {
-            team,
-            tradeBlock: Array.isArray(doc.tradeBlock) ? doc.tradeBlock : [],
-            tradeWants: doc.tradeWants ?? null,
-            updatedAt: doc.updatedAt || null,
-          };
-          if (myTeamData && myTeamData.teamName === team) {
-            myTeamData.tradeBlock = row.tradeBlock;
-            myTeamData.tradeWants = row.tradeWants;
-            myTeamData.tradeBlockUpdatedAt = row.updatedAt;
-            myTeamData.tradeBlockPlayerIds = row.tradeBlock
-              .filter((asset) => asset.type === "player")
-              .map((asset) => (asset as { playerId: string }).playerId);
-            myTeamData.tradeBlockPickCount = row.tradeBlock.filter((asset) => asset.type === "pick").length;
-          }
-          return row;
-        } catch {
-          return { team, tradeBlock: [], tradeWants: null, updatedAt: null };
-        }
-      }),
-    );
-  } catch {
-    tradeRows = [];
-  }
-
-  const h2h = await getHeadToHeadAllTime().catch(() => ({ teams: [], matrix: {}, neverBeaten: [] }));
-  const emptyTaxi: TaxiFlags = { generatedAt: now.toISOString(), actual: [], potential: [] };
 
   return (
     <div className="home-page relative overflow-hidden">
@@ -268,43 +263,44 @@ export default async function SeasonLaunchHome({
       />
 
       <div className="container relative z-10 mx-auto px-4 py-6 sm:px-5 sm:py-8">
-        <SeasonWeekHeader week={selectedWeek} matchupCount={matchups.length} />
+        <SeasonWeekHeader week={selectedWeek} matchupCount={matchups.length} season={seasonYear} scheduleHref={`/l/${league.slug}/matchups`} />
 
-        <HomepageCountdowns />
-
-        <TaxiBanner initial={emptyTaxi} />
+        <HomepageCountdowns cards={getCountdownCards(now, calendar)} />
 
         {myTeamData && (
           <section className="mb-10 sm:mb-12">
-            <MyTeamCard data={myTeamData} phase={presentationPhase} />
+            <MyTeamCard data={myTeamData} phase={presentationPhase} basePath={`/l/${league.slug}`} />
           </section>
         )}
 
         <SeasonMatchups
           selectedWeek={selectedWeek}
-          maxWeeks={MAX_REGULAR_WEEKS}
+          maxWeeks={maxRegularWeeks}
           season={seasonYear}
           matchups={matchups}
+          scheduleHref={`/l/${league.slug}/matchups`}
+          dashboardHref={`/l/${league.slug}/dashboard`}
+          teamsBasePath={`/l/${league.slug}/teams`}
         />
 
         {isPostDeadline && standings.length > 0 ? (
-          <PlayoffRacePanel standings={standings} />
+          <PlayoffRacePanel standings={standings} playoffSpots={Math.max(2, Number(settings.playoff_teams ?? Math.ceil(standings.length / 2)))} basePath={`/l/${league.slug}`} />
         ) : (
-          standings.length > 0 && <InSeasonStandings standings={standings} />
+          standings.length > 0 && <InSeasonStandings standings={standings} basePath={`/l/${league.slug}`} />
         )}
 
         <LeaguePulse
           tradeRows={tradeRows}
-          positionCounts={{}}
-          playerPositions={{}}
+          positionCounts={positionCounts}
+          playerPositions={playerPositions}
           phase={presentationPhase}
           standings={standings}
         />
 
         <WeeklyLeaders week={selectedWeek} matchups={matchups} />
-        <AroundTheLeague myTeam={authUser?.team ?? null} />
-        <RecentTransactions />
-        <HistoricalSpotlight h2h={h2h} />
+        <AroundTheLeague myTeam={teamName ?? null} leagueSlug={league.slug} />
+        <RecentTransactions leagueSlug={league.slug} season={seasonYear} />
+        <Suspense fallback={null}><LeagueHistorySpotlight league={league} /></Suspense>
       </div>
     </div>
   );

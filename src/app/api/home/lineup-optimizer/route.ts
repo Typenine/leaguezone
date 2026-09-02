@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireTeamUser } from '@/lib/server/session';
+import { getActiveLeagueMembership } from '@/lib/server/membership';
 import { buildTeamLineupOptimizerV3 } from '@/lib/fantasy/weekly-projections-next';
 import type { LineupOptimizerResponse } from '@/lib/fantasy/lineup-types';
 
@@ -11,12 +11,13 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 const responseCache = new Map<string, { ts: number; data: LineupOptimizerResponse }>();
 
 export async function GET() {
-  const user = await requireTeamUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-  }
+  const result = await getActiveLeagueMembership();
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+  const membership = result.membership;
+  if (!membership.teamName) return NextResponse.json({ error: 'No team is assigned' }, { status: 404 });
 
-  const cached = responseCache.get(user.team);
+  const cacheKey = `${membership.leagueId}:${membership.teamName}`;
+  const cached = responseCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
     return NextResponse.json(cached.data, {
       headers: { 'Cache-Control': 'private, max-age=300' },
@@ -24,8 +25,8 @@ export async function GET() {
   }
 
   try {
-    const data = await buildTeamLineupOptimizerV3(user.team);
-    responseCache.set(user.team, { ts: Date.now(), data });
+    const data = await buildTeamLineupOptimizerV3(membership.teamName, membership.leagueId);
+    responseCache.set(cacheKey, { ts: Date.now(), data });
     return NextResponse.json(data, {
       headers: { 'Cache-Control': 'private, max-age=300' },
     });

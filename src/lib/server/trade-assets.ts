@@ -301,8 +301,8 @@ export async function loadTradeBlockLeagueContext(dbLeagueId?: string | null): P
     try {
       const { getLeagueIdsFromDb } = await import('@/lib/server/league-config');
       const ids = await getLeagueIdsFromDb(dbLeagueId);
-      if (ids.current) leagueId = ids.current;
-    } catch {}
+      leagueId = ids.current || '';
+    } catch { leagueId = ''; }
   }
   const league = await getLeague(leagueId).catch(() => null);
   const rosters = await getLeagueRosters(leagueId).catch(() => []);

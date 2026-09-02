@@ -73,8 +73,8 @@ export function PlayerOverviewSection({ profile }: { profile: PlayerProfile }) {
       <SectionHeader title="Overview" />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard label="Current Team" value={currentStatus.franchiseName ?? 'Free Agent'} />
-        <StatCard label="EVW Seasons" value={evwCareer.seasonsRepresented.length} />
-        <StatCard label="EVW Career Points" value={evwCareer.totalPoints.toFixed(1)} />
+        <StatCard label="League Seasons" value={evwCareer.seasonsRepresented.length} />
+        <StatCard label="League Career Points" value={evwCareer.totalPoints.toFixed(1)} />
         <StatCard label="Franchises Played For" value={evwCareer.franchiseCount} />
       </div>
     </section>

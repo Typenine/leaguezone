@@ -9,6 +9,7 @@ import { IMPORTANT_DATES } from '@/lib/constants/league';
 import { getActiveLeagueMembership } from '@/lib/server/membership';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
+import { getCurrentLeague } from '@/lib/server/league-context';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,15 +26,14 @@ type ImportantDatesConfig = {
   tradeDeadline?: string;
   playoffsStart?: string;
   nextDraft?: string;
+  faBiddingStart?: string;
 };
 
 async function getLeagueRow() {
-  const jar = await cookies();
-  const activeLeagueId = jar.get('active_league_id')?.value || undefined;
+  const league = await getCurrentLeague();
+  if (!league) return null;
   const db = getDb();
-  const res = activeLeagueId
-    ? await db.execute(sql`SELECT id, config FROM leagues WHERE setup_completed = true AND id = ${activeLeagueId}::uuid LIMIT 1`)
-    : await db.execute(sql`SELECT id, config FROM leagues WHERE setup_completed = true ORDER BY created_at DESC LIMIT 1`);
+  const res = await db.execute(sql`SELECT id, config FROM leagues WHERE setup_completed = true AND id = ${league.id}::uuid LIMIT 1`);
   return (res as { rows?: Array<Record<string, unknown>> }).rows?.[0] ?? null;
 }
 
@@ -63,6 +63,8 @@ export async function GET() {
     tradeDeadline: toValidIso(configuredDates.tradeDeadline) ?? IMPORTANT_DATES.TRADE_DEADLINE.toISOString(),
     playoffsStart: toValidIso(configuredDates.playoffsStart) ?? IMPORTANT_DATES.PLAYOFFS_START.toISOString(),
     nextDraft,
+    faBiddingStart: toValidIso(configuredDates.faBiddingStart) ?? null,
+    calendarEvents: Array.isArray(config.calendarEvents) ? config.calendarEvents : [],
     nextDraftConfigured: Boolean(nextDraft),
   });
 }
@@ -76,7 +78,7 @@ export async function POST(req: NextRequest) {
     const row = await getLeagueRow();
     if (!row) return NextResponse.json({ error: 'No league found' }, { status: 404 });
 
-    const fields = ['nflWeek1', 'tradeDeadline', 'playoffsStart', 'nextDraft'];
+    const fields = ['nflWeek1', 'tradeDeadline', 'playoffsStart', 'nextDraft', 'faBiddingStart'];
     const result: Record<string, string> = {};
     for (const f of fields) {
       const v = toValidIso(body[f]);
@@ -88,6 +90,13 @@ export async function POST(req: NextRequest) {
     const nextConfig = {
       ...config,
       importantDates: result,
+      calendarEvents: Array.isArray(body.calendarEvents)
+        ? body.calendarEvents.filter((entry: unknown) => {
+            if (!entry || typeof entry !== 'object') return false;
+            const item = entry as Record<string, unknown>;
+            return typeof item.label === 'string' && Boolean(toValidIso(item.date));
+          }).map((entry: Record<string, unknown>) => ({ label: String(entry.label).trim(), date: toValidIso(entry.date), description: typeof entry.description === 'string' ? entry.description.trim() : undefined }))
+        : Array.isArray(config.calendarEvents) ? config.calendarEvents : [],
     };
     const db = getDb();
     await db.execute(sql`

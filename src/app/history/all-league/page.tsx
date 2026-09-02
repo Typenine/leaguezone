@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getLeagueStatsDatasetV2 } from '@/lib/stats/league-stats-v2';
-import { buildAllEvwTeams, franchiseHistoryId } from '@/lib/history/league-history';
+import { buildAllLeagueTeams, franchiseHistoryId } from '@/lib/history/league-history';
 import { getReadableTextForColors, getTeamColors } from '@/lib/utils/team-utils';
+import { getLeagueStatsContextBySlug } from '@/lib/stats/league-stats-context';
+import { getLeague } from '@/lib/utils/sleeper-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,9 +25,13 @@ function Td({ children, className = '' }: { children: React.ReactNode; className
   return <td className={`whitespace-nowrap border-b border-[var(--border)] px-3 py-2 text-sm ${className}`}>{children}</td>;
 }
 
-export default async function AllEvwPage() {
-  const dataset = await getLeagueStatsDatasetV2();
-  const seasons = buildAllEvwTeams(dataset);
+export default async function AllEvwPage({ searchParams }: { searchParams?: Promise<{ _league?: string }> }) {
+  const scoped = await searchParams;
+  const context = await getLeagueStatsContextBySlug(scoped?._league);
+  const dataset = await getLeagueStatsDatasetV2(context);
+  const sleeperLeague = context?.current ? await getLeague(context.current).catch(() => null) : null;
+  const rosterPositions = (sleeperLeague as { roster_positions?: string[] } | null)?.roster_positions;
+  const seasons = buildAllLeagueTeams(dataset, rosterPositions);
   const franchiseByName = new Map(dataset.franchises.map((row) => [row.teamName, row] as const));
 
   return (
@@ -34,7 +40,7 @@ export default async function AllEvwPage() {
       <div className="mt-2 border-b-4 border-[var(--accent)] pb-4">
         <div className="text-xs font-black uppercase tracking-[0.22em] text-[var(--muted)]">Annual Honors</div>
         <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">All-League Teams</h1>
-        <p className="mt-2 max-w-4xl text-sm text-[var(--muted)]">First and second teams are selected statistically from regular-season EVW scoring. Production is credited only to the franchise that rostered the player that week. Each player can occupy one slot per season.</p>
+        <p className="mt-2 max-w-4xl text-sm text-[var(--muted)]">First and second teams are selected statistically from regular-season league scoring. Production is credited only to the franchise that rostered the player that week. Each player can occupy one slot per season.</p>
       </div>
 
       <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
@@ -46,7 +52,7 @@ export default async function AllEvwPage() {
           <section key={season.season} id={`season-${season.season}`} className="scroll-mt-24 space-y-5">
             <div className="border-b border-[var(--border)] pb-2">
               <h2 className="text-2xl font-black">{season.season} All-League Team</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">QB · 2 RB · 2 WR · TE · FLEX · Superflex · DEF</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">Selections follow this league&apos;s configured starting lineup.</p>
             </div>
             <div className="grid gap-6 xl:grid-cols-2">
               {([['First Team', season.firstTeam], ['Second Team', season.secondTeam]] as const).map(([label, rows]) => (
@@ -82,7 +88,7 @@ export default async function AllEvwPage() {
       </div>
 
       <div className="mt-10 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-xs text-[var(--muted)]">
-        Selection note: All-League is an automatically generated statistical honor, separate from owner-voted league awards. FLEX is RB/WR/TE; SF is QB/RB/WR/TE. Postseason and consolation-bracket scoring are excluded.
+        Selection note: All-League is an automatically generated statistical honor, separate from owner-voted league awards. Eligibility follows each configured lineup slot. Postseason and consolation-bracket scoring are excluded.
       </div>
     </main>
   );

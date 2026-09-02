@@ -6,6 +6,7 @@ import { getLeagueStatsDatasetV3 } from '@/lib/stats/league-stats-v3';
 import { buildFranchiseHistory, findFranchiseByHistoryId, franchiseHistoryId } from '@/lib/history/league-history';
 import { getReadableTextForColors, getTeamColors, getTeamLogoPath } from '@/lib/utils/team-utils';
 import type { StatsGameRow } from '@/lib/stats/types';
+import { getLeagueStatsContextBySlug } from '@/lib/stats/league-stats-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,9 +75,10 @@ export async function generateMetadata({ params }: { params: Promise<PageParams>
   return { title: franchise ? `${franchise.teamName} History — League` : 'Franchise Not Found — League' };
 }
 
-export default async function FranchiseHistoryPage({ params }: { params: Promise<PageParams> }) {
+export default async function FranchiseHistoryPage({ params, searchParams }: { params: Promise<PageParams>; searchParams?: Promise<{ _league?: string }> }) {
   const { id } = await params;
-  const dataset = await getLeagueStatsDatasetV3();
+  const scoped = await searchParams;
+  const dataset = await getLeagueStatsDatasetV3(await getLeagueStatsContextBySlug(scoped?._league));
   const franchise = findFranchiseByHistoryId(dataset, id);
   if (!franchise) notFound();
   const history = buildFranchiseHistory(dataset, franchise);
@@ -128,7 +130,7 @@ export default async function FranchiseHistoryPage({ params }: { params: Promise
           })}</tbody></Table>
         </Section>
 
-        <Section id="players" title="Franchise Player Leaders" subtitle="EVW points are attributed only to weeks the player was rostered by this franchise.">
+        <Section id="players" title="Franchise Player Leaders" subtitle="League points are attributed only to weeks the player was rostered by this franchise.">
           <Table><thead><tr><Th>Rk</Th><Th>Player</Th><Th>Pos</Th><Th>Seasons</Th><Th className="text-right">Wks</Th><Th className="text-right">Starts</Th><Th className="text-right">Pts</Th><Th className="text-right">Pts/Wk</Th></tr></thead><tbody>{history.players.slice(0, 100).map((row, index) => <tr key={row.playerId}><Td>{index + 1}</Td><Td><Link href={`/players/${row.playerId}`} className="font-bold text-[var(--accent)] hover:underline">{row.name}</Link></Td><Td>{row.position}</Td><Td>{row.seasons.join(', ') || '—'}</Td><Td className="text-right">{row.rosteredWeeks}</Td><Td className="text-right">{row.starts}</Td><Td className="text-right font-bold tabular-nums">{fmt(row.points)}</Td><Td className="text-right tabular-nums">{row.rosteredWeeks ? fmt(row.points / row.rosteredWeeks) : '—'}</Td></tr>)}</tbody></Table>
         </Section>
 
@@ -140,7 +142,7 @@ export default async function FranchiseHistoryPage({ params }: { params: Promise
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{history.records.map((row) => <Stat key={row.label} label={row.label} value={row.value} note={row.note} />)}</div>
         </Section>
 
-        <Section id="honors" title="Honors & All-League Selections" subtitle="All-League teams are selected from regular-season, ownership-attributed EVW scoring.">
+        <Section id="honors" title="Honors & All-League Selections" subtitle="All-League teams are selected from regular-season, ownership-attributed league scoring.">
           <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               <Stat label="Championship Seasons" value={history.championshipYears.length} note={history.championshipYears.join(', ') || 'None'} />

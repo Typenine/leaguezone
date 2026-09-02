@@ -21,9 +21,10 @@ export type StandingsTeam = {
 type Props = {
   standings: StandingsTeam[];
   playoffSpots?: number; // typically 6 in a 12-team league
+  basePath?: string;
 };
 
-export default function PlayoffRacePanel({ standings, playoffSpots = 6 }: Props) {
+export default function PlayoffRacePanel({ standings, playoffSpots = 6, basePath = '' }: Props) {
   if (standings.length === 0) return null;
 
   const inPlayoffs    = standings.filter((t) => t.seed <= playoffSpots);
@@ -39,7 +40,7 @@ export default function PlayoffRacePanel({ standings, playoffSpots = 6 }: Props)
       <SectionHeader
         title="Playoff race"
         actions={
-          <Link href="/standings" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
+          <Link href={`${basePath}/standings`} className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
             Full standings →
           </Link>
         }
@@ -71,7 +72,7 @@ export default function PlayoffRacePanel({ standings, playoffSpots = 6 }: Props)
             })}
           </ul>
           <div className="mt-3 text-xs" style={broadcastFaintTextStyle}>
-            <Link href="/standings" className="underline hover:text-[var(--panel-text)]">Full standings →</Link>
+            <Link href={`${basePath}/standings`} className="underline hover:text-[var(--panel-text)]">Full standings →</Link>
           </div>
         </BroadcastPanel>
 

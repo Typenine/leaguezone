@@ -19,6 +19,7 @@ import {
 import { requireTeamUser } from '@/lib/server/session';
 import { snapshotDraftRosters, snapshotDraftFuturePicks, snapshotTeamRosterIfMissing } from '@/server/draft-snapshot';
 import { isAdminCookieValue } from '@/lib/auth/admin';
+import { isDraftLifecycleOpen } from '@/lib/draft/lifecycle-state';
 
 function isAdmin(req: NextRequest): boolean {
   try {
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest) {
   if (!draftId) return bad('no active draft', 404);
 
   const adminReq = isAdmin(req);
+  if (!adminReq && !(await isDraftLifecycleOpen())) return bad('draft room closed', 423);
   const ident = adminReq ? null : await requireTeamUser().catch(() => null);
   const myTeam = ident?.team || null;
 

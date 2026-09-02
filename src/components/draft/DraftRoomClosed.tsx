@@ -2,12 +2,11 @@
 
 import Link from 'next/link';
 import CountdownTimer from '@/components/ui/countdown-timer';
-import { NEXT_DRAFT_ROOM_DATE } from '@/lib/draft/access';
 
-export default function DraftRoomClosed() {
+export default function DraftRoomClosed({ date, location }: { date?: string | null; location?: string | null }) {
   const runtimeWindow = typeof window !== 'undefined' ? window as typeof window & { __LEAGUE_BRANDING__?: { name?: string } } : null;
   const leagueName = runtimeWindow?.__LEAGUE_BRANDING__?.name || 'League';
-  const draftDate = NEXT_DRAFT_ROOM_DATE;
+  const draftDate = date ? new Date(date) : null;
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4 py-10"
@@ -24,15 +23,9 @@ export default function DraftRoomClosed() {
           </p>
         </div>
 
-        <CountdownTimer
-          targetDate={NEXT_DRAFT_ROOM_DATE}
-          title="Countdown to the next rookie draft"
-          emphasis
-        />
+        {draftDate ? <CountdownTimer targetDate={draftDate} title="Countdown to the next rookie draft" emphasis /> : null}
 
-        <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/70 px-5 py-4 text-center">
-          <div className="text-white font-bold">{draftDate.toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })}</div>
-        </div>
+        {(draftDate || location) && <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/70 px-5 py-4 text-center"><div className="text-white font-bold">{draftDate ? draftDate.toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' }) : 'Date to be announced'}</div>{location && <div className="mt-1 text-sm text-zinc-400">{location}</div>}</div>}
 
         <div className="mt-7 text-center">
           <Link

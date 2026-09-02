@@ -49,6 +49,7 @@ import { requireTeamUser } from '@/lib/server/session';
 import { canonicalizeTeamName } from '@/lib/server/user-identity';
 import { getAllPlayersCached, type SleeperPlayer } from '@/lib/utils/sleeper-api';
 import { isAdminCookieValue } from '@/lib/auth/admin';
+import { isDraftLifecycleOpen } from '@/lib/draft/lifecycle-state';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -122,7 +123,7 @@ export async function GET(req: NextRequest) {
     const draftId = id || (await getActiveOrLatestDraftId());
     if (!draftId) return ok({ draft: null });
     // Check for auto-pick on clock expiry before returning overview
-    await checkAndAutoPick(draftId);
+    if (await isDraftLifecycleOpen()) await checkAndAutoPick(draftId);
     const overview = await getDraftOverview(draftId);
     if (!overview) return ok({ draft: null });
     // Compute clock remaining
@@ -228,6 +229,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const action = typeof body.action === 'string' ? body.action : '';
     const id = typeof body.id === 'string' ? body.id : '';
+    if (!isAdmin(req) && !(await isDraftLifecycleOpen())) {
+      return bad('draft_room_closed', 423);
+    }
 
     // Admin-only actions
     const adminOnlyActions = ['create', 'delete', 'start', 'pause', 'resume', 'set_clock', 'reset_clock', 'force_pick', 'undo', 'skip_pick', 'approve_pick', 'reject_pick', 'auto_pick', 'reset', 'reset_trades', 'set_draft_order', 'set_draft_slots', 'upload_players', 'clear_players', 'update_branding', 'admin_workspace', 'delete_player_pool', 'apply_player_pool'];

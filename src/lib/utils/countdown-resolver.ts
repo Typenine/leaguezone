@@ -26,6 +26,7 @@
 import {
   selectCalendar,
   nextCalendar,
+  type LeagueCalendar,
 } from '@/lib/constants/league-calendar';
 
 export type CountdownCard = {
@@ -51,8 +52,8 @@ export type HomepagePhase =
   | 'post_deadline_pre_postseason'
   | 'postseason';
 
-export function getHomepagePhase(now: Date = new Date()): HomepagePhase {
-  const cal = selectCalendar(now);
+export function getHomepagePhase(now: Date = new Date(), calendar?: LeagueCalendar): HomepagePhase {
+  const cal = calendar || selectCalendar(now);
   const ts = now.getTime();
 
   if (ts >= cal.postseasonStart.getTime())    return 'postseason';
@@ -64,8 +65,8 @@ export function getHomepagePhase(now: Date = new Date()): HomepagePhase {
 }
 
 /** Return the two-card countdown pair for the current date. */
-export function getCountdownCards(now: Date = new Date()): [CountdownCard, CountdownCard] {
-  const cal = selectCalendar(now);
+export function getCountdownCards(now: Date = new Date(), calendar?: LeagueCalendar): [CountdownCard, CountdownCard] {
+  const cal = calendar || selectCalendar(now);
   const ts = now.getTime();
   const next = nextCalendar(cal);
 

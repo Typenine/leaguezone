@@ -15,6 +15,7 @@ export type PlayerRow = {
   pos?: string;
   team?: string;
   pts: number;
+  projected?: number;
 };
 
 type TeamStatus = {

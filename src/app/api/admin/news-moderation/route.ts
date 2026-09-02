@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { isAdminCookieValue } from '@/lib/auth/admin';
 import { getActiveLeagueMembership } from '@/lib/server/membership';
-import { getCurrentLeague } from '@/lib/server/league-context';
+import { getCurrentLeague, getLeagueBySlug } from '@/lib/server/league-context';
 import {
   getNewsModerationRules,
   addNewsModerationRule,
@@ -12,7 +12,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 async function requireLeagueAdmin(req: NextRequest) {
-  const league = await getCurrentLeague();
+  const explicitSlug = req.nextUrl.searchParams.get('league')?.trim();
+  const league = explicitSlug ? await getLeagueBySlug(explicitSlug) : await getCurrentLeague();
   if (!league) return null;
   if (isAdminCookieValue(req.cookies.get('evw_admin')?.value)) return league;
   const membership = await getActiveLeagueMembership(league.id);

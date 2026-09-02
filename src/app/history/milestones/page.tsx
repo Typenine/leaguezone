@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getLeagueStatsDatasetV3 } from '@/lib/stats/league-stats-v3';
 import { buildLeagueMilestones } from '@/lib/history/league-history';
 import MilestonesClient from './MilestonesClient';
+import { getLeagueStatsContextBySlug } from '@/lib/stats/league-stats-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +12,9 @@ export const metadata: Metadata = {
   description: 'Career scoring milestones, franchise wins, records and championships across League history.',
 };
 
-export default async function LeagueMilestonesPage() {
-  const dataset = await getLeagueStatsDatasetV3();
+export default async function LeagueMilestonesPage({ searchParams }: { searchParams?: Promise<{ _league?: string }> }) {
+  const scoped = await searchParams;
+  const dataset = await getLeagueStatsDatasetV3(await getLeagueStatsContextBySlug(scoped?._league));
   const milestones = buildLeagueMilestones(dataset);
 
   return (

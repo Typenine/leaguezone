@@ -51,6 +51,8 @@ export default async function TransactionsPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = (await (searchParams ?? Promise.resolve({}))) as Record<string, string | string[] | undefined>;
+  const leagueIdRaw = params._leagueId;
+  const dbLeagueId = Array.isArray(leagueIdRaw) ? leagueIdRaw[0] : leagueIdRaw;
   const seasonParamRaw = params.season;
   const teamParamRaw = params.team;
   const sortParamRaw = params.sort;
@@ -72,7 +74,7 @@ export default async function TransactionsPage({
   const txnType = Array.isArray(typeParamRaw) ? typeParamRaw[0] : typeParamRaw;
 
   // Determine seasons list (async — reads DB for league IDs)
-  const allSeasons = await listAllSeasons();
+  const allSeasons = await listAllSeasons(dbLeagueId);
 
   // Build data server-side
   let ledger: LeagueTransaction[] = [];
@@ -80,10 +82,10 @@ export default async function TransactionsPage({
     const seasonIsAll = season === "all";
     if (!seasonIsAll && season && allSeasons.includes(season)) {
       // Specific season selected
-      ledger = await buildTransactionLedger({ season });
+      ledger = await buildTransactionLedger({ season, dbLeagueId });
     } else {
       // "All seasons" (no season filter) -> collect all seasons
-      ledger = await buildTransactionLedger();
+      ledger = await buildTransactionLedger({ dbLeagueId });
     }
   } catch {
     ledger = [];

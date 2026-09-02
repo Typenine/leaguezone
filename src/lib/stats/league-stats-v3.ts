@@ -1,11 +1,10 @@
-import { getLeagueIdForSeason } from '@/lib/constants/league';
 import {
   getLeague,
   getLeaguePlayoffBrackets,
   type SleeperBracketGame,
 } from '@/lib/utils/sleeper-api';
 import type { LeagueStatsDataset, StatsGameRow, StatsGameType } from './types';
-import { getLeagueStatsDatasetV2 } from './league-stats-v2';
+import { getLeagueStatsDatasetV2, type LeagueStatsContext } from './league-stats-v2';
 
 /**
  * Final postseason classification layer for the reference center.
@@ -33,7 +32,7 @@ type SeasonBracketIndex = {
   toiletGames: Set<string>;
 };
 
-let normalizedCache: { ts: number; data: LeagueStatsDataset } | null = null;
+const normalizedCache = new Map<string, { ts: number; data: LeagueStatsDataset }>();
 
 function pairKey(a: number, b: number): string {
   return a < b ? `${a}-${b}` : `${b}-${a}`;
@@ -62,8 +61,10 @@ function isChampionshipPathGame(game: BracketGame): boolean {
   return round > 1;
 }
 
-async function buildSeasonBracketIndex(season: string): Promise<SeasonBracketIndex | null> {
-  const leagueId = getLeagueIdForSeason(season);
+async function buildSeasonBracketIndex(season: string, context?: LeagueStatsContext): Promise<SeasonBracketIndex | null> {
+  const leagueId = context
+    ? (season === context.currentSeason ? context.current : context.previous[season])
+    : (await import('@/lib/constants/league')).getLeagueIdForSeason(season);
   if (!leagueId) return null;
 
   const [league, brackets] = await Promise.all([
@@ -154,15 +155,17 @@ function fixPlayoffRecordEntry(dataset: LeagueStatsDataset): LeagueStatsDataset[
   return records;
 }
 
-export async function getLeagueStatsDatasetV3(): Promise<LeagueStatsDataset> {
-  if (normalizedCache && Date.now() - normalizedCache.ts < NORMALIZER_TTL_MS) {
-    return normalizedCache.data;
+export async function getLeagueStatsDatasetV3(context?: LeagueStatsContext): Promise<LeagueStatsDataset> {
+  const cacheKey = context?.cacheKey || context?.current || 'default';
+  const cached = normalizedCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < NORMALIZER_TTL_MS) {
+    return cached.data;
   }
 
-  const base = await getLeagueStatsDatasetV2();
+  const base = await getLeagueStatsDatasetV2(context);
   const indexes = new Map<string, SeasonBracketIndex | null>();
   await Promise.all(base.seasons.map(async (season) => {
-    indexes.set(season, await buildSeasonBracketIndex(season));
+    indexes.set(season, await buildSeasonBracketIndex(season, context));
   }));
 
   const games = base.games.map((game) => ({
@@ -185,6 +188,6 @@ export async function getLeagueStatsDatasetV3(): Promise<LeagueStatsDataset> {
     records: fixPlayoffRecordEntry(withCorrectedFranchises),
   };
 
-  normalizedCache = { ts: Date.now(), data };
+  normalizedCache.set(cacheKey, { ts: Date.now(), data });
   return data;
 }

@@ -186,6 +186,7 @@ export interface DiscordWebhooks {
   suggestions: string | null;
   trades: string | null;
   tradeBlock: string | null;
+  hallOfFame: string | null;
 }
 
 /** Read Discord webhook URLs for the active league.
@@ -197,6 +198,7 @@ export async function getDiscordWebhooks(leagueId?: string): Promise<DiscordWebh
     suggestions: process.env.DISCORD_SUGGESTIONS_WEBHOOK_URL || null,
     trades: process.env.DISCORD_TRADES_WEBHOOK_URL || null,
     tradeBlock: process.env.DISCORD_TRADE_BLOCK_WEBHOOK_URL || null,
+    hallOfFame: process.env.DISCORD_HALL_OF_FAME_WEBHOOK_URL || null,
   };
   try {
     const db = getDb();
@@ -211,6 +213,7 @@ export async function getDiscordWebhooks(leagueId?: string): Promise<DiscordWebh
       suggestions: (stored.suggestions as string | null | undefined) || envFallback.suggestions,
       trades: (stored.trades as string | null | undefined) || envFallback.trades,
       tradeBlock: (stored.tradeBlock as string | null | undefined) || envFallback.tradeBlock,
+      hallOfFame: (stored.hallOfFame as string | null | undefined) || envFallback.hallOfFame || envFallback.suggestions,
     };
   } catch {
     return envFallback;
@@ -249,7 +252,7 @@ export async function getLeagueBranding(leagueId?: string): Promise<LeagueBrandi
       row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
     }
 
-    if (!row) {
+    if (!row && !leagueId) {
       const res = await db.execute(defaultBrandingQuery);
       row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
     }

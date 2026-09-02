@@ -91,12 +91,12 @@ function CategoryBadge({ category }: { category?: string }) {
   );
 }
 
-function EVOwnerBadge({ match }: { match: NewsMatch }) {
+function LeagueOwnerBadge({ match, leagueSlug }: { match: NewsMatch; leagueSlug?: string }) {
   if (!match.evTeam) return null;
   const ownershipLabel = `${match.name} is rostered by ${match.evTeam}`;
   return (
     <Link
-      href={match.evTeamSlug ? `/teams/${match.evTeamSlug}` : '/teams'}
+      href={match.evTeamSlug ? `${leagueSlug ? `/l/${leagueSlug}` : ''}/teams/${match.evTeamSlug}` : `${leagueSlug ? `/l/${leagueSlug}` : ''}/teams`}
       className="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold hover:underline"
       style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)' }}
       title={ownershipLabel}
@@ -107,7 +107,7 @@ function EVOwnerBadge({ match }: { match: NewsMatch }) {
   );
 }
 
-function NewsCard({ item }: { item: NewsItem }) {
+function NewsCard({ item, leagueSlug }: { item: NewsItem; leagueSlug?: string }) {
   const evTeams = new Map<string, NewsMatch>();
   for (const m of item.matches) {
     if (m.evTeam && !evTeams.has(m.evTeam)) evTeams.set(m.evTeam, m);
@@ -152,7 +152,7 @@ function NewsCard({ item }: { item: NewsItem }) {
       {evTeams.size > 0 && (
         <div className="flex flex-wrap gap-1 mb-1.5">
           {Array.from(evTeams.values()).slice(0, 3).map((m) => (
-            <EVOwnerBadge key={m.playerId} match={m} />
+            <LeagueOwnerBadge key={m.playerId} match={m} leagueSlug={leagueSlug} />
           ))}
         </div>
       )}
@@ -170,9 +170,10 @@ type FilterKey = 'all' | 'my_team' | 'injury' | 'transaction' | 'trade' | 'depth
 
 type Props = {
   myTeam?: string | null;
+  leagueSlug?: string;
 };
 
-export default function AroundTheLeague({ myTeam }: Props) {
+export default function AroundTheLeague({ myTeam, leagueSlug }: Props) {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -181,6 +182,7 @@ export default function AroundTheLeague({ myTeam }: Props) {
   useEffect(() => {
     const controller = new AbortController();
     const params = new URLSearchParams({ limit: '40', sinceHours: '168' });
+    if (leagueSlug) params.set('league', leagueSlug);
 
     if (filter === 'my_team' && myTeam) {
       params.set('teamFilter', myTeam);
@@ -200,7 +202,7 @@ export default function AroundTheLeague({ myTeam }: Props) {
       });
 
     return () => controller.abort();
-  }, [filter, myTeam]);
+  }, [filter, myTeam, leagueSlug]);
 
   const FILTERS: Array<{ key: FilterKey; label: string }> = [
     { key: 'all', label: 'All' },
@@ -228,7 +230,7 @@ export default function AroundTheLeague({ myTeam }: Props) {
         title="Around the league"
         subtitle="News for rostered League players"
         actions={
-          <Link href="/trade-block" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
+          <Link href={`${leagueSlug ? `/l/${leagueSlug}` : ''}/trade-block`} className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
             Trade block →
           </Link>
         }
@@ -271,7 +273,7 @@ export default function AroundTheLeague({ myTeam }: Props) {
         <>
           <ul className="space-y-3">
             {visibleItems.map((item, i) => (
-              <NewsCard key={`${item.link}-${i}`} item={item} />
+              <NewsCard key={`${item.link}-${i}`} item={item} leagueSlug={leagueSlug} />
             ))}
           </ul>
 

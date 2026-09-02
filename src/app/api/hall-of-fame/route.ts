@@ -1,12 +1,15 @@
 import { NextRequest } from 'next/server';
 import { getHallOfFameActor, canManageFranchise } from '@/lib/hall-of-fame/auth';
-import { getFranchisePlayerHistory, getHallOfFameIndex } from '@/lib/hall-of-fame/service';
+import { getFranchiseNameForId, getFranchisePlayerHistory, getHallOfFameIndex } from '@/lib/hall-of-fame/service';
 import {
   getHallOfFameEntryById,
   softRemoveHallOfFameEntry,
   updateHallOfFameEntry,
   upsertHallOfFameEntry,
 } from '@/server/db/hall-of-fame-queries';
+import { getCurrentLeague } from '@/lib/server/league-context';
+import { getDiscordWebhooks } from '@/lib/server/league-config';
+import { postToDiscordWebhook } from '@/lib/utils/discord';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,6 +64,12 @@ export async function POST(req: NextRequest) {
     createdBy: actor.isAdmin ? 'commissioner' : actor.teamName ?? franchiseId,
   });
   if (!entry) return Response.json({ error: 'Could not save Hall of Fame induction.' }, { status: 500 });
+  const league = await getCurrentLeague();
+  if (league) {
+    const webhooks = await getDiscordWebhooks(league.id);
+    const webhook = webhooks.hallOfFame || webhooks.suggestions;
+    if (webhook) await postToDiscordWebhook(webhook, { embeds: [{ title: `${candidate.playerName} inducted into the Hall of Fame`, description: bio, color: Number.parseInt((league.primaryColor || '#d4af37').replace('#', ''), 16), fields: [{ name: 'Franchise', value: await getFranchiseNameForId(franchiseId), inline: true }, { name: 'Induction class', value: String(inductionYear), inline: true }], timestamp: new Date().toISOString() }] }).catch(() => ({ success: false }));
+  }
   return Response.json({ ok: true, id: entry.id });
 }
 

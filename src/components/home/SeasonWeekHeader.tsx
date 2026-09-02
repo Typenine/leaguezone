@@ -3,9 +3,13 @@ import { CURRENT_SEASON } from '@/lib/constants/league';
 
 export default function SeasonWeekHeader({
   week,
+  scheduleHref = '/matchups',
+  season,
 }: {
   week: number;
   matchupCount: number;
+  scheduleHref?: string;
+  season?: string;
 }) {
   return (
     <section className="mb-6 sm:mb-8">
@@ -15,7 +19,7 @@ export default function SeasonWeekHeader({
             League
           </div>
           <h1 className="mt-1 text-2xl font-black tracking-tight text-[var(--text)] sm:text-3xl">
-            {CURRENT_SEASON} Season · Week {week}
+            {season || CURRENT_SEASON} Season · Week {week}
           </h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
             {week === 1 ? 'Week 1 upcoming' : `Week ${week}`}
@@ -23,7 +27,7 @@ export default function SeasonWeekHeader({
         </div>
 
         <Link
-          href="/matchups"
+          href={scheduleHref}
           className="w-fit rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-bold text-[var(--text)] transition hover:bg-[var(--surface-2)]"
         >
           Full schedule

@@ -151,16 +151,19 @@ async function buildFromCurrentContext(args: {
       plans: projection.plans,
     });
     if (args.saveSnapshots) {
-      await savePregameProjectionSnapshot({ response, earliestKickoff: projection.schedule.earliestKickoff });
+      await savePregameProjectionSnapshot({ response, earliestKickoff: projection.schedule.earliestKickoff, leagueId: args.context.leagueId });
     }
     responses.push(response);
   }
   return responses;
 }
 
-export async function buildTeamLineupOptimizerV3(teamName: string): Promise<LineupOptimizerResponse> {
+export async function buildTeamLineupOptimizerV3(
+  teamName: string,
+  dbLeagueId?: string,
+): Promise<LineupOptimizerResponse> {
   const [context, state] = await Promise.all([
-    loadTradeBlockLeagueContext(),
+    loadTradeBlockLeagueContext(dbLeagueId),
     getNFLState().catch(() => ({ week: 1, display_week: 1, season: String(new Date().getFullYear()) })),
   ]);
   const season = String(context.league?.season || state.season || new Date().getFullYear());
@@ -175,9 +178,10 @@ export async function buildLeagueProjectionSnapshotsV3(args?: {
   season?: string;
   week?: number;
   saveSnapshots?: boolean;
+  dbLeagueId?: string;
 }): Promise<LineupOptimizerResponse[]> {
   const [context, state] = await Promise.all([
-    loadTradeBlockLeagueContext(),
+    loadTradeBlockLeagueContext(args?.dbLeagueId),
     getNFLState().catch(() => ({ week: 1, display_week: 1, season: String(new Date().getFullYear()) })),
   ]);
   const season = String(args?.season || context.league?.season || state.season || new Date().getFullYear());

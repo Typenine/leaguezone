@@ -5,6 +5,7 @@ import { getLeagueStatsDatasetV3 } from '@/lib/stats/league-stats-v3';
 import { buildWeeklyGamebook, franchiseHistoryId } from '@/lib/history/league-history';
 import { getReadableTextForColors, getTeamColors } from '@/lib/utils/team-utils';
 import type { StatsFranchiseRow, StatsGameRow } from '@/lib/stats/types';
+import { getLeagueStatsContextBySlug } from '@/lib/stats/league-stats-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,11 +47,12 @@ export async function generateMetadata({ params }: { params: Promise<PageParams>
   return { title: `${season} Week ${week} Gamebook — League` };
 }
 
-export default async function WeeklyGamebookPage({ params }: { params: Promise<PageParams> }) {
+export default async function WeeklyGamebookPage({ params, searchParams }: { params: Promise<PageParams>; searchParams?: Promise<{ _league?: string }> }) {
   const { season, week: rawWeek } = await params;
   const week = Number(rawWeek);
   if (!Number.isInteger(week) || week < 1) notFound();
-  const dataset = await getLeagueStatsDatasetV3();
+  const scoped = await searchParams;
+  const dataset = await getLeagueStatsDatasetV3(await getLeagueStatsContextBySlug(scoped?._league));
   const book = buildWeeklyGamebook(dataset, season, week);
   if (!book) notFound();
 
@@ -67,7 +69,7 @@ export default async function WeeklyGamebookPage({ params }: { params: Promise<P
       <div className="mt-2 border-b-4 border-[var(--accent)] pb-4">
         <div className="text-xs font-black uppercase tracking-[0.22em] text-[var(--muted)]">{gameTypes.join(' / ')}</div>
         <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">{season} Week {week} Gamebook</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">{book.games.length} matchup{book.games.length === 1 ? '' : 's'} · {book.players.length} player scoring entries · complete weekly EVW reference.</p>
+        <p className="mt-2 text-sm text-[var(--muted)]">{book.games.length} matchup{book.games.length === 1 ? '' : 's'} · {book.players.length} player scoring entries · complete weekly league reference.</p>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -93,7 +95,7 @@ export default async function WeeklyGamebookPage({ params }: { params: Promise<P
       </section>
 
       <section className="mt-10 space-y-3">
-        <div className="border-b border-[var(--border)] pb-2"><h2 className="text-xl font-black">Overall Player Leaders</h2><p className="mt-1 text-sm text-[var(--muted)]">Highest EVW-scoring player performances from the week.</p></div>
+        <div className="border-b border-[var(--border)] pb-2"><h2 className="text-xl font-black">Overall Player Leaders</h2><p className="mt-1 text-sm text-[var(--muted)]">Highest-scoring player performances from the week.</p></div>
         <div className="overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]"><table className="w-full"><thead><tr><Th>Rk</Th><Th>Player</Th><Th>Pos</Th><Th>Franchise</Th><Th>Started</Th><Th className="text-right">Pts</Th></tr></thead><tbody>{book.players.slice(0, 25).map((row, rank) => <tr key={row.id}><Td>{rank + 1}</Td><Td><Link href={`/players/${row.playerId}`} className="font-black text-[var(--accent)] hover:underline">{row.name}</Link></Td><Td>{row.position}</Td><Td><TeamLink teamName={row.franchiseName} franchiseMap={franchiseMap} /></Td><Td>{row.started ? 'Yes' : 'No'}</Td><Td className="text-right font-black tabular-nums">{fmt(row.points)}</Td></tr>)}</tbody></table></div>
       </section>
 

@@ -9,6 +9,7 @@ function databaseUrl(): string | null {
 export async function savePregameProjectionSnapshot(args: {
   response: LineupOptimizerResponse;
   earliestKickoff: string | null;
+  leagueId?: string | null;
 }): Promise<void> {
   const now = Date.now();
   const schedule = await loadScheduleWeek(args.response.season, args.response.week).catch(() => null);
@@ -37,16 +38,16 @@ export async function savePregameProjectionSnapshot(args: {
     const snapshotDate = new Date().toISOString().slice(0, 10);
     await sql`
       INSERT INTO weekly_projection_snapshots (
-        season, week, team, model_version, phase, snapshot_date,
+        league_id, season, week, team, model_version, phase, snapshot_date,
         generated_at, earliest_kickoff, payload
       ) VALUES (
-        ${Number(args.response.season)}, ${args.response.week}, ${args.response.teamName},
+        ${args.leagueId || ''}, ${Number(args.response.season)}, ${args.response.week}, ${args.response.teamName},
         ${args.response.modelVersion}, ${args.response.projectionPhase}, ${snapshotDate}::date,
         ${args.response.generatedAt}::timestamptz,
         ${nextKickoff}::timestamptz,
         ${JSON.stringify(args.response)}::jsonb
       )
-      ON CONFLICT (season, week, team, model_version, phase, snapshot_date)
+      ON CONFLICT (league_id, season, week, team, model_version, phase, snapshot_date)
       DO NOTHING
     `;
   } catch (error) {
@@ -58,6 +59,7 @@ export async function loadLatestProjectionSnapshot(args: {
   season: number;
   week: number;
   team: string;
+  leagueId?: string;
 }): Promise<LineupOptimizerResponse | null> {
   const url = databaseUrl();
   if (!url) return null;
@@ -69,6 +71,7 @@ export async function loadLatestProjectionSnapshot(args: {
       WHERE season = ${args.season}
         AND week = ${args.week}
         AND team = ${args.team}
+        AND (${args.leagueId || null}::text IS NULL OR league_id = ${args.leagueId || null})
       ORDER BY generated_at DESC
       LIMIT 1
     ` as Array<{ payload: LineupOptimizerResponse }>;

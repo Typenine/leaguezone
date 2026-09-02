@@ -6,6 +6,7 @@ import { sql } from 'drizzle-orm';
 import { verifySession } from '@/lib/server/auth';
 import { isSiteAdminCookieValue, isAdminCookieValue } from '@/lib/auth/admin';
 import { getUserLeagues } from '@/lib/server/user-auth';
+import { getLeagueById } from '@/lib/server/league-context';
 import { InviteButton } from './InviteButton';
 import { OnboardingHelp } from '@/components/OnboardingHelp';
 
@@ -195,6 +196,11 @@ export default async function HomePage() {
     // Use the only league, or the active one
     if (!resolvedLeagueId && userLeagues.length === 1) {
       resolvedLeagueId = userLeagues[0].leagueId;
+    }
+
+    if (resolvedLeagueId) {
+      const selectedLeague = await getLeagueById(resolvedLeagueId);
+      if (selectedLeague) redirect(`/l/${selectedLeague.slug}/dashboard`);
     }
   }
 

@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import CountdownTimer from '@/components/ui/countdown-timer';
 import SectionHeader from '@/components/ui/SectionHeader';
 import Select from '@/components/ui/Select';
-import { getCountdownCards } from '@/lib/utils/countdown-resolver';
+import type { CountdownCard } from '@/lib/utils/countdown-resolver';
 
-const STORAGE_KEY = 'evw-countdown-time-zone';
+const STORAGE_KEY = 'leaguezone-countdown-time-zone';
 
 const TIME_ZONE_OPTIONS = [
   { value: 'auto', label: 'Automatic (device)' },
@@ -43,8 +43,11 @@ function formatTargetDate(targetDate: Date, timeZone: string): string {
   }
 }
 
-export default function HomepageCountdowns() {
-  const [card1, card2] = useMemo(() => getCountdownCards(), []);
+export default function HomepageCountdowns({ cards }: { cards: [CountdownCard, CountdownCard] }) {
+  const [card1, card2] = useMemo(
+    () => cards.map((card) => ({ ...card, targetDate: new Date(card.targetDate) })) as [CountdownCard, CountdownCard],
+    [cards],
+  );
   const [selectedTimeZone, setSelectedTimeZone] = useState('auto');
   const [detectedTimeZone, setDetectedTimeZone] = useState<string | null>(null);
 

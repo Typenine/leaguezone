@@ -34,7 +34,7 @@ function agePlacementDetail(rank: number | null | undefined, leagueSize: number)
   return rank ? `${ordinalPlacement(rank)}-youngest of ${leagueSize}` : 'Age rank unavailable';
 }
 
-export default function MyTeamCardView({ model }: { model: MyTeamDashboardModel }) {
+export default function MyTeamCardView({ model, basePath = '' }: { model: MyTeamDashboardModel; basePath?: string }) {
   const {
     data,
     phase,
@@ -254,18 +254,18 @@ export default function MyTeamCardView({ model }: { model: MyTeamDashboardModel 
         />
 
         <div className="flex flex-wrap gap-2 pt-1">
-          <Link href={teamPath} className="rounded-md px-3 py-2 text-xs font-bold" style={{ background: accent, color: '#fff' }}>
+          <Link href={basePath ? `${basePath}${teamPath}` : teamPath} className="rounded-md px-3 py-2 text-xs font-bold" style={{ background: accent, color: '#fff' }}>
             Open team dashboard
           </Link>
           <Link
-            href="/trade-block"
+            href={`${basePath}/trade-block`}
             className="rounded-md px-3 py-2 text-xs font-semibold"
             style={{ background: PANEL.tintMedium, color: PANEL.text, border: `1px solid ${PANEL.hairline}` }}
           >
             Edit trade block
           </Link>
           <Link
-            href={isPreDraft ? '/draft?view=team-prospect-draftboard' : '/standings'}
+            href={isPreDraft ? `${basePath}/draft?view=team-prospect-draftboard` : `${basePath}/standings`}
             className="rounded-md px-3 py-2 text-xs font-semibold"
             style={{ background: PANEL.tintMedium, color: PANEL.text, border: `1px solid ${PANEL.hairline}` }}
           >

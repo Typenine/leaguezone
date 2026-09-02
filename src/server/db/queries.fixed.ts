@@ -1493,6 +1493,11 @@ export async function listAllUserDocs() {
   return rows;
 }
 
+export async function listLeagueUserDocs(leagueId: string) {
+  const db = getDb();
+  return db.select().from(userDocs).where(eq(userDocs.leagueId, leagueId));
+}
+
 export async function getUserByEmail(email: string) {
   const db = getDb();
   const [row] = await db.select().from(users).where(eq(users.email, email)).limit(1);
@@ -2252,8 +2257,8 @@ export async function getUserDoc(userId: string, leagueId?: string | null) {
       .limit(1);
     if (leagueRow) return leagueRow;
   }
-  // Fall back to the legacy single-row (no leagueId)
-  const [row] = await db.select().from(userDocs).where(eq(userDocs.userId, userId)).limit(1);
+  // Fall back only to the unscoped legacy row. Never return another league's document.
+  const [row] = await db.select().from(userDocs).where(and(eq(userDocs.userId, userId), isNull(userDocs.leagueId))).limit(1);
   return row || null;
 }
 
@@ -2302,31 +2307,25 @@ export async function setUserDoc(doc: {
     const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
     return rows[0] || null;
   }
-  // Legacy: upsert on userId PK only
-  const [row] = await db
-    .insert(userDocs)
-    .values({
-      userId: doc.userId,
-      team: doc.team,
-      version: doc.version,
-      updatedAt: doc.updatedAt,
-      votes: doc.votes ?? null,
-      tradeBlock: doc.tradeBlock ?? null,
-      tradeWants: doc.tradeWants ?? null,
-    })
-    .onConflictDoUpdate({
-      target: userDocs.userId,
-      set: {
-        team: doc.team,
-        version: doc.version,
-        updatedAt: doc.updatedAt,
-        votes: doc.votes ?? null,
-        tradeBlock: doc.tradeBlock ?? null,
-        tradeWants: doc.tradeWants ?? null,
-      },
-    })
-    .returning();
-  return row;
+  const res = await db.execute(sql`
+    INSERT INTO user_docs (user_id, league_id, team, version, updated_at, votes, trade_block, trade_wants)
+    VALUES (
+      ${doc.userId}, NULL, ${doc.team}, ${doc.version}, ${doc.updatedAt.toISOString()}::timestamptz,
+      ${doc.votes ? JSON.stringify(doc.votes) : null}::jsonb,
+      ${doc.tradeBlock ? JSON.stringify(doc.tradeBlock) : null}::jsonb,
+      ${doc.tradeWants ? JSON.stringify(doc.tradeWants) : null}::jsonb
+    )
+    ON CONFLICT (user_id) WHERE league_id IS NULL
+    DO UPDATE SET
+      team = EXCLUDED.team,
+      version = EXCLUDED.version,
+      updated_at = EXCLUDED.updated_at,
+      votes = EXCLUDED.votes,
+      trade_block = EXCLUDED.trade_block,
+      trade_wants = EXCLUDED.trade_wants
+    RETURNING *
+  `);
+  return (res as { rows?: Array<Record<string, unknown>> }).rows?.[0] || null;
 }
 
 // --- Trade Block Events ---

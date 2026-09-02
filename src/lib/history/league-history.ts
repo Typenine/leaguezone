@@ -9,7 +9,7 @@ import type {
 const DEF_POSITIONS = new Set(['DEF', 'DST', 'D/ST']);
 const OFFENSE_POSITIONS = new Set(['QB', 'RB', 'WR', 'TE']);
 
-export type AllEvwSlot = 'QB' | 'RB1' | 'RB2' | 'WR1' | 'WR2' | 'TE' | 'FLEX' | 'SF' | 'DEF';
+export type AllEvwSlot = string;
 
 export interface AllEvwSelection {
   slot: AllEvwSlot;
@@ -149,9 +149,37 @@ function regularPlayerRows(dataset: LeagueStatsDataset, season: string) {
     .sort((a, b) => b.points - a.points || b.starts - a.starts || a.name.localeCompare(b.name));
 }
 
-function selectAllEvwTeam(
+type HonorSlot = { label: string; eligible: (position: string) => boolean };
+
+function honorSlotPlan(rosterPositions?: string[]): HonorSlot[] {
+  const starters = (rosterPositions || []).filter((slot) => !['BN', 'IR', 'TAXI'].includes(slot));
+  if (!starters.length) return [
+    { label: 'QB', eligible: (p) => p === 'QB' }, { label: 'RB1', eligible: (p) => p === 'RB' },
+    { label: 'RB2', eligible: (p) => p === 'RB' }, { label: 'WR1', eligible: (p) => p === 'WR' },
+    { label: 'WR2', eligible: (p) => p === 'WR' }, { label: 'TE', eligible: (p) => p === 'TE' },
+    { label: 'FLEX', eligible: (p) => ['RB', 'WR', 'TE'].includes(p) },
+    { label: 'SF', eligible: (p) => OFFENSE_POSITIONS.has(p) }, { label: 'DEF', eligible: (p) => DEF_POSITIONS.has(p) },
+  ];
+  const totals = new Map<string, number>();
+  starters.forEach((slot) => totals.set(slot, (totals.get(slot) || 0) + 1));
+  const seen = new Map<string, number>();
+  return starters.map((slot) => {
+    const count = (seen.get(slot) || 0) + 1;
+    seen.set(slot, count);
+    const label = (totals.get(slot) || 0) > 1 ? `${slot}${count}` : slot === 'SUPER_FLEX' ? 'SF' : slot;
+    if (slot === 'FLEX') return { label, eligible: (p: string) => ['RB', 'WR', 'TE'].includes(p) };
+    if (slot === 'SUPER_FLEX') return { label, eligible: (p: string) => OFFENSE_POSITIONS.has(p) };
+    if (slot === 'REC_FLEX') return { label, eligible: (p: string) => ['WR', 'TE'].includes(p) };
+    if (slot === 'WRRB_FLEX') return { label, eligible: (p: string) => ['WR', 'RB'].includes(p) };
+    if (slot === 'DEF' || slot === 'DST') return { label, eligible: (p: string) => DEF_POSITIONS.has(p) };
+    return { label, eligible: (p: string) => p === slot };
+  });
+}
+
+function selectAllLeagueTeam(
   rows: ReturnType<typeof regularPlayerRows>,
   used: Set<string>,
+  rosterPositions?: string[],
 ): AllEvwSelection[] {
   const picks: AllEvwSelection[] = [];
   const take = (slot: AllEvwSlot, eligible: (position: string) => boolean) => {
@@ -170,33 +198,27 @@ function selectAllEvwTeam(
     });
   };
 
-  take('QB', (position) => position === 'QB');
-  take('RB1', (position) => position === 'RB');
-  take('RB2', (position) => position === 'RB');
-  take('WR1', (position) => position === 'WR');
-  take('WR2', (position) => position === 'WR');
-  take('TE', (position) => position === 'TE');
-  take('FLEX', (position) => position === 'RB' || position === 'WR' || position === 'TE');
-  take('SF', (position) => OFFENSE_POSITIONS.has(position));
-  take('DEF', (position) => DEF_POSITIONS.has(position));
+  for (const slot of honorSlotPlan(rosterPositions)) take(slot.label, slot.eligible);
 
   return picks;
 }
 
-export function buildAllEvwTeams(dataset: LeagueStatsDataset): AllEvwSeason[] {
+export function buildAllLeagueTeams(dataset: LeagueStatsDataset, rosterPositions?: string[]): AllEvwSeason[] {
   return dataset.seasons
     .map((season) => {
       const rows = regularPlayerRows(dataset, season);
       const used = new Set<string>();
       return {
         season,
-        firstTeam: selectAllEvwTeam(rows, used),
-        secondTeam: selectAllEvwTeam(rows, used),
+        firstTeam: selectAllLeagueTeam(rows, used, rosterPositions),
+        secondTeam: selectAllLeagueTeam(rows, used, rosterPositions),
       };
     })
     .filter((season) => season.firstTeam.length > 0 || season.secondTeam.length > 0)
     .sort((a, b) => b.season.localeCompare(a.season));
 }
+
+export const buildAllEvwTeams = buildAllLeagueTeams;
 
 function playerThresholds(max: number): number[] {
   const values: number[] = [];
@@ -237,7 +259,7 @@ export function buildLeagueMilestones(dataset: LeagueStatsDataset): LeagueMilest
           season: row.season,
           week: row.week,
           type: 'player',
-          title: `${row.name} reaches ${next.toLocaleString()} EVW points`,
+          title: `${row.name} reaches ${next.toLocaleString()} league points`,
           detail: `${row.name} crossed ${next.toLocaleString()} career League points while rostered by ${row.franchiseName}.`,
           playerId: row.playerId,
           teamName: row.franchiseName,
@@ -302,7 +324,7 @@ export function buildLeagueMilestones(dataset: LeagueStatsDataset): LeagueMilest
         season: row.season,
         week: row.week,
         type: 'record',
-        title: `${row.name} sets the EVW single-game player record`,
+        title: `${row.name} sets the league single-game player record`,
         detail: `${row.name} scored ${row.points.toFixed(2)} points for ${row.franchiseName}, surpassing the previous record of ${playerRecord.points.toFixed(2)}.`,
         playerId: row.playerId,
         teamName: row.franchiseName,
@@ -329,7 +351,7 @@ export function buildLeagueMilestones(dataset: LeagueStatsDataset): LeagueMilest
           season: game.season,
           week: game.week,
           type: 'record',
-          title: `${score.teamName} sets the EVW team scoring record`,
+          title: `${score.teamName} sets the league team scoring record`,
           detail: `${score.teamName} scored ${score.points.toFixed(2)} against ${score.opponent}, breaking the previous team record of ${teamRecord.points.toFixed(2)}.`,
           teamName: score.teamName,
           value: score.points,

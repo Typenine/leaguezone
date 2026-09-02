@@ -74,7 +74,7 @@ export default function PlayerQuickViewModal({ open, onClose, playerId, name }: 
             tabs={[
               { id: "overview", label: "Overview", content: <PlayerOverviewSection profile={profile} /> },
               { id: "nfl", label: "NFL Production", content: <PlayerNFLProductionSection profile={profile} /> },
-              { id: "evw", label: "EVW Career", content: <PlayerEVWCareerSection profile={profile} /> },
+              { id: "league-career", label: "League Career", content: <PlayerEVWCareerSection profile={profile} /> },
               { id: "game-log", label: "Game Log", content: <PlayerGameLogSection profile={profile} /> },
               { id: "seasons", label: "Season History", content: <PlayerSeasonHistorySection profile={profile} /> },
               { id: "transactions", label: "Transactions", content: <PlayerTransactionsSection profile={profile} /> },

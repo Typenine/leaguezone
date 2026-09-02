@@ -1,4 +1,4 @@
-import { CHAMPIONS, CURRENT_SEASON, LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
+import { CHAMPIONS, CURRENT_SEASON, LEAGUE_IDS } from '@/lib/constants/league';
 import { getKV } from '@/lib/server/kv';
 import { resolveCanonicalTeamName } from '@/lib/utils/team-utils';
 import {
@@ -26,6 +26,9 @@ import type {
   StatsRecordEntry,
   StatsSeasonTeamRow,
 } from './types';
+import type { LeagueIdsConfig } from '@/lib/server/league-config';
+
+export type LeagueStatsContext = LeagueIdsConfig & { currentSeason: string; cacheKey?: string };
 
 /**
  * Reference-center stats service with integrity checks.
@@ -97,47 +100,54 @@ function safePct(wins: number, losses: number, ties: number): number {
   return games > 0 ? Number(((wins + ties * 0.5) / games).toFixed(4)) : 0;
 }
 
-function listConfiguredSeasons(): string[] {
-  const previous = (LEAGUE_IDS.PREVIOUS || {}) as Record<string, string>;
-  return Array.from(new Set<string>([CURRENT_SEASON, ...Object.keys(previous)])).sort((a, b) => a.localeCompare(b));
+function defaultContext(): LeagueStatsContext {
+  return { current: LEAGUE_IDS.CURRENT, previous: LEAGUE_IDS.PREVIOUS || {}, currentSeason: CURRENT_SEASON, cacheKey: 'default' };
 }
 
-function seasonCacheKey(season: string): string {
-  return `league-stats:season:${STATS_CACHE_VERSION}:${season}`;
+function leagueIdForSeason(season: string, context: LeagueStatsContext): string | null {
+  return season === context.currentSeason ? context.current || null : context.previous[season] || null;
 }
 
-function seasonTtlMs(season: string): number {
-  return season === CURRENT_SEASON ? CURRENT_SEASON_TTL_MS : PAST_SEASON_TTL_MS;
+function listConfiguredSeasons(context: LeagueStatsContext): string[] {
+  return Array.from(new Set<string>([context.currentSeason, ...Object.keys(context.previous)])).sort((a, b) => a.localeCompare(b));
 }
 
-async function readSeasonCache(season: string): Promise<CachedSeasonSnapshot | null> {
+function seasonCacheKey(season: string, context: LeagueStatsContext): string {
+  return `league-stats:season:${STATS_CACHE_VERSION}:${context.cacheKey || context.current}:${season}`;
+}
+
+function seasonTtlMs(season: string, context: LeagueStatsContext): number {
+  return season === context.currentSeason ? CURRENT_SEASON_TTL_MS : PAST_SEASON_TTL_MS;
+}
+
+async function readSeasonCache(season: string, context: LeagueStatsContext): Promise<CachedSeasonSnapshot | null> {
   try {
     const kv = await getKV();
     if (!kv) return null;
-    const raw = await kv.get(seasonCacheKey(season));
+    const raw = await kv.get(seasonCacheKey(season, context));
     if (!raw || typeof raw !== 'string') return null;
     const parsed = JSON.parse(raw) as CachedSeasonSnapshot;
-    if (!parsed?.data || Date.now() - parsed.ts >= seasonTtlMs(season)) return null;
+    if (!parsed?.data || Date.now() - parsed.ts >= seasonTtlMs(season, context)) return null;
     return parsed;
   } catch {
     return null;
   }
 }
 
-async function writeSeasonCache(season: string, entry: CachedSeasonSnapshot): Promise<void> {
+async function writeSeasonCache(season: string, entry: CachedSeasonSnapshot, context: LeagueStatsContext): Promise<void> {
   try {
     const kv = await getKV();
     if (!kv) return;
-    const key = seasonCacheKey(season);
+    const key = seasonCacheKey(season, context);
     await kv.set(key, JSON.stringify(entry));
-    if (kv.expire) await kv.expire(key, Math.ceil(seasonTtlMs(season) / 1000));
+    if (kv.expire) await kv.expire(key, Math.ceil(seasonTtlMs(season, context) / 1000));
   } catch {
     // Shared KV is an accelerator only. The live result remains valid without it.
   }
 }
 
-async function currentSeasonEndWeek(season: string): Promise<number> {
-  if (season !== CURRENT_SEASON) return 17;
+async function currentSeasonEndWeek(season: string, currentSeason: string): Promise<number> {
+  if (season !== currentSeason) return 17;
   try {
     const state = await getNFLState();
     if (String(state.season ?? '') !== season) return 0;
@@ -175,8 +185,9 @@ async function fetchWeekWithIntegrity(
   season: string,
   week: number,
   expectedRosters: number,
+  currentSeason: string,
 ): Promise<SleeperMatchup[]> {
-  const historical = season !== CURRENT_SEASON;
+  const historical = season !== currentSeason;
   let lastRows: SleeperMatchup[] = [];
 
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -209,6 +220,7 @@ async function fetchSeasonWeeks(
   season: string,
   endWeek: number,
   expectedRosters: number,
+  currentSeason: string,
 ): Promise<SleeperMatchup[][]> {
   if (endWeek <= 0) return [];
   const weeks = Array.from({ length: endWeek }, (_, index) => index + 1);
@@ -219,7 +231,7 @@ async function fetchSeasonWeeks(
   for (let start = 0; start < weeks.length; start += FETCH_BATCH_SIZE) {
     const batchWeeks = weeks.slice(start, start + FETCH_BATCH_SIZE);
     const batch = await Promise.all(
-      batchWeeks.map((week) => fetchWeekWithIntegrity(leagueId, season, week, expectedRosters)),
+      batchWeeks.map((week) => fetchWeekWithIntegrity(leagueId, season, week, expectedRosters, currentSeason)),
     );
     result.push(...batch);
     if (start + FETCH_BATCH_SIZE < weeks.length) await sleep(100);
@@ -286,8 +298,8 @@ function playerIdentity(
   return { name, position: player.position || 'UNK', nflTeam: player.team || null };
 }
 
-async function buildCurrentRosterNameMap(): Promise<Map<number, string>> {
-  const currentLeagueId = getLeagueIdForSeason(CURRENT_SEASON);
+async function buildCurrentRosterNameMap(context: LeagueStatsContext): Promise<Map<number, string>> {
+  const currentLeagueId = context.current;
   if (!currentLeagueId) return new Map();
   const teams = await getTeamsData(currentLeagueId).catch(() => [] as TeamData[]);
   return new Map(
@@ -301,11 +313,12 @@ async function buildCurrentRosterNameMap(): Promise<Map<number, string>> {
 async function buildSeasonSnapshot(
   season: string,
   currentNamesByRoster: Map<number, string>,
+  context: LeagueStatsContext,
 ): Promise<SeasonStatsSnapshot | null> {
-  const leagueId = getLeagueIdForSeason(season);
+  const leagueId = leagueIdForSeason(season, context);
   if (!leagueId) return null;
 
-  const endWeek = await currentSeasonEndWeek(season);
+  const endWeek = await currentSeasonEndWeek(season, context.currentSeason);
   const [league, teams, brackets, allPlayers] = await Promise.all([
     getLeague(leagueId).catch(() => null),
     getTeamsData(leagueId).catch(() => [] as TeamData[]),
@@ -315,7 +328,7 @@ async function buildSeasonSnapshot(
       : Promise.resolve({} as Record<string, SleeperPlayer>),
   ]);
 
-  if (season !== CURRENT_SEASON && teams.length === 0) {
+  if (season !== context.currentSeason && teams.length === 0) {
     throw new Error(`[league-stats] No team data returned for completed season ${season}.`);
   }
 
@@ -345,11 +358,11 @@ async function buildSeasonSnapshot(
   const mutablePlayers = new Map<string, MutablePlayerSeason>();
   const games: StatsGameRow[] = [];
   const playerGames: StatsPlayerGameRow[] = [];
-  const weeklyMatchups = await fetchSeasonWeeks(leagueId, season, endWeek, expectedRosters);
+  const weeklyMatchups = await fetchSeasonWeeks(leagueId, season, endWeek, expectedRosters, context.currentSeason);
 
   // Sleeper can stage the current week's lineups before any NFL scoring exists. Ignore that
   // final staged week exactly as the canonical player-profile service does.
-  if (season === CURRENT_SEASON && weeklyMatchups.length > 0 && !weekHasScoring(weeklyMatchups[weeklyMatchups.length - 1])) {
+  if (season === context.currentSeason && weeklyMatchups.length > 0 && !weekHasScoring(weeklyMatchups[weeklyMatchups.length - 1])) {
     weeklyMatchups.pop();
   }
 
@@ -545,22 +558,24 @@ async function buildSeasonSnapshot(
 async function loadSeasonSnapshot(
   season: string,
   currentNamesByRoster: Map<number, string>,
+  context: LeagueStatsContext,
 ): Promise<SeasonStatsSnapshot | null> {
-  const memory = memorySeasonCache.get(season);
+  const memoryKey = `${context.cacheKey || context.current}:${season}`;
+  const memory = memorySeasonCache.get(memoryKey);
   if (memory && Date.now() - memory.ts < MEMORY_TTL_MS) return memory.data;
 
-  const shared = await readSeasonCache(season);
+  const shared = await readSeasonCache(season, context);
   if (shared) {
-    memorySeasonCache.set(season, shared);
+    memorySeasonCache.set(memoryKey, shared);
     return shared.data;
   }
 
   try {
-    const data = await buildSeasonSnapshot(season, currentNamesByRoster);
+    const data = await buildSeasonSnapshot(season, currentNamesByRoster, context);
     if (!data) return null;
     const entry: CachedSeasonSnapshot = { ts: Date.now(), data };
-    memorySeasonCache.set(season, entry);
-    await writeSeasonCache(season, entry);
+    memorySeasonCache.set(memoryKey, entry);
+    await writeSeasonCache(season, entry, context);
     return data;
   } catch (error) {
     console.error(`[league-stats] Refusing to cache incomplete ${season} snapshot`, error);
@@ -892,9 +907,9 @@ function buildRecordBook(
   };
 }
 
-export async function getLeagueStatsDatasetV2(): Promise<LeagueStatsDataset> {
-  const configuredSeasons = listConfiguredSeasons();
-  const currentNamesByRoster = await buildCurrentRosterNameMap();
+export async function getLeagueStatsDatasetV2(context: LeagueStatsContext = defaultContext()): Promise<LeagueStatsDataset> {
+  const configuredSeasons = listConfiguredSeasons(context);
+  const currentNamesByRoster = await buildCurrentRosterNameMap(context);
   const snapshots: SeasonStatsSnapshot[] = [];
   const missingSeasons: string[] = [];
 
@@ -902,7 +917,7 @@ export async function getLeagueStatsDatasetV2(): Promise<LeagueStatsDataset> {
   // internally uses small week batches, and successful completed seasons then live in shared
   // cache for 30 days.
   for (const season of configuredSeasons) {
-    const snapshot = await loadSeasonSnapshot(season, currentNamesByRoster);
+    const snapshot = await loadSeasonSnapshot(season, currentNamesByRoster, context);
     if (snapshot) snapshots.push(snapshot);
     else missingSeasons.push(season);
   }

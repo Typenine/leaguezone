@@ -30,12 +30,11 @@ export async function POST(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
 
   const activeLeagueId = jar.get('active_league_id')?.value || undefined;
+  if (!activeLeagueId) return NextResponse.json({ error: 'Select a league before approving a suggestion' }, { status: 409 });
 
   try {
     const db = getDb();
-    const res = activeLeagueId
-      ? await db.execute(sql`SELECT id, config FROM leagues WHERE setup_completed = true AND id = ${activeLeagueId}::uuid LIMIT 1`)
-      : await db.execute(sql`SELECT id, config FROM leagues WHERE setup_completed = true ORDER BY created_at DESC LIMIT 1`);
+    const res = await db.execute(sql`SELECT id, config FROM leagues WHERE setup_completed = true AND id::text = ${activeLeagueId} LIMIT 1`);
     const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
     if (!row) return NextResponse.json({ error: 'No league found' }, { status: 404 });
 

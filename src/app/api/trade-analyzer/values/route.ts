@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { TradeValue } from '@/lib/types/trade-analyzer';
 import { getObjectText } from '@/server/storage/r2';
+import { getCurrentLeague } from '@/lib/server/league-context';
+import { getLeague } from '@/lib/utils/sleeper-api';
 
 const KTC_R2_KEY = 'trade-analyzer/ktc.json';
 const KTC_R2_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -38,15 +40,27 @@ export type { TradeValue };
 // --- Cache ---
 
 interface ValueSources { fantasyCalc: boolean; keepTradeCut: boolean; fcCount: number; ktcCount: number; ktcMatched: number; ktcMatchRate: number }
-let cache: { ts: number; data: Record<string, TradeValue>; sources: ValueSources } | null = null; // bump to bust: v9
+type ValueFormat = { superflex: boolean; teamCount: number; ppr: number; key: string };
+const cache = new Map<string, { ts: number; data: Record<string, TradeValue>; sources: ValueSources }>();
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+
+async function getValueFormat(): Promise<ValueFormat> {
+  const active = await getCurrentLeague();
+  const sleeper = active?.sleeperLeagueId ? await getLeague(active.sleeperLeagueId).catch(() => null) : null;
+  const positions = sleeper?.roster_positions || [];
+  const qbCount = positions.filter((slot) => slot === 'QB').length;
+  const superflex = positions.includes('SUPER_FLEX') || qbCount > 1;
+  const teamCount = Math.max(2, Number((sleeper as { total_rosters?: number } | null)?.total_rosters || 12));
+  const ppr = Number((sleeper?.scoring_settings as { rec?: number } | undefined)?.rec ?? 1);
+  return { superflex, teamCount, ppr, key: `${superflex ? 'sf' : '1qb'}:${teamCount}:${ppr}` };
+}
 
 // --- Fetchers ---
 
-async function fetchFantasyCalc(): Promise<FantasyCalcPlayer[]> {
-  const url = 'https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1';
+async function fetchFantasyCalc(format: ValueFormat): Promise<FantasyCalcPlayer[]> {
+  const url = `https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=${format.superflex ? 2 : 1}&numTeams=${format.teamCount}&ppr=${format.ppr}`;
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'EastVWest/1.0' },
+    headers: { 'User-Agent': 'LeagueZoneHQ/1.0' },
     signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) throw new Error(`FantasyCalc ${res.status}`);
@@ -54,8 +68,8 @@ async function fetchFantasyCalc(): Promise<FantasyCalcPlayer[]> {
 }
 
 // Scrape a single KTC dynasty-rankings HTML page (format=0 = Superflex)
-async function fetchKTCPage(page: number): Promise<string> {
-  const url = `https://keeptradecut.com/dynasty-rankings?page=${page}&filters=QB%7CWR%7CRB%7CTE%7CRDP&format=0`;
+async function fetchKTCPage(page: number, format: ValueFormat): Promise<string> {
+  const url = `https://keeptradecut.com/dynasty-rankings?page=${page}&filters=QB%7CWR%7CRB%7CTE%7CRDP&format=${format.superflex ? 0 : 1}`;
   const res = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -113,9 +127,9 @@ function parseKTCHtml(html: string): KTCPlayer[] {
 }
 
 // Fetch all 10 pages in parallel, parse, and deduplicate
-async function scrapeKTCLive(): Promise<KTCPlayer[]> {
+async function scrapeKTCLive(format: ValueFormat): Promise<KTCPlayer[]> {
   const pages = Array.from({ length: 10 }, (_, i) => i);
-  const results = await Promise.allSettled(pages.map(fetchKTCPage));
+  const results = await Promise.allSettled(pages.map((page) => fetchKTCPage(page, format)));
   const players: KTCPlayer[] = [];
   for (const r of results) {
     if (r.status === 'fulfilled') players.push(...parseKTCHtml(r.value));
@@ -125,7 +139,9 @@ async function scrapeKTCLive(): Promise<KTCPlayer[]> {
 
 // Read KTC from R2 (written by scripts/refresh-ktc.ts on a residential IP).
 // Falls back to live scraping if R2 is unavailable or stale.
-async function fetchKTC(): Promise<KTCPlayer[]> {
+async function fetchKTC(format: ValueFormat): Promise<KTCPlayer[]> {
+  // The uploaded snapshot is generated in Superflex format. One-QB leagues must use live values.
+  if (!format.superflex) return scrapeKTCLive(format);
   try {
     const text = await getObjectText({ key: KTC_R2_KEY });
     if (text) {
@@ -142,7 +158,7 @@ async function fetchKTC(): Promise<KTCPlayer[]> {
   } catch (e) {
     console.warn('[trade-analyzer] R2 read failed, falling back to live scrape:', e);
   }
-  return scrapeKTCLive();
+  return scrapeKTCLive(format);
 }
 
 // --- Helpers ---
@@ -582,9 +598,11 @@ function mergeValues(fc: FantasyCalcPlayer[], ktc: KTCPlayer[]): { values: Recor
 // --- Route Handler ---
 
 export async function GET() {
+  const format = await getValueFormat();
+  const cachedEntry = cache.get(format.key);
   // Return cached if fresh
-  if (cache && Date.now() - cache.ts < CACHE_TTL) {
-    return NextResponse.json({ values: cache.data, cached: true, sources: cache.sources, count: Object.keys(cache.data).length, updatedAt: new Date(cache.ts).toISOString() });
+  if (cachedEntry && Date.now() - cachedEntry.ts < CACHE_TTL) {
+    return NextResponse.json({ values: cachedEntry.data, cached: true, format, sources: cachedEntry.sources, count: Object.keys(cachedEntry.data).length, updatedAt: new Date(cachedEntry.ts).toISOString() });
   }
 
   let fc: FantasyCalcPlayer[] = [];
@@ -592,7 +610,7 @@ export async function GET() {
   let fcOk = false;
   let ktcOk = false;
 
-  const [fcResult, ktcResult] = await Promise.allSettled([fetchFantasyCalc(), fetchKTC()]);
+  const [fcResult, ktcResult] = await Promise.allSettled([fetchFantasyCalc(format), fetchKTC(format)]);
 
   if (fcResult.status === 'fulfilled') {
     fc = fcResult.value;
@@ -612,8 +630,8 @@ export async function GET() {
 
   if (!fcOk && !ktcOk) {
     // If we have stale cache, return it
-    if (cache) {
-      return NextResponse.json({ values: cache.data, cached: true, stale: true, updatedAt: new Date(cache.ts).toISOString() });
+    if (cachedEntry) {
+      return NextResponse.json({ values: cachedEntry.data, cached: true, stale: true, format, updatedAt: new Date(cachedEntry.ts).toISOString() });
     }
     return NextResponse.json({ error: 'Both value sources unavailable' }, { status: 502 });
   }
@@ -632,11 +650,12 @@ export async function GET() {
   if (ktcOk) {
     console.log(`[trade-analyzer] FC↔KTC name match: ${stats.ktcMatched}/${stats.playerCount} players (${ktcMatchRate}%)`);
   }
-  cache = { ts: Date.now(), data: merged, sources };
+  cache.set(format.key, { ts: Date.now(), data: merged, sources });
 
   return NextResponse.json({
     values: merged,
     cached: false,
+    format,
     sources,
     count: Object.keys(merged).length,
     updatedAt: new Date().toISOString(),

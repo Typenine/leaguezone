@@ -24,7 +24,7 @@ const SECTION_DESCRIPTIONS: Record<string, string> = {
   admin: 'Commissioner settings and league management',
 };
 
-function dashboardHref(leagueId: string, next = '/home') {
+function dashboardHref(leagueId: string, next: string) {
   return `/api/league/select?id=${encodeURIComponent(leagueId)}&next=${encodeURIComponent(next)}`;
 }
 
@@ -74,7 +74,7 @@ export default async function LeagueHomePage({
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a
-                href={dashboardHref(league.id)}
+                href={dashboardHref(league.id, `/l/${league.slug}/dashboard`)}
                 className="inline-flex items-center justify-center px-7 py-3 text-sm font-black uppercase tracking-widest transition hover:brightness-110"
                 style={{ backgroundColor: accent, color: 'var(--brand-ink)' }}
               >

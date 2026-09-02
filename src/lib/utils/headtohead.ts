@@ -4,12 +4,13 @@ import {
   getLeagueRosters,
   getLeagueWinnersBracket,
   getLeagueLosersBracket,
-  getAllOwnerIdsAcrossSeasons,
+  getTeamsData,
   type SleeperFetchOptions,
   type SleeperBracketGame,
   buildYearToLeagueMapUnique,
 } from "@/lib/utils/sleeper-api";
 import { resolveCanonicalTeamName } from "@/lib/utils/team-utils";
+import type { LeagueIdsConfig } from '@/lib/server/league-config';
 
 export type H2HCategory = "regular" | "playoffs" | "toilet";
 
@@ -30,7 +31,7 @@ export interface H2HResult {
 
 const DEFAULT_WEEKS = 17; // finals week 17 in this league
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
-let cache: { ts: number; data: H2HResult } | null = null;
+const cache = new Map<string, { ts: number; data: H2HResult }>();
 
 function emptyCell(): H2HCell {
   return {
@@ -41,16 +42,22 @@ function emptyCell(): H2HCell {
   };
 }
 
-export async function getHeadToHeadAllTime(options?: SleeperFetchOptions): Promise<H2HResult> {
+export async function getHeadToHeadAllTime(options?: SleeperFetchOptions, leagueIds?: LeagueIdsConfig): Promise<H2HResult> {
   const now = Date.now();
-  if (cache && now - cache.ts < CACHE_TTL_MS && !options?.forceFresh) return cache.data;
+  const cacheKey = leagueIds?.current || 'default';
+  const cached = cache.get(cacheKey);
+  if (cached && now - cached.ts < CACHE_TTL_MS && !options?.forceFresh) return cached.data;
 
   // Build year->league map
-  const yearToLeague = await buildYearToLeagueMapUnique(options);
+  const yearToLeague = await buildYearToLeagueMapUnique(options, leagueIds);
 
   // Determine full set of canonical teams across seasons
-  const ownerIds = await getAllOwnerIdsAcrossSeasons(options);
-  const allTeams = ownerIds.map((oid) => resolveCanonicalTeamName({ ownerId: oid })).sort((a, b) => a.localeCompare(b));
+  const ownerIds = new Set<string>();
+  for (const leagueId of Object.values(yearToLeague)) {
+    const teams = await getTeamsData(leagueId, options).catch(() => []);
+    teams.forEach((team) => ownerIds.add(team.ownerId));
+  }
+  const allTeams = [...ownerIds].map((oid) => resolveCanonicalTeamName({ ownerId: oid })).sort((a, b) => a.localeCompare(b));
 
   // Initialize matrix with all pairs
   const matrix = new Map<string, Map<string, H2HCell>>();
@@ -186,6 +193,6 @@ export async function getHeadToHeadAllTime(options?: SleeperFetchOptions): Promi
   }
 
   const result: H2HResult = { teams, matrix: objMatrix, neverBeaten };
-  cache = { ts: Date.now(), data: result };
+  cache.set(cacheKey, { ts: Date.now(), data: result });
   return result;
 }

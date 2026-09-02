@@ -24,7 +24,7 @@ import {
   getRosterIdToTeamNameMap,
   type SleeperPlayer,
 } from '@/lib/utils/sleeper-api';
-import { getCurrentLeague } from '@/lib/server/league-context';
+import { getCurrentLeague, getLeagueBySlug } from '@/lib/server/league-context';
 import {
   classifyStory,
   isListicleOrRoundup,
@@ -145,7 +145,8 @@ export type LeagueNewsResponse = {
 
 type ModerationCache = { ts: number; rules: NewsModerationRule[] };
 const moderationCache = new Map<string, ModerationCache>();
-const MODERATION_CACHE_TTL_MS = 10 * 60 * 1000;
+// Moderation changes must be visible immediately. The DB query is small and league-scoped.
+const MODERATION_CACHE_TTL_MS = 0;
 
 async function getModerationRules(leagueId: string): Promise<NewsModerationRule[]> {
   const cached = moderationCache.get(leagueId);
@@ -209,9 +210,10 @@ async function getLeagueRosterMaps(leagueId: string): Promise<RosterCache> {
 
 export async function GET(req: NextRequest) {
   try {
-    const league = await getCurrentLeague();
-    if (!league?.sleeperLeagueId) return NextResponse.json({ error: 'No active league selected' }, { status: 400 });
     const { searchParams } = new URL(req.url);
+    const explicitSlug = searchParams.get('league')?.trim();
+    const league = explicitSlug ? await getLeagueBySlug(explicitSlug) : await getCurrentLeague();
+    if (!league?.sleeperLeagueId) return NextResponse.json({ error: 'No active league selected' }, { status: 400 });
     const limit = clamp(Math.floor(Number(searchParams.get('limit')) || 30), 1, 100);
     const sinceHours = clamp(Math.floor(Number(searchParams.get('sinceHours')) || 168), 1, 24 * 90);
     const hideLowConfidence = searchParams.get('hideLow') !== 'false';

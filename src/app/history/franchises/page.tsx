@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { getLeagueStatsDatasetV3 } from '@/lib/stats/league-stats-v3';
 import { describeFranchiseRecord, franchiseHistoryId } from '@/lib/history/league-history';
 import { getReadableTextForColors, getTeamColors, getTeamLogoPath } from '@/lib/utils/team-utils';
+import { getLeagueStatsContextBySlug } from '@/lib/stats/league-stats-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,8 +13,9 @@ export const metadata: Metadata = {
   description: 'Permanent League franchise history and statistical reference pages.',
 };
 
-export default async function FranchiseHistoryIndexPage() {
-  const dataset = await getLeagueStatsDatasetV3();
+export default async function FranchiseHistoryIndexPage({ searchParams }: { searchParams?: Promise<{ _league?: string }> }) {
+  const scoped = await searchParams;
+  const dataset = await getLeagueStatsDatasetV3(await getLeagueStatsContextBySlug(scoped?._league));
   const franchises = [...dataset.franchises].sort((a, b) => b.titles - a.titles || b.regularWins - a.regularWins || a.teamName.localeCompare(b.teamName));
 
   return (

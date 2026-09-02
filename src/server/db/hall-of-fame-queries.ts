@@ -60,9 +60,9 @@ export async function listActiveHallOfFameEntries(): Promise<HallOfFameDbEntry[]
   }
 }
 
-export async function listActiveHallOfFameEntriesForPlayer(playerId: string): Promise<HallOfFameDbEntry[]> {
+export async function listActiveHallOfFameEntriesForPlayer(playerId: string, explicitLeagueId?: string): Promise<HallOfFameDbEntry[]> {
   try {
-    const leagueId = await getCurrentLeagueId();
+    const leagueId = explicitLeagueId || await getCurrentLeagueId();
     if (!leagueId) return [];
     const db = getDb();
     const result = await db.execute(sql`

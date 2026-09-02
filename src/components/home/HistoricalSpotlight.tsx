@@ -33,7 +33,7 @@ function pickSpotlightType(h2h: H2HData, now: Date): 'rivalry' | 'never_beaten' 
   return 'closest_rivalry';
 }
 
-function RivalrySpotlight({ h2h }: { h2h: H2HData }) {
+function RivalrySpotlight({ h2h, historyHref }: { h2h: H2HData; historyHref: string }) {
   // Find the pair with the most total meetings
   let bestPair: { team: string; vs: string; cell: H2HCell } | null = null;
   let mostMeetings = 0;
@@ -73,13 +73,13 @@ function RivalrySpotlight({ h2h }: { h2h: H2HData }) {
       </div>
       <div className="mt-3 text-center text-xs" style={broadcastFaintTextStyle}>
         Full history on the{' '}
-        <Link href="/history" className="underline hover:text-[var(--panel-text)]">History page</Link>
+        <Link href={historyHref} className="underline hover:text-[var(--panel-text)]">History page</Link>
       </div>
     </BroadcastPanel>
   );
 }
 
-function NeverBeatenSpotlight({ h2h }: { h2h: H2HData }) {
+function NeverBeatenSpotlight({ h2h, historyHref }: { h2h: H2HData; historyHref: string }) {
   const sorted = [...h2h.neverBeaten].sort((a, b) => b.meetings - a.meetings);
   const top = sorted[0];
   if (!top) return null;
@@ -105,13 +105,13 @@ function NeverBeatenSpotlight({ h2h }: { h2h: H2HData }) {
         </ul>
       )}
       <div className="mt-3 text-xs" style={broadcastFaintTextStyle}>
-        <Link href="/history" className="underline hover:text-[var(--panel-text)]">See full history →</Link>
+        <Link href={historyHref} className="underline hover:text-[var(--panel-text)]">See full history →</Link>
       </div>
     </BroadcastPanel>
   );
 }
 
-function AllTimeLeaderSpotlight({ h2h }: { h2h: H2HData }) {
+function AllTimeLeaderSpotlight({ h2h, historyHref }: { h2h: H2HData; historyHref: string }) {
   const winTotals: Record<string, number> = {};
   for (const team of h2h.teams) {
     let total = 0;
@@ -142,7 +142,7 @@ function AllTimeLeaderSpotlight({ h2h }: { h2h: H2HData }) {
         ))}
       </ul>
       <div className="mt-3 text-xs" style={broadcastFaintTextStyle}>
-        <Link href="/history" className="underline hover:text-[var(--panel-text)]">Full head-to-head grid →</Link>
+        <Link href={historyHref} className="underline hover:text-[var(--panel-text)]">Full head-to-head grid →</Link>
       </div>
     </BroadcastPanel>
   );
@@ -152,7 +152,7 @@ function AllTimeLeaderSpotlight({ h2h }: { h2h: H2HData }) {
  * Closest Rivalry: the pair whose all-time record is most evenly matched
  * (smallest absolute win difference relative to total games played).
  */
-function ClosestRivalrySpotlight({ h2h }: { h2h: H2HData }) {
+function ClosestRivalrySpotlight({ h2h, historyHref }: { h2h: H2HData; historyHref: string }) {
   let bestPair: { team: string; vs: string; cell: H2HCell } | null = null;
   let smallestDiff = Infinity;
 
@@ -169,7 +169,7 @@ function ClosestRivalrySpotlight({ h2h }: { h2h: H2HData }) {
     }
   }
 
-  if (!bestPair) return <RivalrySpotlight h2h={h2h} />;
+  if (!bestPair) return <RivalrySpotlight h2h={h2h} historyHref={historyHref} />;
 
   const { team, vs, cell } = bestPair;
   const accentA = teamAccent(team);
@@ -199,25 +199,25 @@ function ClosestRivalrySpotlight({ h2h }: { h2h: H2HData }) {
       </div>
       <div className="mt-3 text-center text-xs" style={broadcastFaintTextStyle}>
         The most evenly matched head-to-head in league history ·{' '}
-        <Link href="/history" className="underline hover:text-[var(--panel-text)]">Full history</Link>
+        <Link href={historyHref} className="underline hover:text-[var(--panel-text)]">Full history</Link>
       </div>
     </BroadcastPanel>
   );
 }
 
-export default function HistoricalSpotlight({ h2h }: { h2h: H2HData }) {
+export default function HistoricalSpotlight({ h2h, historyHref = '/history' }: { h2h: H2HData; historyHref?: string }) {
   const now = new Date();
   const type = pickSpotlightType(h2h, now);
 
   let content: React.ReactNode = null;
   if (type === 'never_beaten' && h2h.neverBeaten.length > 0) {
-    content = <NeverBeatenSpotlight h2h={h2h} />;
+    content = <NeverBeatenSpotlight h2h={h2h} historyHref={historyHref} />;
   } else if (type === 'rivalry') {
-    content = <RivalrySpotlight h2h={h2h} />;
+    content = <RivalrySpotlight h2h={h2h} historyHref={historyHref} />;
   } else if (type === 'all_time_leader') {
-    content = <AllTimeLeaderSpotlight h2h={h2h} />;
+    content = <AllTimeLeaderSpotlight h2h={h2h} historyHref={historyHref} />;
   } else {
-    content = <ClosestRivalrySpotlight h2h={h2h} />;
+    content = <ClosestRivalrySpotlight h2h={h2h} historyHref={historyHref} />;
   }
 
   if (!content) return null;
@@ -227,7 +227,7 @@ export default function HistoricalSpotlight({ h2h }: { h2h: H2HData }) {
       <SectionHeader
         title="Historical spotlight"
         actions={
-          <Link href="/history" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
+          <Link href={historyHref} className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
             Full history →
           </Link>
         }

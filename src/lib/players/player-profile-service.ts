@@ -54,6 +54,23 @@ export function listAllSeasons(): string[] {
   return Array.from(uniq).sort((a, b) => a.localeCompare(b));
 }
 
+export type PlayerProfileLeagueContext = {
+  currentSeason: string;
+  currentLeagueId: string;
+  previousLeagueIds?: Record<string, string>;
+  cacheKey?: string;
+};
+
+function configuredSeasons(context?: PlayerProfileLeagueContext): string[] {
+  if (!context) return listAllSeasons();
+  return [...new Set([context.currentSeason, ...Object.keys(context.previousLeagueIds || {})])].sort();
+}
+
+function configuredLeagueId(season: string, context?: PlayerProfileLeagueContext): string | null {
+  if (!context) return getLeagueIdForSeason(season) || null;
+  return season === context.currentSeason ? context.currentLeagueId : context.previousLeagueIds?.[season] || null;
+}
+
 interface SeasonContext {
   season: string;
   leagueId: string;
@@ -87,19 +104,19 @@ const SEASON_CONTEXT_KV_VERSION = 'v2';
 
 const seasonContextMemoryCache = new Map<string, { ts: number; data: SeasonContext | null }>();
 
-function seasonContextKvKey(season: string): string {
-  return `player-profile:season-context:${SEASON_CONTEXT_KV_VERSION}:${season}`;
+function seasonContextKvKey(season: string, namespace = 'legacy'): string {
+  return `player-profile:season-context:${SEASON_CONTEXT_KV_VERSION}:${namespace}:${season}`;
 }
 
 function seasonContextKvTtlMs(season: string): number {
   return season === CURRENT_SEASON ? CURRENT_SEASON_KV_TTL_MS : PAST_SEASON_KV_TTL_MS;
 }
 
-async function readSeasonContextFromKv(season: string): Promise<{ ts: number; data: SeasonContext | null } | null> {
+async function readSeasonContextFromKv(season: string, namespace?: string): Promise<{ ts: number; data: SeasonContext | null } | null> {
   try {
     const kv = await getKV();
     if (!kv) return null;
-    const raw = await kv.get(seasonContextKvKey(season));
+    const raw = await kv.get(seasonContextKvKey(season, namespace));
     if (!raw || typeof raw !== 'string') return null;
     const parsed = JSON.parse(raw) as { ts: number; data: SeasonContext | null };
     if (Date.now() - parsed.ts >= seasonContextKvTtlMs(season)) return null;
@@ -109,11 +126,11 @@ async function readSeasonContextFromKv(season: string): Promise<{ ts: number; da
   }
 }
 
-async function writeSeasonContextToKv(season: string, entry: { ts: number; data: SeasonContext | null }): Promise<void> {
+async function writeSeasonContextToKv(season: string, entry: { ts: number; data: SeasonContext | null }, namespace?: string): Promise<void> {
   try {
     const kv = await getKV();
     if (!kv) return;
-    const key = seasonContextKvKey(season);
+    const key = seasonContextKvKey(season, namespace);
     await kv.set(key, JSON.stringify(entry));
     if (kv.expire) await kv.expire(key, Math.ceil(seasonContextKvTtlMs(season) / 1000));
   } catch {
@@ -126,8 +143,8 @@ async function writeSeasonContextToKv(season: string, entry: { ts: number; data:
  * The live season is different: Sleeper pre-populates future matchup lineups, which
  * must not count as rostered weeks or starts before those fantasy weeks exist.
  */
-async function attributionEndWeekForSeason(season: string): Promise<number> {
-  if (season !== CURRENT_SEASON) return 17;
+async function attributionEndWeekForSeason(season: string, currentSeason = CURRENT_SEASON): Promise<number> {
+  if (season !== currentSeason) return 17;
 
   try {
     const state = await getNFLState();
@@ -147,25 +164,27 @@ async function attributionEndWeekForSeason(season: string): Promise<number> {
   }
 }
 
-async function loadSeasonContext(season: string): Promise<SeasonContext | null> {
-  const memCached = seasonContextMemoryCache.get(season);
+async function loadSeasonContext(season: string, context?: PlayerProfileLeagueContext): Promise<SeasonContext | null> {
+  const namespace = context?.cacheKey || context?.currentLeagueId || 'legacy';
+  const memoryKey = `${namespace}:${season}`;
+  const memCached = seasonContextMemoryCache.get(memoryKey);
   if (memCached && Date.now() - memCached.ts < SEASON_CONTEXT_MEMORY_TTL_MS) return memCached.data;
 
-  const kvCached = await readSeasonContextFromKv(season);
+  const kvCached = await readSeasonContextFromKv(season, namespace);
   if (kvCached) {
-    seasonContextMemoryCache.set(season, kvCached);
+    seasonContextMemoryCache.set(memoryKey, kvCached);
     return kvCached.data;
   }
 
-  const leagueId = getLeagueIdForSeason(season);
+  const leagueId = configuredLeagueId(season, context);
   if (!leagueId) {
     const entry = { ts: Date.now(), data: null };
-    seasonContextMemoryCache.set(season, entry);
-    await writeSeasonContextToKv(season, entry);
+    seasonContextMemoryCache.set(memoryKey, entry);
+    await writeSeasonContextToKv(season, entry, namespace);
     return null;
   }
 
-  const attributionEndWeek = await attributionEndWeekForSeason(season);
+  const attributionEndWeek = await attributionEndWeekForSeason(season, context?.currentSeason);
   const weeklyAttributionPromise = attributionEndWeek > 0
     ? buildSeasonPlayerWeeklyAttribution(leagueId, attributionEndWeek).catch(
         () => ({} as SeasonContext['weeklyAttribution']),
@@ -184,7 +203,7 @@ async function loadSeasonContext(season: string): Promise<SeasonContext | null> 
   // Sleeper can advance its NFL state to the next regular-season week before any
   // games in that week have started. Do not count that staged lineup as a rostered
   // week/start until at least one player has actually scored in the league that week.
-  if (season === CURRENT_SEASON && attributionEndWeek > 0) {
+  if (season === (context?.currentSeason || CURRENT_SEASON) && attributionEndWeek > 0) {
     const currentWeek = weeklyAttribution[String(attributionEndWeek)];
     if (currentWeek && !Object.values(currentWeek).some((row) => Math.abs(Number(row.points) || 0) > 0)) {
       delete weeklyAttribution[String(attributionEndWeek)];
@@ -199,8 +218,8 @@ async function loadSeasonContext(season: string): Promise<SeasonContext | null> 
 
   const data: SeasonContext = { season, leagueId, teams, weeklyAttribution, nflTotals, draftPicks, transactions };
   const entry = { ts: Date.now(), data };
-  seasonContextMemoryCache.set(season, entry);
-  await writeSeasonContextToKv(season, entry);
+  seasonContextMemoryCache.set(memoryKey, entry);
+  await writeSeasonContextToKv(season, entry, namespace);
   return data;
 }
 
@@ -208,19 +227,19 @@ async function loadSeasonContext(season: string): Promise<SeasonContext | null> 
  * Builds the full canonical player profile for a Sleeper player id. Returns null if the
  * player id is unknown to Sleeper (never shows a profile for a fabricated player).
  */
-export async function getPlayerProfile(playerId: string): Promise<PlayerProfile | null> {
+export async function getPlayerProfile(playerId: string, context?: PlayerProfileLeagueContext): Promise<PlayerProfile | null> {
   const allPlayers = await getAllPlayersCached();
   const meta: SleeperPlayer | undefined = allPlayers[playerId];
   if (!meta) return null;
 
-  const seasons = listAllSeasons();
+  const seasons = configuredSeasons(context);
   // Seasons are loaded one at a time (each already cached — see loadSeasonContext) rather than
   // all in parallel. Each season alone fans out ~20 Sleeper requests; firing every configured
   // season's fetches simultaneously multiplies that burst and risks Sleeper's rate limiting,
   // which is far more costly than the small amount of sequential wall-clock time this adds.
   const validSeasons: SeasonContext[] = [];
   for (const season of seasons) {
-    const ctx = await loadSeasonContext(season);
+    const ctx = await loadSeasonContext(season, context);
     if (ctx) validSeasons.push(ctx);
   }
 
