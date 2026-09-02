@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import Tabs from '@/components/ui/Tabs';
 import { 
   getTeamsData, 
@@ -10,19 +11,17 @@ import {
   SleeperPlayer,
   TeamData,
   getTeamAllTimeStatsByOwner,
+  getTeamH2HRecordsAllTimeByOwner,
   computeSeasonTotalsCustomScoringFromStats,
   getNFLSeasonStats,
-  SleeperNFLSeasonPlayerStats,
   buildSeasonRosterFromMatchups,
   getLeagueMatchups,
   getTopScoringWeeksByOwner,
   TeamTopWeek,
   getLeague,
 } from '@/lib/utils/sleeper-api';
-import { getHeadToHeadAllTime } from '@/lib/utils/headtohead';
-import { LEAGUE_IDS, getLeagueIdForSeason } from '@/lib/constants/league';
-import { getTeamColorStyle, getTeamColors, resolveCanonicalTeamName } from '@/lib/utils/team-utils';
-import { TeamLogo } from '@/components/ui/TeamLogo';
+import { LEAGUE_IDS, CURRENT_SEASON, getLeagueIdForSeason } from '@/lib/constants/league';
+import { getTeamLogoPath, getTeamColorStyle, getTeamColors, resolveCanonicalTeamName, getReadableTextForColors } from '@/lib/utils/team-utils';
 import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
 import SectionHeader from '@/components/ui/SectionHeader';
@@ -30,10 +29,10 @@ import Card, { CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Table, THead, TBody, Th, Td, Tr } from '@/components/ui/Table';
 import { Select } from '@/components/ui/Select';
 import Label from '@/components/ui/Label';
-import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import Chip from '@/components/ui/Chip';
 import StatCard from '@/components/ui/StatCard';
+import PlayerLink from '@/components/players/PlayerLink';
 
 // Position grouping order for roster sections
 const POSITION_GROUP_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF/DST', 'DL', 'LB', 'DB', 'Other'] as const;
@@ -129,7 +128,7 @@ export default function TeamContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const rosterId = parseInt(params.id as string);
-  const yearParam = searchParams.get('year') || '2025';
+  const yearParam = searchParams.get('year') || CURRENT_SEASON;
   
   const [team, setTeam] = useState<TeamData | null>(null);
   // Convenient name and color styles for this team
@@ -137,6 +136,7 @@ export default function TeamContent() {
   const teamColors = useMemo(() => getTeamColors(teamName), [teamName]);
   const secondaryStyle = useMemo(() => getTeamColorStyle(teamName, 'secondary'), [teamName]);
   const tertiaryStyle = useMemo(() => getTeamColorStyle(teamName, 'tertiary'), [teamName]);
+  const gradientTextColor = useMemo(() => getReadableTextForColors([teamColors.primary, teamColors.secondary]), [teamColors]);
   const [weeklyResults, setWeeklyResults] = useState<Array<{
     week: number;
     points: number;
@@ -182,20 +182,11 @@ export default function TeamContent() {
   const [newsWindowHours, setNewsWindowHours] = useState<number>(336); // 14 days default
   const [newsView, setNewsView] = useState<'grouped' | 'timeline'>('grouped');
   const [newsFilterPlayer, setNewsFilterPlayer] = useState<string | null>(null);
-  const newsInFlightKeyRef = useRef<string | null>(null);
-  const newsLoadedKeyRef = useRef<string | null>(null);
   // Collapsed state per playerId for News groups
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const toggleGroup = (playerId: string) => {
     setCollapsedGroups((prev) => ({ ...prev, [playerId]: !prev[playerId] }));
   };
-  // Player detail modal state and season stats cache
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [seasonStats, setSeasonStats] = useState<Record<string, SleeperNFLSeasonPlayerStats>>({});
-  // Player modal per-season state/caches
-  const [modalYear, setModalYear] = useState<string>(selectedYear);
-  const [modalFantasyCache, setModalFantasyCache] = useState<Record<string, { totalPPR: number; gp: number; ppg: number }>>({});
-  const [modalRealCache, setModalRealCache] = useState<Record<string, SleeperNFLSeasonPlayerStats | null>>({});
   // Records: career leaders and best single-season leaders by position (Top 5)
   type LeaderRow = { playerId: string; name: string; position: string; season?: string; total: number; ppg?: number };
   const POSITIONS = useMemo(() => ['QB','RB','WR','TE','K','DEF/DST'] as const, []);
@@ -308,101 +299,9 @@ export default function TeamContent() {
     }
   }, [snapYear, loadSnapshot]);
 
-  // Player Weekly Points Modal state
-  type WeeklyRow = { week: number; points: number; rostered: boolean; started: boolean };
-  const [playerModalOpen, setPlayerModalOpen] = useState(false);
-  const [playerModal, setPlayerModal] = useState<{ playerId: string; name: string } | null>(null);
-  const [modalSeason, setModalSeason] = useState<string>('');
-  const [modalSeasons, setModalSeasons] = useState<string[]>([]);
-  const [modalWeeks, setModalWeeks] = useState<WeeklyRow[]>([]);
-  const [modalLoading, setModalLoading] = useState(false);
-  const [modalError, setModalError] = useState<string | null>(null);
-
   // Top scoring weeks (Top 5 highest/lowest) across all seasons for this franchise
   const [topHighWeeks, setTopHighWeeks] = useState<TeamTopWeek[]>([]);
   const [topLowWeeks, setTopLowWeeks] = useState<TeamTopWeek[]>([]);
-
-  const buildModalSeasons = useCallback(() => {
-    const prevYears = Object.keys(LEAGUE_IDS.PREVIOUS || {});
-    const seasons = Array.from(new Set([String(selectedYear), ...prevYears])).sort((a,b) => b.localeCompare(a));
-    return seasons;
-  }, [selectedYear]);
-
-  const openPlayerModal = useCallback((playerId: string, name: string) => {
-    const seasons = buildModalSeasons();
-    setModalSeasons(seasons);
-    setModalSeason(seasons[0] || String(selectedYear));
-    setPlayerModal({ playerId, name });
-    setPlayerModalOpen(true);
-  }, [buildModalSeasons, selectedYear]);
-
-  const closePlayerModal = useCallback(() => {
-    setPlayerModalOpen(false);
-    setPlayerModal(null);
-    setModalWeeks([]);
-    setModalError(null);
-  }, []);
-
-  const loadPlayerWeekly = useCallback(async (season: string, playerId: string) => {
-    try {
-      setModalLoading(true);
-      setModalError(null);
-      const leagueId = getLeagueIdForSeason(season);
-      if (!leagueId) {
-        setModalWeeks([]);
-        setModalError('No league for this season');
-        return;
-      }
-      // Find this franchise in that season
-      const teams = await getTeamsData(leagueId);
-      const canonicalName = resolveCanonicalTeamName({ ownerId: team?.ownerId });
-      const seasonTeam = teams.find(t => t.teamName === canonicalName) || teams.find(t => t.ownerId === team?.ownerId);
-      if (!seasonTeam) {
-        setModalWeeks([]);
-        setModalError('Team not found for this season');
-        return;
-      }
-      const rosterId = seasonTeam.rosterId;
-      const weeks = Array.from({ length: 17 }, (_, i) => i + 1);
-      const weekly = await Promise.all(weeks.map((w) => getLeagueMatchups(leagueId, w).catch(() => [] as Array<{ roster_id?: number; players_points?: Record<string, number>; players?: string[]; starters?: string[] }>)));
-      const rows: WeeklyRow[] = [];
-      for (let i = 0; i < weeks.length; i++) {
-        const w = weeks[i];
-        const matchups = (weekly[i] || []) as Array<{ roster_id?: number; players_points?: Record<string, number>; players?: string[]; starters?: string[] }>;
-        const m = matchups.find(mm => mm.roster_id === rosterId);
-        if (!m) {
-          rows.push({ week: w, points: 0, rostered: false, started: false });
-          continue;
-        }
-        const playersArr = (m.players || []) as string[];
-        const startersArr = (m.starters || []) as string[];
-        const rostered = playersArr.includes(playerId) || startersArr.includes(playerId);
-        const started = startersArr.includes(playerId);
-        const pts = Number((m.players_points || {})[playerId] || 0);
-        rows.push({ week: w, points: Number(pts.toFixed(2)), rostered, started });
-      }
-      setModalWeeks(rows);
-    } catch {
-      setModalWeeks([]);
-      setModalError('Failed to load weekly points');
-    } finally {
-      setModalLoading(false);
-    }
-  }, [team?.ownerId]);
-
-  // Load weeks whenever modal season or player changes
-  useEffect(() => {
-    if (!playerModalOpen || !playerModal || !modalSeason) return;
-    loadPlayerWeekly(modalSeason, playerModal.playerId);
-  }, [playerModalOpen, playerModal, modalSeason, loadPlayerWeekly]);
-
-  // Load the same weekly points data for the roster player detail modal.
-  useEffect(() => {
-    if (!selectedPlayerId || !modalYear) return;
-    setModalWeeks([]);
-    setModalError(null);
-    loadPlayerWeekly(String(modalYear), selectedPlayerId);
-  }, [selectedPlayerId, modalYear, loadPlayerWeekly]);
 
   // Populate Records: multi-season aggregation with roster reconstruction (only when Records tab is open)
   useEffect(() => {
@@ -545,8 +444,8 @@ export default function TeamContent() {
           const pids = new Set<string>([...Object.keys(debugLeaguePerSeason), ...Object.keys(debugCardPerSeason)]);
           pids.forEach((pid) => {
             const nm = nameById[pid] || pid;
-            const seasonsList = Array.from(new Set([...
-              Object.keys(debugLeaguePerSeason[pid] || {}), ...Object.keys(debugCardPerSeason[pid] || {})
+            const seasonsList = Array.from(new Set([
+              ...Object.keys(debugLeaguePerSeason[pid] || {}), ...Object.keys(debugCardPerSeason[pid] || {})
             ])).sort();
             const rows = seasonsList.map((s) => ({
               player: nm,
@@ -643,74 +542,6 @@ export default function TeamContent() {
     return groups.map((g) => ({ group: g, ids: byGroup[g] }));
   }, [team?.players, players, playerSeasonStats, sortBy, sortDir]);
 
-  // Lazy-load season real-life stats when opening a player's modal (fetch once per season)
-  useEffect(() => {
-    if (!selectedPlayerId) return;
-    if (seasonStats && seasonStats[selectedPlayerId]) return;
-    (async () => {
-      try {
-        const stats = await getNFLSeasonStats(selectedYear);
-        setSeasonStats(stats);
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, [selectedPlayerId, selectedYear, seasonStats]);
-
-  // Clear cached season stats when the selected season changes
-  useEffect(() => {
-    setSeasonStats({});
-  }, [selectedYear]);
-  
-  // Initialize modalYear and reset per-player caches when opening modal or switching page season
-  useEffect(() => {
-    if (!selectedPlayerId) return;
-    setModalYear(String(selectedYear));
-    setModalFantasyCache({});
-    setModalRealCache({});
-  }, [selectedPlayerId, selectedYear]);
-
-  // Lazy fetch fantasy totals for selected player and modalYear using league custom scoring (exact parity)
-  useEffect(() => {
-    if (!selectedPlayerId) return;
-    const season = String(modalYear);
-    if (modalFantasyCache[season]) return;
-    (async () => {
-      try {
-        const leagueForSeason = getLeagueIdForSeason(season);
-        if (!leagueForSeason) {
-          setModalFantasyCache((prev) => ({ ...prev, [season]: { totalPPR: 0, gp: 0, ppg: 0 } }));
-          return;
-        }
-        const totals = await computeSeasonTotalsCustomScoringFromStats(season, leagueForSeason, 18);
-        const total = Number(totals[selectedPlayerId] || 0);
-        setModalFantasyCache((prev) => ({
-          ...prev,
-          [season]: { totalPPR: total, gp: 0, ppg: 0 },
-        }));
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, [selectedPlayerId, modalYear, modalFantasyCache]);
-
-  // Lazy fetch real-life stats for selected player and modalYear
-  useEffect(() => {
-    if (!selectedPlayerId) return;
-    const season = String(modalYear);
-    if (Object.prototype.hasOwnProperty.call(modalRealCache, season)) return;
-    (async () => {
-      try {
-        const stats = await getNFLSeasonStats(season);
-        setModalRealCache((prev) => ({
-          ...prev,
-          [season]: stats[selectedPlayerId] || null,
-        }));
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, [selectedPlayerId, modalYear, modalRealCache]);
   
   useEffect(() => {
     async function fetchTeamData() {
@@ -742,24 +573,9 @@ export default function TeamContent() {
         const results = await getTeamWeeklyResults(leagueId, rosterId);
         setWeeklyResults(results);
 
-        // Fetch all-time H2H records from the canonical matrix so both sides
-        // of a matchup always use the same franchise-normalized source.
-        const h2hAllTime = await getHeadToHeadAllTime();
-        const currentTeamH2H = h2hAllTime.matrix[currentTeam.teamName] ?? {};
-        setH2HRecords(
-          Object.fromEntries(
-            Object.entries(currentTeamH2H)
-              .filter(([opponentName, record]) => opponentName !== currentTeam.teamName && record.meetings > 0)
-              .map(([opponentName, record]) => [
-                opponentName,
-                {
-                  wins: record.wins.total,
-                  losses: record.losses.total,
-                  ties: record.ties,
-                },
-              ])
-          )
-        );
+        // Fetch all-time H2H records (aggregated by owner across seasons)
+        const h2hAllTime = await getTeamH2HRecordsAllTimeByOwner(currentTeam.ownerId);
+        setH2HRecords(h2hAllTime);
         
         // Fetch players data and season stats if team has players
         if (currentTeam.players && currentTeam.players.length > 0) {
@@ -825,48 +641,29 @@ export default function TeamContent() {
       .finally(() => setDraftAssetsLoading(false));
   }, [teamName]);
 
-  // Fetch roster-based news when News is open, or on-demand for player modal.
+  // Fetch roster-based news when News tab is open.
   useEffect(() => {
-    const playerIds = team?.players?.join(',');
-    if (!playerIds) return;
-
-    const requestKey = `${playerIds}:${newsWindowHours}`;
-    const shouldFetchFromModal = !!selectedPlayerId && newsLoadedKeyRef.current !== requestKey;
-    if (mainTab !== 'news' && !shouldFetchFromModal) return;
-
-    if (newsInFlightKeyRef.current === requestKey || newsLoadedKeyRef.current === requestKey) return;
-
-    const controller = new AbortController();
+    if (mainTab !== 'news') return;
     const load = async () => {
-      newsInFlightKeyRef.current = requestKey;
+      if (!team || !team.players || team.players.length === 0) return;
       try {
         setNewsLoading(true);
         setNewsError(null);
+        const playerIds = encodeURIComponent(team.players.join(','));
         // Use selected timeframe and increased limit for more articles
-        const encodedPlayerIds = encodeURIComponent(playerIds);
-        const res = await fetch(`/api/roster-news?playerIds=${encodedPlayerIds}&limit=100&sinceHours=${newsWindowHours}` as const, {
-          cache: 'no-store',
-          signal: controller.signal,
-        });
+        const res = await fetch(`/api/roster-news?playerIds=${playerIds}&limit=100&sinceHours=${newsWindowHours}` as const, { cache: 'no-store' });
         if (!res.ok) throw new Error(`Failed to fetch roster news: ${res.status}`);
         const data: RosterNewsResponse = await res.json();
         setNews(data.items || []);
-        newsLoadedKeyRef.current = requestKey;
       } catch (e) {
-        if (e instanceof DOMException && e.name === 'AbortError') return;
         console.error(e);
         setNewsError('Failed to load news');
       } finally {
-        if (newsInFlightKeyRef.current === requestKey) {
-          newsInFlightKeyRef.current = null;
-          setNewsLoading(false);
-        }
+        setNewsLoading(false);
       }
     };
     load();
-
-    return () => controller.abort();
-  }, [team?.players, newsWindowHours, mainTab, selectedPlayerId]);
+  }, [team, newsWindowHours, mainTab]);
   
   // Group news by matched player for better readability
   const newsGrouped = useMemo(() => {
@@ -990,15 +787,35 @@ export default function TeamContent() {
   type TabsAccentVars = React.CSSProperties & { '--accent'?: string };
   const tabsAccentVars: TabsAccentVars = { '--accent': teamColors.primary };
   
+  // Function to handle missing logo images
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const target = e.target as HTMLImageElement;
+    target.style.display = 'none';
+    const parent = target.parentElement;
+    if (parent) {
+      const fallback = document.createElement('div');
+      fallback.className = 'flex items-center justify-center h-full w-full';
+      fallback.innerHTML = `<span class="text-4xl font-bold">${target.alt.charAt(0)}</span>`;
+      parent.appendChild(fallback);
+    }
+  };
+  
   return (
     <div className="container mx-auto px-4 py-8" style={themeVars}>
-      <div className="w-full h-1.5 rounded-full mb-6 brand-fill" />
+      <div className="w-full h-1.5 rounded-full mb-6 brand-gradient" />
       <div className="flex flex-col items-center mb-4">
-        <div
-          className="w-32 h-32 rounded-full flex items-center justify-center mb-4 overflow-hidden"
+        <div 
+          className="w-32 h-32 rounded-full flex items-center justify-center mb-4 overflow-hidden" 
           style={getTeamColorStyle(teamName)}
         >
-          <TeamLogo teamName={teamName} size={100} className="object-contain p-2" />
+          <Image
+            src={getTeamLogoPath(teamName)}
+            alt={teamName}
+            width={100}
+            height={100}
+            className="object-contain p-2"
+            onError={handleImageError}
+          />
         </div>
       </div>
       <SectionHeader
@@ -1016,6 +833,7 @@ export default function TeamContent() {
               onChange={(e) => handleYearChange(e.target.value)}
               className="w-[12rem]"
             >
+              <option value={CURRENT_SEASON}>{CURRENT_SEASON} Season</option>
               <option value="2025">2025 Season</option>
               <option value="2024">2024 Season</option>
               <option value="2023">2023 Season</option>
@@ -1053,7 +871,7 @@ export default function TeamContent() {
                     <div
                       className="rounded-md shrink-0"
                       style={{
-                        backgroundColor: teamColors.primary,
+                        backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
                         color: '#ffffff',
                         padding: '0.35rem 0.6rem',
                       }}
@@ -1295,7 +1113,7 @@ export default function TeamContent() {
                   <div
                     className="rounded-md"
                     style={{
-                      backgroundColor: teamColors.primary,
+                      backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
                       color: '#ffffff',
                       padding: '0.35rem 0.6rem',
                     }}
@@ -1311,13 +1129,13 @@ export default function TeamContent() {
                   ) : taxi ? (
                     <div className="space-y-4">
                       {(() => {
-                        const LIMIT_SLOTS = 3; const LIMIT_QB = 1;
+                        const LIMIT_SLOTS = 4; const LIMIT_QB = 1;
                         const hasOverSlots = taxi.violations.some(v => v.code === 'too_many_on_taxi');
                         const hasOverQb = taxi.violations.some(v => v.code === 'too_many_qbs');
                         return (
                           <div className="flex flex-wrap items-center gap-3">
-                            <Chip size="sm" className="px-2 league-chip">Slots: {taxi.current.counts.total} / {LIMIT_SLOTS}</Chip>
-                            <Chip size="sm" className="px-2 league-chip">QBs: {taxi.current.counts.qbs} / {LIMIT_QB}</Chip>
+                            <Chip size="sm" className="px-2 evw-chip">Slots: {taxi.current.counts.total} / {LIMIT_SLOTS}</Chip>
+                            <Chip size="sm" className="px-2 evw-chip">QBs: {taxi.current.counts.qbs} / {LIMIT_QB}</Chip>
                             {taxi.compliant ? (
                               <Chip size="sm" variant="neutral" className="px-2 bg-green-100 text-green-800">Compliant</Chip>
                             ) : (
@@ -1352,7 +1170,9 @@ export default function TeamContent() {
                               {taxi.current.taxi.map((p) => (
                                 <Tr key={p.playerId} style={{ borderLeft: `3px solid ${teamColors.primary}` }}>
                                   <Td>
-                                    <div className="text-sm text-[var(--text)]">{p.name || p.playerId}</div>
+                                    <div className="text-sm text-[var(--text)]">
+                                      <PlayerLink playerId={p.playerId}>{p.name || p.playerId}</PlayerLink>
+                                    </div>
                                   </Td>
                                   <Td>
                                     <div className="text-sm text-[var(--muted)]">{p.position || '—'}</div>
@@ -1404,7 +1224,7 @@ export default function TeamContent() {
                   <div
                     className="rounded-md"
                     style={{
-                      backgroundColor: teamColors.primary,
+                      backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
                       color: '#ffffff',
                       padding: '0.35rem 0.6rem',
                     }}
@@ -1417,6 +1237,7 @@ export default function TeamContent() {
                     <div>
                       <Label htmlFor="snap-year">Season</Label>
                       <Select id="snap-year" value={snapYear} onChange={(e) => setSnapYear(e.target.value)}>
+                        <option value={CURRENT_SEASON}>{CURRENT_SEASON}</option>
                         <option value="2025">2025</option>
                         <option value="2024">2024</option>
                         <option value="2023">2023</option>
@@ -1461,7 +1282,7 @@ export default function TeamContent() {
                             <div
                               className="rounded mb-2"
                               style={{
-                                backgroundColor: teamColors.primary,
+                                backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
                                 color: '#ffffff',
                                 padding: '0.25rem 0.5rem',
                               }}
@@ -1481,7 +1302,7 @@ export default function TeamContent() {
                             <div
                               className="rounded mb-2"
                               style={{
-                                backgroundColor: teamColors.secondary,
+                                backgroundImage: `linear-gradient(90deg, ${teamColors.secondary} 0%, ${teamColors.tertiary || teamColors.primary} 100%)`,
                                 color: '#ffffff',
                                 padding: '0.25rem 0.5rem',
                               }}
@@ -1502,7 +1323,7 @@ export default function TeamContent() {
                               <div
                                 className="rounded mb-2"
                                 style={{
-                                  backgroundColor: teamColors.secondary,
+                                  backgroundImage: `linear-gradient(90deg, ${teamColors.secondary} 0%, ${teamColors.tertiary || teamColors.primary} 100%)`,
                                   color: '#ffffff',
                                   padding: '0.25rem 0.5rem',
                                 }}
@@ -1524,7 +1345,7 @@ export default function TeamContent() {
                               <div
                                 className="rounded mb-2"
                                 style={{
-                                  backgroundColor: teamColors.secondary,
+                                  backgroundImage: `linear-gradient(90deg, ${teamColors.secondary} 0%, ${teamColors.tertiary || teamColors.primary} 100%)`,
                                   color: '#ffffff',
                                   padding: '0.25rem 0.5rem',
                                 }}
@@ -1560,8 +1381,8 @@ export default function TeamContent() {
               {(draftAssetsLoading || (draftAssets && (draftAssets.rosterPlayers.length > 0 || draftAssets.currentPicks.length > 0 || draftAssets.futurePicks.length > 0))) && (
                 <Card style={{ borderTop: `4px solid ${teamColors.primary}`, marginBottom: '1rem' }}>
                   <CardHeader>
-                    <div className="rounded-md" style={{ backgroundColor: teamColors.primary, color: '#ffffff', padding: '0.35rem 0.6rem' }}>
-                      <CardTitle>Draft Day Assets</CardTitle>
+                    <div className="rounded-md" style={{ backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`, color: gradientTextColor, padding: '0.35rem 0.6rem' }}>
+                      <CardTitle style={{ color: gradientTextColor }}>Draft Day Assets</CardTitle>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -1595,7 +1416,9 @@ export default function TeamContent() {
                               }).map(p => (
                                 <div key={p.playerId} className="flex items-center gap-2 text-sm py-1 border-b border-[var(--border)]" style={{ borderLeft: `3px solid ${teamColors.primary}`, paddingLeft: '0.5rem' }}>
                                   {p.playerPos && <span className="text-[10px] font-black px-1.5 py-0.5 rounded text-white" style={{ background: {QB:'#ef4444',RB:'#22c55e',WR:'#3b82f6',TE:'#f97316',K:'#a855f7'}[p.playerPos] || '#555' }}>{p.playerPos}</span>}
-                                  <span className="font-medium">{p.playerName || p.playerId}</span>
+                                  <span className="font-medium">
+                                    <PlayerLink playerId={p.playerId}>{p.playerName || p.playerId}</PlayerLink>
+                                  </span>
                                   {p.playerNfl && <span className="text-[var(--muted)] text-xs">{p.playerNfl}</span>}
                                   {p.acquiredVia === 'trade' && <span className="ml-auto text-xs text-sky-500 font-bold">via trade</span>}
                                   {p.acquiredVia === 'drafted' && <span className="ml-auto text-xs text-emerald-500 font-bold">drafted</span>}
@@ -1644,12 +1467,12 @@ export default function TeamContent() {
                   <div
                     className="rounded-md"
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: '#ffffff',
+                      backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
+                      color: gradientTextColor,
                       padding: '0.35rem 0.6rem',
                     }}
                   >
-                    <CardTitle>Current Roster</CardTitle>
+                    <CardTitle style={{ color: gradientTextColor }}>Current Roster</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -1694,7 +1517,7 @@ export default function TeamContent() {
                           {sortedGroups.map(({ group, ids }) => (
                             [
                               (
-                                <Tr key={`hdr-${group}`} className="bg-[color-mix(in_srgb,var(--danger)_12%,transparent)]" style={{ borderLeft: `3px solid ${teamColors.primary}` }}>
+                                <Tr key={`hdr-${group}`} style={{ backgroundColor: `color-mix(in srgb, ${teamColors.primary} 14%, transparent)`, borderLeft: `3px solid ${teamColors.primary}` }}>
                                   <Td colSpan={6} className="text-xs font-semibold text-[var(--muted)] uppercase">
                                     {group}
                                   </Td>
@@ -1705,16 +1528,15 @@ export default function TeamContent() {
                                 if (!player) return null;
                                 const s = playerSeasonStats[playerId];
                                 return (
-                                  <Tr key={playerId} style={{ borderLeft: `3px solid ${teamColors.primary}` }}>
+                                  <Tr key={playerId} style={{ backgroundColor: `color-mix(in srgb, ${teamColors.primary} 5%, transparent)`, borderLeft: `3px solid ${teamColors.primary}` }}>
                                     <Td>
-                                      <button
-                                        type="button"
-                                        className="text-sm font-medium hover:underline"
+                                      <PlayerLink
+                                        playerId={playerId}
+                                        className="text-sm font-medium"
                                         style={{ color: teamColors.secondary }}
-                                        onClick={() => setSelectedPlayerId(playerId)}
                                       >
                                         {player.first_name} {player.last_name}
-                                      </button>
+                                      </PlayerLink>
                                     </Td>
                                     <Td>
                                       <div className="text-sm text-[var(--muted)]">{player.position}</div>
@@ -1756,7 +1578,7 @@ export default function TeamContent() {
                   <div
                     className="rounded-md"
                     style={{
-                      backgroundColor: teamColors.primary,
+                      backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
                       color: '#ffffff',
                       padding: '0.35rem 0.6rem',
                     }}
@@ -1836,7 +1658,7 @@ export default function TeamContent() {
                   <div
                     className="rounded-md"
                     style={{
-                      backgroundColor: teamColors.primary,
+                      backgroundImage: `linear-gradient(90deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)`,
                       color: '#ffffff',
                       padding: '0.5rem 0.75rem',
                     }}
@@ -1851,7 +1673,7 @@ export default function TeamContent() {
                         <div
                           className="rounded"
                           style={{
-                            backgroundColor: teamColors.secondary,
+                            backgroundImage: `linear-gradient(90deg, ${teamColors.secondary} 0%, ${teamColors.tertiary || teamColors.primary} 100%)`,
                             color: '#ffffff',
                             padding: '0.35rem 0.6rem',
                           }}
@@ -1878,7 +1700,7 @@ export default function TeamContent() {
                                     <div className="flex items-center gap-2">
                                       <span className="text-sm text-[var(--text)]">{w.year} · W{w.week}</span>
                                       {w.category !== 'regular' && (
-                                        <span className="text-xs league-chip" style={{ backgroundColor: (secondaryStyle.backgroundColor as string), color: (secondaryStyle.color as string) }}>
+                                        <span className="text-xs evw-chip" style={{ backgroundColor: (secondaryStyle.backgroundColor as string), color: (secondaryStyle.color as string) }}>
                                           {w.category === 'playoffs' ? 'Playoffs' : 'Toilet'}
                                         </span>
                                       )}
@@ -1908,7 +1730,7 @@ export default function TeamContent() {
                         <div
                           className="rounded"
                           style={{
-                            backgroundColor: teamColors.secondary,
+                            backgroundImage: `linear-gradient(90deg, ${teamColors.secondary} 0%, ${teamColors.tertiary || teamColors.primary} 100%)`,
                             color: '#ffffff',
                             padding: '0.35rem 0.6rem',
                           }}
@@ -1935,7 +1757,7 @@ export default function TeamContent() {
                                     <div className="flex items-center gap-2">
                                       <span className="text-sm text-[var(--text)]">{w.year} · W{w.week}</span>
                                       {w.category !== 'regular' && (
-                                        <span className="text-xs league-chip" style={{ backgroundColor: (secondaryStyle.backgroundColor as string), color: (secondaryStyle.color as string) }}>
+                                        <span className="text-xs evw-chip" style={{ backgroundColor: (secondaryStyle.backgroundColor as string), color: (secondaryStyle.color as string) }}>
                                           {w.category === 'playoffs' ? 'Playoffs' : 'Toilet'}
                                         </span>
                                       )}
@@ -1991,14 +1813,13 @@ export default function TeamContent() {
                                       <Tr key={`${pos}-${row.playerId}`} style={{ borderLeft: `3px solid ${teamColors.primary}` }}>
                                         <Td>{idx + 1}</Td>
                                         <Td>
-                                          <button
-                                            type="button"
-                                            className="hover:underline font-medium"
+                                          <PlayerLink
+                                            playerId={row.playerId}
+                                            className="font-medium"
                                             style={{ color: teamColors.secondary }}
-                                            onClick={() => openPlayerModal(row.playerId, row.name)}
                                           >
                                             {row.name}
-                                          </button>
+                                          </PlayerLink>
                                         </Td>
                                         <Td className="text-right">{row.total.toFixed(2)}</Td>
                                       </Tr>
@@ -2044,14 +1865,13 @@ export default function TeamContent() {
                                       <Tr key={`${pos}-${row.playerId}`} style={{ borderLeft: `3px solid ${teamColors.primary}` }}>
                                         <Td>{idx + 1}</Td>
                                         <Td>
-                                          <button
-                                            type="button"
-                                            className="hover:underline font-medium"
+                                          <PlayerLink
+                                            playerId={row.playerId}
+                                            className="font-medium"
                                             style={{ color: teamColors.secondary }}
-                                            onClick={() => openPlayerModal(row.playerId, row.name)}
                                           >
                                             {row.name}
-                                          </button>
+                                          </PlayerLink>
                                         </Td>
                                         <Td>{row.season}</Td>
                                         <Td className="text-right">{row.total.toFixed(2)}</Td>
@@ -2067,73 +1887,6 @@ export default function TeamContent() {
                     )}
                   </div>
                   {/* TODO: Highest Scoring Game by Position (Top 5) requires weekly player logs; will wire via player-logs API. */}
-
-                  {/* Player Weekly Points Modal */}
-                  <Modal
-                    open={playerModalOpen}
-                    onClose={closePlayerModal}
-                    title={playerModal ? `${playerModal.name} — Weekly Points` : 'Weekly Points'}
-                  >
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-end gap-3">
-                        <div>
-                          <Label>Season</Label>
-                          <select
-                            className="league-input"
-                            value={modalSeason}
-                            onChange={(e) => setModalSeason(e.target.value)}
-                          >
-                            {modalSeasons.map((s) => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="text-sm text-[var(--muted)]">
-                          League Scoring (Half‑PPR) • Weeks 1–17 + playoffs • Team-attributed (rostered weeks)
-                        </div>
-                      </div>
-
-                      {modalLoading ? (
-                        <div className="py-6"><LoadingState message="Loading weekly points..." /></div>
-                      ) : modalError ? (
-                        <ErrorState message={modalError} />
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <THead>
-                              <Tr>
-                                <Th>Week</Th>
-                                <Th>Rostered</Th>
-                                <Th>Started</Th>
-                                <Th className="text-right">Points</Th>
-                              </Tr>
-                            </THead>
-                            <TBody>
-                              {modalWeeks.map((w) => (
-                                <Tr key={w.week}>
-                                  <Td>
-                                    <div className="flex items-center gap-2">
-                                      <span>Week {w.week}</span>
-                                      {w.week >= 15 && <span className="text-xs league-chip">Playoffs</span>}
-                                    </div>
-                                  </Td>
-                                  <Td>{w.rostered ? 'Yes' : 'No'}</Td>
-                                  <Td>{w.started ? 'Yes' : 'No'}</Td>
-                                  <Td className="text-right">{w.points.toFixed(2)}</Td>
-                                </Tr>
-                              ))}
-                              <Tr>
-                                <Td colSpan={3}><strong>Total</strong></Td>
-                                <Td className="text-right font-semibold">
-                                  {modalWeeks.reduce((sum, r) => sum + r.points, 0).toFixed(2)}
-                                </Td>
-                              </Tr>
-                            </TBody>
-                          </Table>
-                        </div>
-                      )}
-                    </div>
-                  </Modal>
                 </CardContent>
               </Card>
             ),
@@ -2157,11 +1910,12 @@ export default function TeamContent() {
                         </Tr>
                       </THead>
                       <TBody>
-                        {Object.entries(h2hRecords).map(([opponentName, record]) => {
+                        {Object.entries(h2hRecords).map(([opponentOwnerId, record]) => {
+                          const opponentName = resolveCanonicalTeamName({ ownerId: opponentOwnerId });
                           const totalGames = record.wins + record.losses + record.ties;
                           const winPercentage = totalGames > 0 ? (record.wins + record.ties * 0.5) / totalGames : 0;
                           return (
-                            <Tr key={opponentName}>
+                            <Tr key={opponentOwnerId}>
                               <Td>
                                 <div className="text-sm font-medium text-[var(--text)]">{opponentName}</div>
                               </Td>
@@ -2186,254 +1940,6 @@ export default function TeamContent() {
         ]}
       />
       </div>
-      {/* Player Details Modal */}
-      {selectedPlayerId && (
-        <Modal
-          open={!!selectedPlayerId}
-          onClose={() => {
-            setSelectedPlayerId(null);
-            setModalWeeks([]);
-            setModalError(null);
-          }}
-          title={(() => {
-            const p = players[selectedPlayerId!];
-            return p ? `${p.first_name} ${p.last_name}` : 'Player Details';
-          })()}
-          panelClassName="max-w-3xl"
-        >
-          {(() => {
-            const p = players[selectedPlayerId!];
-            const s = (modalFantasyCache[modalYear] ?? playerSeasonStats[selectedPlayerId!]) || { totalPPR: 0, gp: 0, ppg: 0 };
-            const nfl = (modalRealCache[modalYear] ?? seasonStats[selectedPlayerId!]);
-            const group = newsGrouped.find((g) => g.playerId === selectedPlayerId);
-            const meta = p ? `${p.position || ''}${p.team ? ` • ${p.team}` : ''}` : '';
-            const modalSeasonOptions = buildModalSeasons();
-            const fantasyTotal = Number(s.totalPPR || 0);
-            const activeGames = (nfl?.gp ?? nfl?.gms_active ?? s.gp ?? 0) || 0;
-            const fantasyPpg = activeGames > 0 ? fantasyTotal / activeGames : Number(s.ppg || 0);
-            const rosteredWeeks = modalWeeks.filter((w) => w.rostered);
-            const startedWeeks = modalWeeks.filter((w) => w.started);
-            const scoringWeeks = modalWeeks.filter((w) => w.rostered && w.points > 0);
-            const highWeek = scoringWeeks.reduce<WeeklyRow | null>((best, row) => (!best || row.points > best.points ? row : best), null);
-            const lowWeek = scoringWeeks.reduce<WeeklyRow | null>((best, row) => (!best || row.points < best.points ? row : best), null);
-            const recentStarted = startedWeeks.slice(-3);
-            const recentAvg = recentStarted.length > 0
-              ? recentStarted.reduce((sum, row) => sum + row.points, 0) / recentStarted.length
-              : null;
-            const teamLogTotal = modalWeeks.reduce((sum, row) => sum + row.points, 0);
-
-            const labelMap: Record<string, string> = {
-              pass_yd: 'Pass Yds',
-              pass_att: 'Pass Att',
-              pass_cmp: 'Pass Cmp',
-              pass_td: 'Pass TDs',
-              pass_int: 'INT',
-              rush_att: 'Rush Att',
-              rush_yd: 'Rush Yds',
-              rush_td: 'Rush TDs',
-              rec: 'Receptions',
-              tgt: 'Targets',
-              rec_yd: 'Rec Yds',
-              rec_td: 'Rec TDs',
-              fumbles_lost: 'Fumbles Lost',
-              sack: 'Sacks',
-              int: 'INT (DEF)',
-              def_td: 'Def TDs',
-              pts_allowed: 'Pts Allowed',
-              xpm: 'XPM',
-              xpa: 'XPA',
-              fgm: 'FGM',
-              fga: 'FGA',
-            };
-            const candidateKeys = [
-              'pass_yd','pass_att','pass_cmp','pass_td','pass_int','rush_att','rush_yd','rush_td','rec','tgt','rec_yd','rec_td','fumbles_lost','sack','int','def_td','pts_allowed','xpm','xpa','fgm','fga'
-            ];
-            const realStats: Array<{ key: string; label: string; value: number }> = [];
-            if (nfl) {
-              for (const k of candidateKeys) {
-                const v = (nfl as Record<string, number | undefined>)[k];
-                if (typeof v === 'number' && Number.isFinite(v) && Math.abs(v) > 0) {
-                  realStats.push({ key: k, label: labelMap[k] || k, value: v });
-                }
-              }
-            }
-            // Keep at most 8 most notable stats by value
-            realStats.sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
-            const topReal = realStats.slice(0, 8);
-
-            return (
-              <div className="space-y-4" style={tabsAccentVars}>
-                <div className="rounded-2xl border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_7%,var(--surface))] p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      {meta ? <div className="text-sm font-semibold text-[var(--muted)]">{meta}</div> : null}
-                      <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-1">
-                        <div>
-                          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">Fantasy PPG</div>
-                          <div className="text-3xl font-black tracking-tight text-[var(--text)]">{fantasyPpg.toFixed(2)}</div>
-                        </div>
-                        <div className="pb-1 text-sm text-[var(--muted)]">
-                          <span className="font-semibold text-[var(--text)]">{fantasyTotal.toFixed(2)}</span> season points
-                        </div>
-                      </div>
-                    </div>
-                    {highWeek && (
-                      <div className="rounded-xl bg-[var(--surface)] px-3 py-2 text-right shadow-sm border border-[var(--border)]">
-                        <div className="text-[11px] font-bold uppercase text-[var(--muted)]">Best Week</div>
-                        <div className="text-lg font-black text-[var(--text)]">{highWeek.points.toFixed(2)}</div>
-                        <div className="text-xs text-[var(--muted)]">Week {highWeek.week}</div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {[
-                      { label: 'Games', value: String(activeGames || 0) },
-                      { label: 'Rostered', value: String(rosteredWeeks.length) },
-                      { label: 'Started', value: String(startedWeeks.length) },
-                      { label: 'Last 3 Starts', value: recentAvg === null ? 'N/A' : recentAvg.toFixed(2) },
-                    ].map((item) => (
-                      <div key={item.label} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5">
-                        <div className="text-[11px] font-semibold text-[var(--muted)]">{item.label}</div>
-                        <div className="text-base font-bold text-[var(--text)]">{item.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-xs text-[var(--muted)]">
-                    Season stats use league scoring. Game log is team-attributed by rostered weeks.
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="player-season" className="text-xs text-[var(--muted)]">Season</Label>
-                    <Select
-                      id="player-season"
-                      size="sm"
-                      fullWidth={false}
-                      value={modalYear}
-                      onChange={(e) => setModalYear(e.target.value)}
-                      className="shrink-0"
-                      style={{ width: '6.75rem' }}
-                    >
-                      {modalSeasonOptions.map((season) => (
-                        <option key={season} value={season}>{season}</option>
-                      ))}
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-xl p-3 border border-[var(--border)] bg-[var(--surface)]">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Fantasy</div>
-                      <span className="rounded-full bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent)]">League scoring</span>
-                    </div>
-                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                      <div>
-                        <dt className="text-[var(--muted)]">Season Total</dt>
-                        <dd className="font-bold text-[var(--text)]">{fantasyTotal.toFixed(2)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-[var(--muted)]">PPG</dt>
-                        <dd className="font-bold text-[var(--text)]">{fantasyPpg.toFixed(2)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-[var(--muted)]">Team Log Total</dt>
-                        <dd className="font-bold text-[var(--text)]">{teamLogTotal.toFixed(2)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-[var(--muted)]">Low Scoring Week</dt>
-                        <dd className="font-bold text-[var(--text)]">{lowWeek ? `${lowWeek.points.toFixed(2)} W${lowWeek.week}` : 'N/A'}</dd>
-                      </div>
-                    </dl>
-                  </div>
-                  <div className="rounded-xl p-3 border border-[var(--border)] bg-[var(--surface)]">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Real-Life</div>
-                      <span className="text-xs font-semibold text-[var(--muted)]">{activeGames || 0} games</span>
-                    </div>
-                    {topReal.length > 0 ? (
-                      <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                        {topReal.map((rs) => (
-                          <li key={rs.key} className="flex justify-between gap-3 border-b border-[color-mix(in_srgb,var(--border)_55%,transparent)] pb-1">
-                            <span className="text-[var(--muted)]">{rs.label}</span>
-                            <span className="font-bold text-[var(--text)]">{rs.value}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="text-sm text-[var(--muted)]">No stat details available.</div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Game Log</div>
-                    <div className="text-xs text-[var(--muted)]">Weeks 1-17</div>
-                  </div>
-                  {modalLoading ? (
-                    <div className="py-4"><LoadingState message="Loading game log..." /></div>
-                  ) : modalError ? (
-                    <ErrorState message={modalError} />
-                  ) : (
-                    <div className="max-h-64 overflow-y-auto rounded-lg border border-[var(--border)]">
-                      <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-[var(--surface-strong)] text-xs text-[var(--muted)]">
-                          <tr>
-                            <th className="px-3 py-2 text-left font-semibold">Week</th>
-                            <th className="px-3 py-2 text-left font-semibold">Status</th>
-                            <th className="px-3 py-2 text-right font-semibold">Pts</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {modalWeeks.map((row) => {
-                            const status = row.started ? 'Started' : row.rostered ? 'Bench' : 'Off roster';
-                            return (
-                              <tr key={row.week} className="border-t border-[var(--border)]">
-                                <td className="px-3 py-2">
-                                  <span className="font-medium text-[var(--text)]">W{row.week}</span>
-                                  {row.week >= playoffStartWeek && (
-                                    <span className="ml-2 rounded-full bg-[color-mix(in_srgb,var(--gold)_20%,transparent)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--gold)]">PO</span>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2 text-[var(--muted)]">{status}</td>
-                                <td className="px-3 py-2 text-right font-bold text-[var(--text)]">{row.points.toFixed(2)}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-xl p-3 border border-[var(--border)] bg-[var(--surface)]" style={{ borderTop: '3px solid var(--danger)', borderLeft: '3px solid var(--tertiary)' }}>
-                  <div className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)] mb-2">Latest News</div>
-                  {group && group.items && group.items.length > 0 ? (
-                    <ul className="space-y-1.5">
-                      {group.items.slice(0, 5).map((it, idx) => (
-                        <li key={`${selectedPlayerId}-news-${idx}`} className="text-sm flex items-start gap-2 rounded px-2 py-1 hover:bg-[color-mix(in_srgb,var(--accent)_6%,transparent)]">
-                          <span aria-hidden={true} className="mt-1 inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--quaternary)' }} />
-                          <div>
-                            <a href={it.link} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline underline-offset-2 font-medium">
-                              {it.title}
-                            </a>
-                            <div className="text-xs text-[var(--muted)]">{it.sourceName}{it.publishedAt ? ` • ${new Date(it.publishedAt).toLocaleString()}` : ''}</div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="text-sm text-[var(--muted)]">No recent articles.</div>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-        </Modal>
-      )}
     </div>
   );
 }

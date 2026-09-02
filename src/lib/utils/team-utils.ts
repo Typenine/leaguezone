@@ -108,6 +108,20 @@ export const getTeamColorStyle = (
   };
 };
 
+/** Choose readable text for a solid color or gradient palette. */
+export const getReadableTextForColors = (colors: string[]): string => {
+  const valid = colors.filter((color) => /^#[0-9a-fA-F]{6}$/.test(color));
+  if (!valid.length) return '#ffffff';
+  const luminance = valid.reduce((sum, color) => {
+    const hex = color.slice(1);
+    const red = Number.parseInt(hex.slice(0, 2), 16);
+    const green = Number.parseInt(hex.slice(2, 4), 16);
+    const blue = Number.parseInt(hex.slice(4, 6), 16);
+    return sum + ((0.299 * red + 0.587 * green + 0.114 * blue) / 255);
+  }, 0) / valid.length;
+  return luminance > 0.55 ? '#000000' : '#ffffff';
+};
+
 /**
  * Canonical name resolution helpers
  */

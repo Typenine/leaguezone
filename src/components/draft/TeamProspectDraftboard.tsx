@@ -1,879 +1,189 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, Eye, EyeOff, X, Check, RotateCcw, Save, AlertCircle, Search, Tag, Download, Printer } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, ChevronUp, Eye, EyeOff, RotateCcw, Save, Search, Tag, X } from 'lucide-react';
+
+const BOARD_API_URL = '/api/team-prospect-draftboard';
+const BOARD_VERSION = '2027-preseason-v2';
+const COMPATIBLE_BOARD_VERSIONS = new Set(['2027-preseason-v1', BOARD_VERSION]);
+const BOARD_LABEL = '2027 Early Prospect Board';
 
 const C = {
-  bg: '#0B1020',
-  bgGrad: '#151b2e',
-  panel: '#111727',
-  border: '#1E2637',
-  primary: '#be161e',
-  accent: '#bf9944',
-  text: '#E9EDF5',
-  textMuted: '#9AA5B1',
-  textDim: '#7f8995',
-  unlikely: '#d4a839',
-  unlikelyBg: 'rgba(212, 168, 57, 0.10)',
-  noFit: '#e89a98',
-  noFitBg: 'rgba(232, 154, 152, 0.10)',
-  target: '#7dd4a8',
-  targetBg: 'rgba(125, 212, 168, 0.13)',
-  warning: '#e8b87a',
+  panel: '#111727', border: '#1E2637', accent: '#bf9944',
+  unlikely: '#d4a839', unlikelyBg: 'rgba(212, 168, 57, 0.10)',
+  noFit: '#e89a98', noFitBg: 'rgba(232, 154, 152, 0.10)',
+  target: '#7dd4a8', targetBg: 'rgba(125, 212, 168, 0.13)',
 };
 
-const POS_COLORS: Record<string, string> = {
-  QB: '#c25852', RB: '#c4a020', WR: '#3d7eaa', TE: '#4a8e62', K: '#7b5ea7', FB: '#4a8e62',
-};
+const POS_COLORS: Record<string, string> = { QB: '#c25852', RB: '#c4a020', WR: '#3d7eaa', TE: '#4a8e62' };
+type ProspectTrend = 'up' | 'steady' | 'down';
 
 type BoardPlayer = {
   id: string;
   tier: number;
   name: string;
-  pos: string;
-  team: string;
+  pos: 'QB' | 'RB' | 'WR' | 'TE';
   college: string;
-  pick: number;
-  s: string[];
+  draftRange: string;
+  trend: ProspectTrend;
+  statLine: string;
+  strengths: string[];
+  concerns: string[];
+  fantasy: string;
+  watch: string;
   unlikely?: boolean;
   noFit?: boolean;
   target?: boolean;
   userNote?: string;
 };
 
+type SavedBoard = {
+  boardVersion?: string;
+  orderIds?: string[];
+  unlikely?: Record<string, boolean>;
+  noFit?: Record<string, boolean>;
+  target?: Record<string, boolean>;
+  notes?: Record<string, string>;
+};
+
 const INITIAL: BoardPlayer[] = [
-  { id: 'love', tier: 1, name: 'Jeremiyah Love', pos: 'RB', team: 'ARI', college: 'Notre Dame', pick: 3, s: ['RUSH — 2023: 71-385-1TD (5.4) | 2024: 163-1125-17TD (6.9) | 2025: 199-1372-18TD (6.9)', 'REC  — 2023: 8-77-1TD | 2024: 28-237-2TD | 2025: 27-280-3TD', 'KR   — 2023: 2-42-0TD | 2024: 1-0-0TD', 'MISC — Doak Walker Award winner, unanimous All-American, 21 offensive TDs in 2025'] },
-  { id: 'mendoza', tier: 1, name: 'Fernando Mendoza', pos: 'QB', team: 'LV', college: 'Indiana', pick: 1, s: ['PASS — 2023 (Cal): 1,708 yds, 14 TD, 10 INT, 63.0% | 2024 (Cal): 3,004 yds, 16 TD, 6 INT, 68.7% | 2025 (IND): 3,724 yds, 41 TD, 6 INT, 72.0%', 'RUSH — 2023: 49-86-2TD | 2024: 87-105-2TD | 2025: 89-312-6TD', 'MISC — Indiana single-season TD record (41), CFP semifinal'] },
-  { id: 'tate', tier: 1, name: 'Carnell Tate', pos: 'WR', team: 'TEN', college: 'Ohio State', pick: 4, s: ['REC  — 2023: 18-264-1TD (14.7) | 2024: 52-733-4TD (14.1) | 2025: 51-875-9TD (17.2)', 'RUSH — 2025: 2-16-0TD', 'MISC — Ohio State boundary/downfield WR, 2nd-team AA'] },
-  { id: 'tyson', tier: 1, name: 'Jordyn Tyson', pos: 'WR', team: 'NO', college: 'Arizona State', pick: 8, s: ['REC  — 2023: DNP/knee injury | 2024 (ASU): 75-1101-10TD (14.7) | 2025 (ASU): 61-711-8TD (11.7)', 'RUSH — 2024: 5-42-0TD | 2025: 2-4-1TD', 'PASS — 2025: 0-for-1', 'MISC — Arizona State WR; 2024-25 combined 136 receptions'] },
-  { id: 'lemon', tier: 1, name: 'Makai Lemon', pos: 'WR', team: 'PHI', college: 'USC', pick: 20, s: ['REC  — 2023: 6-88-0TD (14.7) | 2024: 52-764-3TD (14.7) | 2025: 79-1156-11TD (14.6)', 'RUSH — 2025: 9-4-2TD', 'PR   — 2025: 6-71-0TD', 'KR   — 2024: 19-514-0TD | 2025: 8-144-0TD', 'PASS — 2025: 1-1, 24 yds, 1 TD', 'MISC — USC high-volume receiver, Biletnikoff Award winner, 1st-team AA 2025'] },
-  { id: 'price', tier: 2, name: 'Jadarian Price', pos: 'RB', team: 'SEA', college: 'Notre Dame', pick: 32, s: ['RUSH — 2023: 47-272-3TD (5.8) | 2024: 120-746-7TD (6.2) | 2025: 113-674-11TD (6.0)', 'REC  — 2023: 5-65-1TD | 2024: 4-10-0TD | 2025: 6-87-2TD', 'KR   — 2025: 12-450-2TD (37.5)', 'MISC — Missed 2022 with Achilles injury; returned to action in 2023'] },
-  { id: 'concepcion', tier: 2, name: 'KC Concepcion', pos: 'WR', team: 'CLE', college: 'Texas A&M', pick: 24, s: ['REC  — 2023 (NCST): 71-839-10TD | 2024 (NCST): 53-460-6TD (8.7) | 2025 (TAMU): 61-919-9TD (15.1)', 'RUSH — 2023: 41-320-0TD | 2024: 19-36-2TD | 2025: 10-75-1TD', 'PR   — 2024: 5-45-0TD | 2025: 25-456-2TD', 'MISC — NC State → Texas A&M, Paul Hornung/all-purpose profile, 12 total TDs in 2025'] },
-  { id: 'sadiq', tier: 2, name: 'Kenyon Sadiq', pos: 'TE', team: 'NYJ', college: 'Oregon', pick: 16, s: ['REC  — 2023: 5-24-1TD | 2024: 24-308-2TD (12.8) | 2025: 51-560-8TD (11.0)', 'RUSH — 2024: 5-24-0TD | 2025: 3-6-0TD', 'MISC — Oregon receiving TE, Big Ten TE of the Year (2025), 2nd-team AA, 8-TD breakout'] },
-  { id: 'simpson', tier: 2, name: 'Ty Simpson', pos: 'QB', team: 'LAR', college: 'Alabama', pick: 13, s: ['PASS — 2023: 11-20, 179 yds, 0 TD, 0 INT, 55.0% | 2024: 14-25, 167 yds, 0 TD, 0 INT, 56.0% | 2025: 305-473, 3567 yds, 28 TD, 5 INT, 64.5%', 'RUSH — 2023: 14-86-2TD | 2024: 8-44-1TD | 2025: 90-93-2TD', 'MISC — Alabama starter; 5-star recruit, sat behind Milroe for 2 years, CFP semifinal'] },
-  { id: 'cooper', tier: 2, name: 'Omar Cooper Jr.', pos: 'WR', team: 'NYJ', college: 'Indiana', pick: 30, s: ['REC  — 2023: 18-267-2TD (14.8) | 2024: 28-594-7TD (21.2) | 2025: 69-937-13TD (13.6)', 'RUSH — 2024: 2-23-1TD | 2025: 3-74-1TD', 'MISC — Indiana lead receiver; led national championship team in targets/catches/yards'] },
-  { id: 'stowers', tier: 3, name: 'Eli Stowers', pos: 'TE', team: 'PHI', college: 'Vanderbilt', pick: 54, s: ['REC  — 2024: 49-638-5TD (13.0) | 2025: 62-769-4TD (12.4)', 'RUSH — 2024: 6-7-0TD | 2025: 2-2-0TD', 'MISC — Texas A&M → Vanderbilt, Mackey Award profile, 1st-team AA'] },
-  { id: 'beck', tier: 3, name: 'Carson Beck', pos: 'QB', team: 'ARI', college: 'Miami', pick: 65, s: ['PASS — 2024 (Georgia): 290-448, 3485 yds, 28 TD, 12 INT, 64.7% | 2025 (Miami): 338-467, 3813 yds, 30 TD, 12 INT, 72.4%', 'RUSH — 2024: 55-71-1TD | 2025: 62-43-2TD', 'REC  — 2025: 1-14-1TD', 'MISC — Georgia → Miami transfer, pocket passer with minimal rushing value'] },
-  { id: 'fields', tier: 3, name: 'Malachi Fields', pos: 'WR', team: 'NYG', college: 'Notre Dame', pick: 74, s: ['REC  — 2023 (Virginia): 58-811-5TD (14.0) | 2024 (Virginia): 55-808-5TD (14.7) | 2025 (Notre Dame): 36-630-5TD (17.5)', 'MISC — Virginia → Notre Dame transfer, efficient vertical/contested-catch profile'] },
-  { id: 'branch', tier: 3, name: 'Zachariah Branch', pos: 'WR', team: 'ATL', college: 'Georgia', pick: 79, s: ['REC  — 2023 (USC): 31-320-2TD (10.3) | 2024 (USC): 47-503-1TD (10.7) | 2025 (Georgia): 81-811-6TD (10.0)', 'RUSH — 2023: 9-70-1TD | 2024: 2-17-0TD | 2025: 4-7-0TD', 'PR   — 2023: 16-332-1TD | 2024: 13-74-0TD | 2025: 15-180-0TD', 'KR   — 2023: 24-442-1TD | 2024: 5-105-0TD | 2025: 10-205-0TD', 'MISC — Georgia slot/return profile; 2025 receiving volume is real'] },
-  { id: 'lane', tier: 3, name: 'Ja\'Kobi Lane', pos: 'WR', team: 'BAL', college: 'USC', pick: 80, s: ['REC  — 2023: 7-93-2TD (13.3) | 2024: 43-525-12TD (12.2) | 2025: 49-745-4TD (15.2)', 'RUSH — No meaningful rushing production', 'MISC — USC outside/red-zone WR; 2024 TD spike remains the profile hook'] },
-  { id: 'hurst', tier: 3, name: 'Ted Hurst', pos: 'WR', team: 'TB', college: 'Georgia State', pick: 84, s: ['REC  — 2024 (Georgia State): 56-961-9TD (17.2) | 2025 (Georgia State): 71-1004-6TD (14.1)', 'RUSH — No meaningful rushing production', 'MISC — Georgia State WR producer, 15 receiving TDs over two GSU seasons'] },
-  { id: 'sarratt', tier: 3, name: 'Elijah Sarratt', pos: 'WR', team: 'BAL', college: 'Indiana', pick: 115, s: ['REC  — 2022 (Saint Francis): 42-700-13TD | 2023 (JMU): 82-1191-8TD (14.5) | 2024 (Indiana): 53-957-8TD (18.1) | 2025 (Indiana): 65-830-15TD (12.8)', 'RUSH — 2022: 7-47-0TD | 2023: 1 rushing TD', 'MISC — Saint Francis → JMU → Indiana, productive transfer path, 2nd-team All-Big Ten (2025)'] },
-  { id: 'singleton', tier: 3, name: 'Nicholas Singleton', pos: 'RB', team: 'TEN', college: 'Penn State', pick: 165, s: ['RUSH — 2022: 156-1061-12TD (6.8) | 2023: 171-752-8TD (4.4) | 2024: 172-1099-12TD (6.4) | 2025: 123-549-13TD (4.5)', 'REC  — 2022: 11-85-1TD | 2023: 26-308-2TD | 2024: 41-375-5TD | 2025: 24-219-1TD', 'MISC — Split backfield with Kaytron Allen, Penn State career record 45 rushing TDs'] },
-  { id: 'stribling', tier: 4, name: 'De\'Zhaun Stribling', pos: 'WR', team: 'SF', college: 'Ole Miss', pick: 33, s: ['REC  — 2023 (OKST): 14-198-1TD (14.1) | 2024 (OKST): 52-882-6TD (17.0) | 2025 (Ole Miss): 55-811-6TD (14.7)', 'RUSH — No meaningful rushing production', 'MISC — Washington State → Oklahoma State → Ole Miss transfer path'] },
-  { id: 'boston', tier: 4, name: 'Denzel Boston', pos: 'WR', team: 'CLE', college: 'Washington', pick: 39, s: ['REC  — 2023: 5-51-0TD | 2024: 63-834-9TD (13.2) | 2025: 62-881-11TD (14.2)', 'PR   — 2024: 12-80-0TD | 2025: 8-104-1TD', 'PASS — 2025: 2-2, 15 yds, 1 TD', 'MISC — 20 receiving TDs over 2024-25; 21 total TDs including 2025 punt-return TD'] },
-  { id: 'bernard', tier: 4, name: 'Germie Bernard', pos: 'WR', team: 'PIT', college: 'Alabama', pick: 47, s: ['REC  — 2023 (Washington): 34-419-2TD (12.3) | 2024 (Alabama): 50-794-2TD (15.9) | 2025 (Alabama): 64-862-7TD (13.5)', 'RUSH — 2023: 13-43-2TD | 2024: 4-37-1TD | 2025: 18-101-2TD', 'KR/PR — 2023: 10 KR-233-0TD, 3 PR-43-0TD | 2024-25: no meaningful return production', 'PASS — 2025: 2-2, 15 yds', 'MISC — Michigan State → Washington → Alabama; versatile WR with real 2025 rushing contribution'] },
-  { id: 'klare', tier: 4, name: 'Max Klare', pos: 'TE', team: 'LAR', college: 'Ohio State', pick: 61, s: ['REC  — 2024 (PUR): 51-685-4TD (13.4) | 2025 (OSU): 43-448-2TD (10.4)', 'MISC — Purdue → OSU, 1st-team All-Big Ten (2025), crowded OSU target share'] },
-  { id: 'roush', tier: 4, name: 'Sam Roush', pos: 'TE', team: 'CHI', college: 'Stanford', pick: 69, s: ['REC  — 2025: 49-545-2TD (11.1)', 'MISC — Stanford possession TE; led ACC tight ends in receiving yards'] },
-  { id: 'williams-antonio', tier: 4, name: 'Antonio Williams', pos: 'WR', team: 'WAS', college: 'Clemson', pick: 71, s: ['REC  — 2023: 22-224-2TD (10.2) | 2024: 75-904-11TD (12.1) | 2025: 55-604-4TD (11.0)', 'RUSH — 2023: 0-0-0TD | 2024: 7-101-1TD | 2025: 13-78-1TD', 'PR   — 2023: 3-14-0TD | 2024: 17-164-0TD | 2025: 4-44-0TD', 'PASS — 2025: 1-1, 75 yds, 1 TD', 'MISC — Clemson slot/return/gadget profile'] },
-  { id: 'delp', tier: 4, name: 'Oscar Delp', pos: 'TE', team: 'NO', college: 'Georgia', pick: 73, s: ['REC  — 2023: 24-284-3TD | 2024: 21-248-4TD | 2025: 20-261-1TD (13.1)', 'MISC — Georgia TE, 70-854-9TD career'] },
-  { id: 'douglas', tier: 4, name: 'Caleb Douglas', pos: 'WR', team: 'MIA', college: 'Texas Tech', pick: 75, s: ['REC  — 2023 (Florida): 11-133-1TD (12.1) | 2024 (Texas Tech): 60-877-6TD (14.6) | 2025 (Texas Tech): 54-846-7TD (15.7)', 'RUSH — No meaningful rushing production', 'MISC — Florida → Texas Tech transfer, back-to-back 800-yard seasons at Texas Tech'] },
-  { id: 'allar', tier: 4, name: 'Drew Allar', pos: 'QB', team: 'PIT', college: 'Penn State', pick: 76, s: ['PASS — 2024: 262-394, 3327 yds, 24 TD, 8 INT, 66.5% | 2025: 103-159, 1100 yds, 8 TD, 3 INT, 64.8% (6 games)', 'RUSH — 2024: 96-302-6TD | 2025: 36-172-1TD', 'REC  — 2025: 1-5-0TD', 'MISC — Penn State career 7,402 yds/61 TD; season-ending leg/ankle injury Oct. 2025'] },
-  { id: 'brazzell', tier: 4, name: 'Chris Brazzell II', pos: 'WR', team: 'CAR', college: 'Tennessee', pick: 83, s: ['REC  — 2023 (Tulane): 44-711-5TD (16.2) | 2024 (Tennessee): 29-333-2TD | 2025 (Tennessee): 62-1017-9TD (16.4)', 'RUSH — No 2025 rushing production listed', 'MISC — Tulane → Tennessee, major 2025 SEC breakout'] },
-  { id: 'raridon', tier: 4, name: 'Eli Raridon', pos: 'TE', team: 'NE', college: 'Notre Dame', pick: 95, s: ['REC  — 2022-24 (career): 16-141-3TD | 2025: 32-482-0TD (15.1)', 'MISC — ND inline TE, breakout 2025, only 16 career catches before senior year'] },
-  { id: 'coleman-jonah', tier: 4, name: 'Jonah Coleman', pos: 'RB', team: 'DEN', college: 'Washington', pick: 108, s: ['RUSH — 2022 (Arizona): 75-372-4TD | 2023 (Arizona): 128-871-5TD (6.8) | 2024 (Washington): 193-1053-10TD (5.5) | 2025 (Washington): 156-758-15TD (4.9)', 'REC  — 2023: 25-283-1TD | 2024: 23-177-0TD | 2025: 31-354-2TD', 'KR   — 2025: 3-57-0TD', 'MISC — Washington RB; 17 total TDs in 2025'] },
-  { id: 'klubnik', tier: 4, name: 'Cade Klubnik', pos: 'QB', team: 'NYJ', college: 'Clemson', pick: 110, s: ['PASS — 2025: 257-392, 2943 yds, 16 TD, 6 INT, 65.6%', 'RUSH — 2025: 83-94-4TD', 'MISC — Clemson starter, some mobility but limited rushing volume'] },
-  { id: 'lance', tier: 4, name: 'Bryce Lance', pos: 'WR', team: 'NO', college: 'NDSU', pick: 136, s: ['REC  — 2023: 1-7-0TD | 2024: 75-1071-17TD | 2025: 51-1079-8TD', 'RUSH — 2024: 1 rushing TD | 2025: 1 rushing TD', 'MISC — Trey Lance\'s brother, FCS All-American, back-to-back 1,000-yard seasons'] },
-  { id: 'boerkircher', tier: 5, name: 'Nate Boerkircher', pos: 'TE', team: 'JAX', college: 'Texas A&M', pick: 56, s: ['REC  — 2024 (Nebraska): 6-102-0TD | 2025 (Texas A&M): 19-198-3TD (10.4)', 'RUSH — 2025: 3-5-1TD', 'MISC — Blocking TE with short-yardage/gadget usage'] },
-  { id: 'klein', tier: 5, name: 'Marlin Klein', pos: 'TE', team: 'HOU', college: 'Michigan', pick: 59, s: ['REC  — 2025: 24-248-1TD (10.3)', 'MISC — German-born Michigan TE, honorable mention All-Big Ten, developmental/inline profile'] },
-  { id: 'kacmarek', tier: 5, name: 'Will Kacmarek', pos: 'TE', team: 'MIA', college: 'Ohio State', pick: 87, s: ['REC  — 2025: 15-168-2TD (11.2)', 'MISC — Ohio → Ohio State transfer, blocking/secondary TE with modest receiving contribution'] },
-  { id: 'thomas', tier: 5, name: 'Zavion Thomas', pos: 'WR', team: 'CHI', college: 'LSU', pick: 89, s: ['REC  — 2023 (Mississippi State): 40-503-1TD (12.6) | 2024 (LSU): 23-218-2TD | 2025 (LSU): 41-488-4TD (11.9)', 'RUSH — 2025: 19-99-1TD', 'PR   — 2024: 14-66-0TD | 2025: 17-153-0TD', 'KR   — 2024: 24-633-1TD | 2025: 1-22-0TD', 'PASS — 2025: 2-3, 33 yds', 'MISC — Mississippi State → LSU before 2024, utility/return option'] },
-  { id: 'black', tier: 5, name: 'Kaelon Black', pos: 'RB', team: 'SF', college: 'Indiana', pick: 90, s: ['RUSH — 2024: 251 yds, 2 TD | 2025: 186-1040-10TD (5.6)', 'REC  — 2025: 4-36-0TD', 'MISC — JMU → Indiana transfer; rushing workhorse in national title run'] },
-  { id: 'bell-chris', tier: 5, name: 'Chris Bell', pos: 'WR', team: 'MIA', college: 'Louisville', pick: 94, s: ['REC  — 2024: 43-737-4TD (17.1) | 2025: 72-917-6TD (12.7)', 'MISC — Louisville outside WR; torn ACL ended 2025 after 11 games'] },
-  { id: 'thompson', tier: 5, name: 'Brenen Thompson', pos: 'WR', team: 'LAC', college: 'Mississippi State', pick: 105, s: ['REC  — 2023 (Oklahoma): 7-241-2TD | 2024 (Oklahoma): 19-230-2TD (12.1) | 2025 (Mississippi State): 57-1054-6TD (18.5)', 'RUSH — 2025: 4-14-1TD', 'PR   — 2025: 1-44-0TD', 'MISC — Texas → Oklahoma → Mississippi State, 7 total TDs in 2025'] },
-  { id: 'wetjen', tier: 5, name: 'Kaden Wetjen', pos: 'WR', team: 'PIT', college: 'Iowa', pick: 121, s: ['REC  — 2025: 20-151-1TD (7.6)', 'RUSH — 2025: 15-79-2TD', 'PR   — 2025: 21-563-3TD', 'KR   — 2025: 16-476-1TD', 'MISC — Iowa walk-on return specialist with rushing/gadget production'] },
-  { id: 'bell-skyler', tier: 5, name: 'Skyler Bell', pos: 'WR', team: 'BUF', college: 'UConn', pick: 125, s: ['REC  — 2024 (UConn): 50-860-5TD | 2025 (UConn): 101-1278-13TD (12.7)', 'RUSH — 2025: 2-(-2)-0TD', 'MISC — Wisconsin → UConn transfer; Biletnikoff finalist/All-American caliber 2025'] },
-  { id: 'hibner', tier: 5, name: 'Matthew Hibner', pos: 'TE', team: 'BAL', college: 'SMU', pick: 133, s: ['REC  — 2024 (SMU): 24-368-4TD (15.3) | 2025 (SMU): 31-436-4TD (14.1)', 'MISC — Michigan → SMU transfer, late-career receiving TE breakout'] },
-  { id: 'young', tier: 5, name: 'Colbie Young', pos: 'WR', team: 'CIN', college: 'Georgia', pick: 140, s: ['REC  — 2023 (Miami): 47-563-5TD | 2024 (Georgia): 11-149-2TD | 2025 (Georgia): 26-358-1TD', 'MISC — Miami → Georgia transfer; leg fracture ended 2025 early. Career 116-1446-13TD including 2022'] },
-  { id: 'joly', tier: 5, name: 'Justin Joly', pos: 'TE', team: 'DEN', college: 'NC State', pick: 152, s: ['REC  — 2024 (NC State): 43-661-4TD (15.4) | 2025 (NC State): 49-489-7TD (10.0)', 'MISC — UConn → NC State transfer, 92-1150-11TD over two NC State seasons'] },
-  { id: 'bredeson', tier: 5, name: 'Max Bredeson', pos: 'FB', team: 'MIN', college: 'Michigan', pick: 159, s: ['RUSH — No rushing production', 'REC  — 2025: 2-11-0TD', 'MISC — Traditional fullback/H-back, lead blocker and special teams player'] },
-  { id: 'johnson-emmett', tier: 5, name: 'Emmett Johnson', pos: 'RB', team: 'KC', college: 'Nebraska', pick: 161, s: ['RUSH — 2024: 124-627-5TD (5.1) | 2025: 251-1451-12TD (5.8)', 'REC  — 2024: 12-67-0TD | 2025: 46-370-3TD', 'MISC — 1st-team AA 2025, 1,821 yards from scrimmage, elite national RB production'] },
-  { id: 'allen-kaytron', tier: 5, name: 'Kaytron Allen', pos: 'RB', team: 'WAS', college: 'Penn State', pick: 187, s: ['RUSH — 2022: 167-867-10TD (5.2) | 2023: 172-902-6TD (5.2) | 2024: 220-1108-8TD (5.0) | 2025: 210-1303-15TD (6.2)', 'REC  — 2024: 18-153-2TD | 2025: 18-68-0TD', 'MISC — Singleton\'s PSU backfield mate, Penn State\'s all-time rushing leader'] },
-  { id: 'claiborne', tier: 5, name: 'Demond Claiborne', pos: 'RB', team: 'MIN', college: 'Wake Forest', pick: 198, s: ['RUSH — 2024: 228-1049-11TD (4.6) | 2025: 179-907-10TD (5.1)', 'REC  — 2024: 23-254-2TD | 2025: 28-140-0TD', 'KR   — 2024: 11-277-1TD', 'MISC — Wake Forest workhorse, 21 rushing TDs and 24 total TDs over 2024-25'] },
-  { id: 'washington-mike', tier: 6, name: 'Mike Washington Jr.', pos: 'RB', team: 'LV', college: 'Arkansas', pick: 122, s: ['RUSH — 2025: 167-1070-8TD (6.4)', 'REC  — 2025: 28-226-1TD', 'MISC — Arkansas one-year starter, 1,000-yard rusher with useful receiving production'] },
-  { id: 'virgil', tier: 6, name: 'Reggie Virgil', pos: 'WR', team: 'ARI', college: 'Texas Tech', pick: 143, s: ['REC  — 2025: 57-705-6TD (12.4)', 'RUSH — 2025: 2-35-2TD', 'MISC — Texas Tech WR, vertical/size profile, 8 total TDs in 2025'] },
-  { id: 'koziol', tier: 6, name: 'Tanner Koziol', pos: 'TE', team: 'JAX', college: 'Houston', pick: 164, s: ['REC  — 2024 (Ball State): 94-839-8TD | 2025 (Houston): 74-727-6TD', 'MISC — Ball State → Houston transfer, high-volume receiving TE'] },
-  { id: 'law', tier: 6, name: 'Kendrick Law', pos: 'WR', team: 'DET', college: 'Kentucky', pick: 168, s: ['REC  — 2025: 53-540-3TD (10.2)', 'RUSH — 2025: 8-53-0TD', 'KR/PR — 2025: 9 KR-174-0TD | 3 PR-8-0TD', 'MISC — Alabama → Kentucky transfer, slot/gadget/return profile'] },
-  { id: 'nowakowski', tier: 6, name: 'Riley Nowakowski', pos: 'TE', team: 'PIT', college: 'Indiana', pick: 169, s: ['REC  — 2025: 32-387-2TD (12.1)', 'RUSH — 2025: 2-2-2TD', 'MISC — Wisconsin → Indiana transfer, FB/H-back/TE hybrid, second-team All-Big Ten media'] },
-  { id: 'royer', tier: 6, name: 'Joe Royer', pos: 'TE', team: 'CLE', college: 'Cincinnati', pick: 170, s: ['REC  — 2024 (Cincinnati): 50-521-3TD | 2025: 29-416-4TD (14.3)', 'MISC — Ohio State → Cincinnati transfer, 79-937-7TD over two Cincinnati seasons, receiving TE profile'] },
-  { id: 'cuevas', tier: 6, name: 'Josh Cuevas', pos: 'TE', team: 'BAL', college: 'Alabama', pick: 173, s: ['REC  — 2025: 37-411-4TD (11.1)', 'RUSH — 2025: 1-7-0TD', 'MISC — Washington → Alabama transfer, lead TE role, Mackey Award Watch List'] },
-  { id: 'randall', tier: 6, name: 'Adam Randall', pos: 'RB', team: 'BAL', college: 'Clemson', pick: 174, s: ['RUSH — 2025: 168-814-10TD (4.9)', 'REC  — 2025: 36-254-3TD', 'KR   — 2025: 9-213-0TD', 'MISC — Clemson power back, 13 total TDs, legit receiving usage'] },
-  { id: 'allen-cyrus', tier: 6, name: 'Cyrus Allen', pos: 'WR', team: 'KC', college: 'Cincinnati', pick: 176, s: ['REC  — 2025: 51-674-13TD (13.2)', 'RUSH — 2025: 7-20-0TD', 'MISC — Louisiana Tech → Texas A&M → Cincinnati, red-zone TD spike, 13 receiving TDs'] },
-  { id: 'coleman-kevin', tier: 6, name: 'Kevin Coleman Jr.', pos: 'WR', team: 'MIA', college: 'Missouri', pick: 177, s: ['REC  — 2025: 66-732-1TD (11.1)', 'RUSH — 2025: 9-76-0TD', 'PR   — 2025: 15-189-1TD', 'MISC — Missouri slot/return option, high-catch-rate receiver, SEC punt-return production'] },
-  { id: 'payton', tier: 6, name: 'Cole Payton', pos: 'QB', team: 'PHI', college: 'NDSU', pick: 178, s: ['PASS — 2025: 161-224, 2719 yds, 16 TD, 4 INT, 71.9%', 'RUSH — 2025: 136-777-13TD (5.7)', 'MISC — NDSU dual-threat, FCS first-team AA/Walter Payton finalist profile'] },
-  { id: 'traore', tier: 6, name: 'Seydou Traore', pos: 'TE', team: 'MIA', college: 'Mississippi State', pick: 180, s: ['REC  — 2025: 35-369-5TD (10.5)', 'MISC — Arkansas State → Mississippi State transfer, London-born TE, developmental receiving/blocking profile'] },
-  { id: 'green', tier: 6, name: 'Taylen Green', pos: 'QB', team: 'CLE', college: 'Arkansas', pick: 182, s: ['PASS — 2025: 2,714 yds, 19 TD, 11 INT, 60.7%', 'RUSH — 2025: 139-777-8TD (5.6)', 'MISC — Boise State → Arkansas, dual-threat, 6 games of 300+ pass yds in 2025'] },
-  { id: 'sharp', tier: 6, name: 'Bauer Sharp', pos: 'TE', team: 'TB', college: 'LSU', pick: 185, s: ['REC  — 2024 (Oklahoma): 42-324-2TD | 2025 (LSU): 24-252-2TD', 'MISC — Southeastern Louisiana → Oklahoma → LSU, converted QB, inline/move TE with blocking value'] },
-  { id: 'brown-barion', tier: 6, name: 'Barion Brown', pos: 'WR', team: 'NO', college: 'LSU', pick: 190, s: ['REC  — 2025 (LSU): 53-532-1TD (10.0)', 'RUSH — 2025: 3-33-0TD', 'KR   — 2025: 15-445-1TD | Career: 65-1910-6TD', 'MISC — Kentucky → LSU transfer, SEC career record 6 kickoff return TDs, elite return specialist'] },
-  { id: 'cameron', tier: 6, name: 'Josh Cameron', pos: 'WR', team: 'JAX', college: 'Baylor', pick: 191, s: ['REC  — 2025: 69-872-9TD (12.6)', 'RUSH — No meaningful rushing production', 'PR   — 2025: 18-141-0TD', 'MISC — UCF → Baylor transfer, high-volume slot/return producer'] },
-  { id: 'benson', tier: 6, name: 'Malik Benson', pos: 'WR', team: 'LV', college: 'Oregon', pick: 195, s: ['REC  — 2025: 43-719-6TD (16.7)', 'RUSH — 2025: 1-(-4)-0TD', 'PR   — 2025: 9-161-1TD', 'MISC — JUCO → Alabama → Oregon, vertical WR/return profile'] },
-  { id: 'daniels-cj', tier: 6, name: 'CJ Daniels', pos: 'WR', team: 'LAR', college: 'Miami', pick: 197, s: ['REC  — 2023 (Liberty): 55-1067-10TD | 2024 (LSU): 42-480-0TD | 2025 (Miami): 50-557-7TD (11.1)', 'RUSH — No meaningful rushing production', 'MISC — Liberty → LSU → Miami transfer, possession/contested-catch profile'] },
-  { id: 'henderson-emm', tier: 6, name: 'Emmanuel Henderson Jr.', pos: 'WR', team: 'SEA', college: 'Kansas', pick: 199, s: ['REC  — 2025: 45-766-5TD (17.0)', 'RUSH — 2025: 4-16-0TD', 'KR   — 2025: 18-455-1TD', 'MISC — Alabama → Kansas transfer, speed/return profile, 1,237 all-purpose yards'] },
-  { id: 'williams-cj', tier: 6, name: 'CJ Williams', pos: 'WR', team: 'JAX', college: 'Stanford', pick: 203, s: ['REC  — 2025: 59-749-6TD (12.7)', 'MISC — USC → Wisconsin → Stanford transfer, honorable mention All-ACC, Stanford\'s leading WR in 2025'] },
-  { id: 'bond', tier: 6, name: 'Lewis Bond', pos: 'WR', team: 'HOU', college: 'Boston College', pick: 204, s: ['REC  — 2025: 88-993-1TD (11.3)', 'RUSH — 2025: 4-3-0TD', 'MISC — Boston College high-volume possession receiver, BC all-time receptions leader'] },
-  { id: 'smith-anthony', tier: 6, name: 'Anthony Smith', pos: 'WR', team: 'DAL', college: 'East Carolina', pick: 218, s: ['REC  — 2025: 64-1053-7TD (16.5)', 'RUSH — 2025: 1-45-1TD', 'MISC — ECU deep threat, Military Bowl MVP, 1,053-yard senior season'] },
-  { id: 'kaliakmanis', tier: 6, name: 'Athan Kaliakmanis', pos: 'QB', team: 'WAS', college: 'Rutgers', pick: 223, s: ['PASS — 2025: 229-368, 3124 yds, 20 TD, 7 INT, 62.2%', 'RUSH — 2025: 96-(-26)-4TD', 'MISC — Minnesota → Rutgers transfer, best passing season of career, limited fantasy rushing value'] },
-  { id: 'heidenreich', tier: 6, name: 'Eli Heidenreich', pos: 'RB', team: 'PIT', college: 'Navy', pick: 230, s: ['RUSH — 2025: 77-499-3TD (6.5)', 'REC  — 2025: 51-941-6TD (18.5)', 'MISC — Navy utility weapon, slotback/receiver hybrid, 1,440 yards from scrimmage'] },
-  { id: 'mcgowan', tier: 6, name: 'Seth McGowan', pos: 'RB', team: 'IND', college: 'Kentucky', pick: 237, s: ['RUSH — 2025: 165-725-12TD (4.4)', 'REC  — 2025: 19-126-0TD', 'MISC — Former Oklahoma signee, JUCO → Kentucky, TD-heavy SEC back'] },
-  { id: 'miller-jam', tier: 6, name: 'Jam Miller', pos: 'RB', team: 'NE', college: 'Alabama', pick: 245, s: ['RUSH — 2025: 130-504-3TD (3.9)', 'REC  — 2025: 19-109-0TD', 'MISC — Alabama committee back, modest senior-year production'] },
-  { id: 'burks', tier: 6, name: 'Deion Burks', pos: 'WR', team: 'IND', college: 'Oklahoma', pick: 254, s: ['REC  — 2023 (Purdue): 47-629-7TD (13.4) | 2024 (Oklahoma): 31-245-3TD (7.9) | 2025 (Oklahoma): 57-620-4TD (10.9)', 'RUSH — 2023: 4-12-0TD | 2024: 5-32-0TD | 2025: 6-(-1)-0TD', 'MISC — Purdue → Oklahoma slot/underneath receiver with more volume than card shows'] },
-  { id: 'smack', tier: 7, name: 'Trey Smack', pos: 'K', team: 'GB', college: 'Florida', pick: 216, s: ['FG   — 2025: 18-22 (81.8%), long 56 | XP: 27-28', 'KO   — 2025: 46 touchbacks on 60 kickoffs (76.7%)', 'MISC — Lou Groza finalist, 53-64 career FG, 100-101 career XP, reliable long-range leg'] },
-  { id: 'endries', tier: 7, name: 'Jack Endries', pos: 'TE', team: 'CIN', college: 'Texas', pick: 221, s: ['REC  — 2025: 33-346-3TD (10.5)', 'MISC — Cal → Texas transfer, possession TE, moderate receiving role'] },
-  { id: 'kanak', tier: 7, name: 'Jaren Kanak', pos: 'TE', team: 'TEN', college: 'Oklahoma', pick: 225, s: ['REC  — 2025: 44-533-0TD (12.1)', 'MISC — Former LB convert, Oklahoma receiving TE, athletic developmental profile'] },
-  { id: 'morton', tier: 7, name: 'Behren Morton', pos: 'QB', team: 'NE', college: 'Texas Tech', pick: 234, s: ['PASS — 2025: 219-332, 2780 yds, 22 TD, 6 INT, 66.0%', 'RUSH — 2025: 43-(-113)-0TD', 'MISC — Texas Tech passer, efficient senior season, no fantasy rushing floor'] },
-  { id: 'ryan', tier: 7, name: 'Carsen Ryan', pos: 'TE', team: 'CLE', college: 'BYU', pick: 248, s: ['REC  — 2025: 45-620-3TD (13.8)', 'PR   — 2025: 1-14-0TD', 'MISC — UCLA → BYU transfer, productive receiving TE, not blocking-only'] },
-  { id: 'nussmeier', tier: 7, name: 'Garrett Nussmeier', pos: 'QB', team: 'KC', college: 'LSU', pick: 249, s: ['PASS — 2025: 194-288, 1927 yds, 12 TD, 5 INT, 67.4%', 'RUSH — 2025: 29-(-57)-1TD', 'MISC — LSU QB, 9-game 2025 season, limited rushing value'] },
-  { id: 'bentley', tier: 7, name: 'Dallen Bentley', pos: 'TE', team: 'DEN', college: 'Utah', pick: 256, s: ['REC  — 2025: 4-28-0TD', 'MISC — Snow College → Utah, developmental'] },
+  { id:'jeremiah-smith',tier:1,name:'Jeremiah Smith',pos:'WR',college:'Ohio State',draftRange:'Top 5',trend:'steady',statLine:'2025: 87 rec, 1,243 yds, 12 rec TD · Career: 2,558 rec yds, 27 rec TD',strengths:['Elite size/speed blend','Dominant ball skills and body control','Wins at every level of the field'],concerns:['Very little on-field concern; acquisition cost will be enormous'],fantasy:'The safest elite asset in the class and the current 1.01 favorite even in Superflex.',watch:'How defenses alter coverage around him and whether he maintains elite efficiency under constant attention.' },
+  { id:'arch-manning',tier:1,name:'Arch Manning',pos:'QB',college:'Texas',draftRange:'Top 5',trend:'steady',statLine:'2025: 3,163 pass yds, 26 TD, 7 INT · 399 rush yds, 10 rush TD',strengths:['NFL frame and arm talent','Real rushing value','Can attack every area of the field'],concerns:['2025 accuracy and consistency were uneven','Needs a full season of high-end processing'],fantasy:'If he locks down top-five NFL capital, he has a legitimate case for the Superflex 1.01.',watch:'Whether his late-2025 improvement becomes his week-to-week baseline.' },
+  { id:'dante-moore',tier:1,name:'Dante Moore',pos:'QB',college:'Oregon',draftRange:'Top 5-10',trend:'steady',statLine:'2025: 3,565 pass yds, 30 TD, 10 INT, 71.8% completions · 30 PFF big-time throws',strengths:['High-end accuracy and touch','Calm pocket movement','Strong creation ability'],concerns:['Decision-making can turn erratic','Needs to trim turnover-worthy stretches'],fantasy:'High-end NFL starter traits plus enough mobility to support an early Superflex rookie pick.',watch:'Whether the explosive throws remain while the risky decisions come down.' },
+  { id:'cam-coleman',tier:1,name:'Cam Coleman',pos:'WR',college:'Texas',draftRange:'Round 1',trend:'steady',statLine:'2025 at Auburn: 56 rec, 708 yds, 5 TD · Career: 1,306 yds, 13 TD',strengths:['Prototype perimeter size','Vertical and contested-catch ability','Young early-declare profile'],concerns:['Production has not yet matched the traits','Route consistency still needs refinement'],fantasy:'The leading WR2 candidate behind Jeremiah Smith with true NFL alpha upside.',watch:'Whether the move to Texas unlocks a dominant target share and better efficiency.' },
+
+  { id:'julian-sayin',tier:2,name:'Julian Sayin',pos:'QB',college:'Ohio State',draftRange:'Round 1',trend:'steady',statLine:'2025: 3,610 pass yds, 32 TD, 8 INT, 77.0% completions · 1.4% PFF turnover-worthy play rate',strengths:['Elite accuracy and ball placement','Fast processing','Protects the football'],concerns:['Smaller frame than ideal','Limited rushing production'],fantasy:'First-round NFL capital would make him a premium Superflex pick, though the rushing ceiling is modest.',watch:'Creation outside structure and whether he can raise the offense when plays break down.' },
+  { id:'bryant-wesco',tier:2,name:'Bryant Wesco Jr.',pos:'WR',college:'Clemson',draftRange:'Round 1-2',trend:'steady',statLine:'2025: 31 rec, 537 yds, 6 TD before a back injury shortened the season',strengths:['Length and vertical explosion','Efficient downfield target','Strong early production profile'],concerns:['Back injury interrupted 2025','Needs a larger volume résumé'],fantasy:'A healthy breakout could push him into the first-round rookie tier.',watch:'Health first, then whether he re-establishes himself as Clemson’s clear top vertical weapon.' },
+  { id:'kewan-lacy',tier:2,name:'Kewan Lacy',pos:'RB',college:'Ole Miss',draftRange:'Round 1-2',trend:'steady',statLine:'2025: 306 carries, 1,567 yds, 24 rush TD · 29 rec, 177 yds',strengths:['Feature-back workload profile','Excellent chain-moving ability','Ideal three-down build'],concerns:['Five drops in 2025','Receiving efficiency needs improvement'],fantasy:'One of the strongest candidates to become the class RB1 if his passing-game work improves.',watch:'Drops, receiving usage and whether he maintains efficiency under another heavy workload.' },
+  { id:'jadan-baugh',tier:2,name:'Jadan Baugh',pos:'RB',college:'Florida',draftRange:'Round 1-2',trend:'up',statLine:'2025: 220 carries, 1,170 yds, 8 rush TD · 33 rec, 210 yds, 2 rec TD',strengths:['Feature size with nimble feet','Contact balance','Meaningful receiving production'],concerns:['Needs more explosive runs','Top-end speed is not his calling card'],fantasy:'A very clean dynasty back profile if Day 2 or better capital follows.',watch:'Whether he becomes the unquestioned centerpiece and improves his explosive-play rate.' },
+  { id:'charlie-becker',tier:2,name:'Charlie Becker',pos:'WR',college:'Indiana',draftRange:'Round 1-2',trend:'up',statLine:'2025: 34 rec, 679 yds, 4 TD · 20.0 yards per reception',strengths:['Size and ball skills','Vertical efficiency','Strong late-season breakout'],concerns:['Breakout came late','Needs to prove full-season WR1 volume'],fantasy:'One of the class’s best breakout bets and a potential first-round rookie riser.',watch:'Whether expanded volume confirms that the playoff surge was a true level-up.' },
+  { id:'nick-marsh',tier:2,name:'Nick Marsh',pos:'WR',college:'Indiana',draftRange:'Round 1-2',trend:'steady',statLine:'2025 at Michigan State: 59 rec, 662 yds, 6 TD · Career: 1,311 yds, 9 TD',strengths:['NFL boundary frame','Early age-adjusted production','Physical after the catch'],concerns:['Efficiency dipped in 2025','Transfer adds role and chemistry uncertainty'],fantasy:'A strong Indiana season could make him a top-five skill player in the class.',watch:'Target dominance and whether the transfer restores his freshman-year explosiveness.' },
+
+  { id:'ahmad-hardy',tier:3,name:'Ahmad Hardy',pos:'RB',college:'Missouri',draftRange:'Day 2',trend:'steady',statLine:'2025: 256 carries, 1,649 yds, 16 TD · only 22 receiving yds',strengths:['Elite contact balance','Explosive through contact','Proven SEC workhorse'],concerns:['Almost no receiving résumé','Recovering from an offseason gunshot injury'],fantasy:'Rushing talent is early-round caliber, but receiving usage will determine his dynasty ceiling.',watch:'Health first, then passing-down work once he returns.' },
+  { id:'lanorris-sellers',tier:3,name:'LaNorris Sellers',pos:'QB',college:'South Carolina',draftRange:'Round 1',trend:'up',statLine:'2025 baseline: premium dual-threat rushing usage with rare QB size',strengths:['Rare size/athleticism combination','Power runner','Big-play arm talent'],concerns:['Passing consistency','Anticipation and sack avoidance'],fantasy:'His rushing ceiling can make him a premium fantasy QB even if he is not the class’s best pure passer.',watch:'Whether he pairs the physical tools with consistent NFL-level passing decisions.' },
+  { id:'cj-carr',tier:3,name:'CJ Carr',pos:'QB',college:'Notre Dame',draftRange:'Round 1-2',trend:'up',statLine:'2025 breakout starter · PFF: 2.54-second average time to throw',strengths:['Quick processor','Timing and accuracy','Natural pocket command'],concerns:['Could return to school','Needs more evidence against elite defenses'],fantasy:'A first-round declaration would make him one of the most valuable swing players in Superflex.',watch:'Declaration likelihood and whether the breakout translates against the toughest defenses.' },
+  { id:'darian-mensah',tier:3,name:'Darian Mensah',pos:'QB',college:'Miami',draftRange:'Round 1-2',trend:'steady',statLine:'Career through 2025: 56 pass TD, 12 INT · 16 fumbles in 27 games',strengths:['Efficient production profile','NFL size','Enough arm to attack vertically'],concerns:['Ball security','Third program in three seasons'],fantasy:'A high-upside Superflex riser if Miami turns his production into first-round NFL capital.',watch:'Turnovers, command of Miami’s offense and performance against playoff-caliber defenses.' },
+  { id:'treydez-green',tier:3,name:"Trey'Dez Green",pos:'TE',college:'LSU',draftRange:'Round 1-2',trend:'steady',statLine:'2025: 7 receiving TD in 11 games · 5 drops',strengths:['Rare size and athleticism','Mismatch receiving profile','Red-zone dominance'],concerns:['Drops','Still developing as a complete tight end'],fantasy:'The highest pure receiving ceiling among the 2027 tight ends.',watch:'Whether LSU turns him into a true high-volume target rather than a specialty mismatch.' },
+  { id:'ryan-coleman-williams',tier:3,name:'Ryan Coleman-Williams',pos:'WR',college:'Alabama',draftRange:'Round 1-2',trend:'down',statLine:'2024: 865 receiving yds, 8 TD · Career through 2025: 17 drops on 114 catchable targets',strengths:['Explosive separator','Dynamic with the ball','Very young prospect'],concerns:['Drop rate is a major red flag','Production disappeared late in 2025'],fantasy:'Still carries a first-round fantasy ceiling because the raw talent is obvious.',watch:'Hands and consistency. A clean season could restore him near the top of the receiver class.' },
+  { id:'tj-moore',tier:3,name:'TJ Moore',pos:'WR',college:'Clemson',draftRange:'Day 2',trend:'steady',statLine:'2025 baseline: rotational production in Clemson’s deep receiver room',strengths:['Size','Vertical ability','Strong recruiting pedigree'],concerns:['Needs a larger target share','Competes with Bryant Wesco for opportunities'],fantasy:'A classic breakout candidate whose value could change quickly with a true WR1 workload.',watch:'Whether he can force a target split with Wesco rather than remain secondary.' },
+  { id:'isaac-brown',tier:3,name:'Isaac Brown',pos:'RB',college:'Louisville',draftRange:'Day 2',trend:'up',statLine:'2025: 8.8 yards per carry · 11 runs of 20+ yards',strengths:['Elite acceleration','Open-field elusiveness','Receiving-friendly skill set'],concerns:['Size','Feature-back durability is not fully tested'],fantasy:'One of the best bets to become a fantasy-friendly Day 2 back.',watch:'Workload, pass protection and whether he holds up with feature usage.' },
+  { id:'mark-fletcher',tier:3,name:'Mark Fletcher Jr.',pos:'RB',college:'Miami',draftRange:'Day 2',trend:'steady',statLine:'2025: established Miami lead back · 2 TD in the national title game',strengths:['NFL frame','Gap-running power','Proven short-yardage ability'],concerns:['Needs more explosive-play evidence','Receiving ceiling remains moderate'],fantasy:'A high-floor dynasty back if he lands on Day 2 with a path to volume.',watch:'Explosive-run rate and receiving role in Miami’s new offense.' },
+  { id:'kj-duff',tier:3,name:'KJ Duff',pos:'WR',college:'Rutgers',draftRange:'Day 2',trend:'steady',statLine:'2025: FBS-leading 22 contested catches · PFF: third-highest grade among 2027-eligible WRs',strengths:['6-foot-6 catch radius','Contested-catch dominance','Boundary mismatch'],concerns:['Separation and route nuance','Must prove he can win without contested targets'],fantasy:'A high-variance profile with major upside if NFL teams believe he can separate enough.',watch:'Route tree and target efficiency rather than just highlight catches.' },
+
+  { id:'drew-mestemaker',tier:4,name:'Drew Mestemaker',pos:'QB',college:'Oklahoma State',draftRange:'Round 1-3',trend:'up',statLine:'2025 at North Texas: led the FBS in passing yards',strengths:['Production and toughness','NFL size','Rapid developmental trajectory'],concerns:['Power-conference translation','One-year breakout profile'],fantasy:'Could leap several tiers if the North Texas production travels to the Big 12.',watch:'Efficiency and pressure response against better weekly defenses.' },
+  { id:'brendan-sorsby',tier:4,name:'Brendan Sorsby',pos:'QB',college:'Texas Tech',draftRange:'Round 1-3',trend:'steady',statLine:'2025 at Cincinnati: 26 pass TD, 5 INT · only 7 sacks on 114 pressures',strengths:['Mobility','Pocket toughness','Excellent pressure-to-sack avoidance'],concerns:['Needs more downfield consistency','Older than several top QBs'],fantasy:'Has enough rushing ability to matter in fantasy if he forces his way into Round 1.',watch:'Whether Texas Tech unlocks a bigger passing ceiling.' },
+  { id:'mario-craver',tier:4,name:'Mario Craver',pos:'WR',college:'Texas A&M',draftRange:'Day 2',trend:'steady',statLine:'2025 breakout included 207 receiving yds vs Notre Dame',strengths:['Explosive after the catch','Competitive slot profile','Vertical speed'],concerns:['Undersized','Needs to prove high-volume target earning'],fantasy:'Could become a useful PPR/half-PPR asset if Day 2 capital confirms a starting slot role.',watch:'Target share and ability to win outside manufactured touches.' },
+  { id:'jamari-johnson',tier:4,name:'Jamari Johnson',pos:'TE',college:'Oregon',draftRange:'Round 1-3',trend:'steady',statLine:'2025: graded higher than Kenyon Sadiq by PFF · aligned in-line nearly twice as often',strengths:['Complete in-line skill set','Athletic receiving upside','Blocking keeps him on field'],concerns:['Needs a larger receiving sample','Fantasy ceiling depends on target expansion'],fantasy:'A well-rounded TE who could rise above Trey’Dez Green with enough receiving volume.',watch:'Routes, targets and red-zone usage as Oregon’s lead tight end.' },
+  { id:'isaiah-sategna',tier:4,name:'Isaiah Sategna III',pos:'WR',college:'Oklahoma',draftRange:'Day 2',trend:'steady',statLine:'2025 baseline: explosive receiver/returner profile',strengths:['Speed','Return value','Big-play ability'],concerns:['Needs to command more targets','May profile as a complementary weapon'],fantasy:'Draft capital and offensive role will decide whether the speed translates to usable dynasty value.',watch:'Target share and intermediate-route development.' },
+  { id:'hollywood-smothers',tier:4,name:'Hollywood Smothers',pos:'RB',college:'Texas',draftRange:'Day 2-3',trend:'steady',statLine:'2025 baseline: explosive committee back before transferring to Texas',strengths:['Home-run speed','Space-player ability','Passing-game upside'],concerns:['Workload projection','Crowded Texas backfield'],fantasy:'High ceiling if he earns a real share of the Texas offense and lands with Day 2 capital.',watch:'Touch volume and passing-down role.' },
+  { id:'ryan-wingo',tier:4,name:'Ryan Wingo',pos:'WR',college:'Texas',draftRange:'Day 2',trend:'steady',statLine:'2025 baseline: talented complementary receiver in Texas offense',strengths:['Size-speed profile','Vertical ability','Former elite recruit'],concerns:['Production trails the traits','Cam Coleman may dominate targets'],fantasy:'A traits bet who can jump into the first-round fantasy discussion with a breakout.',watch:'Whether he earns enough volume alongside Coleman to show a complete NFL profile.' },
+  { id:'eugene-wilson',tier:4,name:'Eugene Wilson III',pos:'WR',college:'LSU',draftRange:'Day 2-3',trend:'steady',statLine:'2025 baseline: injury/role disruption at Florida before LSU transfer',strengths:['Quickness','Versatility','YAC ability'],concerns:['Durability','Needs a clean high-volume season'],fantasy:'A rebound candidate whose dynasty value could move rapidly in LSU’s offense.',watch:'Health and weekly target volume.' },
+  { id:'justice-haynes',tier:4,name:'Justice Haynes',pos:'RB',college:'Georgia Tech',draftRange:'Day 2-3',trend:'steady',statLine:'2025 baseline: former blue-chip back still seeking a full featured season',strengths:['NFL build','Natural rushing talent','All-around skill set'],concerns:['Production has not matched pedigree','Needs durability and volume'],fantasy:'A volatile but worthwhile dynasty watch because the physical profile still translates.',watch:'Whether Georgia Tech finally gives him a complete workload.' },
+  { id:'duce-robinson',tier:4,name:'Duce Robinson',pos:'WR',college:'Florida State',draftRange:'Day 2',trend:'steady',statLine:'2025: 3.03 yards per route run, sixth-best in FBS',strengths:['6-foot-6 frame','Elite multi-sport athleticism','Red-zone upside'],concerns:['Route refinement','Needs consistent target earning'],fantasy:'One of the class’s most intriguing ceiling plays if the production catches up to the tools.',watch:'Separation and route detail against top corners.' },
+
+  { id:'omarion-miller',tier:5,name:'Omarion Miller',pos:'WR',college:'Arizona State',draftRange:'Day 2-3',trend:'steady',statLine:'2025 baseline: explosive vertical production before Arizona State move',strengths:['Deep speed','Outside-play ability','Chunk-play profile'],concerns:['Needs sustained target volume','Route tree still developing'],fantasy:'A deep-board WR who can climb quickly with an efficient high-volume season.',watch:'Volume and intermediate-route growth.' },
+  { id:'jayce-brown',tier:5,name:'Jayce Brown',pos:'WR',college:'LSU',draftRange:'Day 2-3',trend:'steady',statLine:'2025 baseline: flashed playmaking before entering LSU’s crowded room',strengths:['Athleticism','Ball skills','Big-play upside'],concerns:['Role competition','Needs a true breakout season'],fantasy:'A speculative receiver whose value is tied heavily to 2026 opportunity.',watch:'Whether he wins a clear top-three receiver role.' },
+  { id:'terrance-carter',tier:5,name:'Terrance Carter Jr.',pos:'TE',college:'Texas Tech',draftRange:'Day 2-3',trend:'steady',statLine:'2025: 624 receiving yds · 23 missed tackles forced, most among tight ends',strengths:['Receiving production','YAC ability','Proven target earning'],concerns:['Older prospect','Needs good-enough blocking for full-time snaps'],fantasy:'One of the best production-based TE bets in the class.',watch:'Whether the receiving volume stays elite and boosts him into Day 2.' },
+  { id:'lj-martin',tier:5,name:'LJ Martin',pos:'RB',college:'BYU',draftRange:'Day 2-3',trend:'steady',statLine:'2025: 238 carries, 1,299 yds · 3.75 yards after contact/att · 56 forced missed tackles',strengths:['Physical runner','Consistent contact efficiency','Three-year production growth'],concerns:['Needs more receiving evidence','Top-end athletic ceiling is a question'],fantasy:'A sturdy Day 2/3 back who could become more valuable than his rookie-draft cost.',watch:'Passing-game usage and athletic testing.' },
+  { id:'cooper-barkate',tier:5,name:'Cooper Barkate',pos:'WR',college:'Miami',draftRange:'Day 3',trend:'steady',statLine:'Career entering 2026: nearly 3,000 receiving yds across Harvard and Duke',strengths:['Experienced route runner','Slot/outside versatility','Proven production'],concerns:['Older profile','Must prove Power Four ceiling at Miami'],fantasy:'A productive depth WR who could become a useful late rookie pick with a strong Miami season.',watch:'Efficiency and target share alongside Darian Mensah.' },
+  { id:'benjamin-brahmer',tier:5,name:'Benjamin Brahmer',pos:'TE',college:'Penn State',draftRange:'Day 3',trend:'steady',statLine:'2025 baseline: experienced receiving TE entering another developmental year',strengths:['Size','Receiving feel','Experience'],concerns:['Needs more explosive production','Must separate from a deep TE class'],fantasy:'Late-board TE stash profile.',watch:'Whether he can become a primary passing-game piece rather than a secondary target.' },
+  { id:'nate-frazier',tier:5,name:'Nate Frazier',pos:'RB',college:'Georgia',draftRange:'Day 2-3',trend:'up',statLine:'2025: productive Georgia lead-back work, but still below 1,000 rushing yds',strengths:['Physical downhill style','High work rate','Georgia pedigree'],concerns:['No 1,000-yard season yet','Receiving ceiling unclear'],fantasy:'A strong 2026 could push him into the crowded RB2-RB5 conversation.',watch:'Feature workload, receiving usage and explosive-run rate.' },
+  { id:'peter-clarke',tier:5,name:'Peter Clarke',pos:'TE',college:'Temple',draftRange:'Day 2-3',trend:'up',statLine:'2025: 90.5 PFF overall grade, best among FBS tight ends',strengths:['Rapid development','Athletic receiving profile','Expected high target share'],concerns:['Lower-level competition','Still learning positional nuances'],fantasy:'A genuine riser with receiving traits worth tracking closely.',watch:'Whether elite efficiency survives a larger target load.' },
+  { id:'jeremiah-hasley',tier:5,name:'Jeremiah Hasley',pos:'TE',college:'Duke',draftRange:'Day 3',trend:'up',statLine:'2025: 40 rec, 454 yds, 6 TD · 7.2 yards after catch per reception',strengths:['Reliable hands','YAC ability','Growing route role'],concerns:['One-year production jump','Needs more vertical/athletic evidence'],fantasy:'A later TE prospect with a clean production arrow.',watch:'Whether route participation and efficiency both increase.' },
+  { id:'sam-leavitt',tier:5,name:'Sam Leavitt',pos:'QB',college:'LSU',draftRange:'Round 2-4',trend:'down',statLine:'2024: 88.5 PFF grade · 2025 season ended early by foot injury',strengths:['Aggressive arm talent','Mobility','Playmaking mentality'],concerns:['Medical history','Needs to recover prior form'],fantasy:'A former high-end devy QB whose value now depends on health and LSU rehabilitation.',watch:'Foot recovery and whether LSU can restore his 2024 level.' },
+  { id:'jayden-maiava',tier:5,name:'Jayden Maiava',pos:'QB',college:'USC',draftRange:'Round 1-3',trend:'up',statLine:'2025 baseline: productive USC starter with big-arm flashes',strengths:['NFL frame','Arm strength','Touch on layered throws'],concerns:['Drive-to-drive consistency','Needs cleaner decision-making'],fantasy:'A first-round NFL rise would make him one of the biggest Superflex movers on the board.',watch:'Whether he turns flashes into efficient full-season quarterback play.' },
+  { id:'josh-hoover',tier:5,name:'Josh Hoover',pos:'QB',college:'Indiana',draftRange:'Round 2-4',trend:'steady',statLine:'2025 baseline: experienced high-volume passer before Indiana move',strengths:['Experience','Volume passing résumé','Enough arm for all areas'],concerns:['Efficiency and pressure response','Needs to prove NFL starter ceiling'],fantasy:'Deep Superflex watch who becomes relevant quickly if Indiana keeps winning with him.',watch:'Efficiency in Indiana’s system and NFL draft momentum.' },
+  { id:'gunner-stockton',tier:5,name:'Gunner Stockton',pos:'QB',college:'Georgia',draftRange:'Round 2-4',trend:'steady',statLine:'2025 baseline: SEC starter with a meaningful rushing component',strengths:['Toughness','Mobility','Competitive play style'],concerns:['Passing ceiling','Needs more high-end downfield production'],fantasy:'Rushing keeps him interesting if the NFL views him as a legitimate starter candidate.',watch:'Passing efficiency and whether Georgia asks him to win more games through the air.' },
+  { id:'john-mateer',tier:5,name:'John Mateer',pos:'QB',college:'Oklahoma',draftRange:'Round 2-4',trend:'steady',statLine:'2025 baseline: dual-threat production in Oklahoma offense',strengths:['Rushing value','Off-script playmaking','Aggressive mentality'],concerns:['Decision-making variance','Needs cleaner pocket consistency'],fantasy:'A fantasy-friendly QB archetype whose NFL grade will matter more than college box scores.',watch:'Turnovers and pocket efficiency.' },
+  { id:'wyatt-young',tier:5,name:'Wyatt Young',pos:'WR',college:'Oklahoma State',draftRange:'Day 2-3',trend:'up',statLine:'2025: third in FBS receiving yards and PFF receiving grade',strengths:['Route-running savvy','Ideal slot build','High-end production'],concerns:['Must prove North Texas production translates','Mostly slot projection'],fantasy:'One of the most interesting production-based late-board receivers.',watch:'Big 12 translation and whether he can win outside the slot.' },
+  { id:'nyck-harbor',tier:5,name:'Nyck Harbor',pos:'WR',college:'South Carolina',draftRange:'Day 2-3',trend:'steady',statLine:'2025 baseline: traits continued to outpace receiving production',strengths:['Rare 6-foot-5, 235-pound athletic profile','Reported 4.3-range speed','Huge vertical ceiling'],concerns:['Production has not matched tools','Route development remains raw'],fantasy:'The ultimate traits bet. NFL draft capital could keep him fantasy-relevant even without a huge breakout.',watch:'Whether he finally converts athleticism into consistent target earning.' },
+  { id:'isaiah-horton',tier:5,name:'Isaiah Horton',pos:'WR',college:'Texas A&M',draftRange:'Day 3',trend:'steady',statLine:'2025 baseline: veteran receiving production entering Texas A&M role',strengths:['Size','Experience','Red-zone utility'],concerns:['Needs stronger separation/efficiency','Crowded receiver room'],fantasy:'Late-round rookie profile unless he becomes a clear 2026 breakout.',watch:'Target hierarchy at Texas A&M.' },
+  { id:'eric-singleton',tier:5,name:'Eric Singleton Jr.',pos:'WR',college:'Florida',draftRange:'Day 3',trend:'steady',statLine:'2025 baseline: explosive speed receiver entering another transfer stop',strengths:['Speed','YAC ability','Horizontal and vertical stress'],concerns:['Needs more complete route/volume résumé','Transfer history adds projection noise'],fantasy:'Speed makes him an appealing late-round upside pick if draft capital cooperates.',watch:'Whether Florida makes him a true featured receiver.' },
+  { id:'dj-vonnahme',tier:5,name:'DJ Vonnahme',pos:'TE',college:'Iowa',draftRange:'Day 3',trend:'up',statLine:'2025 baseline: emerging Iowa tight end with devy momentum',strengths:['Iowa developmental pedigree','Receiving upside','NFL frame'],concerns:['Needs a larger production sample','Role still developing'],fantasy:'A classic tight-end breakout stash if Iowa funnels targets his way.',watch:'Route participation and red-zone usage.' },
+  { id:'dorian-thomas',tier:5,name:'Dorian Thomas',pos:'TE',college:'California',draftRange:'Day 3',trend:'steady',statLine:'2025 baseline: productive receiving flashes at Cal',strengths:['Receiving athleticism','Mismatch potential','Movement skills'],concerns:['Needs more consistent volume','Blocking/NFL role projection'],fantasy:'Late TE prospect with enough receiving upside to matter if he gets Day 2-3 capital.',watch:'Target share and all-around snap role.' },
 ];
 
-const BOARD_API_URL = '/api/team-prospect-draftboard';
-const LOCAL_BACKUP_KEY = 'team-prospect-draft-board-local-backup-v1';
+const TIER_LABELS: Record<number,string> = { 1:'Blue-chip', 2:'Early 1st-round core', 3:'1st-round depth', 4:'Day 2 watch', 5:'Developmental watchlist' };
 
-function parsePick(value: unknown) {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : Number.POSITIVE_INFINITY;
-}
+function cloneInitial() { return INITIAL.map((p) => ({ ...p, strengths:[...p.strengths], concerns:[...p.concerns] })); }
 
-function sortByPick<T extends { pick?: number }>(items: T[]) {
-  return [...items].sort((a, b) => parsePick(a.pick) - parsePick(b.pick));
-}
-
-const DEFAULT_PLAYERS = sortByPick(INITIAL.map((p) => ({ ...p }))).slice(0, 82);
-
-function computeTierBreaksFromAssignment(players: Array<{ id: string }>, customTiers: string[], playerCustomTier: Record<string, string>): Record<string, number> {
-  const result: Record<string, number> = {};
-  for (const tier of customTiers) {
-    const firstIdx = players.findIndex(p => playerCustomTier[String(p.id)] === tier);
-    if (firstIdx >= 0) result[tier] = firstIdx;
+function applySavedBoard(saved: SavedBoard | null): BoardPlayer[] {
+  let players = cloneInitial();
+  if (!saved || !saved.boardVersion || !COMPATIBLE_BOARD_VERSIONS.has(saved.boardVersion)) return players;
+  if (Array.isArray(saved.orderIds)) {
+    const byId = new Map(players.map((p) => [p.id,p]));
+    const ordered = saved.orderIds.map((id) => byId.get(String(id))).filter(Boolean) as BoardPlayer[];
+    const seen = new Set(ordered.map((p) => p.id));
+    players = [...ordered, ...players.filter((p) => !seen.has(p.id))];
   }
-  return result;
+  return players.map((p) => ({ ...p, target:!!saved.target?.[p.id], unlikely:!!saved.unlikely?.[p.id], noFit:!!saved.noFit?.[p.id], userNote:saved.notes?.[p.id] || '' }));
 }
 
-function buildBoardData(
-  players: BoardPlayer[],
-  scoutingUrl: string,
-  customTiers: string[],
-  tierBreaks: Record<string, number>,
-  myPicks: string,
-  customTagsList: string[],
-  playerTags: Record<string, string[]>,
-) {
-  const orderIds = players.map((p) => String(p.id));
-  const unlikely: Record<string, boolean> = {};
-  const noFit: Record<string, boolean> = {};
-  const target: Record<string, boolean> = {};
-  const notes: Record<string, string> = {};
-  const playerCustomTier: Record<string, string> = {};
-  players.forEach((p, idx) => {
-    const id = String(p.id);
-    if (p.unlikely) unlikely[id] = true;
-    if (p.noFit) noFit[id] = true;
-    if (p.target) target[id] = true;
-    if (typeof p.userNote === 'string' && p.userNote.trim()) notes[id] = p.userNote;
-    let best = ''; let bestBreak = -1;
-    for (const t of customTiers) { const b = tierBreaks[t] ?? -1; if (b >= 0 && b <= idx && b > bestBreak) { bestBreak = b; best = t; } }
-    if (best) playerCustomTier[id] = best;
-  });
-  return {
-    orderIds,
-    unlikely,
-    noFit,
-    target,
-    notes,
-    customTiers,
-    tierBreaks,
-    playerCustomTier,
-    customTagsList,
-    playerTags,
-    scoutingUrl: scoutingUrl || '/api/team-prospect-draftboard/scouting',
-    myPicks: myPicks.trim(),
-  };
+function serialize(players: BoardPlayer[]) {
+  const target:Record<string,boolean> = {}, unlikely:Record<string,boolean> = {}, noFit:Record<string,boolean> = {}, notes:Record<string,string> = {};
+  players.forEach((p) => { if(p.target) target[p.id]=true; if(p.unlikely) unlikely[p.id]=true; if(p.noFit) noFit[p.id]=true; if(p.userNote?.trim()) notes[p.id]=p.userNote.trim(); });
+  return { boardVersion:BOARD_VERSION, orderIds:players.map((p)=>p.id), target, unlikely, noFit, notes };
 }
 
-function applySavedBoardData(saved: Record<string, unknown>) {
-  let next = DEFAULT_PLAYERS.map((p) => ({ ...p }));
-  const data: Record<string, unknown> = saved && typeof saved === 'object' ? (saved as Record<string, unknown>) : {};
-
-  if (Array.isArray(data.orderIds)) {
-    const orderIds = data.orderIds as Array<string | number>;
-    const byId = Object.fromEntries(next.map((p) => [p.id, p]));
-    const known = orderIds.map((id) => byId[String(id)]).filter(Boolean);
-    const knownSet = new Set(known.map((p: { id: string }) => p.id));
-    const missing = next.filter((p) => !knownSet.has(p.id));
-    next = [...known, ...sortByPick(missing)];
-  }
-
-  if (data.unlikely && typeof data.unlikely === 'object') {
-    const unlikelyMap = data.unlikely as Record<string, unknown>;
-    next = next.map((p) => ({ ...p, unlikely: !!unlikelyMap[p.id] }));
-  }
-  if (data.noFit && typeof data.noFit === 'object') {
-    const noFitMap = data.noFit as Record<string, unknown>;
-    next = next.map((p) => ({ ...p, noFit: !!noFitMap[p.id] }));
-  }
-  if (data.target && typeof data.target === 'object') {
-    const targetMap = data.target as Record<string, unknown>;
-    next = next.map((p) => ({ ...p, target: !!targetMap[p.id] }));
-  }
-  if (data.notes && typeof data.notes === 'object') {
-    const notesMap = data.notes as Record<string, unknown>;
-    next = next.map((p) => ({ ...p, userNote: String(notesMap[p.id] || '') }));
-  }
-  const customTiers = Array.isArray(data.customTiers)
-    ? data.customTiers.map((t) => String(t).trim()).filter(Boolean)
-    : [];
-  const playerCustomTier = data.playerCustomTier && typeof data.playerCustomTier === 'object'
-    ? (data.playerCustomTier as Record<string, string>)
-    : {};
-  const rawTierBreaks = data.tierBreaks && typeof data.tierBreaks === 'object' && !Array.isArray(data.tierBreaks)
-    ? Object.fromEntries(Object.entries(data.tierBreaks as Record<string, unknown>).map(([k, v]) => [k, Number(v)]))
-    : null;
-  const tierBreaks: Record<string, number> = rawTierBreaks ?? computeTierBreaksFromAssignment(next, customTiers, playerCustomTier);
-  const customTagsList = Array.isArray(data.customTagsList)
-    ? data.customTagsList.map((t) => String(t).trim()).filter(Boolean)
-    : [];
-  const playerTags = data.playerTags && typeof data.playerTags === 'object' && !Array.isArray(data.playerTags)
-    ? (data.playerTags as Record<string, string[]>)
-    : {};
-  const normalizeScoutingUrl = (raw: unknown) => {
-    const url = raw !== undefined ? String(raw) : '';
-    if (!url || url === '/scouting-reports.json') return '/api/team-prospect-draftboard/scouting';
-    return url;
-  };
-
-  return {
-    players: next,
-    scoutingUrl: normalizeScoutingUrl(data.scoutingUrl),
-    customTiers,
-    tierBreaks,
-    customTagsList,
-    playerTags,
-    myPicks: typeof data.myPicks === 'string' ? data.myPicks : '',
-  };
+function Trend({trend}:{trend:ProspectTrend}) {
+  if(trend==='up') return <span className="font-bold text-emerald-400">↑ Rising</span>;
+  if(trend==='down') return <span className="font-bold text-red-300">↓ Falling</span>;
+  return <span className="text-[var(--muted)]">→ Baseline</span>;
 }
 
-function getFlagColors(p: Record<string, unknown>) {
-  if (p.target) return { color: C.target, bg: C.targetBg, border: `${C.target}55` };
-  if (p.unlikely) return { color: C.unlikely, bg: C.unlikelyBg, border: `${C.unlikely}55` };
-  if (p.noFit) return { color: C.noFit, bg: C.noFitBg, border: `${C.noFit}55` };
-  return { color: C.text, bg: C.panel, border: C.border };
-}
-
-function saveLocalBackup(data: unknown) {
-  if (typeof window === 'undefined') return;
-  try { window.localStorage.setItem(LOCAL_BACKUP_KEY, JSON.stringify(data)); } catch {}
-}
-function loadLocalBackup() {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(LOCAL_BACKUP_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-function ScoutingSection({
-  playerId,
-  scoutingUrl,
-  scoutingCache,
-  scoutingStatus,
-  scoutingError,
-}: {
-  playerId: string;
-  scoutingUrl: string;
-  scoutingCache: Record<string, unknown> | null;
-  scoutingStatus: string;
-  scoutingError: string;
-}) {
-  const renderParagraphs = (text: string) => {
-    const paragraphs = text.split(/\n\n+/).filter(Boolean);
-    if (paragraphs.length <= 1) return text;
-    return paragraphs.map((p, i) => (<React.Fragment key={i}>{i > 0 && <div style={{ height: '8px' }} />}<span>{p}</span></React.Fragment>));
-  };
-  const renderValue = (val: unknown): React.ReactNode => {
-    if (!val) return null;
-    if (Array.isArray(val)) return <ul style={{ margin: 0, paddingLeft: '18px' }}>{val.map((item, idx) => <li key={idx} style={{ marginBottom: '6px' }}>{renderParagraphs(String(item))}</li>)}</ul>;
-    if (typeof val === 'object') return <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: '12px', lineHeight: '1.45', color: C.textMuted }}>{JSON.stringify(val, null, 2)}</pre>;
-    return renderParagraphs(String(val));
-  };
-  if (!scoutingUrl) return <div style={{ fontSize: '12px', color: C.textDim, fontStyle: 'italic' }}>No scouting URL configured. Use settings to add a scouting JSON URL.</div>;
-  if (scoutingStatus === 'loading') return <div style={{ fontSize: '12px', color: C.textDim }}>Loading scouting reports...</div>;
-  if (scoutingStatus === 'error') return <div style={{ fontSize: '12px', color: C.unlikely, lineHeight: '1.5' }}>Failed to load scouting reports: {scoutingError}</div>;
-  if (scoutingStatus !== 'loaded') return <div style={{ fontSize: '12px', color: C.textDim }}>Scouting reports not loaded yet.</div>;
-  const rawData = scoutingCache?.[playerId];
-  if (!rawData) return <div style={{ fontSize: '12px', color: C.textDim, lineHeight: '1.5' }}>No scouting data found for player ID: <code>{playerId}</code></div>;
-  const data = typeof rawData === 'string' ? { shortReport: rawData } : (rawData as Record<string, unknown>);
-  if (data.shortReport || data.summary || data.report) return <div style={{ fontSize: '13px', lineHeight: '1.6', color: C.text }}>{renderValue(data.shortReport || data.summary || data.report)}</div>;
-  const sections = [['ATHLETIC PROFILE', data.athleticProfile], ['STRENGTHS', data.strengths], ['WEAKNESSES', data.weaknesses], ['NFL FIT', data.nflFit], ['COMP', data.comp], ['DYNASTY OUTLOOK', data.dynastyOutlook]].filter(([, v]) => v);
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      {Boolean(data.badgersFit) && <div style={{ padding: '10px 12px', background: `${C.primary}33`, border: `1px solid ${C.accent}88`, borderRadius: '4px' }}><div style={{ fontSize: '9.5px', letterSpacing: '2px', color: C.target, fontWeight: 700, marginBottom: '4px' }}>TEAM FIT NOTE</div><div style={{ fontSize: '13px', lineHeight: '1.55', color: C.text }}>{renderValue(data.badgersFit)}</div></div>}
-      {sections.map(([label, val]) => <div key={String(label)}><div style={{ fontSize: '9.5px', letterSpacing: '2px', color: C.accent, fontWeight: 700, marginBottom: '4px' }}>{String(label)}</div><div style={{ fontSize: '13px', lineHeight: '1.55', color: C.text }}>{renderValue(val)}</div></div>)}
-      {Boolean(data.verdict) && <div style={{ marginTop: '4px', padding: '10px 12px', background: `${C.primary}22`, border: `1px solid ${C.accent}55`, borderRadius: '3px' }}><div style={{ fontSize: '9.5px', letterSpacing: '2px', color: C.accent, fontWeight: 700, marginBottom: '4px' }}>VERDICT</div><div style={{ fontSize: '13px', lineHeight: '1.55', color: C.text }}>{renderValue(data.verdict)}</div></div>}
-    </div>
-  );
-}
-
-function toOrdinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
-
-function SettingsModal({ open, onClose, scoutingUrl, onSaveUrl, myPicks, onSavePicks }: { open: boolean; onClose: () => void; scoutingUrl: string; onSaveUrl: (url: string) => void; myPicks: string; onSavePicks: (picks: string) => void }) {
-  const [url, setUrl] = useState(scoutingUrl || '');
-  const [picks, setPicks] = useState(myPicks || '');
-  useEffect(() => { if (open) { setUrl(scoutingUrl || ''); setPicks(myPicks || ''); } }, [open, scoutingUrl, myPicks]);
-  if (!open) return null;
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: '6px', padding: '20px', width: '100%', maxWidth: '500px' }}>
-        <div style={{ fontSize: '14px', fontWeight: 700, color: C.accent, letterSpacing: '2px', marginBottom: '14px' }}>SETTINGS</div>
-        <div style={{ marginBottom: '6px', fontSize: '12px', color: C.textMuted }}>Scouting JSON URL</div>
-        <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="/scouting-reports.json" style={{ width: '100%', padding: '8px', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px' }} />
-        <div style={{ marginTop: '14px', marginBottom: '6px', fontSize: '12px', color: C.textMuted }}>My Draft Picks <span style={{ color: C.textDim }}>(comma-separated overall picks, e.g. 24, 58, 96)</span></div>
-        <input type="text" value={picks} onChange={(e) => setPicks(e.target.value)} placeholder="e.g. 24, 58, 96, 132" style={{ width: '100%', padding: '8px', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px' }} />
-        <div style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.textMuted, padding: '8px 14px', borderRadius: '3px', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={() => { onSaveUrl(url.trim()); onSavePicks(picks.trim()); onClose(); }} style={{ background: C.primary, border: `1px solid ${C.accent}`, color: C.text, padding: '8px 14px', borderRadius: '3px', cursor: 'pointer', fontWeight: 600 }}>Save</button>
-        </div>
-      </div>
-    </div>
-  );
+function flagStyle(p:BoardPlayer) {
+  if(p.target) return { background:C.targetBg, borderColor:`${C.target}55` };
+  if(p.unlikely) return { background:C.unlikelyBg, borderColor:`${C.unlikely}55` };
+  if(p.noFit) return { background:C.noFitBg, borderColor:`${C.noFit}55` };
+  return { background:C.panel, borderColor:C.border };
 }
 
 export default function TeamProspectDraftboard() {
-  const [players, setPlayers] = useState<BoardPlayer[]>(DEFAULT_PLAYERS);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saveStatus, setSaveStatus] = useState('');
-  const [saveError, setSaveError] = useState('');
-  const [scoutingUrl, setScoutingUrl] = useState('/api/team-prospect-draftboard/scouting');
-  const [scoutingCache, setScoutingCache] = useState<Record<string, unknown> | null>(null);
-  const [scoutingStatus, setScoutingStatus] = useState('no-url');
-  const [scoutingError, setScoutingError] = useState('');
-  const [teamName, setTeamName] = useState<string>('');
-  const [teamDraftPicks, setTeamDraftPicks] = useState<Array<{ label: string }>>([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [customTiers, setCustomTiers] = useState<string[]>([]);
-  const [tierBreaks, setTierBreaks] = useState<Record<string, number>>({});
-  const [draggedTierDiv, setDraggedTierDiv] = useState<string | null>(null);
-  const [newTierName, setNewTierName] = useState('');
-  const [customTagsList, setCustomTagsList] = useState<string[]>([]);
-  const [playerTags, setPlayerTags] = useState<Record<string, string[]>>({});
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
-  const [newTagName, setNewTagName] = useState('');
-  const [posFilter, setPosFilter] = useState('ALL');
-  const [search, setSearch] = useState('');
-  const [boardView, setBoardView] = useState<'board' | 'notes' | 'mock'>('board');
-  const [myPicks, setMyPicks] = useState('');
-  const [mockDraftOrder, setMockDraftOrder] = useState<string[]>([]);
-  const [mockDraftSlots, setMockDraftSlots] = useState<Array<{ round: number; slot: number; ownerTeam: string }>>([]);
-  const [collapsedTiers, setCollapsedTiers] = useState<Record<string, boolean>>({});
-  const canEdit = isAuthenticated;
+  const [players,setPlayers] = useState<BoardPlayer[]>(cloneInitial);
+  const [loading,setLoading] = useState(true);
+  const [saveStatus,setSaveStatus] = useState('');
+  const [expandedId,setExpandedId] = useState<string|null>(null);
+  const [search,setSearch] = useState('');
+  const [position,setPosition] = useState('ALL');
+  const [hideNoFit,setHideNoFit] = useState(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>|null>(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const authRes = await fetch('/api/auth/me', { cache: 'no-store' });
-        const authJson = await authRes.json().catch(() => ({} as { authenticated?: boolean; claims?: Record<string, unknown> }));
-        const authenticated = Boolean(authJson?.authenticated);
-        setIsAuthenticated(authenticated);
-        if (authenticated && typeof authJson?.claims?.team === 'string') setTeamName(authJson.claims.team);
-        if (!authenticated) {
-          setPlayers(DEFAULT_PLAYERS.map((p) => ({ ...p })));
-          setScoutingUrl('/api/team-prospect-draftboard/scouting');
-          setSaveError('');
-          setLoading(false);
-          return;
-        }
-
-        const res = await fetch(BOARD_API_URL, { method: 'GET', headers: { Accept: 'application/json' }, cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = await res.json();
-        const applied = applySavedBoardData((body?.data || {}) as Record<string, unknown>);
-        setPlayers(applied.players);
-        setScoutingUrl(applied.scoutingUrl);
-        setCustomTiers(applied.customTiers);
-        setTierBreaks(applied.tierBreaks || {});
-        setCustomTagsList(applied.customTagsList || []);
-        setPlayerTags(applied.playerTags || {});
-        setMyPicks(applied.myPicks || '');
-        if (typeof body?.team === 'string') setTeamName(body.team);
-        saveLocalBackup(body?.data || {});
-        setSaveError('');
-      } catch (remoteError) {
-        const backup = loadLocalBackup();
-        const applied = backup ? applySavedBoardData(backup) : null;
-        setPlayers(applied ? applied.players : DEFAULT_PLAYERS.map((p) => ({ ...p })));
-        setScoutingUrl(applied ? applied.scoutingUrl : '/api/team-prospect-draftboard/scouting');
-        setCustomTiers(applied?.customTiers || []);
-        setTierBreaks(applied?.tierBreaks || {});
-        setCustomTagsList(applied?.customTagsList || []);
-        setPlayerTags(applied?.playerTags || {});
-        setMyPicks(applied?.myPicks || '');
-        setSaveError(`Remote sync unavailable. ${String((remoteError as Error)?.message || '')}`.trim());
-      }
-      setLoading(false);
-      setTimeout(() => setSaveError(''), 7000);
-    })();
-  }, []);
+    let cancelled=false;
+    (async()=>{ try { const r=await fetch(BOARD_API_URL,{cache:'no-store'}); if(!r.ok) throw new Error(); const body=await r.json(); if(!cancelled) setPlayers(applySavedBoard((body?.data||null) as SavedBoard|null)); } catch { if(!cancelled) setPlayers(cloneInitial()); } finally { if(!cancelled) setLoading(false); } })();
+    return()=>{cancelled=true;};
+  },[]);
 
   useEffect(() => {
-    if (!scoutingUrl) { setScoutingCache(null); setScoutingStatus('no-url'); setScoutingError(''); return; }
-    let cancelled = false;
-    const controller = new AbortController();
-    const loadScouting = async () => {
-      setScoutingStatus('loading');
-      setScoutingError('');
-      try {
-        const res = await fetch(scoutingUrl, { cache: 'no-store', signal: controller.signal });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const text = await res.text();
-        const json = JSON.parse(text);
-        let playersBlock = json.players || json;
-        if (Array.isArray(playersBlock)) playersBlock = Object.fromEntries(playersBlock.filter((item) => item && item.id).map((item) => [item.id, item]));
-        if (!playersBlock || typeof playersBlock !== 'object' || Array.isArray(playersBlock)) throw new Error('Scouting JSON must be an object or { "players": { ... } }.');
-        if (!cancelled) { setScoutingCache(playersBlock); setScoutingStatus('loaded'); }
-      } catch (e: unknown) {
-        if ((e as { name?: string })?.name === 'AbortError') return;
-        if (!cancelled) { setScoutingCache(null); setScoutingStatus('error'); setScoutingError((e as Error)?.message || 'Unknown scouting fetch error'); }
-      }
-    };
-    loadScouting();
-    return () => { cancelled = true; controller.abort(); };
-  }, [scoutingUrl]);
+    if(loading) return;
+    if(saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current=setTimeout(async()=>{ try { const r=await fetch(BOARD_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:serialize(players)})}); setSaveStatus(r.ok?'Saved':'Local view only'); } catch { setSaveStatus('Local view only'); } setTimeout(()=>setSaveStatus(''),1600); },700);
+    return()=>{ if(saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
+  },[players,loading]);
 
-  useEffect(() => {
-    if (!teamName) return;
-    fetch('/api/draft/next-order')
-      .then(r => r.json())
-      .then((data: { roundsData?: Array<{ round: number; picks: Array<{ slot: number; ownerTeam: string }> }> }) => {
-        const result: Array<{ label: string }> = [];
-        for (const rd of (data.roundsData || [])) {
-          for (const pk of rd.picks) {
-            if (pk.ownerTeam.toLowerCase() === teamName.toLowerCase()) {
-              result.push({ label: `${rd.round}.${String(pk.slot).padStart(2, '0')}` });
-            }
-          }
-        }
-        setTeamDraftPicks(result);
-      })
-      .catch(() => {});
-  }, [teamName]);
+  const filtered=useMemo(()=>{ const q=search.trim().toLowerCase(); return players.filter((p)=>{ if(hideNoFit&&p.noFit) return false; if(position!=='ALL'&&p.pos!==position) return false; return !q || `${p.name} ${p.college} ${p.pos}`.toLowerCase().includes(q); }); },[players,position,search,hideNoFit]);
+  const rankById=useMemo(()=>new Map(players.map((p,i)=>[p.id,i+1])),[players]);
 
-  useEffect(() => {
-    if (loading || !canEdit) return;
-    const t = setTimeout(async () => {
-      const boardData = buildBoardData(players, scoutingUrl, customTiers, tierBreaks, myPicks, customTagsList, playerTags);
-      saveLocalBackup(boardData);
-      try {
-        const res = await fetch(BOARD_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ data: boardData }) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setSaveStatus('Synced');
-        setSaveError('');
-        setTimeout(() => setSaveStatus(''), 1500);
-      } catch (e) {
-        setSaveStatus('Saved locally');
-        setSaveError(`Remote sync failed: ${(e as Error)?.message || 'unknown'}`);
-        setTimeout(() => setSaveStatus(''), 2000);
-        setTimeout(() => setSaveError(''), 6000);
-      }
-    }, 600);
-    return () => clearTimeout(t);
-  }, [players, scoutingUrl, loading, canEdit, customTiers, tierBreaks, myPicks, customTagsList, playerTags]);
+  const move=(id:string,direction:-1|1)=>setPlayers((current)=>{ const i=current.findIndex((p)=>p.id===id), n=i+direction; if(i<0||n<0||n>=current.length) return current; const next=[...current]; [next[i],next[n]]=[next[n],next[i]]; return next; });
+  const setFlag=(id:string,flag:'target'|'unlikely'|'noFit')=>setPlayers((current)=>current.map((p)=>{ if(p.id!==id) return p; const v=!p[flag]; return {...p,target:flag==='target'?v:false,unlikely:flag==='unlikely'?v:false,noFit:flag==='noFit'?v:false}; }));
+  const reset=()=>{ if(!window.confirm('Reset your 2027 prospect board to the current preseason baseline?')) return; setPlayers(cloneInitial()); setExpandedId(null); };
 
-  const toggleExpand = (id: string) => setExpandedId((prev) => prev === id ? null : id);
-  const updatePlayer = (id: string, patch: Record<string, unknown>) => setPlayers((prev) => prev.map((p) => p.id === id ? { ...p, ...patch } : p));
-  const toggleFlag = (id: string, flag: string) => {
-    if (!canEdit) return;
-    setPlayers((prev) => prev.map((p) => p.id === id ? { ...p, [flag]: !p[flag as keyof typeof p] } : p));
-  };
-  const moveByOne = (idx: number, direction: number) => {
-    if (!canEdit) return;
-    setPlayers((prev) => {
-      const arr = [...prev];
-      const targetIdx = idx + direction;
-      if (targetIdx < 0 || targetIdx >= arr.length) return prev;
-      const player = arr[idx];
-      const neighbor = arr[targetIdx];
-      const newPlayer = { ...player };
-      if (neighbor.tier !== player.tier) newPlayer.tier = neighbor.tier;
-      arr[idx] = arr[targetIdx];
-      arr[targetIdx] = newPlayer;
-      return arr;
-    });
-  };
-  const onDrop = (e: React.DragEvent, targetId: string) => {
-    if (!canEdit) return;
-    e.preventDefault();
-    if (!draggedId || draggedId === targetId) { setDraggedId(null); setDragOverId(null); return; }
-    setPlayers((prev) => {
-      const fromIdx = prev.findIndex((p) => p.id === draggedId);
-      const toIdx = prev.findIndex((p) => p.id === targetId);
-      if (fromIdx === -1 || toIdx === -1) return prev;
-      const arr = [...prev];
-      const [item] = arr.splice(fromIdx, 1);
-      const destTier = arr[Math.min(toIdx, arr.length - 1)]?.tier ?? item.tier;
-      arr.splice(toIdx, 0, { ...item, tier: destTier });
-      return arr;
-    });
-    setDraggedId(null);
-    setDragOverId(null);
-  };
-  const reset = () => {
-    if (!canEdit) return;
-    if (!confirm('Reset all rankings, notes, and flags to NFL draft-order defaults? Cannot be undone.')) return;
-    setPlayers(DEFAULT_PLAYERS.map((p) => ({ ...p })));
-    setScoutingUrl('/api/team-prospect-draftboard/scouting');
-    setScoutingCache(null);
-    setScoutingStatus('loading');
-    setScoutingError('');
-    setCustomTiers([]);
-    setTierBreaks({});
-    setCustomTagsList([]);
-    setPlayerTags({});
-    setTagFilter(null);
-    setMyPicks('');
-    setMockDraftOrder([]);
-    setMockDraftSlots([]);
-  };
+  if(loading) return <div className="rounded-xl border border-[var(--border)] p-8 text-center text-sm text-[var(--muted)]">Loading 2027 prospect board...</div>;
 
-  const togglePlayerTag = (id: string, tag: string) => {
-    if (!canEdit) return;
-    setPlayerTags(prev => { const cur = prev[id] || []; return { ...prev, [id]: cur.includes(tag) ? cur.filter(t => t !== tag) : [...cur, tag] }; });
-  };
-
-  const boardFileName = () => (teamName ? `${teamName}-prospect-draft-board` : 'prospect-draft-board').replace(/\s+/g, '-').toLowerCase();
-
-  const exportJSON = () => {
-    if (!canEdit) return;
-    const boardData = buildBoardData(players, scoutingUrl, customTiers, tierBreaks, myPicks, customTagsList, playerTags);
-    const blob = new Blob([JSON.stringify(boardData, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${boardFileName()}.json`; a.click();
-  };
-
-  const exportCSV = () => {
-    if (!canEdit) return;
-    const ranked = players.map((p, i) => ({ ...p, _rank: i + 1 }));
-    const headers = ['Rank', 'Name', 'Position', 'NFL Team', 'College', 'NFL Pick', 'Tags', 'Target', 'Monitor', 'Avoid', 'Tier', 'Notes'];
-    const rows = ranked.map((p) => {
-      const pId = String(p.id);
-      const i = p._rank - 1;
-      let tier = ''; let bestBreak = -1;
-      for (const t of customTiers) { const b = tierBreaks[t] ?? -1; if (b >= 0 && b <= i && b > bestBreak) { bestBreak = b; tier = t; } }
-      return [String(p._rank), String(p.name), String(p.pos), String(p.team), String(p.college), String(p.pick), (playerTags[pId] || []).join('; '), p.target ? 'Yes' : '', p.unlikely ? 'Yes' : '', p.noFit ? 'Yes' : '', tier, String(p.userNote || '')].map(v => `"${v.replace(/"/g, '""')}"`).join(',');
-    });
-    const csv = [headers.map(h => `"${h}"`).join(','), ...rows].join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${boardFileName()}.csv`; a.click();
-  };
-
-  const exportExcel = () => {
-    if (!canEdit) return;
-    const ranked = players.map((p, i) => ({ ...p, _rank: i + 1 }));
-    const rows = ranked.map((p) => {
-      const pId = String(p.id);
-      const i = p._rank - 1;
-      let tier = ''; let bestBreak = -1;
-      for (const t of customTiers) { const b = tierBreaks[t] ?? -1; if (b >= 0 && b <= i && b > bestBreak) { bestBreak = b; tier = t; } }
-      return { Rank: p._rank, Name: String(p.name), Position: String(p.pos), 'NFL Team': String(p.team), College: String(p.college), 'NFL Pick': Number(p.pick), Tags: (playerTags[pId] || []).join(', '), Target: p.target ? 'Yes' : '', Monitor: p.unlikely ? 'Yes' : '', Avoid: p.noFit ? 'Yes' : '', Tier: tier, Notes: String(p.userNote || '') };
-    });
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Draft Board');
-    XLSX.writeFile(wb, `${boardFileName()}.xlsx`);
-  };
-
-  if (loading) return <div style={{ minHeight: '50vh', background: C.bg, color: C.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Georgia, serif' }}>Loading draft board...</div>;
-
-  const posRankMap = (() => {
-    const byPos: Record<string, Array<{ id: string; pick: number }>> = {};
-    for (const p of players) {
-      if (!byPos[p.pos]) byPos[p.pos] = [];
-      byPos[p.pos].push({ id: p.id, pick: p.pick });
-    }
-    const result: Record<string, number> = {};
-    for (const posGroup of Object.values(byPos)) {
-      posGroup.sort((a, b) => parsePick(a.pick) - parsePick(b.pick));
-      posGroup.forEach((p, i) => { result[p.id] = i + 1; });
-    }
-    return result;
-  })();
-
-  const rankedPlayers = players.map((p, idx) => ({ ...p, _absIdx: idx }));
-  const title = teamName ? `${teamName} Prospect Draft Board` : 'Team Prospect Draft Board';
-  const notedPlayers = rankedPlayers.filter(p => p.userNote && String(p.userNote).trim());
-  const filteredPlayers = rankedPlayers.filter(p => {
-    if (posFilter !== 'ALL' && p.pos !== posFilter) return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      return String(p.name).toLowerCase().includes(q) || String(p.team).toLowerCase().includes(q) || String(p.college).toLowerCase().includes(q);
-    }
-    return true;
-  });
-  const tagFilteredPlayers = tagFilter ? filteredPlayers.filter(p => (playerTags[String(p.id)] || []).includes(tagFilter)) : filteredPlayers;
-  const playersToShow = boardView === 'notes' ? notedPlayers : tagFilteredPlayers;
-
-  return (
-    <div style={{ minHeight: '100vh', width: '100%', background: C.bg, color: C.text, fontFamily: '"Georgia", "Times New Roman", serif', paddingBottom: '60px', overflowY: 'auto' }}>
-      <div style={{ position: 'sticky', top: 0, zIndex: 10, background: `${C.bg}f0`, backdropFilter: 'blur(8px)', borderBottom: `1px solid ${C.border}`, padding: '12px 14px' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-            <div><div style={{ fontSize: '19px', fontWeight: 700, color: C.text, letterSpacing: '1.5px', lineHeight: 1.1 }}>{title}</div><div style={{ fontSize: '10px', color: C.accent, letterSpacing: '2.5px', marginTop: '3px' }}>2026 PROSPECT DRAFT BOARD{boardView === 'mock' ? <span style={{ color: C.warning, marginLeft: '8px' }}>· MOCK DRAFT MODE</span> : null}</div></div>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {saveStatus && <span style={{ fontSize: '11px', color: C.accent, display: 'flex', alignItems: 'center', gap: '4px' }}><Save size={12} /> {saveStatus}</span>}
-              {saveError && <span style={{ fontSize: '11px', color: C.unlikely }}>{saveError}</span>}
-              {canEdit && <button onClick={reset} title="Reset to NFL draft order" style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.textMuted, padding: '6px 10px', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}><RotateCcw size={12} /></button>}
-              {canEdit && <button onClick={exportJSON} title="Download JSON (full board backup)" style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.textMuted, padding: '6px 10px', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', letterSpacing: '1px' }}><Download size={12} /> JSON</button>}
-              {canEdit && <button onClick={exportCSV} title="Download CSV" style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.textMuted, padding: '6px 10px', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', letterSpacing: '1px' }}><Download size={12} /> CSV</button>}
-              {canEdit && <button onClick={exportExcel} title="Download Excel (.xlsx)" style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.textMuted, padding: '6px 10px', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', letterSpacing: '1px' }}><Download size={12} /> XLSX</button>}
-              <button onClick={() => window.print()} title="Print / Save as PDF" style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.textMuted, padding: '6px 10px', borderRadius: '3px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}><Printer size={12} /></button>
-            </div>
-          </div>
-          {teamDraftPicks.length > 0 && (
-            <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: '9.5px', color: C.textDim, letterSpacing: '2px', fontWeight: 700 }}>MY PICKS</span>
-              {teamDraftPicks.map(pk => <span key={pk.label} style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '3px', background: `${C.primary}33`, border: `1px solid ${C.accent}44`, color: C.accent, fontFamily: 'monospace' }}>{pk.label}</span>)}
-            </div>
-          )}
-        </div>
+  return <div className="space-y-4">
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div><div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent)]">League Prospect Scouting · Superflex</div><h2 className="mt-1 text-2xl font-black">{BOARD_LABEL}</h2><p className="mt-2 max-w-3xl text-sm leading-relaxed text-[var(--muted)]">Expanded preseason board with college production, NFL-draft projection, strengths, concerns and a dynasty-specific scouting outlook.</p></div>
+        <div className="flex flex-wrap items-center gap-2">{saveStatus?<span className="text-xs text-[var(--muted)]"><Save className="mr-1 inline h-3.5 w-3.5" />{saveStatus}</span>:null}<span className="rounded-full border border-[var(--border)] px-2.5 py-1 text-xs font-bold text-[var(--muted)]">{players.length} prospects</span><button type="button" onClick={reset} className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-bold hover:bg-white/5"><RotateCcw className="h-3.5 w-3.5" /> Reset</button></div>
       </div>
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '14px' }}>
-        {scoutingStatus === 'error' && <div style={{ padding: '10px 12px', marginBottom: '14px', background: `${C.warning}1a`, border: `1px solid ${C.warning}55`, borderRadius: '4px', fontSize: '12px', color: C.warning, lineHeight: '1.5', display: 'flex', alignItems: 'flex-start', gap: '8px' }}><AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} /><div><strong>Scouting reports failed to load.</strong> {scoutingError}.</div></div>}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', borderBottom: `1px solid ${C.border}`, paddingBottom: '10px', flexWrap: 'wrap' }}>
-          {((['board', ...(canEdit ? ['notes', 'mock'] : [])]) as Array<'board' | 'notes' | 'mock'>).map(v => {
-            const labels: Record<string, string> = { board: 'BOARD', notes: `MY NOTES${notedPlayers.length > 0 ? ` (${notedPlayers.length})` : ''}`, mock: 'MOCK DRAFT' };
-            return (
-              <button key={v} onClick={() => {
-                setBoardView(v);
-                if (v === 'mock' && boardView !== 'mock') {
-                  setMockDraftOrder([]);
-                  fetch('/api/draft/next-order').then(r => r.json()).then((data: { roundsData?: Array<{ round: number; picks: Array<{ slot: number; ownerTeam: string }> }> }) => {
-                    const slots = (data.roundsData || []).flatMap(rd => rd.picks.map(pk => ({ round: rd.round, slot: pk.slot, ownerTeam: pk.ownerTeam }))).sort((a, b) => a.round !== b.round ? a.round - b.round : a.slot - b.slot);
-                    setMockDraftSlots(slots);
-                  }).catch(() => setMockDraftSlots([]));
-                } else if (v !== 'mock') {
-                  setMockDraftOrder([]);
-                  setMockDraftSlots([]);
-                }
-              }}
-                style={{ background: boardView === v ? `${C.primary}44` : 'transparent', border: `1px solid ${boardView === v ? C.primary : C.border}`, color: boardView === v ? C.accent : C.textMuted, padding: '6px 14px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', letterSpacing: '1.5px', fontWeight: boardView === v ? 700 : 400 }}>
-                {labels[v]}
-              </button>
-            );
-          })}
-        </div>
-        {boardView !== 'notes' && (
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ position: 'relative', flex: '1', minWidth: '160px' }}>
-              <Search size={13} style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: C.textDim, pointerEvents: 'none' }} />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search players..." style={{ width: '100%', paddingLeft: '28px', padding: '7px 8px 7px 28px', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: '4px', fontSize: '12px' }} />
-            </div>
-            {['ALL','QB','RB','WR','TE','K'].map(pos => (
-              <button key={pos} onClick={() => setPosFilter(pos)}
-                style={{ background: posFilter === pos ? `${(POS_COLORS[pos] || C.primary)}33` : 'transparent', border: `1px solid ${posFilter === pos ? (POS_COLORS[pos] || C.primary) : C.border}`, color: posFilter === pos ? (POS_COLORS[pos] || C.accent) : C.textMuted, padding: '6px 12px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', letterSpacing: '1px', fontWeight: posFilter === pos ? 700 : 400 }}>
-                {pos}
-              </button>
-            ))}
-          </div>
-        )}
-        {boardView !== 'mock' && customTagsList.length > 0 && (
-          <div style={{ marginBottom: '12px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: '9px', color: C.textDim, letterSpacing: '1.5px', fontWeight: 700 }}>FILTER BY TAG:</span>
-            {tagFilter && <button onClick={() => setTagFilter(null)} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '3px', background: 'transparent', border: `1px solid ${C.border}`, color: C.textMuted, cursor: 'pointer', letterSpacing: '1px' }}>CLEAR ×</button>}
-            {customTagsList.map(tag => {
-              const count = rankedPlayers.filter(p => (playerTags[String(p.id)] || []).includes(tag)).length;
-              const isActive = tagFilter === tag;
-              return (
-                <button key={tag} onClick={() => setTagFilter(isActive ? null : tag)} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '3px', background: isActive ? `${C.accent}22` : 'transparent', border: `1px solid ${isActive ? C.accent : C.border}`, color: isActive ? C.accent : C.textMuted, cursor: 'pointer', letterSpacing: '1px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <Tag size={9} />{tag}{count > 0 ? ` (${count})` : ''}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        {boardView === 'mock' && (
-          <div style={{ padding: '10px 12px', marginBottom: '12px', background: `${C.warning}1a`, border: `1px solid ${C.warning}55`, borderRadius: '4px', fontSize: '12px', color: C.warning, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-            <span><strong>Mock Draft Mode</strong> — click DRAFT on any card to simulate picking. Picks reset on exit.</span>
-            <button onClick={() => { setBoardView('board'); setMockDraftOrder([]); setMockDraftSlots([]); }} style={{ background: 'transparent', border: `1px solid ${C.warning}88`, color: C.warning, padding: '4px 10px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', whiteSpace: 'nowrap' }}>Exit Mock</button>
-          </div>
-        )}
-        <div style={{ padding: '10px 12px', background: `${C.primary}14`, border: `1px solid ${C.border}`, borderRadius: '4px', marginBottom: '14px', fontSize: '12px', color: C.textMuted, lineHeight: '1.7' }}>
-          <strong style={{ color: C.accent }}>Flags (toggle independently):</strong><br />
-          <span style={{ color: C.target }}>✓ green</span> = Target · <span style={{ color: C.unlikely }}>👁 amber</span> = Monitor · <span style={{ color: C.noFit }}>✕ red</span> = Avoid
-          <br />
-          <span style={{ color: C.textDim, fontSize: '11px' }}>
-            {canEdit ? 'Use ↑↓ or drag/drop to reorder. Tap a name to expand for scouting, notes, and custom tier assignment.' : 'Read-only while signed out. Sign in to save private rankings, flags, notes, and custom tiers.'}
-          </span>
-        </div>
-        {canEdit && (
-          <div style={{ marginBottom: '14px', padding: '10px 12px', background: `${C.primary}14`, border: `1px solid ${C.border}`, borderRadius: '4px' }}>
-            <div style={{ fontSize: '10px', letterSpacing: '2px', color: C.accent, fontWeight: 700, marginBottom: '8px' }}>CUSTOM TIERS</div>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-              <input
-                value={newTierName}
-                onChange={(e) => setNewTierName(e.target.value)}
-                placeholder="Add a tier name (e.g., Tier A)"
-                style={{ flex: 1, padding: '8px', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: '4px', fontSize: '12px' }}
-              />
-              <button
-                onClick={() => {
-                  const nextTier = newTierName.trim();
-                  if (!nextTier || customTiers.includes(nextTier)) return;
-                  setCustomTiers((prev) => [...prev, nextTier]);
-                  setNewTierName('');
-                }}
-                style={{ background: `${C.primary}99`, border: `1px solid ${C.primary}`, color: C.text, borderRadius: '4px', padding: '8px 10px', fontSize: '12px', cursor: 'pointer' }}
-              >
-                Add
-              </button>
-            </div>
-            {customTiers.length > 0 && (
-              <div>
-                <div style={{ fontSize: '9px', color: C.textDim, letterSpacing: '1.5px', marginBottom: '5px' }}>DRAG DIVIDERS ONTO BOARD TO PLACE · DRAG ON BOARD TO REPOSITION</div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {customTiers.map((tier) => {
-                    const isPlaced = (tierBreaks[tier] ?? -1) >= 0;
-                    return (
-                      <span key={tier} draggable onDragStart={() => setDraggedTierDiv(tier)} onDragEnd={() => setDraggedTierDiv(null)} title={isPlaced ? `Drag to reposition "${tier}"` : `Drag onto board to place "${tier}"`} style={{ fontSize: '11px', border: `1px solid ${isPlaced ? C.accent : C.border}`, borderRadius: '999px', padding: '2px 8px 2px 6px', color: isPlaced ? C.accent : C.textMuted, cursor: 'grab', display: 'inline-flex', alignItems: 'center', gap: '4px', userSelect: 'none' }}>
-                        <span style={{ fontSize: '12px', color: C.textDim, lineHeight: 1 }}>⠿</span>
-                        {tier}
-                        {!isPlaced && <span style={{ fontSize: '9px', color: C.textDim }}>· place</span>}
-                        <button onClick={(e) => { e.stopPropagation(); setCustomTiers(prev => prev.filter(t => t !== tier)); setTierBreaks(prev => { const n = { ...prev }; delete n[tier]; return n; }); }} style={{ background: 'transparent', border: 'none', color: C.textDim, cursor: 'pointer', padding: '0 0 0 3px', fontSize: '13px', lineHeight: 1 }}>×</button>
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {canEdit && (
-          <div style={{ marginBottom: '14px', padding: '10px 12px', background: `${C.primary}14`, border: `1px solid ${C.border}`, borderRadius: '4px' }}>
-            <div style={{ fontSize: '10px', letterSpacing: '2px', color: C.accent, fontWeight: 700, marginBottom: '8px' }}>CUSTOM TAGS</div>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: customTagsList.length > 0 ? '8px' : '0' }}>
-              <input value={newTagName} onChange={(e) => setNewTagName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { const t = newTagName.trim(); if (t && !customTagsList.includes(t)) { setCustomTagsList(prev => [...prev, t]); setNewTagName(''); } } }} placeholder="Add a tag (e.g., Targets, Watch List)" style={{ flex: 1, padding: '8px', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: '4px', fontSize: '12px' }} />
-              <button onClick={() => { const t = newTagName.trim(); if (!t || customTagsList.includes(t)) return; setCustomTagsList(prev => [...prev, t]); setNewTagName(''); }} style={{ background: `${C.primary}99`, border: `1px solid ${C.primary}`, color: C.text, borderRadius: '4px', padding: '8px 10px', fontSize: '12px', cursor: 'pointer' }}>Add</button>
-            </div>
-            {customTagsList.length > 0 && (
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {customTagsList.map(tag => {
-                  const count = rankedPlayers.filter(p => (playerTags[String(p.id)] || []).includes(tag)).length;
-                  return (
-                    <span key={tag} style={{ fontSize: '11px', border: `1px solid ${C.border}`, borderRadius: '999px', padding: '2px 8px 2px 10px', color: C.accent, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                      <Tag size={10} />{tag}{count > 0 && <span style={{ color: C.textDim, fontSize: '10px' }}>({count})</span>}
-                      <button onClick={() => { setCustomTagsList(prev => prev.filter(t => t !== tag)); setPlayerTags(prev => { const n = { ...prev }; Object.keys(n).forEach(id => { n[id] = (n[id] || []).filter(t => t !== tag); }); return n; }); if (tagFilter === tag) setTagFilter(null); }} style={{ background: 'transparent', border: 'none', color: C.textDim, cursor: 'pointer', padding: '0', fontSize: '13px', lineHeight: 1 }}>×</button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-        {playersToShow.length === 0 && (
-          <div style={{ padding: '30px', textAlign: 'center', color: C.textDim, fontSize: '13px', border: `1px dashed ${C.border}`, borderRadius: '4px' }}>
-            {boardView === 'notes' ? 'No notes yet — expand a player and write notes to see them here.' : 'No players match your search or filter.'}
-          </div>
-        )}
-        {(() => {
-          return playersToShow.flatMap((p) => {
-            const pId = String(p.id);
-            const rank = rankedPlayers.findIndex(rp => rp.id === p.id) + 1;
-            const rankIdx = rank - 1;
-            const items: React.ReactNode[] = [];
-            if (boardView === 'board') {
-              for (const tierName of customTiers) {
-                if ((tierBreaks[tierName] ?? -1) === rankIdx) {
-                  const isCollapsed = !!collapsedTiers[tierName];
-                  const tierDivId = `tier-${tierName}`;
-                  items.push(
-                    <div key={tierDivId}
-                      draggable={canEdit}
-                      onDragStart={(e) => { e.stopPropagation(); setDraggedTierDiv(tierName); }}
-                      onDragEnd={() => { setDraggedTierDiv(null); setDragOverId(null); }}
-                      onClick={() => setCollapsedTiers(prev => ({ ...prev, [tierName]: !prev[tierName] }))}
-                      onDragOver={(e) => { if (!canEdit) return; e.preventDefault(); if (dragOverId !== tierDivId) setDragOverId(tierDivId); }}
-                      onDrop={(e) => { e.preventDefault(); if (draggedTierDiv && draggedTierDiv !== tierName) { setTierBreaks(prev => ({ ...prev, [draggedTierDiv]: rankIdx })); setDraggedTierDiv(null); } else if (!draggedTierDiv && draggedId) { onDrop(e, pId); } setDragOverId(null); }}
-                      onDragLeave={() => { if (dragOverId === tierDivId) setDragOverId(null); }}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 12px', margin: '10px 0 3px 0', background: dragOverId === tierDivId ? `${C.accent}22` : `${C.primary}22`, border: `2px solid ${dragOverId === tierDivId ? C.accent : `${C.primary}44`}`, borderRadius: '3px', cursor: canEdit ? 'grab' : 'pointer', userSelect: 'none', transition: 'border-color 0.1s, background 0.1s' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {canEdit && <span style={{ fontSize: '13px', color: C.textDim }}>⠿</span>}
-                        <span style={{ fontSize: '10px', letterSpacing: '2px', color: C.accent, fontWeight: 700 }}>{tierName}</span>
-                      </div>
-                      <span style={{ color: C.accent, fontSize: '11px' }}>{isCollapsed ? '▶ SHOW' : '▼ HIDE'}</span>
-                    </div>
-                  );
-                }
-              }
-            }
-            const assignedTier = (() => {
-              if (boardView !== 'board') return '';
-              let best = ''; let bestBreak = -1;
-              for (const t of customTiers) { const b = tierBreaks[t] ?? -1; if (b >= 0 && b <= rankIdx && b > bestBreak) { bestBreak = b; best = t; } }
-              return best;
-            })();
-            if (boardView === 'board' && assignedTier && collapsedTiers[assignedTier]) return items;
-            const isMockDrafted = boardView === 'mock' && mockDraftOrder.includes(pId);
-            const mockPickIdx = isMockDrafted ? mockDraftOrder.indexOf(pId) : -1;
-            const mockPickNum = mockPickIdx + 1;
-            const mockSlot = mockPickIdx >= 0 ? mockDraftSlots[mockPickIdx] : null;
-            const mockPickLabel = mockSlot ? `${mockSlot.round}.${String(mockSlot.slot).padStart(2, '0')}` : '';
-            const mockTeamLabel = mockSlot?.ownerTeam || '';
-            const isExpanded = expandedId === p.id;
-            const idx = p._absIdx;
-            const flagColors = getFlagColors(p);
-            items.push(
-              <div key={pId} draggable={canEdit && boardView !== 'mock'} onDragStart={() => setDraggedId(pId)} onDragOver={(e) => { if (!canEdit || boardView === 'mock') return; e.preventDefault(); if (!draggedTierDiv && dragOverId !== p.id) setDragOverId(pId); }} onDrop={(e) => { if (draggedTierDiv) { setTierBreaks(prev => ({ ...prev, [draggedTierDiv]: rankIdx })); setDraggedTierDiv(null); setDragOverId(null); e.preventDefault(); } else { onDrop(e, pId); } }} onDragEnd={() => { setDraggedId(null); setDragOverId(null); }} style={{ background: isMockDrafted ? C.bg : flagColors.bg, border: `1px solid ${isMockDrafted ? C.border : flagColors.border}`, borderRadius: '4px', marginBottom: '5px', opacity: isMockDrafted ? 0.3 : (draggedId === p.id ? 0.4 : 1), position: 'relative' }}>
-                {isMockDrafted && <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 2, pointerEvents: 'none', gap: '3px' }}>
-                  {(mockTeamLabel || mockPickLabel) && <div style={{ fontSize: '11px', color: C.warning, fontWeight: 700, background: `${C.bg}e0`, padding: '1px 10px', borderRadius: '3px' }}>{mockTeamLabel}{mockPickLabel ? ` • ${mockPickLabel}` : ''}</div>}
-                  <div style={{ fontSize: '9px', letterSpacing: '3px', color: C.textDim, fontWeight: 700, background: `${C.bg}cc`, padding: '2px 10px', borderRadius: '3px' }}>{toOrdinal(mockPickNum)} OVERALL · DRAFTED</div>
-                </div>}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '10px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <button disabled={!canEdit} onClick={() => moveByOne(idx, -1)} aria-label="Up" style={{ background: 'transparent', border: 'none', color: flagColors.color !== C.text ? flagColors.color : C.accent, cursor: canEdit ? 'pointer' : 'default', padding: '2px', display: 'flex', opacity: canEdit ? 1 : 0.4 }}><ChevronUp size={16} /></button>
-                    <button disabled={!canEdit} onClick={() => moveByOne(idx, 1)} aria-label="Down" style={{ background: 'transparent', border: 'none', color: flagColors.color !== C.text ? flagColors.color : C.accent, cursor: canEdit ? 'pointer' : 'default', padding: '2px', display: 'flex', opacity: canEdit ? 1 : 0.4 }}><ChevronDown size={16} /></button>
-                  </div>
-                  <div style={{ fontSize: '17px', fontWeight: 700, color: flagColors.color !== C.text ? flagColors.color : C.accent, minWidth: '28px', textAlign: 'center' }}>{rank}</div>
-                  <div onClick={() => toggleExpand(pId)} style={{ flex: 1, cursor: 'pointer', minWidth: 0 }}>
-                    <div style={{ fontSize: '15px', fontWeight: 600, color: flagColors.color }}>{String(p.name)}</div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '3px', flexWrap: 'wrap' }}>
-                      <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '3px', fontSize: '11px', fontWeight: 700, color: 'white', letterSpacing: '0.5px', background: POS_COLORS[String(p.pos)] || '#666', opacity: (p.unlikely || p.noFit) && !p.target ? 0.6 : 1 }}>{String(p.pos)}</span>
-                      <span style={{ fontSize: '12px', color: flagColors.color !== C.text ? flagColors.color : C.textMuted }}>{String(p.team)}</span>
-                      <span style={{ fontSize: '11px', color: flagColors.color !== C.text ? `${flagColors.color}aa` : C.textDim }}>· {String(p.college)}</span>
-                      <span style={{ fontSize: '11px', color: flagColors.color !== C.text ? `${flagColors.color}aa` : C.textDim }}>· {String(p.pos)} {posRankMap[pId] ?? ''} · Pick #{Number(p.pick)}</span>
-                    </div>
-                    {(playerTags[pId] || []).length > 0 && <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginTop: '4px' }}>{(playerTags[pId] || []).map(tag => <span key={tag} style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '999px', background: `${C.accent}22`, border: `1px solid ${C.accent}44`, color: C.accent }}>{tag}</span>)}</div>}
-                    {boardView === 'notes' && p.userNote && !isExpanded && <div style={{ marginTop: '5px', fontSize: '12px', color: C.textMuted, fontStyle: 'italic', lineHeight: '1.4' }}>{String(p.userNote).length > 160 ? String(p.userNote).substring(0, 160) + '…' : String(p.userNote)}</div>}
-                  </div>
-                  <button disabled={!canEdit} onClick={() => toggleFlag(pId, 'target')} title={p.target ? 'Remove Target' : 'Mark as Target'} style={{ background: 'transparent', border: 'none', color: p.target ? C.target : C.textDim, cursor: canEdit ? 'pointer' : 'default', padding: '4px', display: 'flex', opacity: canEdit ? 1 : 0.5 }}><Check size={15} /></button>
-                  <button disabled={!canEdit} onClick={() => toggleFlag(pId, 'unlikely')} title={p.unlikely ? 'Remove Monitor' : 'Mark as Monitor'} style={{ background: 'transparent', border: 'none', color: p.unlikely ? C.unlikely : C.textDim, cursor: canEdit ? 'pointer' : 'default', padding: '4px', display: 'flex', opacity: canEdit ? 1 : 0.5 }}>{p.unlikely ? <EyeOff size={15} /> : <Eye size={15} />}</button>
-                  <button disabled={!canEdit} onClick={() => toggleFlag(pId, 'noFit')} title={p.noFit ? 'Remove Avoid' : 'Mark as Avoid'} style={{ background: 'transparent', border: 'none', color: p.noFit ? C.noFit : C.textDim, cursor: canEdit ? 'pointer' : 'default', padding: '4px', display: 'flex', opacity: canEdit ? 1 : 0.5 }}><X size={15} /></button>
-                  {boardView === 'mock' && <button onClick={() => setMockDraftOrder(prev => isMockDrafted ? prev.filter(id => id !== pId) : [...prev, pId])} title={isMockDrafted ? 'Undo Draft' : 'Draft this player'} style={{ background: isMockDrafted ? `${C.textDim}22` : `${C.accent}22`, border: `1px solid ${isMockDrafted ? C.textDim : C.accent}88`, color: isMockDrafted ? C.textDim : C.accent, cursor: 'pointer', padding: '3px 8px', borderRadius: '3px', fontSize: '10px', letterSpacing: '1px', fontWeight: 700 }}>{isMockDrafted ? 'UNDO' : 'DRAFT'}</button>}
-                  <button onClick={() => toggleExpand(pId)} aria-label={isExpanded ? 'Collapse' : 'Expand'} style={{ background: 'transparent', border: 'none', color: C.accent, cursor: 'pointer', padding: '4px', display: 'flex' }}>{isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</button>
-                </div>
-                {isExpanded && <div style={{ padding: '0 14px 14px 14px', borderTop: `1px solid ${C.border}`, marginTop: '4px' }}>
-                  {canEdit && assignedTier && <div style={{ marginTop: '8px', fontSize: '11px', color: C.textMuted }}><span style={{ color: C.textDim }}>Tier: </span><span style={{ color: C.accent }}>{assignedTier}</span></div>}
-                  {canEdit && customTagsList.length > 0 && (
-                    <div style={{ marginTop: '12px' }}>
-                      <div style={{ fontSize: '10px', letterSpacing: '2px', color: C.accent, fontWeight: 700, marginBottom: '6px' }}>TAGS</div>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        {customTagsList.map(tag => { const isTagged = (playerTags[pId] || []).includes(tag); return <button key={tag} onClick={() => togglePlayerTag(pId, tag)} style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', border: `1px solid ${isTagged ? C.accent : C.border}`, background: isTagged ? `${C.accent}22` : 'transparent', color: isTagged ? C.accent : C.textMuted, cursor: 'pointer' }}>{isTagged ? '✓ ' : ''}{tag}</button>; })}
-                      </div>
-                    </div>
-                  )}
-                  <div style={{ marginTop: '14px' }}><div style={{ fontSize: '10px', letterSpacing: '2px', color: C.accent, fontWeight: 700, marginBottom: '6px' }}>COLLEGE PRODUCTION</div><div style={{ display: 'grid', gap: '3px' }}>{(Array.isArray(p.s) ? p.s : []).map((line: string, i: number) => <div key={i} style={{ fontSize: '12.5px', padding: '3px 0', borderBottom: `1px dotted ${C.border}`, color: C.textMuted, lineHeight: '1.4' }}>{line}</div>)}</div></div>
-                  <div style={{ marginTop: '14px' }}><div style={{ fontSize: '10px', letterSpacing: '2px', color: C.accent, fontWeight: 700, marginBottom: '6px' }}>SCOUTING REPORT</div><ScoutingSection playerId={pId} scoutingUrl={scoutingUrl} scoutingCache={scoutingCache} scoutingStatus={scoutingStatus} scoutingError={scoutingError} /></div>
-                  <div style={{ marginTop: '14px' }}><div style={{ fontSize: '10px', letterSpacing: '2px', color: C.accent, fontWeight: 700, marginBottom: '6px' }}>MY NOTES</div><textarea disabled={!canEdit} value={String(p.userNote || '')} onChange={(e) => updatePlayer(pId, { userNote: e.target.value })} placeholder={canEdit ? 'Add your own notes...' : 'Sign in to add notes'} style={{ width: '100%', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: '4px', padding: '8px', fontSize: '14px', minHeight: '70px', resize: 'vertical', opacity: canEdit ? 1 : 0.7 }} /></div>
-                </div>}
-              </div>
-            );
-            return items;
-          });
-        })()}
-      </div>
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row"><label className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[var(--muted)]" /><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search player or college" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] py-2 pl-9 pr-3 text-sm outline-none focus:border-[var(--accent)]" /></label><div className="flex gap-1 overflow-x-auto">{['ALL','QB','RB','WR','TE'].map((pos)=><button key={pos} type="button" onClick={()=>setPosition(pos)} className="rounded-lg border px-3 py-2 text-xs font-bold" style={position===pos?{borderColor:'var(--accent)',color:'var(--accent)'}:{borderColor:'var(--border)',color:'var(--muted)'}}>{pos}</button>)}<button type="button" onClick={()=>setHideNoFit((v)=>!v)} className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-bold text-[var(--muted)]">{hideNoFit?<Eye className="h-3.5 w-3.5"/>:<EyeOff className="h-3.5 w-3.5"/>}{hideNoFit?'Show no-fit':'Hide no-fit'}</button></div></div>
     </div>
-  );
+
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+      <div className="hidden grid-cols-[56px_minmax(220px,1.5fr)_90px_170px_130px_110px_92px] gap-2 border-b border-[var(--border)] bg-black/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[var(--muted)] md:grid"><div>Rank</div><div>Prospect</div><div>Pos</div><div>College</div><div>Proj. NFL</div><div>Trend</div><div></div></div>
+      {filtered.map((p,visibleIndex)=>{ const previous=filtered[visibleIndex-1]; const showTier=!previous||previous.tier!==p.tier; const rank=rankById.get(p.id)||0; const expanded=expandedId===p.id; return <React.Fragment key={p.id}>{showTier?<div className="border-y border-[var(--border)] bg-black/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[var(--accent)]">Tier {p.tier}: {TIER_LABELS[p.tier]||'Watchlist'}</div>:null}<div style={flagStyle(p)} className="border-b border-[var(--border)] last:border-b-0"><div className="grid gap-2 px-3 py-3 md:grid-cols-[56px_minmax(220px,1.5fr)_90px_170px_130px_110px_92px] md:items-center"><div className="flex items-center gap-1 md:block"><span className="text-sm font-black tabular-nums">#{rank}</span><div className="inline-flex md:mt-1 md:flex"><button type="button" onClick={()=>move(p.id,-1)} disabled={rank<=1} className="p-0.5 disabled:opacity-20"><ChevronUp className="h-3.5 w-3.5"/></button><button type="button" onClick={()=>move(p.id,1)} disabled={rank>=players.length} className="p-0.5 disabled:opacity-20"><ChevronDown className="h-3.5 w-3.5"/></button></div></div><button type="button" onClick={()=>setExpandedId(expanded?null:p.id)} className="min-w-0 text-left"><div className="flex flex-wrap items-center gap-2"><span className="font-black">{p.name}</span>{p.target?<span className="text-[10px] font-black uppercase text-emerald-400">Target</span>:null}{p.unlikely?<span className="text-[10px] font-black uppercase text-amber-300">Unlikely</span>:null}{p.noFit?<span className="text-[10px] font-black uppercase text-red-300">No Fit</span>:null}</div><div className="mt-0.5 text-xs text-[var(--muted)] md:hidden">{p.college} · {p.draftRange}</div></button><div><span className="rounded px-2 py-1 text-[10px] font-black" style={{background:`${POS_COLORS[p.pos]}22`,color:POS_COLORS[p.pos],border:`1px solid ${POS_COLORS[p.pos]}55`}}>{p.pos}</span></div><div className="hidden text-xs text-[var(--muted)] md:block">{p.college}</div><div className="hidden text-xs font-semibold md:block">{p.draftRange}</div><div className="hidden text-xs md:block"><Trend trend={p.trend}/></div><button type="button" onClick={()=>setExpandedId(expanded?null:p.id)} className="justify-self-start rounded-lg border border-[var(--border)] px-2 py-1 text-xs font-bold md:justify-self-end">{expanded?'Close':'Scout'}</button></div>
+        {expanded?<div className="border-t border-[var(--border)] bg-black/10 px-4 py-4"><div className="rounded-xl border border-[var(--border)] bg-black/10 p-3"><div className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--accent)]">2025 production / baseline</div><div className="mt-1 text-sm font-semibold text-[var(--text)]">{p.statLine}</div></div><div className="mt-3 grid gap-3 md:grid-cols-2"><div className="rounded-xl border border-[var(--border)] p-3"><div className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-400">Strengths</div><ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-relaxed text-[var(--muted)]">{p.strengths.map((x)=><li key={x}>{x}</li>)}</ul></div><div className="rounded-xl border border-[var(--border)] p-3"><div className="text-[10px] font-black uppercase tracking-[0.14em] text-red-300">Concerns</div><ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-relaxed text-[var(--muted)]">{p.concerns.map((x)=><li key={x}>{x}</li>)}</ul></div></div><div className="mt-3 grid gap-3 md:grid-cols-2"><div className="rounded-xl border border-[var(--border)] p-3"><div className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--accent)]">Fantasy / Superflex outlook</div><p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">{p.fantasy}</p></div><div className="rounded-xl border border-[var(--border)] p-3"><div className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--accent)]">2026 watch</div><p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">{p.watch}</p></div></div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={()=>setFlag(p.id,'target')} className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold" style={{borderColor:`${C.target}66`,color:C.target,background:p.target?C.targetBg:'transparent'}}><Check className="h-3.5 w-3.5"/> Target</button><button type="button" onClick={()=>setFlag(p.id,'unlikely')} className="rounded-lg border px-2.5 py-1.5 text-xs font-bold" style={{borderColor:`${C.unlikely}66`,color:C.unlikely,background:p.unlikely?C.unlikelyBg:'transparent'}}>Unlikely</button><button type="button" onClick={()=>setFlag(p.id,'noFit')} className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold" style={{borderColor:`${C.noFit}66`,color:C.noFit,background:p.noFit?C.noFitBg:'transparent'}}><X className="h-3.5 w-3.5"/> No Fit</button></div><div className="mt-4"><label className="mb-1.5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-[var(--muted)]"><Tag className="h-3.5 w-3.5"/> Your note</label><textarea value={p.userNote||''} onChange={(e)=>setPlayers((current)=>current.map((entry)=>entry.id===p.id?{...entry,userNote:e.target.value}:entry))} rows={2} placeholder="Add your scouting note, concern or target range…" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"/></div></div>:null}</div></React.Fragment>; })}
+    </div>
+    <p className="text-[11px] leading-relaxed text-[var(--muted)]">This is an evolving Superflex scouting board, not a settled rookie ranking. Your order, flags, and notes are private to your team and league.</p>
+  </div>;
 }

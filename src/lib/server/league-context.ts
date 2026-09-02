@@ -92,7 +92,7 @@ export async function getCurrentLeagueBySlug(slug: string): Promise<League | nul
  *
  * IMPORTANT: This must only be called from Server Components or API routes
  * (requires next/headers). Do NOT fall back to "most recently created league"
- * as that would bleed East v. West data into other leagues.
+ * as that would bleed League data into other leagues.
  */
 export async function getCurrentLeague(): Promise<League | null> {
   try {

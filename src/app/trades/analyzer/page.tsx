@@ -4,13 +4,6 @@ import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'rea
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { TradeValue } from '@/lib/types/trade-analyzer';
 
-const TEAM_NAMES = [
-  'Belltown Raptors', 'Double Trouble', 'Elemental Heroes',
-  'Mt. Lebanon Cake Eaters', 'Belleview Badgers', 'BeerNeverBrokeMyHeart',
-  'Detroit Dawgs', 'bop pop', "Minshew's Maniacs", 'Red Pandas',
-  'The Lone Ginger', 'Bimg Bamg Boomg',
-].sort();
-
 type ValueSource = 'avg' | 'ktc' | 'fc';
 
 // --- Types ---
@@ -399,12 +392,23 @@ function RosterPicker({ values, excluded, onAdd }: { values: TradeValue[]; exclu
   const [team, setTeam] = useState('');
   const [roster, setRoster] = useState<{ id: string; name: string; pos: string }[]>([]);
   const [busy, setBusy] = useState(false);
+  const [teamNames, setTeamNames] = useState<string[]>([]);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  useEffect(() => {
+    const load = () => {
+      const runtime = window as typeof window & { __LEAGUE_CONFIG__?: { franchiseNamesByOwnerId?: Record<string, string> } };
+      setTeamNames([...new Set(Object.values(runtime.__LEAGUE_CONFIG__?.franchiseNamesByOwnerId || {}))].sort());
+    };
+    load();
+    window.addEventListener('leaguezone:league-changed', load);
+    return () => window.removeEventListener('leaguezone:league-changed', load);
   }, []);
 
   const valMap = useMemo(() => { const m = new Map<string, TradeValue>(); for (const v of values) m.set(v.sleeperId, v); return m; }, [values]);
@@ -432,7 +436,7 @@ function RosterPicker({ values, excluded, onAdd }: { values: TradeValue[]; exclu
             <select value={team} onChange={(e) => loadTeam(e.target.value)}
               className="w-full rounded bg-[var(--surface)] border border-[var(--border)] px-2 py-1.5 text-sm text-[var(--text)] focus:outline-none focus:border-[var(--accent)]">
               <option value="">Select a team…</option>
-              {TEAM_NAMES.map((t) => <option key={t} value={t}>{t}</option>)}
+              {teamNames.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           {busy && <div className="px-3 py-3 text-xs text-[var(--muted)] text-center">Loading…</div>}

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
+import './native-select-theme.css';
 import { Suspense } from 'react';
 import { cookies } from 'next/headers';
 
@@ -12,6 +13,9 @@ import LeagueThemeScope from '@/components/LeagueThemeScope';
 import { TeamLogoProvider } from '@/contexts/TeamLogoContext';
 import { getLeagueById } from '@/lib/server/league-context';
 import { discoverLeagueChain } from '@/lib/utils/sleeper-api';
+import PwaInstallPrompt from '@/components/pwa/PwaInstallPrompt';
+import PwaRegistration from '@/components/pwa/PwaRegistration';
+import PlayerModalProvider from '@/components/players/PlayerModalProvider';
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
@@ -19,6 +23,10 @@ const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin']
 export const metadata: Metadata = {
   title: 'LeagueZone HQ — Custom Fantasy League Websites',
   description: 'Custom fantasy football league websites for serious dynasty commissioners.',
+  applicationName: 'LeagueZone HQ',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, title: 'LeagueZone HQ', statusBarStyle: 'default' },
+  formatDetection: { telephone: false },
   icons: {
     icon: [{ url: '/assets/LeagueZone HQ Logo.png', sizes: '512x512', type: 'image/png' }],
     shortcut: '/assets/LeagueZone HQ Logo.png',
@@ -26,7 +34,15 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' };
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#08111f' },
+  ],
+};
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const cookieJar = await cookies();
@@ -67,12 +83,16 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}>
         <Suspense fallback={null}><LeagueThemeScope /></Suspense>
-        <TeamLogoProvider>
-          <Suspense fallback={null}><UnifiedNavbar /></Suspense>
-          <Suspense fallback={null}><GlobalLeagueSwitcher /></Suspense>
-          <main className="flex-grow">{children}</main>
-          <Footer />
-        </TeamLogoProvider>
+        <PlayerModalProvider>
+          <TeamLogoProvider>
+            <Suspense fallback={null}><UnifiedNavbar /></Suspense>
+            <Suspense fallback={null}><GlobalLeagueSwitcher /></Suspense>
+            <main className="flex-grow">{children}</main>
+            <Footer />
+          </TeamLogoProvider>
+        </PlayerModalProvider>
+        <PwaInstallPrompt />
+        <PwaRegistration />
         <Analytics />
       </body>
     </html>

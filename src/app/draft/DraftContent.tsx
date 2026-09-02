@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import CountdownTimer from '@/components/ui/countdown-timer';
 import { TeamLogo } from '@/components/ui/TeamLogo';
 import { CURRENT_SEASON, NEXT_DRAFT_SEASON, getLeagueIdForSeason, getPastDraftSeasonYears } from '@/lib/constants/league';
@@ -10,12 +11,14 @@ import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
 import { getLeagueDrafts, getDraftPicks, getTeamsData, type SleeperDraftPick } from '@/lib/utils/sleeper-api';
 import SectionHeader from '@/components/ui/SectionHeader';
+import PlayerLink from '@/components/players/PlayerLink';
 import { Tabs } from '@/components/ui/Tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import Label from '@/components/ui/Label';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
-import { getTeamColorStyle } from '@/lib/utils/team-utils';
+import { getTeamColorStyle, getTeamColors } from '@/lib/utils/team-utils';
+import { getTeamLogoPath } from '@/lib/utils/team-utils';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react';
@@ -24,7 +27,7 @@ import TeamProspectDraftboard from '@/components/draft/TeamProspectDraftboard';
 // Draft data types
 type TeamHaul = {
   team: string;
-  picks: { round: number; pick: number; player: string; price?: number }[];
+  picks: { round: number; pick: number; player: string; playerId?: string; price?: number }[];
 };
 
 type LinearPick = {
@@ -33,6 +36,7 @@ type LinearPick = {
   pick: number; // pick within round
   team: string;
   player: string;
+  playerId?: string;
   price?: number;
   pos?: string;
 };
@@ -233,7 +237,7 @@ export default function DraftContent() {
   const [error, setError] = useState<string | null>(null);
   const [draftsByYear, setDraftsByYear] = useState<Record<string, DraftYearData | null>>({});
   const loadedYearsRef = useRef<Set<string>>(new Set());
-  const [draftView, setDraftView] = useState<'teams' | 'linear'>('teams');
+  const [draftView, setDraftView] = useState<'teams' | 'linear' | 'board'>('teams');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [draftDateSettings, setDraftDateSettings] = useState<DraftDateSettings>({
@@ -357,7 +361,7 @@ export default function DraftContent() {
         const rounds = picks.reduce((max, p) => Math.max(max, p.round), 0);
         const picksInRound1 = picks.filter(p => p.round === 1).length || teams.length;
 
-        const byTeam = new Map<number, { round: number; pick: number; player: string; price?: number }[]>();
+        const byTeam = new Map<number, { round: number; pick: number; player: string; playerId?: string; price?: number }[]>();
         const rosterIdToTeam = new Map<number, string>(teams.map(t => [t.rosterId, t.teamName]));
         const linearPicks: LinearPick[] = [];
         for (const p of picks) {
@@ -379,10 +383,10 @@ export default function DraftContent() {
           const pickInRound = picksInRound1 > 0
             ? ((overall - 1) % picksInRound1) + 1
             : p.draft_slot;
-          arr.push({ round: p.round, pick: pickInRound, player: player.name, price });
+          arr.push({ round: p.round, pick: pickInRound, player: player.name, playerId: p.player_id, price });
           byTeam.set(p.roster_id, arr);
 
-          linearPicks.push({ pick_no: overall, round: p.round, pick: pickInRound, team: teamName, player: player.name, price, pos: player.position });
+          linearPicks.push({ pick_no: overall, round: p.round, pick: pickInRound, team: teamName, player: player.name, playerId: p.player_id, price, pos: player.position });
         }
 
         const team_hauls: TeamHaul[] = [];
@@ -545,9 +549,9 @@ export default function DraftContent() {
                           </div>
                         </div>
                         <div>
-                          <div className="flex items-center justify-between mb-3">
+                          <div className="flex flex-col gap-3 mb-3 sm:flex-row sm:items-center sm:justify-between">
                             <h3 className="text-base font-semibold text-[var(--text)]">
-                              {draftView === 'teams' ? 'Team Hauls' : 'Linear Picks'}
+                              {draftView === 'teams' ? 'Team Hauls' : draftView === 'linear' ? 'Linear Picks' : 'Full Draft Board'}
                             </h3>
                             <div className="inline-flex rounded-md border border-[var(--border)] overflow-hidden">
                               <Button
@@ -566,6 +570,14 @@ export default function DraftContent() {
                               >
                                 Linear
                               </Button>
+                              <Button
+                                variant={draftView === 'board' ? 'primary' : 'ghost'}
+                                size="sm"
+                                className="px-3"
+                                onClick={() => setDraftView('board')}
+                              >
+                                Full Board
+                              </Button>
                             </div>
                           </div>
                           {draftView === 'teams' ? (
@@ -580,7 +592,13 @@ export default function DraftContent() {
                                       <ul className="space-y-1">
                                         {teamHaul.picks.map((pick, pickIndex) => (
                                           <li key={pickIndex} className="text-sm">
-                                            {`Round ${pick.round}, Pick ${pick.pick}: ${pick.player}${selectedYear === '2023' && draftsByYear[selectedYear]?.isAuction && pick.price != null ? ` — $${pick.price}` : ''}`}
+                                            {`Round ${pick.round}, Pick ${pick.pick}: `}
+                                            {pick.playerId ? (
+                                              <PlayerLink playerId={pick.playerId}>{pick.player}</PlayerLink>
+                                            ) : (
+                                              pick.player
+                                            )}
+                                            {selectedYear === '2023' && draftsByYear[selectedYear]?.isAuction && pick.price != null ? ` — $${pick.price}` : ''}
                                           </li>
                                         ))}
                                       </ul>
@@ -589,7 +607,7 @@ export default function DraftContent() {
                                 );
                               })}
                             </div>
-                          ) : (
+                          ) : draftView === 'linear' ? (
                             <Card className="overflow-x-auto">
                               <CardContent>
                                 {(() => {
@@ -631,7 +649,9 @@ export default function DraftContent() {
                                                       <span className="text-sm whitespace-nowrap opacity-90 font-semibold">{`Pick ${p.pick_no} • Rd ${p.round}, Pk ${p.pick}`}</span>
                                                     </div>
                                                     <div className="text-sm truncate">
-                                                      <span className="truncate inline-block max-w-full align-middle">{p.player}</span>
+                                                      <span className="truncate inline-block max-w-full align-middle">
+                                                        {p.playerId ? <PlayerLink playerId={p.playerId}>{p.player}</PlayerLink> : p.player}
+                                                      </span>
                                                       {p.pos && (
                                                         <span
                                                           className="ml-2 align-middle px-1.5 py-0.5 rounded text-[10px]"
@@ -670,6 +690,11 @@ export default function DraftContent() {
                                 })()}
                               </CardContent>
                             </Card>
+                          ) : (
+                            <FullDraftBoard
+                              data={draftsByYear[selectedYear] as DraftYearData}
+                              selectedYear={selectedYear}
+                            />
                           )}
                         </div>
                       </div>
@@ -731,6 +756,102 @@ export default function DraftContent() {
         )}
       </div>
     </div>
+  );
+}
+
+
+function FullDraftBoard({ data, selectedYear }: { data: DraftYearData; selectedYear: string }) {
+  const roundNumbers = Array.from(new Set(data.linear_picks.map((pick) => pick.round))).sort((a, b) => a - b);
+  const rounds = roundNumbers.length > 0
+    ? roundNumbers
+    : Array.from({ length: data.rounds }, (_, index) => index + 1);
+  const columnMinWidth = 255;
+  const boardMinWidth = Math.max(rounds.length * columnMinWidth + Math.max(0, rounds.length - 1) * 12, columnMinWidth);
+
+  return (
+    <Card data-previous-draft-board="full">
+      <CardContent>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="text-sm font-semibold text-[var(--text)]">{selectedYear} draft board</div>
+            <p className="mt-1 text-xs text-[var(--muted)]">All rounds are shown side by side. Scroll horizontally on smaller screens.</p>
+          </div>
+          <div className="text-xs font-semibold text-[var(--muted)]">{data.linear_picks.length} selections</div>
+        </div>
+        <div className="overflow-x-auto pb-2">
+          <div
+            className="grid gap-3"
+            style={{
+              minWidth: String(boardMinWidth) + 'px',
+              gridTemplateColumns: 'repeat(' + rounds.length + ', minmax(' + columnMinWidth + 'px, 1fr))',
+            }}
+          >
+            {rounds.map((round) => {
+              const picks = data.linear_picks
+                .filter((pick) => pick.round === round)
+                .sort((a, b) => a.pick - b.pick);
+              return (
+                <section key={round} aria-label={'Round ' + round} className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/45">
+                  <div className="flex items-center justify-between border-b border-[var(--border)] bg-black/15 px-3 py-2">
+                    <h4 className="text-sm font-bold text-[var(--text)]">Round {round}</h4>
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">{picks.length} picks</span>
+                  </div>
+                  <ol className="divide-y divide-[var(--border)]">
+                    {picks.map((pick) => {
+                      const colors = getTeamColors(pick.team);
+                      const logoStyle = getTeamColorStyle(pick.team, 'primary');
+                      const tint = /^#[0-9a-f]{6}$/i.test(colors.primary) ? colors.primary + '14' : undefined;
+                      const priceEnabled = selectedYear === '2023' && data.isAuction && pick.price != null;
+                      return (
+                        <li
+                          key={pick.pick_no}
+                          className="min-h-[76px] px-2.5 py-2"
+                          style={{
+                            borderLeft: '3px solid ' + (colors.secondary || colors.primary),
+                            backgroundColor: tint,
+                          }}
+                        >
+                          <div className="flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-[var(--muted)]">
+                            <span>{round + '.' + String(pick.pick).padStart(2, '0')}</span>
+                            <span>{'#' + pick.pick_no}</span>
+                          </div>
+                          <div className="mt-1.5 flex min-w-0 items-center gap-2">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full" style={logoStyle}>
+                              <Image
+                                src={getTeamLogoPath(pick.team)}
+                                alt={pick.team + ' logo'}
+                                width={24}
+                                height={24}
+                                className="object-contain"
+                                onError={(event) => { (event.target as HTMLImageElement).style.display = 'none'; }}
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex min-w-0 items-center gap-1.5">
+                                <span className="truncate text-sm font-semibold text-[var(--text)]">
+                                  {pick.playerId ? <PlayerLink playerId={pick.playerId}>{pick.player}</PlayerLink> : pick.player}
+                                </span>
+                                {pick.pos ? (
+                                  <span className="shrink-0 rounded bg-black/15 px-1 py-0.5 text-[9px] font-bold text-[var(--muted)]">{pick.pos}</span>
+                                ) : null}
+                              </div>
+                              <div className="mt-0.5 truncate text-[10px] text-[var(--muted)]">{pick.team}</div>
+                            </div>
+                            {priceEnabled ? (
+                              <span className="shrink-0 rounded-full bg-black/15 px-1.5 py-0.5 text-[10px] font-bold text-[var(--text)]">{'$' + pick.price}</span>
+                            ) : null}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </section>
+              );
+            })}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

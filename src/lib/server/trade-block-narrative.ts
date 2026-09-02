@@ -119,20 +119,7 @@ function pickToLabel(asset: TradeAsset, ownerTeam: string, slotMap: PickSlotMap 
 const POSITIONAL_TAGS = new Set(['QB', 'RB', 'WR', 'TE', 'K', 'DEF']);
 const PICK_TAGS = new Set(['1ST', '2ND', '3RD']);
 
-const TEAM_HASHTAGS: Record<string, string> = {
-  'Belltown Raptors': '#ClawCrew',
-  'Double Trouble': '#DoubleThreat',
-  'Elemental Heroes': '#HeroesRise',
-  'Mt. Lebanon Cake Eaters': '#TakeTheCake',
-  'Belleview Badgers': '#DigDeep',
-  'BeerNeverBrokeMyHeart': '#BeerNation',
-  'Detroit Dawgs': '#DawgPound',
-  'bop pop': '#PopOff',
-  'Minshew\'s Maniacs': '#ManiacMode',
-  'Red Pandas': '#PandaPower',
-  'The Lone Ginger': '#GingerArmy',
-  'Bimg Bamg Boomg': '#BimgBamgBoom'
-};
+const TEAM_HASHTAGS: Record<string, string> = {};
 
 function extractTags(wants: TradeWants | null): Set<string> {
   const tags = new Set<string>();
@@ -866,7 +853,7 @@ export async function buildTradeBlockReport(ctx: NarrativeContext): Promise<stri
   }
   
   const tradeBlockUrl = baseUrl ? `${baseUrl}/trades/block` : '/trades/block';
-  const hashtag = TEAM_HASHTAGS[teamName] || '';
+  const hashtag = TEAM_HASHTAGS[teamName] || ('#' + teamName.replace(/[^a-z0-9]+/gi, ''));
   const hashtagSuffix = hashtag ? ` ${hashtag}` : '';
   const message = parts.join(' ') + hashtagSuffix + `\n\n${tradeBlockUrl}`;
 

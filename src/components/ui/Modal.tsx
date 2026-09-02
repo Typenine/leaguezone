@@ -1,7 +1,13 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { ReactNode, useEffect, useRef } from "react";
+
+const SIZE_CLASSES = {
+  md: "max-w-md",
+  lg: "max-w-lg",
+  xl: "max-w-3xl",
+  "2xl": "max-w-5xl",
+} as const;
 
 export function Modal({
   open,
@@ -10,7 +16,8 @@ export function Modal({
   children,
   showClose = true,
   autoFocusPanel = true,
-  panelClassName,
+  size = "lg",
+  panelClassName = "",
 }: {
   open: boolean;
   onClose: () => void;
@@ -18,29 +25,23 @@ export function Modal({
   children: ReactNode;
   showClose?: boolean;
   autoFocusPanel?: boolean;
+  size?: keyof typeof SIZE_CLASSES;
   panelClassName?: string;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const titleIdRef = useRef<string>(`modal-title-${Math.random().toString(36).slice(2)}`);
-  const [mounted, setMounted] = useState(false);
-  const [backdropReady, setBackdropReady] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   // Close on ESC and keep focus trapped within the dialog
   useEffect(() => {
     if (!open) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const frame = requestAnimationFrame(() => setBackdropReady(true));
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
       }
       if (e.key === "Tab") {
         const root = panelRef.current;
@@ -71,24 +72,19 @@ export function Modal({
     }
 
     return () => {
-      cancelAnimationFrame(frame);
-      setBackdropReady(false);
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus?.();
     };
-  }, [open, onClose, autoFocusPanel]);
+  }, [open, autoFocusPanel]);
 
-  if (!open || !mounted) return null;
+  if (!open) return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[100]">
+  return (
+    <div className="fixed inset-0 z-50">
       <div
-        className="fixed inset-0 bg-black/60"
+        className="fixed inset-0 bg-black/60 backdrop-blur-[2px]"
         aria-hidden="true"
-        onMouseDown={(e) => {
-          if (backdropReady && e.target === e.currentTarget) onClose();
-        }}
+        onClick={onClose}
       />
       <div className="fixed inset-0 overflow-y-auto">
         <div className="flex min-h-full items-center justify-center p-4">
@@ -98,16 +94,24 @@ export function Modal({
             aria-modal="true"
             aria-labelledby={title ? titleIdRef.current : undefined}
             tabIndex={-1}
-            className={[
-              "league-surface border border-[var(--border)] rounded-[var(--radius-card)] shadow-[var(--shadow-soft)] w-full max-w-lg outline-none",
-              panelClassName,
-            ].filter(Boolean).join(" ")}
+            className={`overflow-hidden rounded-2xl w-full ${SIZE_CLASSES[size]} outline-none ${panelClassName}`}
+            style={{
+              background: 'var(--panel-card)',
+              boxShadow: 'inset 0 0 0 1px var(--panel-border), var(--panel-shadow)',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="h-[3px] w-full" style={{ background: 'var(--accent)' }} aria-hidden="true" />
             {(title || showClose) && (
-              <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between gap-3">
+              <div
+                className="px-4 py-3 sm:px-6 flex items-center justify-between gap-3"
+                style={{ background: 'var(--panel-header-bg)', borderBottom: '1px solid var(--panel-hairline)' }}
+              >
                 {title ? (
-                  <h3 id={titleIdRef.current} className="text-base font-semibold text-[var(--text)]">
+                  <h3
+                    id={titleIdRef.current}
+                    className="text-xs font-extrabold uppercase tracking-[0.2em] text-[var(--panel-text)]"
+                  >
                     {title}
                   </h3>
                 ) : <span />}
@@ -116,19 +120,18 @@ export function Modal({
                     type="button"
                     aria-label="Close"
                     onClick={onClose}
-                    className="text-[var(--muted)] hover:text-[var(--text)] px-2 py-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-strong, #0b5f98)]"
+                    className="text-[var(--panel-muted)] hover:text-[var(--panel-text)] hover:bg-[var(--panel-tint-soft)] px-2 py-1 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                   >
                     ×
                   </button>
                 )}
               </div>
             )}
-            <div className="p-4">{children}</div>
+            <div className="p-4 sm:p-6">{children}</div>
           </div>
         </div>
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }
 

@@ -4,6 +4,8 @@ export type UserNavItem = {
   id: string;
   label: string;
   href?: string;
+  description?: string;
+  group?: string;
   children?: UserNavItem[];
 };
 
@@ -26,6 +28,8 @@ export const USER_NAV_CONFIG: UserNavItem[] = [
     label: 'League',
     children: [
       { id: 'league.teams', label: 'Teams', href: '/teams' },
+      { id: 'league.hall-of-fame', label: 'Team Hall of Fame', href: '/hall-of-fame', description: 'Franchise legends and induction classes' },
+      { id: 'league.rosters', label: 'Rosters', href: '/rosters', description: 'Every team roster in one view' },
       { id: 'league.standings', label: 'Standings', href: '/standings' },
       { id: 'league.rules', label: 'Rules', href: '/rules' },
     ],
@@ -40,6 +44,24 @@ export const USER_NAV_CONFIG: UserNavItem[] = [
       { id: 'history.weekly-highs', label: 'Weekly Highs', href: '/history?tab=weekly-highs' },
       { id: 'history.franchises', label: 'Franchises', href: '/history?tab=franchises' },
       { id: 'history.records', label: 'Records', href: '/history?tab=records' },
+      { id: 'history.franchise-history', label: 'Franchise History', href: '/history/franchises', description: 'Permanent franchise reference pages', group: 'League Archive' },
+      { id: 'history.gamebooks', label: 'Weekly Gamebooks', href: '/history/gamebook', description: 'Week-by-week matchup and scoring archive', group: 'League Archive' },
+      { id: 'history.milestones', label: 'Milestones', href: '/history/milestones', description: 'Career, franchise and record milestones', group: 'League Archive' },
+      {
+        id: 'history.stats',
+        label: 'Stats',
+        href: '/history/stats',
+        description: 'League Football Reference-style statistical archive',
+        group: 'Stats & Records',
+        children: [
+          { id: 'history.stats.players', label: 'Players', href: '/history/stats?tab=players' },
+          { id: 'history.stats.franchises', label: 'Franchises', href: '/history/stats?tab=franchises' },
+          { id: 'history.stats.seasons', label: 'Seasons', href: '/history/stats?tab=seasons' },
+          { id: 'history.stats.games', label: 'Games', href: '/history/stats?tab=games' },
+          { id: 'history.stats.records', label: 'Records', href: '/history/stats?tab=records' },
+          { id: 'history.stats.explorer', label: 'Explorer', href: '/history/stats?tab=explorer' },
+        ],
+      },
     ],
   },
   {

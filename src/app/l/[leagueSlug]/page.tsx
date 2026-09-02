@@ -11,11 +11,16 @@ export const dynamic = 'force-dynamic';
 const SECTION_DESCRIPTIONS: Record<string, string> = {
   teams: 'Rosters, franchise pages, and team identity',
   standings: 'Current records, points, seeds, and season standings',
+  matchups: 'Complete season schedule, weekly results, projections, and win probabilities',
+  rosters: 'Search every roster and open full player profiles',
+  calendar: 'League dates, deadlines, draft events, and countdowns',
+  news: 'Curated NFL news for players rostered in your league',
   rulebook: 'League constitution, rules, and amendments',
   draft: 'Draft order, pick history, and draft tools',
   'trade-block': 'Who is buying, who is selling, and trade history',
   suggestions: 'Rule suggestions, endorsements, and league votes',
   history: 'Champions, records, brackets, and franchise lineage',
+  'hall-of-fame': 'Franchise-selected legends and induction classes',
   admin: 'Commissioner settings and league management',
 };
 

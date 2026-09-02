@@ -1,32 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '@/server/db/client';
-import { requireTeamUser } from '@/lib/server/session';
-import { canonicalizeTeamName } from '@/lib/server/user-identity';
+import { getActiveLeagueMembership } from '@/lib/server/membership';
 
 async function ensureTeamProspectDraftboardTable() {
   const db = getDb();
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS team_prospect_draftboard_state (
-      user_id varchar(64) PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS team_prospect_draftboard_state_v2 (
+      league_id uuid NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+      user_id uuid NOT NULL,
       team varchar(255) NOT NULL,
       data jsonb NOT NULL DEFAULT '{}'::jsonb,
-      updated_at timestamptz NOT NULL DEFAULT now()
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (league_id, user_id)
     )
   `);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_team_prospect_draftboard_team ON team_prospect_draftboard_state(team)`).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_team_prospect_draftboard_team_v2 ON team_prospect_draftboard_state_v2(league_id, team)`).catch(() => {});
 }
 
 export async function GET() {
   try {
-    const ident = await requireTeamUser();
-    if (!ident) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const result = await getActiveLeagueMembership();
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+    const ident = result.membership;
     await ensureTeamProspectDraftboardTable();
     const db = getDb();
     const res = await db.execute(sql`
       SELECT data, updated_at
-      FROM team_prospect_draftboard_state
-      WHERE user_id = ${ident.userId}
+      FROM team_prospect_draftboard_state_v2
+      WHERE league_id = ${ident.leagueId}::uuid AND user_id = ${ident.userId}::uuid
       LIMIT 1
     `);
     // neon-http returns { rows: [...] }, not a plain array
@@ -35,7 +37,7 @@ export async function GET() {
     return NextResponse.json({
       data: row?.data || {},
       updatedAt: row?.updated_at || null,
-      team: canonicalizeTeamName(ident.team),
+      team: ident.teamName,
     });
   } catch (error) {
     console.error('team-prospect-draftboard GET failed', error);
@@ -45,8 +47,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const ident = await requireTeamUser();
-    if (!ident) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const result = await getActiveLeagueMembership();
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+    const ident = result.membership;
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== 'object' || !body.data || typeof body.data !== 'object' || Array.isArray(body.data)) {
       return NextResponse.json({ error: 'Request body must include a JSON object "data" field.' }, { status: 400 });
@@ -55,9 +58,9 @@ export async function POST(req: NextRequest) {
     await ensureTeamProspectDraftboardTable();
     const db = getDb();
     const res = await db.execute(sql`
-      INSERT INTO team_prospect_draftboard_state (user_id, team, data, updated_at)
-      VALUES (${ident.userId}, ${canonicalizeTeamName(ident.team)}, ${JSON.stringify(body.data)}::jsonb, now())
-      ON CONFLICT (user_id) DO UPDATE
+      INSERT INTO team_prospect_draftboard_state_v2 (league_id, user_id, team, data, updated_at)
+      VALUES (${ident.leagueId}::uuid, ${ident.userId}::uuid, ${ident.teamName}, ${JSON.stringify(body.data)}::jsonb, now())
+      ON CONFLICT (league_id, user_id) DO UPDATE
       SET team = EXCLUDED.team,
           data = EXCLUDED.data,
           updated_at = now()
@@ -70,7 +73,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       data: row?.data || body.data,
       updatedAt: row?.updated_at || null,
-      team: canonicalizeTeamName(ident.team),
+      team: ident.teamName,
     });
   } catch (error) {
     console.error('team-prospect-draftboard POST failed', error);

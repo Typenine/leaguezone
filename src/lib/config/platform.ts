@@ -130,7 +130,12 @@ export type LeagueFeatureKey =
   | 'draft'
   | 'tradeBlock'
   | 'suggestions'
-  | 'history';
+  | 'history'
+  | 'matchups'
+  | 'calendar'
+  | 'rosters'
+  | 'hallOfFame'
+  | 'news';
 
 export const DEFAULT_LEAGUE_FEATURES: Record<LeagueFeatureKey, boolean> = {
   teams: true,
@@ -139,6 +144,11 @@ export const DEFAULT_LEAGUE_FEATURES: Record<LeagueFeatureKey, boolean> = {
   tradeBlock: true,
   suggestions: true,
   history: true,
+  matchups: true,
+  calendar: true,
+  rosters: true,
+  hallOfFame: true,
+  news: true,
 };
 
 export type LeagueNavItem = {
@@ -152,11 +162,16 @@ export const LEAGUE_NAV: LeagueNavItem[] = [
   { segment: '', label: 'League Home' },
   { segment: 'teams', label: 'Teams', feature: 'teams' },
   { segment: 'standings', label: 'Standings' },
+  { segment: 'matchups', label: 'Schedule', feature: 'matchups' },
+  { segment: 'rosters', label: 'Rosters', feature: 'rosters' },
+  { segment: 'calendar', label: 'Calendar', feature: 'calendar' },
+  { segment: 'news', label: 'News', feature: 'news' },
   { segment: 'rulebook', label: 'Rulebook', feature: 'rulebook' },
   { segment: 'draft', label: 'Draft', feature: 'draft' },
   { segment: 'trade-block', label: 'Trade Block', feature: 'tradeBlock' },
   { segment: 'suggestions', label: 'Suggestions', feature: 'suggestions' },
   { segment: 'history', label: 'History', feature: 'history' },
+  { segment: 'hall-of-fame', label: 'Hall of Fame', feature: 'hallOfFame' },
   { segment: 'admin', label: 'Commissioner', adminOnly: true },
 ];
 
