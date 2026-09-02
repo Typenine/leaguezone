@@ -1,3 +1,13 @@
+CREATE TABLE IF NOT EXISTS "news_moderation" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "league_id" uuid,
+  "type" varchar(32) NOT NULL,
+  "value" text NOT NULL,
+  "reason" text,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "created_by" text
+);
+
 ALTER TABLE "news_moderation" ADD COLUMN IF NOT EXISTS "league_id" uuid;
 
 UPDATE "news_moderation" nm
