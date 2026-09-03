@@ -19,17 +19,14 @@ import HomepageCountdowns from "@/components/home/HomepageCountdowns";
 import MyTeamCard from "@/components/home/MyTeamCard";
 import SeasonMatchups, {
   type SeasonHomeMatchup,
-  type SeasonProjectionStarter,
 } from "@/components/home/SeasonMatchups";
+import ProjectedSeasonMatchups from "@/components/home/ProjectedSeasonMatchups";
 import InSeasonStandings from "@/components/home/InSeasonStandings";
 import PlayoffRacePanel from "@/components/home/PlayoffRacePanel";
 import LeaguePulse from "@/components/home/LeaguePulse";
 import WeeklyLeaders from "@/components/home/WeeklyLeaders";
 import AroundTheLeague from "@/components/home/AroundTheLeague";
 import RecentTransactions from "@/components/home/RecentTransactions";
-import {
-  buildLeagueProjectionSnapshotsV3,
-} from "@/lib/fantasy/weekly-projections-next";
 import { Suspense } from 'react';
 import LeagueHistorySpotlight from '@/components/home/LeagueHistorySpotlight';
 import { listLeagueUserDocs } from '@/server/db/queries.fixed';
@@ -52,7 +49,11 @@ export default async function SeasonLaunchHome({
 }) {
   const now = new Date();
   const sleeperLeagueId = league.sleeperLeagueId || '';
-  const sleeperLeague = sleeperLeagueId ? await getLeague(sleeperLeagueId).catch(() => null) : null;
+  const [sleeperLeague, sp, nflState] = await Promise.all([
+    sleeperLeagueId ? getLeague(sleeperLeagueId).catch(() => null) : Promise.resolve(null),
+    (searchParams ?? Promise.resolve({})) as Promise<Record<string, string | string[] | undefined>>,
+    getNFLState().catch(() => ({ week: 1, display_week: 1, season_has_scores: false })),
+  ]);
   const seasonYear = String(sleeperLeague?.season || new Date().getUTCFullYear());
   const calendar = buildLeagueCalendar(league.config, Number(seasonYear));
   const presentationPhase = getHomepagePhase(now, calendar);
@@ -64,7 +65,6 @@ export default async function SeasonLaunchHome({
     ? Math.max(1, Math.min(18, configuredWeeks))
     : Math.max(1, Math.min(18, playoffStartWeek - 1));
 
-  const sp = (await (searchParams ?? Promise.resolve({}))) as Record<string, string | string[] | undefined>;
   const requestedRaw = sp.week;
   const requestedStr = Array.isArray(requestedRaw) ? requestedRaw[0] : requestedRaw;
   const requestedWeek = typeof requestedStr === "string" ? Number(requestedStr) : NaN;
@@ -78,9 +78,9 @@ export default async function SeasonLaunchHome({
   let tradeRows: TeamRow[] = [];
   let positionCounts: Record<string, Record<string, number>> = {};
   let playerPositions: Record<string, string> = {};
+  let saveProjectionSnapshots = false;
 
   try {
-    const nflState = await getNFLState().catch(() => ({ week: 1, display_week: 1, season_has_scores: false }));
     const rawWeek = Number(
       (nflState as { week?: number; display_week?: number }).week
       ?? (nflState as { display_week?: number }).display_week
@@ -94,6 +94,7 @@ export default async function SeasonLaunchHome({
     if (!beforeKickoff && (dowET === "Mon" || dowET === "Tue")) defaultWeek = Math.max(1, defaultWeek - 1);
     defaultWeek = Math.min(maxRegularWeeks, Math.max(1, defaultWeek));
     selectedWeek = hasWeekOverride ? requestedWeek : defaultWeek;
+    saveProjectionSnapshots = beforeKickoff ? selectedWeek === 1 : selectedWeek === currentWeek;
 
     const [teams, rosterNameMap, rosters, sleeperMatchups, players, tradeDocs, tradeContext] = await Promise.all([
       getTeamsData(leagueId).catch(() => []),
@@ -144,43 +145,6 @@ export default async function SeasonLaunchHome({
       seed: index + 1,
     }));
 
-    let projectionSnapshots = await buildLeagueProjectionSnapshotsV3({
-        season: seasonYear,
-        week: selectedWeek,
-        saveSnapshots: beforeKickoff ? selectedWeek === 1 : selectedWeek === currentWeek,
-        dbLeagueId: league.id,
-      }).catch(() => []);
-      if (projectionSnapshots.length) {
-        projectionSnapshots = projectionSnapshots.map((snapshot) => {
-          const hasCurrentLineup = (snapshot.currentLineup || []).some((entry) => Boolean(entry.player));
-          return {
-            ...snapshot,
-            currentTotal: snapshot.currentTotal ?? snapshot.optimalTotal,
-            currentLineup: hasCurrentLineup ? snapshot.currentLineup : snapshot.optimalLineup,
-          };
-        });
-      }
-
-    const projectionByTeam = new Map(
-      projectionSnapshots.map((snapshot) => [snapshot.teamName, snapshot] as const),
-    );
-
-    const projectedStartersFor = (teamName: string): SeasonProjectionStarter[] => {
-      const snapshot = projectionByTeam.get(teamName);
-      if (!snapshot) return [];
-      return (snapshot.currentLineup || []).flatMap((entry) => {
-        const player = entry.player;
-        if (!player) return [];
-        return [{
-          id: player.id,
-          position: player.position,
-          nflTeam: player.nflTeam,
-          projection: Number(player.projection || 0),
-          stddev: Math.max(0.1, (Number(player.rangeHigh || 0) - Number(player.rangeLow || 0)) / 2.564),
-        }];
-      });
-    };
-
     const groups = new Map<number, Array<{ rosterId: number; points: number }>>();
     for (const matchup of sleeperMatchups) {
       const entries = groups.get(matchup.matchup_id) || [];
@@ -196,8 +160,6 @@ export default async function SeasonLaunchHome({
       const [away, home] = entries;
       const homeTeam = rosterNameMap.get(home.rosterId) || `Roster ${home.rosterId}`;
       const awayTeam = rosterNameMap.get(away.rosterId) || `Roster ${away.rosterId}`;
-      const homeSnapshot = projectionByTeam.get(homeTeam);
-      const awaySnapshot = projectionByTeam.get(awayTeam);
 
       matchups.push({
         homeTeam,
@@ -206,10 +168,6 @@ export default async function SeasonLaunchHome({
         awayRosterId: away.rosterId,
         homeScore: home.points,
         awayScore: away.points,
-        homeProjectedScore: homeSnapshot?.currentTotal ?? undefined,
-        awayProjectedScore: awaySnapshot?.currentTotal ?? undefined,
-        homeStarters: projectedStartersFor(homeTeam),
-        awayStarters: projectedStartersFor(awayTeam),
         week: selectedWeek,
         matchupId,
       });
@@ -242,6 +200,23 @@ export default async function SeasonLaunchHome({
     // Each section below has a useful empty/loading state.
   }
 
+  const scheduleHref = `/l/${league.slug}/matchups`;
+  const dashboardHref = weekNavigationHref || `/l/${league.slug}/dashboard`;
+  const teamsBasePath = `/l/${league.slug}/teams`;
+
+  const matchupFallback = (
+    <SeasonMatchups
+      selectedWeek={selectedWeek}
+      maxWeeks={maxRegularWeeks}
+      season={seasonYear}
+      sleeperLeagueId={sleeperLeagueId}
+      matchups={matchups}
+      scheduleHref={scheduleHref}
+      dashboardHref={dashboardHref}
+      teamsBasePath={teamsBasePath}
+    />
+  );
+
   return (
     <div className="home-page relative overflow-hidden">
       <div
@@ -267,7 +242,7 @@ export default async function SeasonLaunchHome({
       />
 
       <div className="container relative z-10 mx-auto px-4 py-6 sm:px-5 sm:py-8">
-        <SeasonWeekHeader week={selectedWeek} matchupCount={matchups.length} season={seasonYear} scheduleHref={`/l/${league.slug}/matchups`} />
+        <SeasonWeekHeader week={selectedWeek} matchupCount={matchups.length} season={seasonYear} scheduleHref={scheduleHref} />
 
         {showCountdowns && <HomepageCountdowns cards={getCountdownCards(now, calendar)} />}
 
@@ -277,16 +252,20 @@ export default async function SeasonLaunchHome({
           </section>
         )}
 
-        <SeasonMatchups
-          selectedWeek={selectedWeek}
-          maxWeeks={maxRegularWeeks}
-          season={seasonYear}
-          sleeperLeagueId={sleeperLeagueId}
-          matchups={matchups}
-          scheduleHref={`/l/${league.slug}/matchups`}
-          dashboardHref={weekNavigationHref || `/l/${league.slug}/dashboard`}
-          teamsBasePath={`/l/${league.slug}/teams`}
-        />
+        <Suspense fallback={matchupFallback}>
+          <ProjectedSeasonMatchups
+            dbLeagueId={league.id}
+            sleeperLeagueId={sleeperLeagueId}
+            season={seasonYear}
+            selectedWeek={selectedWeek}
+            maxWeeks={maxRegularWeeks}
+            saveSnapshots={saveProjectionSnapshots}
+            matchups={matchups}
+            scheduleHref={scheduleHref}
+            dashboardHref={dashboardHref}
+            teamsBasePath={teamsBasePath}
+          />
+        </Suspense>
 
         {isPostDeadline && standings.length > 0 ? (
           <PlayoffRacePanel standings={standings} playoffSpots={Math.max(2, Number(settings.playoff_teams ?? Math.ceil(standings.length / 2)))} basePath={`/l/${league.slug}`} />

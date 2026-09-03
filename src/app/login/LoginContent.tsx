@@ -73,7 +73,6 @@ export default function LoginContent() {
             <Button onClick={handleLogin} disabled={!email || !password || loading} variant="primary" className="w-full">{loading ? 'Signing in…' : 'Sign in'}</Button>
           </CardContent>
         </Card>
-        <p className="text-center text-xs text-white/25 mt-6">Site admin? <Link href="/super-admin/login" className="text-amber-400 hover:underline font-bold">Admin Mode →</Link></p>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { verifySession } from '@/lib/server/auth';
-import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
+import { getConfiguredAdminSecret, isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { isPlatformAdminSession } from '@/lib/server/admin-auth';
 import { getUserById, getUserLeagues } from '@/lib/server/user-auth';
 
@@ -39,6 +39,22 @@ export async function GET() {
       );
     }
 
+    // Compatibility bridge while older commissioner APIs are migrated from evw_admin
+    // to account/league-role authorization. The real authorization source remains
+    // the authenticated platform-admin account.
+    if (user.role === 'admin') {
+      const legacySecret = getConfiguredAdminSecret();
+      if (legacySecret && !isAdminCookieValue(jar.get('evw_admin')?.value)) {
+        jar.set('evw_admin', legacySecret, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          path: '/',
+          maxAge: 60 * 60 * 24 * 30,
+        });
+      }
+    }
+
     const activeMembership = activeLeagueId
       ? leagues.find((league) => league.leagueId === activeLeagueId)
       : leagues.length === 1
@@ -47,8 +63,8 @@ export async function GET() {
 
     return Response.json({
       authenticated: true,
-      isAdmin: cookieAdmin || isPlatformAdmin || Boolean(activeMembership?.isCommissioner),
-      isPlatformAdmin,
+      isAdmin: cookieAdmin || isPlatformAdmin || user.role === 'admin' || Boolean(activeMembership?.isCommissioner),
+      isPlatformAdmin: isPlatformAdmin || user.role === 'admin',
       isSiteAdmin,
       claims: { type: 'user', sub: userId, exp: claims.exp, team: activeMembership?.teamName },
       user: {

@@ -40,25 +40,33 @@ export default function GlobalLeagueSwitcher() {
   const routeSlug = getLeagueSlugFromPath(pathname);
   const [leagues, setLeagues] = useState<UserLeagueSummary[]>([]);
   const [activeTeam, setActiveTeam] = useState<ActiveTeam | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
     fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' })
-      .then(async (response) => response.ok ? response.json() as Promise<AuthResponse> : null)
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({})) as AuthResponse;
+        return data;
+      })
       .then((data) => {
-        if (!mounted || !data?.authenticated) return;
-        setLeagues(Array.isArray(data.leagues) ? data.leagues : []);
-        setActiveTeam(data.activeTeam || null);
+        if (!mounted) return;
+        const signedIn = Boolean(data?.authenticated);
+        setAuthenticated(signedIn);
+        setLeagues(signedIn && Array.isArray(data.leagues) ? data.leagues : []);
+        setActiveTeam(signedIn ? data.activeTeam || null : null);
       })
       .catch(() => {
         if (!mounted) return;
+        setAuthenticated(false);
         setLeagues([]);
         setActiveTeam(null);
       })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, []);
+  }, [pathname]);
 
   const routeLeague = useMemo(
     () => leagues.find((league) => league.leagueSlug === routeSlug) || null,
@@ -77,10 +85,8 @@ export default function GlobalLeagueSwitcher() {
       <aside aria-label="LeagueZone navigation" className="sticky top-0 z-50 border-b border-white/10" style={{ background: 'var(--brand-navy)' }}>
         <div className="container mx-auto flex min-h-11 items-center justify-between gap-3 px-4 py-2">
           <Link href="/" className="text-xs font-black uppercase tracking-wider text-white">LeagueZone Home</Link>
-          <div className="flex items-center gap-3">
-            <Link href="/demo" className="text-xs font-bold uppercase tracking-wider text-white/60 hover:text-white">Browse Leagues</Link>
-            {!loading && <Link href={`/login?next=${encodeURIComponent(pathname + (search ? `?${search}` : ''))}`} className="text-xs font-bold uppercase tracking-wider text-[var(--brand-gold)] hover:brightness-110">Sign In</Link>}
-          </div>
+          {!loading && !authenticated && <Link href={`/login?next=${encodeURIComponent(pathname + (search ? `?${search}` : ''))}`} className="text-xs font-bold uppercase tracking-wider text-[var(--brand-gold)] hover:brightness-110">Sign In</Link>}
+          {!loading && authenticated && <Link href="/app" className="text-xs font-bold uppercase tracking-wider text-[var(--brand-gold)] hover:brightness-110">My Leagues</Link>}
         </div>
       </aside>
     );

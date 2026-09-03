@@ -73,20 +73,15 @@ export default function UnifiedNavbar() {
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([
-      fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' }),
-      fetch('/api/admin-login', { cache: 'no-store', credentials: 'include' }).catch(() => null),
-    ])
-      .then(async ([authResponse, adminResponse]) => {
+    setLoading(true);
+    fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' })
+      .then(async (authResponse) => {
         const auth = await authResponse.json().catch(() => ({})) as AuthPayload;
-        const admin = adminResponse?.ok
-          ? await adminResponse.json().catch(() => ({})) as { isAdmin?: boolean }
-          : {};
         if (!mounted) return;
         setUser(auth.authenticated && auth.user ? auth.user : null);
         setActiveTeam(auth.activeTeam || null);
         setLeagues(Array.isArray(auth.leagues) ? auth.leagues : []);
-        setIsAdmin(Boolean(auth.isAdmin) || Boolean(admin.isAdmin));
+        setIsAdmin(Boolean(auth.isAdmin));
         setIsPlatformAdmin(Boolean(auth.isPlatformAdmin));
         setIsSiteAdmin(Boolean(auth.isSiteAdmin));
       })
@@ -101,7 +96,7 @@ export default function UnifiedNavbar() {
       })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -130,7 +125,7 @@ export default function UnifiedNavbar() {
     { href: '/features', label: 'Features' },
     { href: '/pricing', label: 'Pricing' },
     { href: '/demo', label: 'Demo' },
-    { href: user ? '/app' : '/login', label: user ? 'My Leagues' : 'Sign In' },
+    ...(user ? [{ href: '/app', label: 'My Leagues' }] : []),
   ];
 
   const leagueLinks = activeTeam ? [
@@ -161,6 +156,11 @@ export default function UnifiedNavbar() {
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => null);
+    setUser(null);
+    setActiveTeam(null);
+    setLeagues([]);
+    setIsAdmin(false);
+    setIsPlatformAdmin(false);
     router.push('/');
     router.refresh();
   };

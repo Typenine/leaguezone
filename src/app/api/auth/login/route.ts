@@ -8,6 +8,7 @@ import {
   SESSION_COOKIE,
   getUserLeagues,
 } from '@/lib/server/user-auth';
+import { getConfiguredAdminSecret } from '@/lib/auth/admin';
 import { rateLimitByIp, AUTH_RATE_LIMITS } from '@/lib/server/rate-limit';
 
 export const runtime = 'nodejs';
@@ -15,7 +16,6 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    // Rate limit check
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const limit = await rateLimitByIp(ip, 'login', AUTH_RATE_LIMITS.login);
     if (!limit.allowed) {
@@ -47,7 +47,21 @@ export async function POST(req: NextRequest) {
     const jar = await cookies();
     jar.set(SESSION_COOKIE, token, sessionCookieOptions());
 
-    // Auto-set active league if user belongs to exactly one
+    // Temporary compatibility for legacy admin-only APIs. This is derived from
+    // the authenticated account role, so admins do not need a second login.
+    if (user.role === 'admin') {
+      const legacySecret = getConfiguredAdminSecret();
+      if (legacySecret) {
+        jar.set('evw_admin', legacySecret, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          path: '/',
+          maxAge: 60 * 60 * 24 * 30,
+        });
+      }
+    }
+
     const leagues = await getUserLeagues(user.id);
     if (leagues.length === 1) {
       jar.set('active_league_id', leagues[0].leagueId, {
