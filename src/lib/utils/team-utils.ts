@@ -41,15 +41,17 @@ export const POSITION_RANK: Record<string, number> = {
 };
 
 /**
- * Converts a team name to a URL-friendly format for logo paths
- * @param teamName The team name to format
- * @returns Formatted team name for logo path
+ * Converts a team name to the stable slug used by locally hosted team logos.
+ * Provider display names can contain smart quotes, punctuation, or inconsistent
+ * spacing, so normalize all of those before resolving the asset path.
  */
 export const formatTeamNameForLogo = (teamName: string): string => {
   return teamName
+    .normalize('NFKD')
     .toLowerCase()
-    .replace(/[''\.]/g, '')
-    .replace(/\s+/g, '-');
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035`']/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 };
 
 /**
