@@ -40,11 +40,15 @@ export default async function SeasonLaunchHome({
   teamName,
   rosterId,
   searchParams,
+  showCountdowns = true,
+  weekNavigationHref,
 }: {
   league: League;
   teamName?: string | null;
   rosterId?: number | null;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  showCountdowns?: boolean;
+  weekNavigationHref?: string;
 }) {
   const now = new Date();
   const sleeperLeagueId = league.sleeperLeagueId || '';
@@ -265,7 +269,7 @@ export default async function SeasonLaunchHome({
       <div className="container relative z-10 mx-auto px-4 py-6 sm:px-5 sm:py-8">
         <SeasonWeekHeader week={selectedWeek} matchupCount={matchups.length} season={seasonYear} scheduleHref={`/l/${league.slug}/matchups`} />
 
-        <HomepageCountdowns cards={getCountdownCards(now, calendar)} />
+        {showCountdowns && <HomepageCountdowns cards={getCountdownCards(now, calendar)} />}
 
         {myTeamData && (
           <section className="mb-10 sm:mb-12">
@@ -277,9 +281,10 @@ export default async function SeasonLaunchHome({
           selectedWeek={selectedWeek}
           maxWeeks={maxRegularWeeks}
           season={seasonYear}
+          sleeperLeagueId={sleeperLeagueId}
           matchups={matchups}
           scheduleHref={`/l/${league.slug}/matchups`}
-          dashboardHref={`/l/${league.slug}/dashboard`}
+          dashboardHref={weekNavigationHref || `/l/${league.slug}/dashboard`}
           teamsBasePath={`/l/${league.slug}/teams`}
         />
 

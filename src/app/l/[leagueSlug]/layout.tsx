@@ -100,7 +100,7 @@ export default async function LeagueLayout({
     ...additionalStandalone,
   ];
   const mobileLinks = [
-    { href: leagueUrl(league.slug, 'dashboard'), label: 'Dashboard' },
+    ...(canOpenDashboard ? [{ href: leagueUrl(league.slug, 'dashboard'), label: 'Dashboard' }] : []),
     ...visibleNavItems
       .filter((item) => item.segment !== '')
       .map((item) => ({ href: leagueUrl(league.slug, item.segment), label: item.label })),

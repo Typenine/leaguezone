@@ -149,6 +149,7 @@ export default function SeasonMatchups({
   selectedWeek,
   maxWeeks,
   season,
+  sleeperLeagueId,
   matchups,
   scheduleHref = '/matchups',
   dashboardHref = '/',
@@ -157,6 +158,7 @@ export default function SeasonMatchups({
   selectedWeek: number;
   maxWeeks: number;
   season: string;
+  sleeperLeagueId?: string;
   matchups: SeasonHomeMatchup[];
   scheduleHref?: string;
   dashboardHref?: string;
@@ -168,8 +170,9 @@ export default function SeasonMatchups({
   useEffect(() => {
     let cancelled = false;
     async function refresh() {
+      const leagueParam = sleeperLeagueId ? `&leagueId=${encodeURIComponent(sleeperLeagueId)}` : '';
       const [pointsResult, scoreboardResult] = await Promise.allSettled([
-        fetch(`/api/matchup-points?week=${selectedWeek}`, { cache: "no-store" }),
+        fetch(`/api/matchup-points?week=${selectedWeek}${leagueParam}`, { cache: "no-store" }),
         fetch(`/api/nfl-scoreboard?week=${selectedWeek}&season=${encodeURIComponent(season)}`, { cache: "no-store" }),
       ]);
       if (cancelled) return;
@@ -190,7 +193,7 @@ export default function SeasonMatchups({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [selectedWeek, season]);
+  }, [selectedWeek, season, sleeperLeagueId]);
 
   const displayMatchups = useMemo(() => {
     const hasPointFeed = Object.keys(pointsMap).length > 0;
