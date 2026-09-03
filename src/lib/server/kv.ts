@@ -12,10 +12,9 @@ let cached: KVLike | null | undefined;
 export async function getKV(): Promise<KVLike | null> {
   if (cached !== undefined) return cached;
 
-  // Vercel KV is optional for LeagueZone. @vercel/kv exposes a client even
-  // when its required environment variables are missing, and that client
-  // throws only when a command is attempted. Treat an unconfigured KV
-  // integration as unavailable so callers can use their existing fallback.
+  // The Vercel Marketplace Upstash integration supplies KV_REST_API_URL and
+  // KV_REST_API_TOKEN. Redis-backed rate limiting is optional in local/dev
+  // environments, so only initialize the client when both values are present.
   const kvUrl = process.env.KV_REST_API_URL?.trim();
   const kvToken = process.env.KV_REST_API_TOKEN?.trim();
   if (!kvUrl || !kvToken) {
