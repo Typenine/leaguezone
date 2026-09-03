@@ -1,23 +1,24 @@
 import { NextRequest } from 'next/server';
 import { hashPin } from '@/lib/server/auth';
 import { writeTeamPinWithError } from '@/lib/server/pins';
-import { getConfiguredAdminSecret, isAdminCookieValue } from '@/lib/auth/admin';
+import { getConfiguredAdminSecret } from '@/lib/auth/admin';
+import { isLeagueAdminRequest } from '@/lib/server/admin-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function isAdmin(req: NextRequest): boolean {
+async function isAdmin(req: NextRequest): Promise<boolean> {
+  if (await isLeagueAdminRequest(req)) return true;
   const adminSecret = getConfiguredAdminSecret();
   if (!adminSecret) return false;
   const auth = req.headers.get('authorization');
-  if (auth && auth.startsWith('Bearer ')) return auth.slice('Bearer '.length) === adminSecret;
+  if (auth?.startsWith('Bearer ') && auth.slice('Bearer '.length) === adminSecret) return true;
   const hdr = req.headers.get('x-admin-key');
-  if (hdr && hdr === adminSecret) return true;
-  return isAdminCookieValue(req.cookies.get('evw_admin')?.value);
+  return Boolean(hdr && hdr === adminSecret);
 }
 
 export async function POST(req: NextRequest) {
-  if (!isAdmin(req)) return Response.json({ error: 'forbidden' }, { status: 403 });
+  if (!(await isAdmin(req))) return Response.json({ error: 'forbidden' }, { status: 403 });
   try {
     const body = await req.json().catch(() => ({} as { team?: string; pin?: string }));
     const team = typeof body.team === 'string' ? body.team.trim() : '';

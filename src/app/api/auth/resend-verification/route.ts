@@ -18,8 +18,6 @@ export async function POST(req: NextRequest) {
     if (user.emailVerified) return NextResponse.json({ ok: true, alreadyVerified: true });
 
     const db = getDb();
-
-    // Invalidate old tokens
     await db.execute(sql`
       DELETE FROM email_verification_tokens
       WHERE user_id = ${user.id}::uuid AND used_at IS NULL
@@ -39,6 +37,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('POST /api/auth/resend-verification failed', e);
-    return NextResponse.json({ error: 'Failed to send email' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Verification email could not be sent. Please try again shortly.' },
+      { status: 500 },
+    );
   }
 }

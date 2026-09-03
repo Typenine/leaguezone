@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
-import { signSession } from '@/lib/server/auth';
+import { isLeagueAdminRequest, QA_ADMIN_ORIGIN_COOKIE } from '@/lib/server/admin-auth';
+import { signSession, verifySession } from '@/lib/server/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function isAdmin(req: NextRequest): boolean {
-  return (
-    isAdminCookieValue(req.cookies.get('evw_admin')?.value) ||
-    isSiteAdminCookieValue(req.cookies.get('site_admin')?.value)
-  );
-}
-
 export async function POST(req: NextRequest) {
-  if (!isAdmin(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!(await isLeagueAdminRequest(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const team = typeof body.team === 'string' ? body.team.trim() : '';
@@ -28,6 +21,23 @@ export async function POST(req: NextRequest) {
   });
 
   const res = NextResponse.json({ ok: true, team });
+  const existingOrigin = req.cookies.get(QA_ADMIN_ORIGIN_COOKIE)?.value;
+  const currentToken = req.cookies.get('evw_session')?.value;
+  const currentClaims = currentToken ? verifySession(currentToken) : null;
+
+  // Preserve the real DB-backed admin session separately before replacing the
+  // visible user session with a team perspective. This keeps authorization and
+  // auditing tied to the admin while the UI behaves like the selected team.
+  if (!existingOrigin && currentToken && currentClaims?.type === 'user') {
+    res.cookies.set(QA_ADMIN_ORIGIN_COOKIE, currentToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: ttlDays * 24 * 60 * 60,
+    });
+  }
+
   res.cookies.set('evw_session', token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -39,8 +49,33 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!isAdmin(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!(await isLeagueAdminRequest(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const res = NextResponse.json({ ok: true });
-  res.cookies.set('evw_session', '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 });
+  const originalToken = req.cookies.get(QA_ADMIN_ORIGIN_COOKIE)?.value;
+  if (originalToken) {
+    res.cookies.set('evw_session', originalToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  } else {
+    res.cookies.set('evw_session', '', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 0,
+    });
+  }
+  res.cookies.set(QA_ADMIN_ORIGIN_COOKIE, '', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 0,
+  });
   return res;
 }

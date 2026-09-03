@@ -15,6 +15,7 @@ type SessionUser = {
   displayName: string | null;
   email: string;
   emailVerified: boolean;
+  role?: string;
 };
 
 type UserLeague = {
@@ -30,6 +31,7 @@ type ActiveTeam = UserLeague;
 type AuthPayload = {
   authenticated?: boolean;
   isAdmin?: boolean;
+  isPlatformAdmin?: boolean;
   isSiteAdmin?: boolean;
   user?: SessionUser;
   activeTeam?: ActiveTeam | null;
@@ -56,6 +58,7 @@ export default function UnifiedNavbar() {
   const [activeTeam, setActiveTeam] = useState<ActiveTeam | null>(null);
   const [leagues, setLeagues] = useState<UserLeague[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [isSiteAdmin, setIsSiteAdmin] = useState(false);
 
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -65,6 +68,8 @@ export default function UnifiedNavbar() {
   const [passwordStatus, setPasswordStatus] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const [verificationSending, setVerificationSending] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<{ ok: boolean; message: string } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -82,6 +87,7 @@ export default function UnifiedNavbar() {
         setActiveTeam(auth.activeTeam || null);
         setLeagues(Array.isArray(auth.leagues) ? auth.leagues : []);
         setIsAdmin(Boolean(auth.isAdmin) || Boolean(admin.isAdmin));
+        setIsPlatformAdmin(Boolean(auth.isPlatformAdmin));
         setIsSiteAdmin(Boolean(auth.isSiteAdmin));
       })
       .catch(() => {
@@ -89,16 +95,18 @@ export default function UnifiedNavbar() {
         setUser(null);
         setActiveTeam(null);
         setLeagues([]);
+        setIsAdmin(false);
+        setIsPlatformAdmin(false);
+        setIsSiteAdmin(false);
       })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
+      .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
     setMobileOpen(false);
     setAccountOpen(false);
+    setVerificationStatus(null);
   }, [pathname]);
 
   useEffect(() => {
@@ -172,6 +180,23 @@ export default function UnifiedNavbar() {
     router.refresh();
   };
 
+  const resendVerification = async () => {
+    setVerificationSending(true);
+    setVerificationStatus(null);
+    const response = await fetch('/api/auth/resend-verification', { method: 'POST' }).catch(() => null);
+    const body = response ? await response.json().catch(() => ({})) as { error?: string; alreadyVerified?: boolean } : {};
+    setVerificationSending(false);
+    if (!response?.ok) {
+      setVerificationStatus({ ok: false, message: body.error || 'Verification email could not be sent.' });
+      return;
+    }
+    if (body.alreadyVerified) {
+      setVerificationStatus({ ok: true, message: 'Your email is already verified.' });
+      return;
+    }
+    setVerificationStatus({ ok: true, message: 'Verification email accepted for delivery. Check your inbox and spam folder.' });
+  };
+
   const changePassword = async (event: React.FormEvent) => {
     event.preventDefault();
     setPasswordStatus(null);
@@ -207,6 +232,7 @@ export default function UnifiedNavbar() {
       {user && (
         <div className="px-3 py-3">
           <p className="truncate text-sm font-semibold text-[var(--text)]">{displayName}</p>
+          {isPlatformAdmin && <p className="mt-0.5 text-xs font-semibold text-amber-500">Platform Admin</p>}
           {activeTeam && <p className="truncate text-xs text-[var(--muted)]">{activeTeam.teamName}{activeTeam.isCommissioner ? ' · Commissioner' : ''}</p>}
         </div>
       )}
@@ -227,10 +253,18 @@ export default function UnifiedNavbar() {
         {activeTeam && <a href={`/l/${activeTeam.leagueSlug}`} onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">League Site</a>}
         {activeTeam && <a href={dashboardHref} onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">League Dashboard</a>}
         {user && <a href={teamSettingsHref} onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">Team & Account Settings</a>}
-        {(activeTeam?.isCommissioner || isAdmin) && <a href={commissionerHref} onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">Commissioner Settings</a>}
+        {activeTeam && (activeTeam.isCommissioner || isAdmin) && <a href={commissionerHref} onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">Commissioner Settings</a>}
         {(activeTeam?.isCommissioner || isAdmin) && <Link href="/admin/suggestions" onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">Manage Suggestions</Link>}
       </div>
-      {isSiteAdmin && (
+      {isPlatformAdmin && (
+        <div className="p-1">
+          <p className="px-2 py-1 text-[10px] font-black uppercase tracking-wider text-amber-500">Platform Admin</p>
+          <Link href="/admin" onClick={close} className="block rounded px-2 py-2 text-sm font-semibold text-amber-500 hover:bg-[var(--surface-strong)]">Admin Dashboard</Link>
+          <Link href="/admin/tools" onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">QA & Testing Tools</Link>
+          <Link href="/super-admin" onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">League Management</Link>
+        </div>
+      )}
+      {isSiteAdmin && !isPlatformAdmin && (
         <div className="p-1">
           <Link href="/super-admin" onClick={close} className="block rounded px-2 py-2 text-sm text-amber-500 hover:bg-[var(--surface-strong)]">Site Admin Dashboard</Link>
           <button type="button" onClick={() => { close?.(); exitSiteAdmin(); }} className="block w-full rounded px-2 py-2 text-left text-sm text-red-500 hover:bg-[var(--surface-strong)]">Exit Site Admin</button>
@@ -238,7 +272,14 @@ export default function UnifiedNavbar() {
       )}
       <div className="p-1">
         {user && <button type="button" onClick={() => { close?.(); setPasswordOpen(true); }} className="block w-full rounded px-2 py-2 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">Change Password</button>}
-        {user && !user.emailVerified && <button type="button" onClick={() => fetch('/api/auth/resend-verification', { method: 'POST' })} className="block w-full rounded px-2 py-2 text-left text-sm text-amber-500 hover:bg-[var(--surface-strong)]">Resend Verification Email</button>}
+        {user && !user.emailVerified && (
+          <>
+            <button type="button" disabled={verificationSending} onClick={resendVerification} className="block w-full rounded px-2 py-2 text-left text-sm text-amber-500 hover:bg-[var(--surface-strong)] disabled:opacity-50">
+              {verificationSending ? 'Sending Verification Email…' : 'Resend Verification Email'}
+            </button>
+            {verificationStatus && <p className={`px-2 pb-2 text-xs leading-5 ${verificationStatus.ok ? 'text-emerald-500' : 'text-red-500'}`}>{verificationStatus.message}</p>}
+          </>
+        )}
         {user
           ? <button type="button" onClick={() => { close?.(); logout(); }} className="block w-full rounded px-2 py-2 text-left text-sm text-red-500 hover:bg-[var(--surface-strong)]">Sign Out</button>
           : isAdmin
@@ -276,7 +317,7 @@ export default function UnifiedNavbar() {
                 <span className="px-2 text-sm text-white/45">Account</span>
               ) : signedIn ? (
                 <>
-                  <button type="button" onClick={() => setAccountOpen((value) => !value)} className="rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-white/10" aria-expanded={accountOpen}>{displayName} ▾</button>
+                  <button type="button" onClick={() => setAccountOpen((value) => !value)} className={`rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/10 ${isPlatformAdmin ? 'text-amber-400' : 'text-white'}`} aria-expanded={accountOpen}>{displayName} ▾</button>
                   {accountOpen && <div className="absolute right-0 mt-2 w-72 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)] shadow-xl">{accountActions(() => setAccountOpen(false))}</div>}
                 </>
               ) : (
@@ -286,7 +327,9 @@ export default function UnifiedNavbar() {
                 </div>
               )}
             </div>
-            <Button type="button" variant="ghost" size="sm" className="text-white hover:bg-white/10 md:hidden" onClick={() => setMobileOpen(true)} aria-label="Open navigation menu">☰</Button>
+            <div className="md:hidden">
+              <Button type="button" variant="ghost" size="sm" className="text-white hover:bg-white/10" onClick={() => setMobileOpen(true)} aria-label="Open navigation menu">☰</Button>
+            </div>
           </div>
         </div>
       </nav>

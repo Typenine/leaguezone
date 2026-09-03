@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
+import { isLeagueAdminRequest } from '@/lib/server/admin-auth';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
 import { getLeagueIdsFromDb } from '@/lib/server/league-config';
@@ -7,14 +7,6 @@ import { getLeagueIdsFromDb } from '@/lib/server/league-config';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function isAdmin(req: NextRequest): boolean {
-  return (
-    isAdminCookieValue(req.cookies.get('evw_admin')?.value) ||
-    isSiteAdminCookieValue(req.cookies.get('site_admin')?.value)
-  );
-}
-
-// ─── action: sleeper-ping ─────────────────────────────────────────────────────
 async function sleeperPing() {
   const { current: leagueId } = await getLeagueIdsFromDb();
   if (!leagueId) return { ok: false, error: 'No league ID configured' };
@@ -22,7 +14,6 @@ async function sleeperPing() {
   const start = Date.now();
   const res = await fetch(`https://api.sleeper.app/v1/league/${leagueId}`, { cache: 'no-store' });
   const ms = Date.now() - start;
-
   if (!res.ok) return { ok: false, error: `HTTP ${res.status}`, ms };
   const data = await res.json();
   return {
@@ -36,7 +27,6 @@ async function sleeperPing() {
   };
 }
 
-// ─── action: discord-test ────────────────────────────────────────────────────
 async function discordTest(webhookKey: string) {
   const webhookEnvKeys: Record<string, string> = {
     trades: 'DISCORD_TRADES_WEBHOOK_URL',
@@ -61,7 +51,6 @@ async function discordTest(webhookKey: string) {
       allowed_mentions: { parse: [] },
     }),
   });
-
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     return { ok: false, error: `Discord returned ${res.status}: ${text}` };
@@ -69,7 +58,6 @@ async function discordTest(webhookKey: string) {
   return { ok: true, webhook: webhookKey };
 }
 
-// ─── action: setup-reset ─────────────────────────────────────────────────────
 async function setupReset() {
   const db = getDb();
   const res = await db.execute(sql`
@@ -82,14 +70,12 @@ async function setupReset() {
   return { ok: true, leagueId: row.id, leagueName: row.name, message: 'Setup marked as incomplete — visit /setup to re-run the wizard.' };
 }
 
-// ─── action: clear-trade-events ──────────────────────────────────────────────
 async function clearTradeEvents() {
   const db = getDb();
   await db.execute(sql`DELETE FROM discord_notifications WHERE notification_type IN ('trade_pending', 'trade_complete')`);
   return { ok: true, message: 'All Discord trade notification records cleared — trade notifier will re-post all trades on next run.' };
 }
 
-// ─── action: cron-trigger ─────────────────────────────────────────────────────
 async function cronTrigger(job: string, origin: string, cronSecret: string | null) {
   const jobRoutes: Record<string, string> = {
     'trade-notifier': '/api/cron/trade-notifier',
@@ -102,18 +88,14 @@ async function cronTrigger(job: string, origin: string, cronSecret: string | nul
   const url = `${origin}${path}`;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (cronSecret) headers['x-cron-secret'] = cronSecret;
-
   const start = Date.now();
   const res = await fetch(url, { method: 'GET', headers, cache: 'no-store' });
   const ms = Date.now() - start;
-
   let data: unknown;
   try { data = await res.json(); } catch { data = null; }
-
   return { ok: res.ok, status: res.status, ms, job, data };
 }
 
-// ─── action: db-counts ───────────────────────────────────────────────────────
 async function dbCounts() {
   const db = getDb();
   const queries: Array<[string, ReturnType<typeof sql>]> = [
@@ -135,39 +117,30 @@ async function dbCounts() {
   return { ok: true, counts };
 }
 
-// ─── router ──────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  if (!isAdmin(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!(await isLeagueAdminRequest(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const action = typeof body.action === 'string' ? body.action : '';
-
   try {
     switch (action) {
       case 'sleeper-ping':
         return NextResponse.json(await sleeperPing());
-
       case 'discord-test': {
         const webhook = typeof body.webhook === 'string' ? body.webhook : 'general';
         return NextResponse.json(await discordTest(webhook));
       }
-
       case 'setup-reset':
         return NextResponse.json(await setupReset());
-
       case 'clear-trade-events':
         return NextResponse.json(await clearTradeEvents());
-
       case 'cron-trigger': {
         const job = typeof body.job === 'string' ? body.job : '';
         const cronSecret = process.env.CRON_SECRET?.trim() || process.env.TAXI_CRON_SECRET?.trim() || null;
-        const origin = req.nextUrl.origin;
-        return NextResponse.json(await cronTrigger(job, origin, cronSecret));
+        return NextResponse.json(await cronTrigger(job, req.nextUrl.origin, cronSecret));
       }
-
       case 'db-counts':
         return NextResponse.json(await dbCounts());
-
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }

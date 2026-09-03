@@ -1,13 +1,9 @@
 /**
  * POST /api/super-admin/league/[id]/dedup-invites
- *
- * Removes duplicate invite rows for a league, keeping the best row per
- * (roster_id OR team_name) — prefers claimed rows, then the oldest created_at.
- * Returns { removed: number }.
- * Requires the site_admin cookie.
+ * Removes duplicate invite rows for a league, keeping the best row per roster/team.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { isSiteAdminCookieValue } from '@/lib/auth/admin';
+import { isPlatformAdminRequest } from '@/lib/server/admin-auth';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
 
@@ -18,22 +14,15 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const siteAdminCookie = req.cookies.get('site_admin')?.value;
-  if (!isSiteAdminCookieValue(siteAdminCookie)) {
+  if (!(await isPlatformAdminRequest(req))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const { id } = await params;
-  if (!id) {
-    return NextResponse.json({ error: 'id required' }, { status: 400 });
-  }
+  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
 
   try {
     const db = getDb();
-
-    // Keep the best row per (roster_id or team_name):
-    //   – claimed rows beat unclaimed ones
-    //   – among ties, keep the oldest (lowest created_at)
     const res = await db.execute(sql`
       WITH ranked AS (
         SELECT
@@ -51,7 +40,6 @@ export async function POST(
         AND id NOT IN (SELECT id FROM keep)
       RETURNING id
     `);
-
     const removed = ((res as { rows?: unknown[] }).rows ?? []).length;
     return NextResponse.json({ removed });
   } catch (e) {

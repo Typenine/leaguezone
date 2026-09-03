@@ -1,21 +1,12 @@
 import { NextRequest } from 'next/server';
 import { listKeys, getObjectText } from '@/server/storage/r2';
-import { isAdminCookieValue } from '@/lib/auth/admin';
+import { isLeagueAdminRequest } from '@/lib/server/admin-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function isAdmin(req: NextRequest): boolean {
-  try {
-    const cookie = req.cookies.get('evw_admin')?.value;
-    return isAdminCookieValue(cookie);
-  } catch {
-    return false;
-  }
-}
-
 export async function GET(req: NextRequest) {
-  if (!isAdmin(req)) return Response.json({ error: 'forbidden' }, { status: 403 });
+  if (!(await isLeagueAdminRequest(req))) return Response.json({ error: 'forbidden' }, { status: 403 });
   try {
     const url = new URL(req.url);
     const daysParam = url.searchParams.get('days');
@@ -23,12 +14,10 @@ export async function GET(req: NextRequest) {
     const since = Date.now() - days * 24 * 60 * 60 * 1000;
 
     type AuthLog = { ts: string; type: string; team?: string; ip?: string; ok?: boolean };
-
     type Agg = { team: string; loginCount: number; lastSeen: string | null; lastIp: string | null };
     const byTeam = new Map<string, Agg>();
     const datesByTeam = new Map<string, Set<string>>();
 
-    // List all auth logs (they are small JSON)
     const keys = await listKeys({ prefix: 'logs/auth/', max: 5000 });
     for (const k of keys) {
       try {
@@ -39,11 +28,10 @@ export async function GET(req: NextRequest) {
         const tsNum = Date.parse(log.ts);
         if (Number.isNaN(tsNum) || tsNum < since) continue;
         const team = log.team;
-        const prev = (byTeam.get(team) || { team, loginCount: 0, lastSeen: null, lastIp: null }) as Agg;
+        const prev = byTeam.get(team) || { team, loginCount: 0, lastSeen: null, lastIp: null };
         prev.loginCount += 1;
         const set = datesByTeam.get(team) || new Set<string>();
-        const dayKey = new Date(tsNum).toISOString().slice(0, 10);
-        set.add(dayKey);
+        set.add(new Date(tsNum).toISOString().slice(0, 10));
         datesByTeam.set(team, set);
         if (!prev.lastSeen || tsNum > Date.parse(prev.lastSeen)) {
           prev.lastSeen = new Date(tsNum).toISOString();
@@ -53,19 +41,15 @@ export async function GET(req: NextRequest) {
       } catch {}
     }
 
-    // finalize daysActive and emit list
     const rows = Array.from(byTeam.values())
-      .map((v) => {
-        const dates = datesByTeam.get(v.team);
-        return {
-          team: v.team,
-          loginCount: v.loginCount,
-          daysActive: dates ? dates.size : 0,
-          lastSeen: v.lastSeen,
-          lastIp: v.lastIp,
-        };
-      })
-      .sort((a, b) => (Date.parse(b.lastSeen || '1970-01-01') - Date.parse(a.lastSeen || '1970-01-01')));
+      .map((v) => ({
+        team: v.team,
+        loginCount: v.loginCount,
+        daysActive: datesByTeam.get(v.team)?.size || 0,
+        lastSeen: v.lastSeen,
+        lastIp: v.lastIp,
+      }))
+      .sort((a, b) => Date.parse(b.lastSeen || '1970-01-01') - Date.parse(a.lastSeen || '1970-01-01'));
 
     return Response.json({ since: new Date(since).toISOString(), days, rows });
   } catch {

@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { verifySession } from '@/lib/server/auth';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
+import { isPlatformAdminSession } from '@/lib/server/admin-auth';
 import { getUserById, getUserLeagues } from '@/lib/server/user-auth';
 
 export const runtime = 'nodejs';
@@ -10,17 +11,33 @@ export async function GET() {
   const jar = await cookies();
   const isSiteAdmin = isSiteAdminCookieValue(jar.get('site_admin')?.value);
   const cookieAdmin = isAdminCookieValue(jar.get('evw_admin')?.value) || isSiteAdmin;
+  const isPlatformAdmin = await isPlatformAdminSession();
   const activeLeagueId = jar.get('active_league_id')?.value || null;
   const token = jar.get('evw_session')?.value || '';
 
-  if (!token) return Response.json({ authenticated: false, isAdmin: cookieAdmin, isSiteAdmin }, { status: 401 });
+  if (!token) {
+    return Response.json(
+      { authenticated: false, isAdmin: cookieAdmin || isPlatformAdmin, isPlatformAdmin, isSiteAdmin },
+      { status: 401 },
+    );
+  }
   const claims = verifySession(token);
-  if (!claims) return Response.json({ authenticated: false, isAdmin: cookieAdmin, isSiteAdmin }, { status: 401 });
+  if (!claims) {
+    return Response.json(
+      { authenticated: false, isAdmin: cookieAdmin || isPlatformAdmin, isPlatformAdmin, isSiteAdmin },
+      { status: 401 },
+    );
+  }
 
   if (claims.type === 'user') {
     const userId = claims.sub as string;
     const [user, leagues] = await Promise.all([getUserById(userId), getUserLeagues(userId)]);
-    if (!user) return Response.json({ authenticated: false, isAdmin: cookieAdmin, isSiteAdmin }, { status: 401 });
+    if (!user) {
+      return Response.json(
+        { authenticated: false, isAdmin: cookieAdmin || isPlatformAdmin, isPlatformAdmin, isSiteAdmin },
+        { status: 401 },
+      );
+    }
 
     const activeMembership = activeLeagueId
       ? leagues.find((league) => league.leagueId === activeLeagueId)
@@ -30,7 +47,8 @@ export async function GET() {
 
     return Response.json({
       authenticated: true,
-      isAdmin: cookieAdmin || user.role === 'admin' || Boolean(activeMembership?.isCommissioner),
+      isAdmin: cookieAdmin || isPlatformAdmin || Boolean(activeMembership?.isCommissioner),
+      isPlatformAdmin,
       isSiteAdmin,
       claims: { type: 'user', sub: userId, exp: claims.exp, team: activeMembership?.teamName },
       user: {
@@ -62,7 +80,8 @@ export async function GET() {
 
   return Response.json({
     authenticated: true,
-    isAdmin: cookieAdmin,
+    isAdmin: cookieAdmin || isPlatformAdmin,
+    isPlatformAdmin,
     isSiteAdmin,
     claims,
     user: legacyTeam
