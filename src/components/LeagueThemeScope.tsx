@@ -54,10 +54,14 @@ export default function LeagueThemeScope() {
 
   return (
     <style>{`
-      [class~="bg-[var(--accent)]"][class~="text-white"] {
+      [class~="bg-[var(--accent)]"][class~="text-white"],
+      [style*="background: var(--accent)"],
+      [style*="background-color: var(--accent)"] {
         color: var(--on-accent, #ffffff) !important;
       }
-      [class~="bg-[var(--gold)]"][class~="text-white"] {
+      [class~="bg-[var(--gold)]"][class~="text-white"],
+      [style*="background: var(--gold)"],
+      [style*="background-color: var(--gold)"] {
         color: var(--on-gold, #000000) !important;
       }
     `}</style>
