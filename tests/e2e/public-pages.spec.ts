@@ -72,6 +72,8 @@ test.describe('Authentication boundaries', () => {
 });
 
 test.describe('League-specific navigation', () => {
+  test.skip(!process.env.DATABASE_URL, 'DATABASE_URL not configured for league-data browser tests');
+
   test('league navigation stays under the canonical slug instead of redirecting to legacy routes', async ({ page }) => {
     await page.goto(BASE_URL + '/l/east-v-west');
     await page.getByRole('link', { name: 'Teams', exact: true }).click();
