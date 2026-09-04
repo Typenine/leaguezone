@@ -11,7 +11,7 @@ export default async function DiagnosticsPage() {
   let tables: string[] = [];
   try {
     const res = await getDb().execute(sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`);
-    tables = ((res as { rows?: Array<{ tablename: string }> }).rows ?? []).map((row) => row.tablename);
+    tables = ((res as unknown as { rows?: Array<{ tablename: string }> }).rows ?? []).map((row) => row.tablename);
   } catch {}
   const checks = [
     ['Database connection', tables.length > 0],
