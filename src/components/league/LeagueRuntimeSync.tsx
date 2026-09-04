@@ -24,10 +24,12 @@ type RuntimeWindow = typeof window & {
 
 export default function LeagueRuntimeSync({
   leagueId,
+  leagueSlug,
   config,
   branding,
 }: {
   leagueId: string;
+  leagueSlug?: string;
   config: RuntimeConfig;
   branding: RuntimeBranding;
 }) {
@@ -35,9 +37,13 @@ export default function LeagueRuntimeSync({
     const runtimeWindow = window as RuntimeWindow;
     runtimeWindow.__LEAGUE_CONFIG__ = config;
     runtimeWindow.__LEAGUE_BRANDING__ = branding;
-    document.cookie = `active_league_id=${encodeURIComponent(leagueId)}; Path=/; Max-Age=2592000; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
+    const secure = location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `active_league_id=${encodeURIComponent(leagueId)}; Path=/; Max-Age=2592000; SameSite=Lax${secure}`;
+    if (leagueSlug) {
+      document.cookie = `active_league_slug=${encodeURIComponent(leagueSlug)}; Path=/; Max-Age=2592000; SameSite=Lax${secure}`;
+    }
     window.dispatchEvent(new Event('leaguezone:league-changed'));
-  }, [branding, config, leagueId]);
+  }, [branding, config, leagueId, leagueSlug]);
 
   return null;
 }

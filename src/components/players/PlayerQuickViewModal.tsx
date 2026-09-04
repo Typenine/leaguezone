@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Modal from "@/components/ui/Modal";
 import Tabs from "@/components/ui/Tabs";
 import LoadingState from "@/components/ui/loading-state";
@@ -16,6 +17,7 @@ import {
   PlayerTransactionsSection,
 } from "@/components/players/PlayerProfileSections";
 import type { PlayerProfile } from "@/lib/types/player";
+import { getLeagueBasePath, getLeagueSlugFromPathname } from "@/lib/utils/league-route";
 
 export interface PlayerQuickViewModalProps {
   open: boolean;
@@ -27,11 +29,14 @@ export interface PlayerQuickViewModalProps {
 }
 
 /**
- * Site-wide quick-view modal for a player's profile. Fetches the same `PlayerProfile` shape
- * the canonical /players/[playerId] page renders server-side, and reuses the exact same
- * presentational sections (`PlayerProfileSections`) split across tabs instead of stacked.
+ * Site-wide quick-view modal for a player's profile. Inside a hosted league the
+ * league slug is sent explicitly to the API so profile history, honors, and
+ * transactions are assembled from the correct league instead of global defaults.
  */
 export default function PlayerQuickViewModal({ open, onClose, playerId, name }: PlayerQuickViewModalProps) {
+  const pathname = usePathname();
+  const leagueSlug = getLeagueSlugFromPathname(pathname);
+  const leagueBase = getLeagueBasePath(pathname);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +49,8 @@ export default function PlayerQuickViewModal({ open, onClose, playerId, name }: 
     setLoading(true);
     (async () => {
       try {
-        const res = await fetch(`/api/players/${encodeURIComponent(playerId)}`, { cache: "no-store" });
+        const query = leagueSlug ? `?league=${encodeURIComponent(leagueSlug)}` : '';
+        const res = await fetch(`/api/players/${encodeURIComponent(playerId)}${query}`, { cache: "no-store" });
         if (!res.ok) throw new Error(res.status === 404 ? "Player not found" : "Failed to load player");
         const data = (await res.json()) as PlayerProfile;
         if (!cancelled) setProfile(data);
@@ -57,7 +63,7 @@ export default function PlayerQuickViewModal({ open, onClose, playerId, name }: 
     return () => {
       cancelled = true;
     };
-  }, [open, playerId]);
+  }, [leagueSlug, open, playerId]);
 
   const title = profile?.identity.fullName ?? name ?? "Player";
 
@@ -82,10 +88,10 @@ export default function PlayerQuickViewModal({ open, onClose, playerId, name }: 
           />
           <div className="pt-2 border-t border-[var(--border)]">
             <Link
-              href={`/players/${encodeURIComponent(profile.identity.playerId)}`}
+              href={`${leagueBase}/players/${encodeURIComponent(profile.identity.playerId)}`}
               className="text-sm text-[var(--accent)] hover:underline underline-offset-2"
             >
-              View full profile →
+              View full profile
             </Link>
           </div>
         </div>

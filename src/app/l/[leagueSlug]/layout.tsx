@@ -25,7 +25,8 @@ const LEAGUE_SECTION_SEGMENTS = new Set([
   'hall-of-fame',
 ]);
 
-const STANDALONE_NAV_ORDER = ['history', 'draft', 'trade-block', 'news', 'suggestions', 'admin'] as const;
+const GROUPED_NAV_SEGMENTS = new Set(['history', 'draft', 'trade-block']);
+const STANDALONE_NAV_ORDER = ['news', 'suggestions', 'admin'] as const;
 
 function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
@@ -33,6 +34,13 @@ function initials(name: string): string {
 
 function safeJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+function flattenNavLinks(links: LeagueNavLink[]): Array<{ href: string; label: string }> {
+  return links.flatMap((link) => {
+    if (link.children?.length) return flattenNavLinks(link.children);
+    return link.href ? [{ href: link.href, label: link.label }] : [];
+  });
 }
 
 async function requestOrigin(): Promise<string> {
@@ -142,6 +150,47 @@ export default async function LeagueLayout({
     .filter((item) => LEAGUE_SECTION_SEGMENTS.has(item.segment))
     .map(toNavLink);
 
+  const historyEnabled = visibleNavItems.some((item) => item.segment === 'history');
+  const draftEnabled = visibleNavItems.some((item) => item.segment === 'draft');
+  const tradeBlockEnabled = visibleNavItems.some((item) => item.segment === 'trade-block');
+
+  const historyGroup: LeagueNavLink | null = historyEnabled ? {
+    id: 'history-group',
+    label: 'History',
+    children: [
+      { id: 'history-home', href: leagueUrl(league.slug, 'history'), label: 'History Hub' },
+      { id: 'history-franchises', href: leagueUrl(league.slug, 'history/franchises'), label: 'Franchise History' },
+      { id: 'history-gamebooks', href: leagueUrl(league.slug, 'history/gamebook'), label: 'Weekly Gamebooks' },
+      { id: 'history-milestones', href: leagueUrl(league.slug, 'history/milestones'), label: 'Milestones' },
+      { id: 'history-stats', href: leagueUrl(league.slug, 'history/stats'), label: 'Stats & Records' },
+      { id: 'history-all-league', href: leagueUrl(league.slug, 'history/all-league'), label: 'All-League History' },
+    ],
+  } : null;
+
+  const draftGroup: LeagueNavLink | null = draftEnabled ? {
+    id: 'draft-group',
+    label: 'Draft',
+    children: [
+      { id: 'draft-next', href: leagueUrl(league.slug, 'draft'), label: 'Next Draft' },
+      { id: 'draft-past', href: `${leagueUrl(league.slug, 'draft')}?view=past`, label: 'Previous Drafts' },
+      { id: 'draft-prospects', href: `${leagueUrl(league.slug, 'draft')}?view=team-prospect-draftboard`, label: 'Prospect Board' },
+    ],
+  } : null;
+
+  const transactionChildren: LeagueNavLink[] = [
+    { id: 'transactions-ledger', href: leagueUrl(league.slug, 'transactions'), label: 'Transactions' },
+    { id: 'trades', href: leagueUrl(league.slug, 'trades'), label: 'Trades' },
+    ...(tradeBlockEnabled
+      ? [{ id: 'trade-block', href: leagueUrl(league.slug, 'trade-block'), label: 'Trade Block' }]
+      : []),
+    { id: 'trade-analyzer', href: leagueUrl(league.slug, 'trades/analyzer'), label: 'Trade Analyzer' },
+  ];
+  const transactionsGroup: LeagueNavLink = {
+    id: 'transactions-group',
+    label: 'Transactions',
+    children: transactionChildren,
+  };
+
   const orderedStandalone = STANDALONE_NAV_ORDER.flatMap((segment) => {
     const item = visibleNavItems.find((candidate) => candidate.segment === segment);
     return item ? [toNavLink(item)] : [];
@@ -152,6 +201,7 @@ export default async function LeagueLayout({
     .filter(
       (item) => item.segment
         && !LEAGUE_SECTION_SEGMENTS.has(item.segment)
+        && !GROUPED_NAV_SEGMENTS.has(item.segment)
         && !knownStandaloneSegments.has(item.segment),
     )
     .map(toNavLink);
@@ -161,15 +211,22 @@ export default async function LeagueLayout({
     ...(leagueChildren.length > 0
       ? [{ id: 'league', label: 'League', children: leagueChildren }]
       : []),
+    ...(historyGroup ? [historyGroup] : []),
+    ...(draftGroup ? [draftGroup] : []),
+    transactionsGroup,
     ...orderedStandalone,
     ...additionalStandalone,
   ];
+
   const brandingHref = `/api/league/select?id=${encodeURIComponent(league.id)}&next=${encodeURIComponent('/settings/branding')}`;
   const mobileLinks = [
-    ...(canOpenDashboard ? [{ href: leagueUrl(league.slug, 'dashboard'), label: 'Dashboard' }, { href: brandingHref, label: 'Branding' }] : []),
-    ...visibleNavItems
-      .filter((item) => item.segment !== '')
-      .map((item) => ({ href: leagueUrl(league.slug, item.segment), label: item.label })),
+    ...(canOpenDashboard
+      ? [
+          { href: leagueUrl(league.slug, 'dashboard'), label: 'Dashboard' },
+          { href: brandingHref, label: 'Branding' },
+        ]
+      : []),
+    ...flattenNavLinks(navLinks),
   ];
 
   const allLeagueIds = league.sleeperLeagueIds || {};
@@ -217,10 +274,10 @@ export default async function LeagueLayout({
         '--league-on-secondary': semantic.onSecondaryAccent,
       } as React.CSSProperties}
     >
-      <LeagueRuntimeSync leagueId={league.id} config={runtimeConfigValue} branding={runtimeBrandingValue} />
+      <LeagueRuntimeSync leagueId={league.id} leagueSlug={league.slug} config={runtimeConfigValue} branding={runtimeBrandingValue} />
       <script
         dangerouslySetInnerHTML={{
-          __html: `(() => { window.__LEAGUE_CONFIG__ = ${runtimeConfig}; window.__LEAGUE_BRANDING__ = ${runtimeBranding}; document.cookie = 'active_league_id=${encodeURIComponent(league.id)}; Path=/; Max-Age=2592000; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : ''); window.dispatchEvent(new Event('leaguezone:league-changed')); })();`,
+          __html: `(() => { window.__LEAGUE_CONFIG__ = ${runtimeConfig}; window.__LEAGUE_BRANDING__ = ${runtimeBranding}; const secure = location.protocol === 'https:' ? '; Secure' : ''; document.cookie = 'active_league_id=${encodeURIComponent(league.id)}; Path=/; Max-Age=2592000; SameSite=Lax' + secure; document.cookie = 'active_league_slug=${encodeURIComponent(league.slug)}; Path=/; Max-Age=2592000; SameSite=Lax' + secure; window.dispatchEvent(new Event('leaguezone:league-changed')); })();`,
         }}
       />
       <header style={{ background: 'var(--brand-navy)', boxShadow: `inset 0 -3px 0 ${accent}`, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>

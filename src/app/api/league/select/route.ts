@@ -63,12 +63,14 @@ export async function GET(req: NextRequest) {
 
   const destination = safeDestination(req.nextUrl.searchParams.get('next'));
   const res = NextResponse.redirect(new URL(destination, req.url));
-  res.cookies.set('active_league_id', id, {
+  const cookieOptions = {
     httpOnly: false,
-    sameSite: 'lax',
+    sameSite: 'lax' as const,
     secure: process.env.NODE_ENV === 'production',
     path: '/',
     maxAge: 60 * 60 * 24 * 30,
-  });
+  };
+  res.cookies.set('active_league_id', id, cookieOptions);
+  res.cookies.set('active_league_slug', slug, cookieOptions);
   return res;
 }

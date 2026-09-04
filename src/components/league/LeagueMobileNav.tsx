@@ -15,10 +15,23 @@ function itemIcon(label: string) {
   return House;
 }
 
+function isPrimaryLink(link: MobileLink): boolean {
+  const label = link.label.toLowerCase();
+  return label === 'dashboard'
+    || label === 'home'
+    || label === 'standings'
+    || label === 'schedule'
+    || label === 'news';
+}
+
 export default function LeagueMobileNav({ links }: { links: MobileLink[] }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const primary = links.filter((link) => /dashboard|standings|matchups|news/.test(link.href)).slice(0, 4);
+  const primaryCandidates = links.filter(isPrimaryLink);
+  const hasDashboard = primaryCandidates.some((link) => link.label.toLowerCase() === 'dashboard');
+  const primary = primaryCandidates
+    .filter((link) => !(hasDashboard && link.label.toLowerCase() === 'home'))
+    .slice(0, 4);
 
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
