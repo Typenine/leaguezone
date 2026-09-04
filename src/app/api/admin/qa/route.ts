@@ -21,6 +21,7 @@ import {
   deleteRehearsalDraft,
   findLiveDraftForYear,
 } from '@/server/db/draft-scope-queries';
+import { copyDraftSetupMetadata } from '@/server/db/draft-setup-queries';
 import { resetDraft } from '@/server/db/queries.fixed';
 
 export const runtime = 'nodejs';
@@ -247,6 +248,7 @@ export async function POST(req: NextRequest) {
         clockSeconds,
         sourceDraftId,
       });
+      if (sourceDraftId) await copyDraftSetupMetadata(sourceDraftId, draftId);
       await db.execute(sql`UPDATE qa_sessions SET draft_id = ${draftId}::uuid, updated_at = now() WHERE id = ${sessionId}::uuid`);
     }
   } catch (error) {
