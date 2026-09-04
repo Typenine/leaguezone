@@ -4,8 +4,8 @@ import { normalizeHexColor } from '@/lib/branding/colors';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(_req: Request, context: { params: Promise<{ leagueSlug: string }> }) {
-  const { leagueSlug } = await context.params;
+export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
+  const { id: leagueSlug } = await context.params;
   const league = await getLeagueBySlug(leagueSlug);
   if (!league) return NextResponse.json({ error: 'League not found' }, { status: 404 });
 
