@@ -10,6 +10,7 @@ import {
   sleeperDraftPlayerDisplayName,
   type DraftPlayerPoolType,
 } from '@/lib/draft/player-pool';
+import type { CustomDraftPlayer } from '@/lib/draft/custom-player-pool';
 import { getAllPlayersCached, type SleeperPlayer } from '@/lib/utils/sleeper-api';
 
 export type DraftPlayerPoolConfig = {
@@ -28,11 +29,20 @@ type DraftPoolPlayer = {
   meta: Record<string, unknown>;
 };
 
+export type DraftPoolSyncResult = {
+  count: number;
+  defenses: number;
+  rookies: number;
+  usesLiveSleeperPool: boolean;
+};
+
 let poolColumnsEnsured = false;
 
 export async function ensureDraftPlayerPoolColumns(): Promise<void> {
   if (poolColumnsEnsured) return;
   const db = getDb();
+  // Runtime guards remain for backwards-compatible/local environments. The production
+  // schema source of truth is drizzle/0032_draft_setup_options.sql.
   await db.execute(sql`
     ALTER TABLE drafts
     ADD COLUMN IF NOT EXISTS player_pool_type varchar(32) NOT NULL DEFAULT 'all_players'
@@ -90,7 +100,7 @@ export async function countDraftPlayersForSelection(draftId: string): Promise<nu
   const type = normalizeDraftPlayerPoolType(row?.player_pool_type);
 
   // The existing draft API treats count > 0 as a scoped pool. Preserve an intentionally
-  // empty restricted pool instead of falling through to the unrestricted Sleeper catalog.
+  // empty restricted/custom pool instead of falling through to the unrestricted catalog.
   return type === 'all_players' ? 0 : 1;
 }
 
@@ -146,11 +156,12 @@ export async function getSleeperDraftPoolPreview(
   rookies: number;
 }> {
   const normalized = normalizeDraftPlayerPoolType(poolType);
+  if (normalized === 'custom') throw new Error('Custom player pools must be imported, not synced from Sleeper.');
+
   const catalog = await getAllPlayersCached(24 * 60 * 60 * 1000);
   const players = Object.values(catalog)
     .filter((player: SleeperPlayer) => {
       if (!isSleeperPlayerEligibleForDraft(player, year, normalized)) return false;
-      if (normalized !== 'all_players') return true;
       const status = String(player.status || '').toLowerCase();
       return status !== 'inactive' && status !== 'retired';
     })
@@ -163,6 +174,7 @@ export async function getSleeperDraftPoolPreview(
         source: 'sleeper',
         college: player.college || null,
         rookieYear: player.rookie_year ?? null,
+        yearsExp: player.years_exp ?? null,
       },
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -179,16 +191,18 @@ export async function syncSleeperDraftPlayerPool(
   year: number,
   poolType: DraftPlayerPoolType,
   prepared?: Awaited<ReturnType<typeof getSleeperDraftPoolPreview>>,
-): Promise<{ count: number; defenses: number; rookies: number; usesLiveSleeperPool: boolean }> {
+): Promise<DraftPoolSyncResult> {
   const normalized = normalizeDraftPlayerPoolType(poolType);
+  if (normalized === 'custom') throw new Error('Custom player pools must be imported, not synced from Sleeper.');
+
   await ensureDraftPlayerPoolColumns();
   const preview = prepared ?? await getSleeperDraftPoolPreview(year, normalized);
   if (normalized === 'all_players' && preview.players.length === 0) {
     throw new Error('Sleeper returned an empty standard player pool');
   }
 
-  // Write the pool first. Only update the persisted rule/sync timestamp after the full
-  // replacement succeeds, so a failed refresh cannot relabel or partially clear a draft.
+  // Write the pool first. Only update persisted metadata after the full replacement
+  // succeeds, so a failed refresh cannot relabel or partially clear a draft.
   await replaceDraftPlayersBulk(draftId, preview.players);
   await setDraftPlayerPoolType(draftId, normalized);
   await getDb().execute(sql`
@@ -200,6 +214,34 @@ export async function syncSleeperDraftPlayerPool(
     count: preview.players.length,
     defenses: preview.defenses,
     rookies: preview.rookies,
+    usesLiveSleeperPool: false,
+  };
+}
+
+export async function replaceCustomDraftPlayerPool(
+  draftId: string,
+  players: CustomDraftPlayer[],
+): Promise<DraftPoolSyncResult> {
+  if (players.length === 0) throw new Error('Custom player pool is empty.');
+  await ensureDraftPlayerPoolColumns();
+  await replaceDraftPlayersBulk(draftId, players.map((player) => ({
+    id: player.id,
+    name: player.name,
+    pos: player.pos,
+    nfl: player.nfl,
+    rank: player.rank,
+    meta: player.meta,
+  })));
+  await setDraftPlayerPoolType(draftId, 'custom');
+  await getDb().execute(sql`
+    UPDATE drafts
+    SET player_pool_synced_at = now()
+    WHERE id = ${draftId}::uuid
+  `);
+  return {
+    count: players.length,
+    defenses: players.filter((player) => player.pos === 'DEF').length,
+    rookies: 0,
     usesLiveSleeperPool: false,
   };
 }
