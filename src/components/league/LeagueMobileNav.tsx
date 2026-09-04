@@ -55,7 +55,18 @@ export default function LeagueMobileNav({ links }: { links: MobileLink[] }) {
           {primary.map((link) => {
             const Icon = itemIcon(link.label);
             const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
-            return <Link key={link.href} href={link.href} aria-current={active ? 'page' : undefined} className={`flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-[10px] font-bold ${active ? 'text-[var(--accent)]' : 'text-white/60'}`}><Icon className="h-5 w-5" /><span className="max-w-full truncate">{link.label}</span></Link>;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={active ? 'page' : undefined}
+                className={`flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-[10px] font-bold ${active ? 'text-white' : 'text-white/60'}`}
+                style={active ? { boxShadow: 'inset 0 3px 0 var(--accent)' } : undefined}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="max-w-full truncate">{link.label}</span>
+              </Link>
+            );
           })}
           <button type="button" onClick={() => setOpen(true)} className="flex min-h-16 flex-col items-center justify-center gap-1 text-[10px] font-bold text-white/60" aria-expanded={open}><Menu className="h-5 w-5" />More</button>
         </div>
