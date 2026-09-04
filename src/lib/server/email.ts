@@ -7,7 +7,12 @@ function getResend(): Resend {
 }
 
 function getFromAddress(): string {
-  return process.env.EMAIL_FROM?.trim() || 'LeagueZone <onboarding@resend.dev>';
+  const configured = process.env.EMAIL_FROM?.trim();
+  if (configured) return configured;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('EMAIL_FROM is not configured');
+  }
+  return 'LeagueZone <onboarding@resend.dev>';
 }
 
 async function sendEmail(input: {
@@ -15,6 +20,12 @@ async function sendEmail(input: {
   subject: string;
   html: string;
 }): Promise<void> {
+  // CI/browser tests exercise the token and verification flow without sending
+  // messages through the production email provider.
+  if (process.env.E2E_TEST_MODE === 'true' || process.env.E2E_TEST_MODE === '1') {
+    return;
+  }
+
   const resend = getResend();
   const result = await resend.emails.send({
     from: getFromAddress(),
