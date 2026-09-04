@@ -88,9 +88,13 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // EVW_PREVIEW_SECRET is retained only for the presentation overlay. Normal LeagueZone
+  // draft room/API/admin access is governed by the authenticated page boundary and the
+  // server-side league membership/commissioner checks in the draft routes. A legacy
+  // East v. West preview cookie must never block a legitimate LeagueZone member.
   const previewSecret = process.env.EVW_PREVIEW_SECRET || '';
-  const isDraftFeaturePath = pathname === '/draft/room' || pathname === '/draft/overlay' || pathname === '/admin/draft' || pathname.startsWith('/api/draft');
-  if (previewSecret && isDraftFeaturePath && !isQaRehearsal) {
+  const isDraftPresentationPath = pathname === '/draft/overlay';
+  if (previewSecret && isDraftPresentationPath && !isQaRehearsal) {
     if (!isAdmin) {
       const key = req.nextUrl.searchParams.get('preview_key');
       if (key && key === previewSecret) { const url = new URL(req.url); url.searchParams.delete('preview_key'); const res = NextResponse.redirect(url); res.cookies.set('evw_preview', previewSecret, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 7 }); return res; }
