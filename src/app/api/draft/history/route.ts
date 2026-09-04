@@ -35,13 +35,13 @@ export async function GET() {
     const slots = (overview.allSlots || []).slice().sort((a, b) => a.overall - b.overall);
     const picks = (overview.allPicks || overview.recentPicks || []).slice().sort((a, b) => a.overall - b.overall);
     const picksPerRound = slots.filter((slot) => slot.round === 1).length
-      || Math.max(0, ...picks.filter((pick) => pick.round === 1).map((pick) => pick.pickInRound || 0));
+      || new Set(picks.filter((pick) => pick.round === 1).map((pick) => pick.team)).size;
     const teamNames = Array.from(new Set(slots.map((slot) => slot.team).filter(Boolean)));
 
     const linearPicks: HistoryPick[] = picks.map((pick) => ({
       pick_no: pick.overall,
       round: pick.round,
-      pick: pick.pickInRound || (picksPerRound > 0 ? ((pick.overall - 1) % picksPerRound) + 1 : pick.overall),
+      pick: picksPerRound > 0 ? ((pick.overall - 1) % picksPerRound) + 1 : pick.overall,
       team: pick.team,
       player: pick.playerName || pick.playerId || 'Unknown selection',
       ...(pick.playerId ? { playerId: pick.playerId } : {}),
