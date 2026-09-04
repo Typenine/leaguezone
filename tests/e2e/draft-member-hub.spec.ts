@@ -73,8 +73,8 @@ test.describe('LeagueZone member draft hub', () => {
 
     await page.goto('/draft?view=next');
     await expect(page.getByRole('heading', { name: '2027 Startup Draft', exact: true })).toBeVisible();
-    await expect(page.getByText('All players')).toBeVisible();
-    await expect(page.getByText('Snake')).toBeVisible();
+    await expect(page.getByText('All players', { exact: true })).toBeVisible();
+    await expect(page.getByText('Snake', { exact: true })).toBeVisible();
     await expect(page.getByText('Rookie Draft')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Enter Draft Room' })).toHaveAttribute('href', '/draft/room');
     await expect(page.getByRole('link', { name: 'Commissioner Console' })).toHaveAttribute('href', '/l/test-league/admin/draft');
