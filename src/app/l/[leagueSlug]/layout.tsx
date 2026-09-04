@@ -10,6 +10,7 @@ import LeagueMobileNav from '@/components/league/LeagueMobileNav';
 import { verifySession } from '@/lib/server/auth';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { getUserLeagues } from '@/lib/server/user-auth';
+import { getReadableTextColor, normalizeHexColor } from '@/lib/branding/colors';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,8 +60,12 @@ export default async function LeagueLayout({
   const canOpenDashboard = cookieAdmin || Boolean(membership);
   const canAdmin = cookieAdmin || Boolean(membership?.isCommissioner);
   const features = getLeagueFeatures(league);
-  const accent = league.primaryColor || 'var(--brand-blue)';
-  const secondary = league.secondaryColor || 'var(--brand-gold)';
+  const storedAccent = normalizeHexColor(league.primaryColor);
+  const storedSecondary = normalizeHexColor(league.secondaryColor);
+  const accent = storedAccent || 'var(--brand-blue)';
+  const secondary = storedSecondary || 'var(--brand-gold)';
+  const onAccent = storedAccent ? getReadableTextColor(storedAccent) : '#ffffff';
+  const onSecondary = storedSecondary ? getReadableTextColor(storedSecondary) : '#111827';
 
   const visibleNavItems = LEAGUE_NAV.filter(
     (item) => (!item.feature || features[item.feature]) && (!item.adminOnly || canAdmin),
@@ -126,8 +131,8 @@ export default async function LeagueLayout({
     name: league.name,
     shortName: league.shortName,
     logoUrl: league.logoUrl,
-    primaryColor: league.primaryColor,
-    secondaryColor: league.secondaryColor,
+    primaryColor: storedAccent,
+    secondaryColor: storedSecondary,
   };
   const runtimeConfig = safeJson(runtimeConfigValue);
   const runtimeBranding = safeJson(runtimeBrandingValue);
@@ -141,6 +146,8 @@ export default async function LeagueLayout({
         '--accent': accent,
         '--focus': accent,
         '--gold': secondary,
+        '--on-accent': onAccent,
+        '--on-gold': onSecondary,
         '--league-accent': accent,
         '--league-secondary': secondary,
       } as React.CSSProperties}
@@ -172,11 +179,11 @@ export default async function LeagueLayout({
             </Link>
             <div className="hidden shrink-0 items-center gap-2 sm:flex">
               {canOpenDashboard && <a href={dashboardHref} className="rounded-full border border-white/15 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/60 transition hover:border-white/30 hover:text-white">League Dashboard</a>}
-              {canAdmin && <a href={adminHref} className="rounded-full border border-[var(--gold)]/40 px-4 py-2 text-xs font-bold uppercase tracking-wider text-[var(--gold)] transition hover:bg-white/5">Commissioner Settings</a>}
+              {canAdmin && <a href={adminHref} className="rounded-full border border-[var(--gold)]/60 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-white/5">Commissioner Settings</a>}
             </div>
           </div>
         </div>
-        <LeagueNav links={navLinks} accent={league.primaryColor} />
+        <LeagueNav links={navLinks} accent={storedAccent} />
       </header>
       <div className="flex-grow pb-20 md:pb-0">{children}</div>
       <LeagueMobileNav links={mobileLinks} />
