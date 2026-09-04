@@ -14,6 +14,8 @@ import { isAdminCookieValue } from '@/lib/auth/admin';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const SLEEPER_PLAYER_TTL_MS = 24 * 60 * 60 * 1000;
+
 function ok(data: unknown) { return new Response(JSON.stringify(data), { status: 200, headers: { 'content-type': 'application/json' } }); }
 function bad(msg: string, status = 400) { return new Response(JSON.stringify({ error: msg }), { status, headers: { 'content-type': 'application/json' } }); }
 
@@ -37,7 +39,7 @@ export async function GET() {
       const overview = draftId ? await getDraftOverview(draftId) : null;
       const picks = overview?.allPicks || overview?.recentPicks || [];
       if (picks.length > 0) {
-        const players = await getAllPlayersCached();
+        const players = await getAllPlayersCached(SLEEPER_PLAYER_TTL_MS);
         const byId = new Map(videos.map((entry) => [entry.playerId, entry]));
         for (const pick of picks) {
           const sleeperPlayer = players[pick.playerId];
