@@ -6,6 +6,7 @@ import { verifySession } from '@/lib/server/auth';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { getUserLeagues } from '@/lib/server/user-auth';
 import NewsModerationPanel from '@/components/news/NewsModerationPanel';
+import LeagueDraftSetupPanel from '@/components/admin/LeagueDraftSetupPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,5 +27,11 @@ export default async function LeagueAdminPage({ params }: { params: Promise<{ le
   }
 
   if (!authorized) redirect(`/l/${encodeURIComponent(league.slug)}`);
-  return <><SettingsPage /><NewsModerationPanel leagueSlug={league.slug} /></>;
+  return (
+    <>
+      <SettingsPage />
+      <LeagueDraftSetupPanel leagueSlug={league.slug} />
+      <NewsModerationPanel leagueSlug={league.slug} />
+    </>
+  );
 }
