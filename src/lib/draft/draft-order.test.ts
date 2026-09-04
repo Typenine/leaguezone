@@ -21,11 +21,11 @@ describe('draft order configuration', () => {
     });
   });
 
-  it('accepts independent custom round orders', () => {
-    expect(buildDraftRoundOrders(teams, 2, 'custom', {
+  it('rejects an invalid custom round order', () => {
+    expect(() => buildDraftRoundOrders(teams, 2, 'custom', {
       1: ['B', 'A', 'D', 'C'],
       2: ['C', 'C', 'A', 'D'],
-    })).toThrow;
+    })).toThrow(/Round 2/);
   });
 
   it('rejects duplicate or missing teams', () => {
