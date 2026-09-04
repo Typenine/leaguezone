@@ -13,7 +13,7 @@ export async function buildLeagueStatsContext(league: League): Promise<LeagueSta
   return { ...ids, currentSeason, cacheKey: league.id };
 }
 
-export async function getLeagueStatsContextBySlug(slug?: string): Promise<LeagueStatsContext | undefined> {
+export async function getLeagueStatsContextBySlug(slug?: string | null): Promise<LeagueStatsContext | undefined> {
   if (!slug) return undefined;
   const league = await getLeagueBySlug(slug);
   if (!league) throw new Error('League stats context unavailable');
