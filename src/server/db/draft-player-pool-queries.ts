@@ -1,9 +1,8 @@
 import { sql } from 'drizzle-orm';
 import { getDb } from './client';
 import {
-  clearDraftPlayers as clearDraftPlayersLegacy,
   countDraftPlayers as countDraftPlayersLegacy,
-  setDraftPlayers as setDraftPlayersLegacy,
+  ensureDraftPlayersTable,
 } from './queries.fixed';
 import {
   normalizeDraftPlayerPoolType,
@@ -18,6 +17,15 @@ export type DraftPlayerPoolConfig = {
   syncedAt: string | null;
   draftableCount: number;
   usesLiveSleeperPool: boolean;
+};
+
+type DraftPoolPlayer = {
+  id: string;
+  name: string;
+  pos: string;
+  nfl: string | null;
+  rank?: number | null;
+  meta: Record<string, unknown>;
 };
 
 let poolColumnsEnsured = false;
@@ -82,24 +90,70 @@ export async function countDraftPlayersForSelection(draftId: string): Promise<nu
   const type = normalizeDraftPlayerPoolType(row?.player_pool_type);
 
   // The existing draft API treats count > 0 as a scoped pool. Preserve an intentionally
-  // empty rookie pool instead of falling through to the unrestricted Sleeper catalog.
+  // empty restricted pool instead of falling through to the unrestricted Sleeper catalog.
   return type === 'all_players' ? 0 : 1;
+}
+
+async function replaceDraftPlayersBulk(draftId: string, players: DraftPoolPlayer[]): Promise<void> {
+  await ensureDraftPlayersTable();
+  const db = getDb();
+  await db.execute(sql`DELETE FROM draft_players WHERE draft_id = ${draftId}::uuid`);
+  if (players.length === 0) return;
+
+  const payload = JSON.stringify(players.map((player) => ({
+    id: player.id,
+    name: player.name,
+    pos: player.pos,
+    nfl: player.nfl,
+    rank: player.rank ?? null,
+    meta: player.meta,
+  })));
+
+  await db.execute(sql`
+    INSERT INTO draft_players (draft_id, player_id, name, pos, nfl, rank, meta)
+    SELECT
+      ${draftId}::uuid,
+      row.id,
+      row.name,
+      upper(row.pos),
+      row.nfl,
+      row.rank,
+      row.meta
+    FROM jsonb_to_recordset(${payload}::jsonb) AS row(
+      id text,
+      name text,
+      pos text,
+      nfl text,
+      rank integer,
+      meta jsonb
+    )
+    WHERE row.id <> '' AND row.name <> '' AND row.pos <> ''
+    ON CONFLICT (draft_id, player_id) DO UPDATE SET
+      name = EXCLUDED.name,
+      pos = EXCLUDED.pos,
+      nfl = EXCLUDED.nfl,
+      rank = EXCLUDED.rank,
+      meta = EXCLUDED.meta
+  `);
 }
 
 export async function getSleeperDraftPoolPreview(
   year: number,
   poolType: DraftPlayerPoolType,
 ): Promise<{
-  players: Array<{ id: string; name: string; pos: string; nfl: string | null; meta: Record<string, unknown> }>;
+  players: DraftPoolPlayer[];
   defenses: number;
   rookies: number;
 }> {
   const normalized = normalizeDraftPlayerPoolType(poolType);
-  if (normalized === 'all_players') return { players: [], defenses: 0, rookies: 0 };
-
-  const catalog = await getAllPlayersCached();
+  const catalog = await getAllPlayersCached(24 * 60 * 60 * 1000);
   const players = Object.values(catalog)
-    .filter((player: SleeperPlayer) => isSleeperPlayerEligibleForDraft(player, year, normalized))
+    .filter((player: SleeperPlayer) => {
+      if (!isSleeperPlayerEligibleForDraft(player, year, normalized)) return false;
+      if (normalized !== 'all_players') return true;
+      const status = String(player.status || '').toLowerCase();
+      return status !== 'inactive' && status !== 'retired';
+    })
     .map((player: SleeperPlayer) => ({
       id: player.player_id,
       name: sleeperDraftPlayerDisplayName(player),
@@ -116,7 +170,7 @@ export async function getSleeperDraftPoolPreview(
   return {
     players,
     defenses: players.filter((player) => player.pos === 'DEF').length,
-    rookies: players.filter((player) => player.pos !== 'DEF').length,
+    rookies: players.filter((player) => player.pos !== 'DEF' && player.meta.rookieYear != null && String(player.meta.rookieYear) === String(year)).length,
   };
 }
 
@@ -128,20 +182,15 @@ export async function syncSleeperDraftPlayerPool(
 ): Promise<{ count: number; defenses: number; rookies: number; usesLiveSleeperPool: boolean }> {
   const normalized = normalizeDraftPlayerPoolType(poolType);
   await ensureDraftPlayerPoolColumns();
-  await setDraftPlayerPoolType(draftId, normalized);
-
-  if (normalized === 'all_players') {
-    await clearDraftPlayersLegacy(draftId);
-    await getDb().execute(sql`
-      UPDATE drafts
-      SET player_pool_synced_at = now()
-      WHERE id = ${draftId}::uuid
-    `);
-    return { count: 0, defenses: 0, rookies: 0, usesLiveSleeperPool: true };
+  const preview = prepared ?? await getSleeperDraftPoolPreview(year, normalized);
+  if (normalized === 'all_players' && preview.players.length === 0) {
+    throw new Error('Sleeper returned an empty standard player pool');
   }
 
-  const preview = prepared ?? await getSleeperDraftPoolPreview(year, normalized);
-  await setDraftPlayersLegacy(draftId, preview.players);
+  // Write the pool first. Only update the persisted rule/sync timestamp after the full
+  // replacement succeeds, so a failed refresh cannot relabel or partially clear a draft.
+  await replaceDraftPlayersBulk(draftId, preview.players);
+  await setDraftPlayerPoolType(draftId, normalized);
   await getDb().execute(sql`
     UPDATE drafts
     SET player_pool_synced_at = now()
