@@ -63,6 +63,30 @@ function applyTeamBrandingVariables(data: TeamBrandingMap): string[] {
   return keys;
 }
 
+function legacyTeamBrandingCss(data: TeamBrandingMap): string {
+  return Object.keys(data).map((teamName) => {
+    const key = getTeamBrandCssKey(teamName);
+    return `
+      [style*="--accent: var(--team-brand-${key}-primary"] {
+        --on-accent: var(--team-brand-${key}-primary-text, #ffffff);
+      }
+      [style*="linear-gradient"][style*="--team-brand-${key}-"] > h1,
+      [style*="linear-gradient"][style*="--team-brand-${key}-"] > h2,
+      [style*="linear-gradient"][style*="--team-brand-${key}-"] > h3,
+      [style*="linear-gradient"][style*="--team-brand-${key}-"] > h4,
+      [style*="linear-gradient"][style*="--team-brand-${key}-"] > h5,
+      [style*="linear-gradient"][style*="--team-brand-${key}-"] > h6 {
+        width: fit-content;
+        max-width: 100%;
+        border-radius: 0.25rem;
+        background: var(--surface);
+        color: var(--text) !important;
+        padding: 0.08rem 0.35rem;
+      }
+    `;
+  }).join('\n');
+}
+
 export function TeamLogoProvider({ children }: { children: React.ReactNode }) {
   const [overrides, setOverrides] = useState<TeamBrandingMap>({});
   const appliedKeys = useRef<string[]>([]);
@@ -94,6 +118,7 @@ export function TeamLogoProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <TeamLogoContext.Provider value={overrides}>
+      {Object.keys(overrides).length > 0 ? <style>{legacyTeamBrandingCss(overrides)}</style> : null}
       {children}
     </TeamLogoContext.Provider>
   );
