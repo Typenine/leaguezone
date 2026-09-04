@@ -22,7 +22,7 @@ export async function getActiveOrLatestDraftIdForRequest(): Promise<string | nul
         AND qa_session_id = ${qa.id}::uuid
       LIMIT 1
     `);
-    return (res as { rows?: Array<{ id: string }> }).rows?.[0]?.id || null;
+    return (res as unknown as { rows?: Array<{ id: string }> }).rows?.[0]?.id || null;
   }
   return getActiveOrLatestDraftIdScoped();
 }
