@@ -531,7 +531,7 @@ export default function DraftRoomPage() {
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft?.recentPicks?.[draft?.recentPicks?.length - 1]?.overall]);
+  }, [draft?.id, draft?.recentPicks?.[draft?.recentPicks?.length - 1]?.overall]);
 
   useEffect(() => {
     function handleVisibility() {
