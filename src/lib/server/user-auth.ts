@@ -26,6 +26,12 @@ export interface UserRecord {
   emailVerificationRequired: boolean;
 }
 
+export function requiresEmailVerification(
+  user: Pick<UserRecord, 'emailVerified' | 'emailVerificationRequired'>,
+): boolean {
+  return user.emailVerificationRequired && !user.emailVerified;
+}
+
 export async function getUserByEmail(email: string): Promise<UserRecord | null> {
   try {
     const db = getDb();
