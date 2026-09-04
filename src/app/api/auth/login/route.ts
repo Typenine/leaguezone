@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import {
   getUserByEmail,
   verifyPassword,
+  requiresEmailVerification,
   signUserSession,
   sessionCookieOptions,
   SESSION_COOKIE,
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    if (user.emailVerificationRequired && !user.emailVerified) {
+    if (requiresEmailVerification(user)) {
       return NextResponse.json(
         {
           error: 'Verify your email address before signing in.',
