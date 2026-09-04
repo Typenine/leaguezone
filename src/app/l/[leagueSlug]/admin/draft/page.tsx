@@ -1,23 +1,23 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import SettingsPage from '@/app/settings/page';
+import LeagueDraftCommissionerConsole from '@/components/admin/LeagueDraftCommissionerConsole';
 import { getCurrentLeagueBySlug } from '@/lib/server/league-context';
 import { verifySession } from '@/lib/server/auth';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
+import { isUnderlyingPlatformAdminSession } from '@/lib/server/admin-auth';
 import { getUserLeagues } from '@/lib/server/user-auth';
-import NewsModerationPanel from '@/components/news/NewsModerationPanel';
-import LeagueDraftSetupPanel from '@/components/admin/LeagueDraftSetupPanel';
 
 export const dynamic = 'force-dynamic';
 
-export default async function LeagueAdminPage({ params }: { params: Promise<{ leagueSlug: string }> }) {
+export default async function LeagueDraftCommissionerPage({ params }: { params: Promise<{ leagueSlug: string }> }) {
   const { leagueSlug } = await params;
   const league = await getCurrentLeagueBySlug(leagueSlug);
   if (!league) redirect('/');
 
   const jar = await cookies();
   let authorized = isAdminCookieValue(jar.get('evw_admin')?.value)
-    || isSiteAdminCookieValue(jar.get('site_admin')?.value);
+    || isSiteAdminCookieValue(jar.get('site_admin')?.value)
+    || await isUnderlyingPlatformAdminSession();
   const token = jar.get('evw_session')?.value || '';
   const claims = token ? verifySession(token) : null;
 
@@ -27,11 +27,5 @@ export default async function LeagueAdminPage({ params }: { params: Promise<{ le
   }
 
   if (!authorized) redirect(`/l/${encodeURIComponent(league.slug)}`);
-  return (
-    <>
-      <SettingsPage />
-      <LeagueDraftSetupPanel leagueSlug={league.slug} />
-      <NewsModerationPanel leagueSlug={league.slug} />
-    </>
-  );
+  return <LeagueDraftCommissionerConsole leagueSlug={league.slug} />;
 }

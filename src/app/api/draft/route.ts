@@ -47,6 +47,8 @@ import type { DraftOverview } from '@/server/db/queries';
 import { TEAM_NAMES } from '@/lib/constants/league';
 import { requireTeamUser } from '@/lib/server/session';
 import { canonicalizeTeamName } from '@/lib/server/user-identity';
+import { getActiveLeagueMembership } from '@/lib/server/membership';
+import { getUnderlyingPlatformAdminUserFromRequest } from '@/lib/server/admin-auth';
 import { getAllPlayersCached, type SleeperPlayer } from '@/lib/utils/sleeper-api';
 import { isAdminCookieValue } from '@/lib/auth/admin';
 import { isDraftLifecycleOpen } from '@/lib/draft/lifecycle-state';
@@ -54,13 +56,21 @@ import { isDraftLifecycleOpen } from '@/lib/draft/lifecycle-state';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function isAdmin(req: NextRequest): boolean {
+function isLegacyAdmin(req: NextRequest): boolean {
   try {
     const cookie = req.cookies.get('evw_admin')?.value;
     return isAdminCookieValue(cookie);
   } catch {
     return false;
   }
+}
+
+async function resolveDraftAdmin(req: NextRequest): Promise<{ isAdmin: boolean; isPlatformAdmin: boolean }> {
+  if (isLegacyAdmin(req)) return { isAdmin: true, isPlatformAdmin: true };
+  if (await getUnderlyingPlatformAdminUserFromRequest(req)) return { isAdmin: true, isPlatformAdmin: true };
+  const membership = await getActiveLeagueMembership();
+  const commissioner = membership.ok && membership.membership.isCommissioner;
+  return { isAdmin: commissioner, isPlatformAdmin: false };
 }
 
 function ok(data: unknown, status = 200, metricLabel?: string) {
@@ -179,7 +189,7 @@ export async function GET(req: NextRequest) {
       if (pendingPick?.playerId) taken.add(pendingPick.playerId);
       const useCustom = (await countDraftPlayers(draftId)) > 0;
       resp.usingCustom = useCustom;
-      const allowed = new Set(['QB','RB','WR','TE','K','FB','RB/FB']);
+      const allowed = new Set(['QB','RB','WR','TE','K','FB','RB/FB','DEF']);
       if (useCustom) {
         const rows = await getDraftPlayers(draftId);
         const avail = rows
@@ -229,14 +239,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const action = typeof body.action === 'string' ? body.action : '';
     const id = typeof body.id === 'string' ? body.id : '';
-    if (!isAdmin(req) && !(await isDraftLifecycleOpen())) {
+    const draftAdmin = await resolveDraftAdmin(req);
+    if (!draftAdmin.isAdmin && !(await isDraftLifecycleOpen())) {
       return bad('draft_room_closed', 423);
     }
 
-    // Admin-only actions
+    // Draft-scoped commissioner controls are allowed for a league commissioner. Workspace
+    // pools, destructive resets/deletes, and legacy draft creation remain platform-only
+    // because those paths are not yet league-scoped end to end.
     const adminOnlyActions = ['create', 'delete', 'start', 'pause', 'resume', 'set_clock', 'reset_clock', 'force_pick', 'undo', 'skip_pick', 'approve_pick', 'reject_pick', 'auto_pick', 'reset', 'reset_trades', 'set_draft_order', 'set_draft_slots', 'upload_players', 'clear_players', 'update_branding', 'admin_workspace', 'delete_player_pool', 'apply_player_pool'];
+    const platformOnlyActions = new Set(['create', 'delete', 'reset', 'upload_players', 'clear_players', 'admin_workspace', 'delete_player_pool', 'apply_player_pool']);
     if (adminOnlyActions.includes(action)) {
-      if (!isAdmin(req)) return bad('forbidden', 403);
+      if (!draftAdmin.isAdmin) return bad('forbidden', 403);
+      if (platformOnlyActions.has(action) && !draftAdmin.isPlatformAdmin) return bad('platform_admin_required', 403);
       if (action === 'admin_workspace') {
         const [workspace, pools] = await Promise.all([getDraftWorkspace(), listPlayerPools()]);
         return ok({ workspace, pools });
@@ -443,7 +458,7 @@ export async function POST(req: NextRequest) {
 
     // Team actions
     if (action === 'pick') {
-      const adminOverride = isAdmin(req);
+      const adminOverride = draftAdmin.isAdmin;
       const ident = adminOverride ? null : await requireTeamUser();
       if (!ident && !adminOverride) return bad('auth_required', 401);
       const draftId = id || (await getActiveOrLatestDraftId());
@@ -488,7 +503,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'queue_get') {
-      const adminReq = isAdmin(req);
+      const adminReq = draftAdmin.isAdmin;
       const ident = adminReq ? null : await requireTeamUser();
       if (!ident && !adminReq) return bad('auth_required', 401);
       const draftId = id || (await getActiveOrLatestDraftId());
@@ -501,7 +516,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'queue_set') {
-      const adminReq = isAdmin(req);
+      const adminReq = draftAdmin.isAdmin;
       const ident = adminReq ? null : await requireTeamUser();
       if (!ident && !adminReq) return bad('auth_required', 401);
       const draftId = id || (await getActiveOrLatestDraftId());
@@ -532,7 +547,7 @@ export async function POST(req: NextRequest) {
       const useCustom = (await countDraftPlayers(draftId)) > 0;
       const q = typeof body.q === 'string' ? body.q.trim().toLowerCase() : '';
       const pos = typeof body.pos === 'string' ? body.pos.trim().toUpperCase() : '';
-      const allowed = new Set(['QB','RB','WR','TE','K','FB','RB/FB']);
+      const allowed = new Set(['QB','RB','WR','TE','K','FB','RB/FB','DEF']);
       if (useCustom) {
         let list = (await getDraftPlayers(draftId)).filter((r) => !taken.has(r.player_id));
         if (pos) list = list.filter((r) => (r.pos || '').toUpperCase() === pos);

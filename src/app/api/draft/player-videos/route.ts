@@ -1,15 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { ensureDraftTables, getPlayerMediaSummaries, setPlayerVideo, setPlayerImage, deletePlayerVideo } from '@/server/db/queries';
+import { NextRequest } from 'next/server';
+import {
+  ensureDraftTables,
+  getActiveOrLatestDraftId,
+  getDraftOverview,
+  getPlayerMediaSummaries,
+  setPlayerVideo,
+  setPlayerImage,
+  deletePlayerVideo,
+} from '@/server/db/queries';
+import { getAllPlayersCached } from '@/lib/utils/sleeper-api';
 import { isAdminCookieValue } from '@/lib/auth/admin';
+import { getActiveLeagueMembership } from '@/lib/server/membership';
+import { getUnderlyingPlatformAdminUserFromRequest } from '@/lib/server/admin-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function ok(data: unknown) { return new NextResponse(JSON.stringify(data), { status: 200, headers: { 'content-type': 'application/json' } }); }
-function bad(msg: string, status = 400) { return new NextResponse(JSON.stringify({ error: msg }), { status, headers: { 'content-type': 'application/json' } }); }
+const SLEEPER_PLAYER_TTL_MS = 24 * 60 * 60 * 1000;
 
-function isAdmin(req: NextRequest): boolean {
-  return isAdminCookieValue(req.cookies.get('evw_admin')?.value);
+function ok(data: unknown) { return new Response(JSON.stringify(data), { status: 200, headers: { 'content-type': 'application/json' } }); }
+function bad(msg: string, status = 400) { return new Response(JSON.stringify({ error: msg }), { status, headers: { 'content-type': 'application/json' } }); }
+
+async function isDraftAdmin(req: NextRequest): Promise<boolean> {
+  if (isAdminCookieValue(req.cookies.get('evw_admin')?.value)) return true;
+  if (await getUnderlyingPlatformAdminUserFromRequest(req)) return true;
+  const membership = await getActiveLeagueMembership();
+  return membership.ok && membership.membership.isCommissioner;
 }
 
 export async function GET() {
@@ -19,6 +35,40 @@ export async function GET() {
     // image_url and video_url full text values are never selected — no base64 data crosses
     // the Neon wire even when stored media is large.
     const videos = await getPlayerMediaSummaries();
+
+    // Draft animations already consume this compact media index. Mark confirmed Sleeper
+    // players as having an image even when no manual override exists so the existing
+    // /api/draft/player-image endpoint can serve the Sleeper CDN fallback.
+    try {
+      const draftId = await getActiveOrLatestDraftId();
+      const overview = draftId ? await getDraftOverview(draftId) : null;
+      const picks = overview?.allPicks || overview?.recentPicks || [];
+      if (picks.length > 0) {
+        const players = await getAllPlayersCached(SLEEPER_PLAYER_TTL_MS);
+        const byId = new Map(videos.map((entry) => [entry.playerId, entry]));
+        for (const pick of picks) {
+          const sleeperPlayer = players[pick.playerId];
+          if (!sleeperPlayer || String(sleeperPlayer.position || '').toUpperCase() === 'DEF') continue;
+          const existing = byId.get(pick.playerId);
+          if (existing) {
+            existing.hasImage = true;
+          } else {
+            const entry = {
+              playerId: pick.playerId,
+              playerName: pick.playerName || null,
+              hasImage: true,
+              hasVideo: false,
+              videoUrl: null,
+            };
+            videos.push(entry);
+            byId.set(pick.playerId, entry);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('[draft/player-videos] Sleeper headshot enrichment unavailable', error);
+    }
+
     return ok({ videos });
   } catch (e) {
     console.error('GET /api/draft/player-videos failed', e);
@@ -27,7 +77,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isAdmin(req)) return bad('Unauthorized', 403);
+  if (!(await isDraftAdmin(req))) return bad('Unauthorized', 403);
   try {
     const body = await req.json().catch(() => null);
     if (!body?.playerId) return bad('playerId required');

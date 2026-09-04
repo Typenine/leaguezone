@@ -49,8 +49,8 @@ jobs:
   e2e-tests:
     name: E2E tests (local server)
     runs-on: ubuntu-latest
-    # Only run e2e when a TEST_BASE_URL is available or on main branch
-    # In CI we start a local dev server against a test DB
+    # Browser tests that need persistent DB data skip themselves when no real test DB
+    # is configured. The gated E2E component surfaces still run against mocked HTTP data.
     if: ${{ vars.SKIP_E2E != 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -64,8 +64,10 @@ jobs:
         run: npx next build
         env:
           SKIP_MIGRATION: 'true'
+          E2E_TEST_MODE: 'true'
           # Stub required env vars so Next.js doesn't crash at build time
           DATABASE_URL: 'postgresql://ci:ci@localhost/ci'
+          AUTH_SECRET: 'ci-auth-secret-placeholder-12345'
           NEXTAUTH_SECRET: 'ci-secret-placeholder'
           ADMIN_PASSWORD_HASH: 'ci-placeholder'
           KV_REST_API_URL: 'https://ci.kv.vercel.app'
@@ -73,7 +75,9 @@ jobs:
       - name: Start server
         run: npm start &
         env:
+          E2E_TEST_MODE: 'true'
           DATABASE_URL: 'postgresql://ci:ci@localhost/ci'
+          AUTH_SECRET: 'ci-auth-secret-placeholder-12345'
           NEXTAUTH_SECRET: 'ci-secret-placeholder'
           ADMIN_PASSWORD_HASH: 'ci-placeholder'
           KV_REST_API_URL: 'https://ci.kv.vercel.app'
@@ -83,3 +87,6 @@ jobs:
       - run: npm run test:e2e
         env:
           TEST_BASE_URL: 'http://localhost:3000'
+          # The already-running app has its own stub DB URL. Leaving the Playwright
+          # process DB-less makes the existing DB-writing specs skip safely in CI.
+          DATABASE_URL: ''
