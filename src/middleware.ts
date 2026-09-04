@@ -79,7 +79,15 @@ export async function middleware(req: NextRequest) {
 
   const method = req.method.toUpperCase();
   const activeLeagueSlug = req.cookies.get('active_league_slug')?.value || '';
-  if (!qaSession && (method === 'GET' || method === 'HEAD') && /^[a-z0-9][a-z0-9-]{0,127}$/.test(activeLeagueSlug)) {
+  const hasActiveLeagueSlug = /^[a-z0-9][a-z0-9-]{0,127}$/.test(activeLeagueSlug);
+
+  if (!qaSession && (method === 'GET' || method === 'HEAD') && hasActiveLeagueSlug && pathname === '/api/trade-analyzer/values') {
+    const url = req.nextUrl.clone();
+    url.pathname = '/api/trade-analyzer/values/scoped';
+    return NextResponse.rewrite(url);
+  }
+
+  if (!qaSession && (method === 'GET' || method === 'HEAD') && hasActiveLeagueSlug) {
     const destination = legacyLeagueDestination(pathname);
     if (destination) {
       const url = req.nextUrl.clone();

@@ -5,6 +5,7 @@ import { getLeagueStatsDatasetV3 } from '@/lib/stats/league-stats-v3';
 import { describeFranchiseRecord, franchiseHistoryId } from '@/lib/history/league-history';
 import { getReadableTextForColors, getTeamColors, getTeamLogoPath } from '@/lib/utils/team-utils';
 import { getLeagueStatsContextBySlug } from '@/lib/stats/league-stats-context';
+import { getLeagueScopedPath } from '@/lib/utils/league-route';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,12 +16,13 @@ export const metadata: Metadata = {
 
 export default async function FranchiseHistoryIndexPage({ searchParams }: { searchParams?: Promise<{ _league?: string }> }) {
   const scoped = await searchParams;
-  const dataset = await getLeagueStatsDatasetV3(await getLeagueStatsContextBySlug(scoped?._league));
+  const leagueSlug = scoped?._league?.trim() || null;
+  const dataset = await getLeagueStatsDatasetV3(await getLeagueStatsContextBySlug(leagueSlug));
   const franchises = [...dataset.franchises].sort((a, b) => b.titles - a.titles || b.regularWins - a.regularWins || a.teamName.localeCompare(b.teamName));
 
   return (
     <main className="container mx-auto max-w-[1400px] px-4 py-8">
-      <div className="text-sm text-[var(--muted)]"><Link href="/history" className="hover:underline">History</Link> / Franchise History</div>
+      <div className="text-sm text-[var(--muted)]"><Link href={getLeagueScopedPath(leagueSlug, '/history')} className="hover:underline">History</Link> / Franchise History</div>
       <div className="mt-2 border-b-4 border-[var(--accent)] pb-4">
         <div className="text-xs font-black uppercase tracking-[0.22em] text-[var(--muted)]">League Reference</div>
         <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">Franchise History</h1>
@@ -34,7 +36,7 @@ export default async function FranchiseHistoryIndexPage({ searchParams }: { sear
           return (
             <Link
               key={franchise.teamName}
-              href={`/history/franchises/${franchiseHistoryId(franchise)}`}
+              href={getLeagueScopedPath(leagueSlug, `/history/franchises/${franchiseHistoryId(franchise)}`)}
               className="group overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
             >
               <div className="flex items-center gap-4 p-4" style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary || colors.primary})`, color: textColor }}>

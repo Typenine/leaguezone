@@ -11,7 +11,17 @@ export function getLeagueSlugFromPathname(pathname: string | null | undefined): 
   }
 }
 
+export function getLeagueBasePathForSlug(slug: string | null | undefined): string {
+  const normalized = slug?.trim();
+  return normalized ? `/l/${encodeURIComponent(normalized)}` : '';
+}
+
 export function getLeagueBasePath(pathname: string | null | undefined): string {
-  const slug = getLeagueSlugFromPathname(pathname);
-  return slug ? `/l/${encodeURIComponent(slug)}` : '';
+  return getLeagueBasePathForSlug(getLeagueSlugFromPathname(pathname));
+}
+
+/** Build a canonical hosted-league path while preserving legacy single-league routes. */
+export function getLeagueScopedPath(slug: string | null | undefined, path: string): string {
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  return `${getLeagueBasePathForSlug(slug)}${suffix}`;
 }
