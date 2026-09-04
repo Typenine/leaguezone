@@ -10,6 +10,7 @@ import Label from '@/components/ui/Label';
 import Select from '@/components/ui/Select';
 import { CURRENT_SEASON, NEXT_DRAFT_SEASON } from '@/lib/constants/league';
 import { DefaultTeamHelmet, HELMET_PALETTE } from '@/components/ui/DefaultTeamHelmet';
+import { getReadableTextColor, normalizeHexColor } from '@/lib/branding/colors';
 
 type AuthState = {
   authenticated: boolean;
@@ -56,6 +57,25 @@ type CommissionerMember = {
   email: string | null;
   isCommissioner: boolean;
 };
+
+function BrandColorPreview({ label, color }: { label: string; color: string }) {
+  const normalized = normalizeHexColor(color);
+  if (!normalized) {
+    return (
+      <div className="mt-2 rounded border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--muted)]">
+        Enter a valid hex color
+      </div>
+    );
+  }
+  return (
+    <div
+      className="mt-2 rounded px-3 py-2 text-center text-xs font-bold"
+      style={{ backgroundColor: normalized, color: getReadableTextColor(normalized) }}
+    >
+      {label} preview
+    </div>
+  );
+}
 
 // ─── PIN change form (for logged-in users) ───────────────────────────────────
 function ChangePinForm({ team }: { team: string }) {
@@ -586,13 +606,33 @@ function LeagueBrandingForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const normalizedPrimary = normalizeHexColor(primaryColor);
+    const normalizedSecondary = normalizeHexColor(secondaryColor);
+    if (!normalizedPrimary || !normalizedSecondary) {
+      setStatus('error');
+      setMsg('Primary and secondary colors must be valid hex colors.');
+      return;
+    }
+    setPrimaryColor(normalizedPrimary);
+    setSecondaryColor(normalizedSecondary);
     setStatus('saving');
     const res = await fetch('/api/settings/branding', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ logoUrl: logoUrl.trim(), primaryColor, secondaryColor }),
     });
-    if (res.ok) { setStatus('ok'); setMsg('Branding saved'); }
+    if (res.ok) {
+      const runtimeWindow = window as Window & { __LEAGUE_BRANDING__?: Record<string, unknown> };
+      runtimeWindow.__LEAGUE_BRANDING__ = {
+        ...(runtimeWindow.__LEAGUE_BRANDING__ || {}),
+        logoUrl: logoUrl.trim() || null,
+        primaryColor: normalizeHexColor(primaryColor),
+        secondaryColor: normalizeHexColor(secondaryColor),
+      };
+      window.dispatchEvent(new Event('leaguezone:league-changed'));
+      setStatus('ok');
+      setMsg('Branding saved');
+    }
     else { const d = await res.json(); setStatus('error'); setMsg(d?.error || 'Save failed'); }
   };
 
@@ -603,20 +643,20 @@ function LeagueBrandingForm() {
         <Input id="logo-url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://example.com/logo.png" />
         <p className="text-xs text-[var(--muted)] mt-1">Enter a URL to your league logo image</p>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="primary-color">Primary Color</Label>
           <div className="flex items-center gap-2 mt-1">
             <input
               id="primary-color"
               type="color"
-              value={primaryColor}
+              value={normalizeHexColor(primaryColor) || '#000000'}
               onChange={e => setPrimaryColor(e.target.value)}
               className="w-10 h-10 rounded cursor-pointer border border-[var(--border)]"
             />
             <Input value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="flex-1" placeholder="#3b82f6" />
           </div>
-          <div className="mt-2 h-6 rounded" style={{ backgroundColor: primaryColor }} />
+          <BrandColorPreview label="Primary" color={primaryColor} />
         </div>
         <div>
           <Label htmlFor="secondary-color">Secondary Color</Label>
@@ -624,13 +664,13 @@ function LeagueBrandingForm() {
             <input
               id="secondary-color"
               type="color"
-              value={secondaryColor}
+              value={normalizeHexColor(secondaryColor) || '#000000'}
               onChange={e => setSecondaryColor(e.target.value)}
               className="w-10 h-10 rounded cursor-pointer border border-[var(--border)]"
             />
             <Input value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="flex-1" placeholder="#1e40af" />
           </div>
-          <div className="mt-2 h-6 rounded" style={{ backgroundColor: secondaryColor }} />
+          <BrandColorPreview label="Secondary" color={secondaryColor} />
         </div>
       </div>
       {logoUrl && (
@@ -872,6 +912,8 @@ function TeamProfileForm({ team }: { team: string }) {
   const [logoUrl, setLogoUrl] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#3b82f6');
   const [secondaryColor, setSecondaryColor] = useState('#1e40af');
+  const [tertiaryColor, setTertiaryColor] = useState('');
+  const [quaternaryColor, setQuaternaryColor] = useState('');
   const [helmetColorIndex, setHelmetColorIndex] = useState<number | null>(null);
   const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
   const [msg, setMsg] = useState('');
@@ -881,12 +923,27 @@ function TeamProfileForm({ team }: { team: string }) {
       if (d.logoUrl) setLogoUrl(d.logoUrl);
       if (d.primaryColor) setPrimaryColor(d.primaryColor);
       if (d.secondaryColor) setSecondaryColor(d.secondaryColor);
+      setTertiaryColor(d.tertiaryColor || '');
+      setQuaternaryColor(d.quaternaryColor || '');
       if (typeof d.helmetColorIndex === 'number') setHelmetColorIndex(d.helmetColorIndex);
     }).catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const normalizedPrimary = normalizeHexColor(primaryColor);
+    const normalizedSecondary = normalizeHexColor(secondaryColor);
+    const normalizedTertiary = tertiaryColor.trim() ? normalizeHexColor(tertiaryColor) : null;
+    const normalizedQuaternary = quaternaryColor.trim() ? normalizeHexColor(quaternaryColor) : null;
+    if (!normalizedPrimary || !normalizedSecondary || (tertiaryColor.trim() && !normalizedTertiary) || (quaternaryColor.trim() && !normalizedQuaternary)) {
+      setStatus('error');
+      setMsg('Use valid hex colors. Tertiary and quaternary may be left blank.');
+      return;
+    }
+    setPrimaryColor(normalizedPrimary);
+    setSecondaryColor(normalizedSecondary);
+    if (normalizedTertiary) setTertiaryColor(normalizedTertiary);
+    if (normalizedQuaternary) setQuaternaryColor(normalizedQuaternary);
     setStatus('saving');
     const res = await fetch('/api/settings/team', {
       method: 'POST',
@@ -895,10 +952,16 @@ function TeamProfileForm({ team }: { team: string }) {
         logoUrl: logoUrl.trim() || null,
         primaryColor,
         secondaryColor,
+        tertiaryColor: tertiaryColor.trim() || null,
+        quaternaryColor: quaternaryColor.trim() || null,
         helmetColorIndex,
       }),
     });
-    if (res.ok) { setStatus('ok'); setMsg('Team profile saved'); }
+    if (res.ok) {
+      window.dispatchEvent(new Event('leaguezone:league-changed'));
+      setStatus('ok');
+      setMsg('Team profile saved');
+    }
     else { const d = await res.json(); setStatus('error'); setMsg(d?.error || 'Save failed'); }
   };
 
@@ -926,20 +989,38 @@ function TeamProfileForm({ team }: { team: string }) {
         onChange={setHelmetColorIndex}
         teamName={team}
       />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="team-primary-color">Primary Color</Label>
-          <div className="flex items-center gap-2 mt-1">
-            <input id="team-primary-color" type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="w-10 h-10 rounded cursor-pointer border border-[var(--border)]" />
+          <div className="mt-1 flex items-center gap-2">
+            <input id="team-primary-color" type="color" value={normalizeHexColor(primaryColor) || '#000000'} onChange={e => setPrimaryColor(e.target.value)} className="h-10 w-10 cursor-pointer rounded border border-[var(--border)]" />
             <Input value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="flex-1" placeholder="#3b82f6" />
           </div>
+          <BrandColorPreview label="Primary" color={primaryColor} />
         </div>
         <div>
           <Label htmlFor="team-secondary-color">Secondary Color</Label>
-          <div className="flex items-center gap-2 mt-1">
-            <input id="team-secondary-color" type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-10 h-10 rounded cursor-pointer border border-[var(--border)]" />
+          <div className="mt-1 flex items-center gap-2">
+            <input id="team-secondary-color" type="color" value={normalizeHexColor(secondaryColor) || '#000000'} onChange={e => setSecondaryColor(e.target.value)} className="h-10 w-10 cursor-pointer rounded border border-[var(--border)]" />
             <Input value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="flex-1" placeholder="#1e40af" />
           </div>
+          <BrandColorPreview label="Secondary" color={secondaryColor} />
+        </div>
+        <div>
+          <Label htmlFor="team-tertiary-color">Tertiary Color (optional)</Label>
+          <div className="mt-1 flex items-center gap-2">
+            <input id="team-tertiary-color" type="color" value={normalizeHexColor(tertiaryColor) || '#333333'} onChange={e => setTertiaryColor(e.target.value)} className="h-10 w-10 cursor-pointer rounded border border-[var(--border)]" />
+            <Input value={tertiaryColor} onChange={e => setTertiaryColor(e.target.value)} className="flex-1" placeholder="Optional" />
+          </div>
+          {tertiaryColor.trim() && <BrandColorPreview label="Tertiary" color={tertiaryColor} />}
+        </div>
+        <div>
+          <Label htmlFor="team-quaternary-color">Quaternary Color (optional)</Label>
+          <div className="mt-1 flex items-center gap-2">
+            <input id="team-quaternary-color" type="color" value={normalizeHexColor(quaternaryColor) || '#444444'} onChange={e => setQuaternaryColor(e.target.value)} className="h-10 w-10 cursor-pointer rounded border border-[var(--border)]" />
+            <Input value={quaternaryColor} onChange={e => setQuaternaryColor(e.target.value)} className="flex-1" placeholder="Optional" />
+          </div>
+          {quaternaryColor.trim() && <BrandColorPreview label="Quaternary" color={quaternaryColor} />}
         </div>
       </div>
       {msg && <p className={`text-sm ${status === 'ok' ? 'text-green-500' : 'text-red-400'}`}>{msg}</p>}
