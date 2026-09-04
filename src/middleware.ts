@@ -1,171 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 
-type SessionMetadata = {
-  exp?: number;
-  type?: string;
-  sub?: string;
-  team?: string;
-};
+type SessionMetadata = { exp?: number; type?: string; sub?: string; team?: string };
+function decodeSession(token: string): SessionMetadata | null { try { const parts = token.split('.'); if (parts.length !== 2) return null; return JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')) as SessionMetadata; } catch { return null; } }
+function hasUsableSessionCookie(token: string, now = Date.now()): boolean { const session = decodeSession(token); if (!session || typeof session.exp !== 'number' || session.exp <= now) return false; if (session.type === 'user') return typeof session.sub === 'string' && session.sub.length > 0; const legacyTeam = session.team || session.sub; return typeof legacyTeam === 'string' && legacyTeam.length > 0; }
+function hasUsableUserSessionCookie(token: string, now = Date.now()): boolean { const session = decodeSession(token); return session?.type === 'user' && hasUsableSessionCookie(token, now); }
+const PROTECTED_PREFIXES = ['/trade-block', '/vote', '/api/trade-block', '/api/votes', '/draft/room'];
+function isProtectedPath(pathname: string): boolean { return PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)); }
+function unauthenticatedResponse(req: NextRequest) { const { pathname, search } = req.nextUrl; if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); const url = new URL('/login', req.url); url.searchParams.set('next', pathname + (search || '')); return NextResponse.redirect(url); }
+function newsletterDormantResponse(req: NextRequest) { const { pathname } = req.nextUrl; const isApi = pathname === '/api/newsletter' || pathname.startsWith('/api/newsletter/'); if (isApi) return NextResponse.json({ error: 'Newsletter feature is currently dormant.' }, { status: 410 }); if (pathname !== '/newsletter') return NextResponse.redirect(new URL('/newsletter', req.url)); return null; }
 
-/**
- * Middleware only performs a lightweight structural/expiry check. Session
- * signatures and account state are verified by server routes and helpers.
- *
- * Do not gate email verification here. User sessions do not embed verification
- * state, and verification can change after the session is issued. The current
- * value is loaded from the database by /api/auth/me.
- */
-function decodeSession(token: string): SessionMetadata | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 2) return null;
-    return JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')) as SessionMetadata;
-  } catch {
-    return null;
+async function qaMutationGuard(req: NextRequest): Promise<NextResponse | null> {
+  if (!req.cookies.get('lz_qa_session')?.value) return null;
+  const method = req.method.toUpperCase();
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return null;
+  const pathname = req.nextUrl.pathname;
+  if (pathname === '/api/admin/qa' || pathname.startsWith('/api/admin/qa/')) return null;
+  const mode = req.cookies.get('lz_qa_mode')?.value || 'view';
+  if (mode !== 'rehearsal') {
+    return NextResponse.json({ error: 'QA view-only mode does not allow changes.' }, { status: 423 });
   }
-}
-
-function hasUsableSessionCookie(token: string, now = Date.now()): boolean {
-  const session = decodeSession(token);
-  if (!session) return false;
-  if (typeof session.exp !== 'number' || session.exp <= now) return false;
-
-  if (session.type === 'user') {
-    return typeof session.sub === 'string' && session.sub.length > 0;
+  if (pathname !== '/api/draft' && pathname !== '/api/draft/trade') {
+    return NextResponse.json({ error: 'QA rehearsal can only modify its isolated draft state.' }, { status: 423 });
   }
 
-  const legacyTeam = session.team || session.sub;
-  return typeof legacyTeam === 'string' && legacyTeam.length > 0;
-}
-
-function hasUsableUserSessionCookie(token: string, now = Date.now()): boolean {
-  const session = decodeSession(token);
-  return session?.type === 'user' && hasUsableSessionCookie(token, now);
-}
-
-const PROTECTED_PREFIXES = [
-  '/trade-block',
-  '/vote',
-  '/api/trade-block',
-  '/api/votes',
-  '/draft/room',
-];
-
-function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
-
-function unauthenticatedResponse(req: NextRequest) {
-  const { pathname, search } = req.nextUrl;
-
-  if (pathname.startsWith('/api/')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const rehearsalDraftId = req.cookies.get('lz_qa_draft_id')?.value || '';
+  if (!rehearsalDraftId) {
+    return NextResponse.json({ error: 'QA rehearsal draft is unavailable.' }, { status: 423 });
   }
-
-  const url = new URL('/login', req.url);
-  url.searchParams.set('next', pathname + (search || ''));
-  return NextResponse.redirect(url);
-}
-
-function newsletterDormantResponse(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  const isApi = pathname === '/api/newsletter' || pathname.startsWith('/api/newsletter/');
-
-  if (isApi) {
-    return NextResponse.json(
-      { error: 'Newsletter feature is currently dormant.' },
-      { status: 410 },
-    );
+  const body = await req.clone().json().catch(() => ({})) as Record<string, unknown>;
+  if (pathname === '/api/draft/trade') {
+    const requested = typeof body.draftId === 'string' ? body.draftId : '';
+    if (requested !== rehearsalDraftId) {
+      return NextResponse.json({ error: 'Draft is outside the active QA rehearsal.' }, { status: 403 });
+    }
+  } else {
+    const requested = typeof body.id === 'string' ? body.id : '';
+    if (requested && requested !== rehearsalDraftId) {
+      return NextResponse.json({ error: 'Draft is outside the active QA rehearsal.' }, { status: 403 });
+    }
   }
-
-  if (pathname !== '/newsletter') {
-    return NextResponse.redirect(new URL('/newsletter', req.url));
-  }
-
   return null;
 }
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  if (pathname.startsWith('/api/')) { const guarded = await qaMutationGuard(req); if (guarded) return guarded; }
+  const qaSession = req.cookies.get('lz_qa_session')?.value || '';
+  const qaMode = req.cookies.get('lz_qa_mode')?.value || '';
+  const qaPerspective = req.cookies.get('lz_qa_perspective')?.value || '';
+  const isQaRehearsal = Boolean(qaSession && qaMode === 'rehearsal');
   const adminCookie = req.cookies.get('evw_admin')?.value || '';
   const siteAdminCookie = req.cookies.get('site_admin')?.value || '';
   const isAdmin = isAdminCookieValue(adminCookie) || isSiteAdminCookieValue(siteAdminCookie);
 
   const newsletterEnabled = process.env.NEXT_PUBLIC_NEWSLETTER_ENABLED === 'true';
-  const isNewsletterPath = pathname === '/newsletter'
-    || pathname.startsWith('/newsletter/')
-    || pathname === '/api/newsletter'
-    || pathname.startsWith('/api/newsletter/');
+  const isNewsletterPath = pathname === '/newsletter' || pathname.startsWith('/newsletter/') || pathname === '/api/newsletter' || pathname.startsWith('/api/newsletter/');
+  if (!newsletterEnabled && isNewsletterPath) { const dormant = newsletterDormantResponse(req); if (dormant) return dormant; }
 
-  if (!newsletterEnabled && isNewsletterPath) {
-    const dormantResponse = newsletterDormantResponse(req);
-    if (dormantResponse) return dormantResponse;
-  }
-
-  if (pathname === '/' && req.nextUrl.searchParams.get('view') !== 'public') {
+  if (pathname === '/' && req.nextUrl.searchParams.get('view') !== 'public' && !qaSession) {
     const sessionCookie = req.cookies.get('evw_session')?.value || '';
-    if (hasUsableUserSessionCookie(sessionCookie)) {
-      const authenticatedHome = req.nextUrl.clone();
-      authenticatedHome.pathname = '/app';
-      return NextResponse.rewrite(authenticatedHome);
-    }
+    if (hasUsableUserSessionCookie(sessionCookie)) { const authenticatedHome = req.nextUrl.clone(); authenticatedHome.pathname = '/app'; return NextResponse.rewrite(authenticatedHome); }
   }
 
   const previewSecret = process.env.EVW_PREVIEW_SECRET || '';
   const isDraftFeaturePath = pathname === '/draft/room' || pathname === '/draft/overlay' || pathname === '/admin/draft' || pathname.startsWith('/api/draft');
-  if (previewSecret && isDraftFeaturePath) {
-    const draftAdminCookie = req.cookies.get('evw_admin')?.value || '';
-    const siteAdminCk = req.cookies.get('site_admin')?.value || '';
-    if (isAdminCookieValue(draftAdminCookie) || isSiteAdminCookieValue(siteAdminCk)) {
-      // Admin allowed.
-    } else {
+  if (previewSecret && isDraftFeaturePath && !isQaRehearsal) {
+    if (!isAdmin) {
       const key = req.nextUrl.searchParams.get('preview_key');
-      if (key && key === previewSecret) {
-        const url = new URL(req.url);
-        url.searchParams.delete('preview_key');
-        const res = NextResponse.redirect(url);
-        res.cookies.set('evw_preview', previewSecret, {
-          httpOnly: true,
-          sameSite: 'lax',
-          secure: process.env.NODE_ENV === 'production',
-          path: '/',
-          maxAge: 60 * 60 * 24 * 7,
-        });
-        return res;
-      }
-      const cookie = req.cookies.get('evw_preview')?.value || '';
-      if (cookie !== previewSecret) {
-        return NextResponse.redirect(new URL('/', req.url));
-      }
+      if (key && key === previewSecret) { const url = new URL(req.url); url.searchParams.delete('preview_key'); const res = NextResponse.redirect(url); res.cookies.set('evw_preview', previewSecret, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 7 }); return res; }
+      if (req.cookies.get('evw_preview')?.value !== previewSecret) return NextResponse.redirect(new URL('/', req.url));
     }
   }
 
-  if (pathname === '/draft/room' && isAdmin) {
-    return NextResponse.next();
-  }
-
+  if (pathname === '/draft/room' && isAdmin) return NextResponse.next();
   if (!isProtectedPath(pathname)) return NextResponse.next();
-
+  if (qaSession && qaPerspective === 'public') return unauthenticatedResponse(req);
   const sessionCookie = req.cookies.get('evw_session')?.value || '';
-  if (!hasUsableSessionCookie(sessionCookie)) {
-    return unauthenticatedResponse(req);
-  }
-
+  if (!hasUsableSessionCookie(sessionCookie)) return unauthenticatedResponse(req);
   return NextResponse.next();
 }
 
-export const config = {
-  matcher: [
-    '/',
-    '/trade-block/:path*',
-    '/vote/:path*',
-    '/api/trade-block/:path*',
-    '/api/votes/:path*',
-    '/draft/:path*',
-    '/admin/draft',
-    '/api/draft/:path*',
-    '/newsletter/:path*',
-    '/api/newsletter/:path*',
-  ],
-};
+export const config = { matcher: ['/', '/api/:path*', '/trade-block/:path*', '/vote/:path*', '/draft/:path*', '/admin/draft', '/newsletter/:path*'] };

@@ -16,6 +16,7 @@ import { discoverLeagueChain } from '@/lib/utils/sleeper-api';
 import PwaInstallPrompt from '@/components/pwa/PwaInstallPrompt';
 import PwaRegistration from '@/components/pwa/PwaRegistration';
 import PlayerModalProvider from '@/components/players/PlayerModalProvider';
+import QABar from '@/components/admin/QABar';
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
@@ -47,6 +48,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const cookieJar = await cookies();
   const activeLeagueId = cookieJar.get('active_league_id')?.value || null;
+  const hasQaSession = Boolean(cookieJar.get('lz_qa_session')?.value);
   const activeLeague = activeLeagueId ? await getLeagueById(activeLeagueId) : null;
   const currentLeagueId = activeLeague?.sleeperLeagueId || '';
   let allLeagueIds = activeLeague?.sleeperLeagueIds || {};
@@ -59,12 +61,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     }
   }
 
-  const currentSeason = Object.entries(allLeagueIds)
-    .find(([, id]) => id === currentLeagueId)?.[0] || '';
-  const previousLeagueIds = Object.fromEntries(
-    Object.entries(allLeagueIds).filter(([, id]) => id !== currentLeagueId),
-  );
-
+  const currentSeason = Object.entries(allLeagueIds).find(([, id]) => id === currentLeagueId)?.[0] || '';
+  const previousLeagueIds = Object.fromEntries(Object.entries(allLeagueIds).filter(([, id]) => id !== currentLeagueId));
   const leagueConfigJson = JSON.stringify({ currentLeagueId, currentSeason, previousLeagueIds }).replace(/</g, '\\u003c');
   const leagueBrandingJson = JSON.stringify({
     name: activeLeague?.name || '',
@@ -87,10 +85,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <TeamLogoProvider>
             <Suspense fallback={null}><UnifiedNavbar /></Suspense>
             <Suspense fallback={null}><GlobalLeagueSwitcher /></Suspense>
-            <main className="flex-grow">{children}</main>
+            <main className={hasQaSession ? 'flex-grow pb-16' : 'flex-grow'}>{children}</main>
             <Footer />
           </TeamLogoProvider>
         </PlayerModalProvider>
+        {hasQaSession && <QABar />}
         <PwaInstallPrompt />
         <PwaRegistration />
         <Analytics />
