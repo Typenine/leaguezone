@@ -17,7 +17,9 @@ jobs:
         with:
           ref: fix/branding-contrast-and-team-colors
       - name: Patch branding settings UI
-        run: python scripts/branding-settings-finalize.py
+        run: |
+          sed -i "s|league_end = source.index('// ─── User: team profile editor', league_start)|league_end = source.index('// ─── Helmet color picker', league_start)|" scripts/branding-settings-finalize.py
+          python scripts/branding-settings-finalize.py
       - name: Commit patch
         run: |
           git config user.name "github-actions[bot]"
