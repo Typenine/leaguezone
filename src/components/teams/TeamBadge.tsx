@@ -33,7 +33,7 @@ export default function TeamBadge({
       {showName && (
         <span
           className="truncate max-w-[14rem] px-2 py-0.5 rounded text-[var(--text)]"
-          style={{ backgroundColor: `${secondary}22` }}
+          style={{ backgroundColor: `color-mix(in srgb, ${secondary} 13%, transparent)` }}
         >
           {team}
         </span>
