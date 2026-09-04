@@ -163,7 +163,7 @@ export default function LeagueDraftSetupPanel({ leagueSlug }: { leagueSlug: stri
     if (result && !result.warning) setMessage(`${year} draft created and ready for setup.`);
   }
 
-  async function openDraft(draft: DraftRow, destination: '/draft/room' | '/admin/draft' = '/draft/room') {
+  async function openDraft(draft: DraftRow, destination = '/draft/room') {
     const result = await action({ action: 'select', draftId: draft.id });
     if (result) window.location.assign(destination);
   }
@@ -259,7 +259,11 @@ export default function LeagueDraftSetupPanel({ leagueSlug }: { leagueSlug: stri
                   <div key={draft.id} className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-3 sm:p-4">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-lg font-black text-[var(--text)]">{draft.year} Draft</span><span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] font-black uppercase text-[var(--muted)]">{draft.status}</span></div><p className="mt-1 text-xs text-[var(--muted)]">{draft.rounds} rounds · {draft.clockSeconds}s clock · {poolLabel(draft.playerPool.type)} · {orderLabel(draft.draftOrderType)}</p><p className="mt-1 text-xs text-[var(--muted)]">{poolSummary}{draft.playerPool.syncedAt ? ` · updated ${new Date(draft.playerPool.syncedAt).toLocaleString()}` : ''}</p></div>
-                      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap"><button type="button" disabled={saving} onClick={() => openDraft(draft)} className="rounded-lg bg-[var(--accent)] px-3 py-2 text-xs font-black text-white disabled:opacity-50">Open Draft Room</button><button type="button" disabled={saving} onClick={() => openDraft(draft, '/admin/draft')} className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--text)] disabled:opacity-50">Commissioner Console</button>{draft.status === 'COMPLETED' && <button type="button" disabled={saving} onClick={() => void action({ action: 'archive', draftId: draft.id })} className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--text)] disabled:opacity-50">Archive</button>}</div>
+                      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+                        <button type="button" disabled={saving} onClick={() => openDraft(draft)} className="rounded-lg bg-[var(--accent)] px-3 py-2 text-xs font-black text-white disabled:opacity-50">Open Draft Room</button>
+                        <button type="button" disabled={saving} onClick={() => openDraft(draft, `/l/${encodeURIComponent(leagueSlug)}/admin/draft`)} className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--text)] disabled:opacity-50">Commissioner Console</button>
+                        {draft.status === 'COMPLETED' && <button type="button" disabled={saving} onClick={() => void action({ action: 'archive', draftId: draft.id })} className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--text)] disabled:opacity-50">Archive</button>}
+                      </div>
                     </div>
                     {draft.status === 'NOT_STARTED' && (
                       <div className="mt-4 border-t border-[var(--border)] pt-4">
