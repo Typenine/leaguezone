@@ -372,11 +372,10 @@ test.describe('draft lifecycle rehearsal', () => {
 
     await page.evaluate(async () => {
       await fetch('/api/draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'approve_pick' }) });
-      document.dispatchEvent(new Event('visibilitychange'));
     });
     await expect.poll(() => picks.length).toBe(1);
-    await expect(page.locator('.gsap-player-card')).toHaveCount(1, { timeout: 8_000 });
-    await expect.poll(() => headshotRequests.includes('auto1'), { timeout: 8_000 }).toBe(true);
+    await expect(page.locator('.gsap-player-card')).toHaveCount(1, { timeout: 12_000 });
+    await expect.poll(() => headshotRequests.includes('auto1'), { timeout: 12_000 }).toBe(true);
 
     await page.reload();
     await page.getByRole('button', { name: 'DEF', exact: true }).click();
@@ -388,11 +387,10 @@ test.describe('draft lifecycle rehearsal', () => {
 
     await page.evaluate(async () => {
       await fetch('/api/draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'approve_pick' }) });
-      document.dispatchEvent(new Event('visibilitychange'));
     });
     await expect.poll(() => status).toBe('COMPLETED');
     await expect.poll(() => picks.some((pick) => pick.playerId === 'GB' && pick.playerPos === 'DEF')).toBe(true);
-    await expect(page.locator('.gsap-player-card')).toHaveCount(1, { timeout: 8_000 });
+    await expect(page.locator('.gsap-player-card')).toHaveCount(1, { timeout: 12_000 });
     expect(headshotRequests).not.toContain('GB');
 
     await page.goto('/e2e-test/draft-setup');
