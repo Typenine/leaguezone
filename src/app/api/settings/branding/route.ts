@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
+import { normalizeBrandImageUrl, normalizeHexColor } from '@/lib/branding/colors';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
 import { requireLeagueCommissioner } from '@/lib/server/membership';
@@ -15,11 +16,18 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const jar = await cookies();
-    const activeLeagueId = jar.get('active_league_id')?.value || undefined;
+    const activeLeagueId = jar.get('active_league_id')?.value;
+    if (!activeLeagueId) {
+      return NextResponse.json({ logoUrl: null, primaryColor: null, secondaryColor: null });
+    }
+
     const db = getDb();
-    const res = activeLeagueId
-      ? await db.execute(sql`SELECT logo_url, primary_color, secondary_color FROM leagues WHERE setup_completed = true AND id = ${activeLeagueId}::uuid LIMIT 1`)
-      : await db.execute(sql`SELECT logo_url, primary_color, secondary_color FROM leagues WHERE setup_completed = true ORDER BY created_at ASC LIMIT 1`);
+    const res = await db.execute(sql`
+      SELECT logo_url, primary_color, secondary_color
+      FROM leagues
+      WHERE setup_completed = true AND id = ${activeLeagueId}::uuid
+      LIMIT 1
+    `);
     const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
     return NextResponse.json({
       logoUrl: (row?.logo_url as string | null) ?? null,
@@ -53,9 +61,25 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const logoUrl = typeof body.logoUrl === 'string' ? body.logoUrl.trim() || null : null;
-    const primaryColor = typeof body.primaryColor === 'string' ? body.primaryColor.trim() || null : null;
-    const secondaryColor = typeof body.secondaryColor === 'string' ? body.secondaryColor.trim() || null : null;
+
+    const rawPrimary = typeof body.primaryColor === 'string' ? body.primaryColor.trim() : '';
+    const rawSecondary = typeof body.secondaryColor === 'string' ? body.secondaryColor.trim() : '';
+    const rawLogo = typeof body.logoUrl === 'string' ? body.logoUrl.trim() : '';
+
+    const primaryColor = rawPrimary ? normalizeHexColor(rawPrimary) : null;
+    const secondaryColor = rawSecondary ? normalizeHexColor(rawSecondary) : null;
+    const logoUrl = rawLogo ? normalizeBrandImageUrl(rawLogo) : null;
+
+    if (rawPrimary && !primaryColor) {
+      return NextResponse.json({ error: 'Primary color must be a valid hex color.' }, { status: 400 });
+    }
+    if (rawSecondary && !secondaryColor) {
+      return NextResponse.json({ error: 'Secondary color must be a valid hex color.' }, { status: 400 });
+    }
+    if (rawLogo && !logoUrl) {
+      return NextResponse.json({ error: 'Logo URL must be an http(s) URL or a site-relative path.' }, { status: 400 });
+    }
+
     const db = getDb();
     await db.execute(sql`
       UPDATE leagues
