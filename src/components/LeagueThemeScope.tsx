@@ -7,6 +7,7 @@ import { getReadableTextColor, normalizeHexColor } from '@/lib/branding/colors';
 
 type LeagueBrandingWindow = typeof window & {
   __LEAGUE_BRANDING__?: {
+    logoUrl?: string | null;
     primaryColor?: string | null;
     secondaryColor?: string | null;
   };
@@ -24,32 +25,39 @@ export default function LeagueThemeScope() {
 
   useEffect(() => {
     const root = document.documentElement;
-    const branding = (window as LeagueBrandingWindow).__LEAGUE_BRANDING__;
     const useLeagueTheme = getNavigationSurface(pathname) === 'legacy-league';
-    const primary = normalizeHexColor(branding?.primaryColor);
-    const secondary = normalizeHexColor(branding?.secondaryColor);
 
-    if (useLeagueTheme && primary) {
-      root.style.setProperty('--accent', primary);
-      root.style.setProperty('--focus', primary);
-      root.style.setProperty('--league-accent', primary);
-      root.style.setProperty('--on-accent', getReadableTextColor(primary));
-    } else {
-      root.style.setProperty('--accent', WEBSITE_TOKENS.accent);
-      root.style.setProperty('--focus', WEBSITE_TOKENS.accent);
-      root.style.setProperty('--on-accent', WEBSITE_TOKENS.accentText);
-      root.style.removeProperty('--league-accent');
-    }
+    const applyTheme = () => {
+      const branding = (window as LeagueBrandingWindow).__LEAGUE_BRANDING__;
+      const primary = normalizeHexColor(branding?.primaryColor);
+      const secondary = normalizeHexColor(branding?.secondaryColor);
 
-    if (useLeagueTheme && secondary) {
-      root.style.setProperty('--gold', secondary);
-      root.style.setProperty('--league-gold', secondary);
-      root.style.setProperty('--on-gold', getReadableTextColor(secondary));
-    } else {
-      root.style.setProperty('--gold', WEBSITE_TOKENS.gold);
-      root.style.setProperty('--on-gold', WEBSITE_TOKENS.goldText);
-      root.style.removeProperty('--league-gold');
-    }
+      if (useLeagueTheme && primary) {
+        root.style.setProperty('--accent', primary);
+        root.style.setProperty('--focus', primary);
+        root.style.setProperty('--league-accent', primary);
+        root.style.setProperty('--on-accent', getReadableTextColor(primary));
+      } else {
+        root.style.setProperty('--accent', WEBSITE_TOKENS.accent);
+        root.style.setProperty('--focus', WEBSITE_TOKENS.accent);
+        root.style.setProperty('--on-accent', WEBSITE_TOKENS.accentText);
+        root.style.removeProperty('--league-accent');
+      }
+
+      if (useLeagueTheme && secondary) {
+        root.style.setProperty('--gold', secondary);
+        root.style.setProperty('--league-gold', secondary);
+        root.style.setProperty('--on-gold', getReadableTextColor(secondary));
+      } else {
+        root.style.setProperty('--gold', WEBSITE_TOKENS.gold);
+        root.style.setProperty('--on-gold', WEBSITE_TOKENS.goldText);
+        root.style.removeProperty('--league-gold');
+      }
+    };
+
+    applyTheme();
+    window.addEventListener('leaguezone:league-changed', applyTheme);
+    return () => window.removeEventListener('leaguezone:league-changed', applyTheme);
   }, [pathname]);
 
   return (
