@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
+import { TeamLogo } from '@/components/ui/TeamLogo';
 import Tabs from '@/components/ui/Tabs';
 import { 
   getTeamsData, 
@@ -21,7 +21,8 @@ import {
   getLeague,
 } from '@/lib/utils/sleeper-api';
 import { LEAGUE_IDS, CURRENT_SEASON, getLeagueIdForSeason } from '@/lib/constants/league';
-import { getTeamLogoPath, getTeamColorStyle, getTeamColors, resolveCanonicalTeamName, getReadableTextForColors } from '@/lib/utils/team-utils';
+import { getTeamColorStyle, getTeamColors, resolveCanonicalTeamName, getReadableTextForColors } from '@/lib/utils/team-utils';
+import { getReadableTextColor } from '@/lib/branding/colors';
 import LoadingState from '@/components/ui/loading-state';
 import ErrorState from '@/components/ui/error-state';
 import SectionHeader from '@/components/ui/SectionHeader';
@@ -784,21 +785,12 @@ export default function TeamContent() {
     '--quaternary': teamColors.quaternary ?? teamColors.secondary ?? teamColors.primary,
   };
   // Local override to color Tabs with team primary while keeping global blue accents elsewhere
-  type TabsAccentVars = React.CSSProperties & { '--accent'?: string };
-  const tabsAccentVars: TabsAccentVars = { '--accent': teamColors.primary };
-  
-  // Function to handle missing logo images
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const target = e.target as HTMLImageElement;
-    target.style.display = 'none';
-    const parent = target.parentElement;
-    if (parent) {
-      const fallback = document.createElement('div');
-      fallback.className = 'flex items-center justify-center h-full w-full';
-      fallback.innerHTML = `<span class="text-4xl font-bold">${target.alt.charAt(0)}</span>`;
-      parent.appendChild(fallback);
-    }
+  type TabsAccentVars = React.CSSProperties & { '--accent'?: string; '--on-accent'?: string };
+  const tabsAccentVars: TabsAccentVars = {
+    '--accent': teamColors.primary,
+    '--on-accent': getReadableTextColor(teamColors.primary),
   };
+  
   
   return (
     <div className="container mx-auto px-4 py-8" style={themeVars}>
@@ -808,14 +800,7 @@ export default function TeamContent() {
           className="w-32 h-32 rounded-full flex items-center justify-center mb-4 overflow-hidden" 
           style={getTeamColorStyle(teamName)}
         >
-          <Image
-            src={getTeamLogoPath(teamName)}
-            alt={teamName}
-            width={100}
-            height={100}
-            className="object-contain p-2"
-            onError={handleImageError}
-          />
+          <TeamLogo teamName={teamName} size={100} className="p-2" />
         </div>
       </div>
       <SectionHeader
@@ -885,13 +870,13 @@ export default function TeamContent() {
                           type="button"
                           onClick={() => setNewsView('grouped')}
                           className="px-3 py-1.5 transition-colors"
-                          style={newsView === 'grouped' ? { background: 'var(--accent)', color: '#fff' } : { background: 'var(--surface-strong)', color: 'var(--muted)' }}
+                          style={newsView === 'grouped' ? { background: 'var(--accent)', color: 'var(--on-accent)' } : { background: 'var(--surface-strong)', color: 'var(--muted)' }}
                         >By Player</button>
                         <button
                           type="button"
                           onClick={() => setNewsView('timeline')}
                           className="px-3 py-1.5 transition-colors"
-                          style={newsView === 'timeline' ? { background: 'var(--accent)', color: '#fff' } : { background: 'var(--surface-strong)', color: 'var(--muted)' }}
+                          style={newsView === 'timeline' ? { background: 'var(--accent)', color: 'var(--on-accent)' } : { background: 'var(--surface-strong)', color: 'var(--muted)' }}
                         >Timeline</button>
                       </div>
                       {/* Time window toggle */}
@@ -918,7 +903,7 @@ export default function TeamContent() {
                         onClick={() => setNewsFilterPlayer(null)}
                         className="shrink-0 text-xs px-2.5 py-1 rounded-full border transition-colors"
                         style={newsFilterPlayer === null
-                          ? { background: 'var(--accent)', color: '#fff', borderColor: 'var(--accent)' }
+                          ? { background: 'var(--accent)', color: 'var(--on-accent)', borderColor: 'var(--accent)' }
                           : { background: 'transparent', color: 'var(--muted)', borderColor: 'var(--border)' }}
                       >All</button>
                       {newsPlayerList.map((pl) => (
@@ -928,7 +913,7 @@ export default function TeamContent() {
                           onClick={() => setNewsFilterPlayer(newsFilterPlayer === pl.playerId ? null : pl.playerId)}
                           className="shrink-0 text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap"
                           style={newsFilterPlayer === pl.playerId
-                            ? { background: 'var(--accent)', color: '#fff', borderColor: 'var(--accent)' }
+                            ? { background: 'var(--accent)', color: 'var(--on-accent)', borderColor: 'var(--accent)' }
                             : { background: 'transparent', color: 'var(--muted)', borderColor: 'var(--border)' }}
                         >
                           {pl.playerName}
@@ -1025,7 +1010,7 @@ export default function TeamContent() {
                                     <div className="flex items-center gap-2 min-w-0">
                                       <span className="font-semibold text-sm sm:text-base truncate">{group.playerName}</span>
                                       {pos && (
-                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ background: 'var(--accent)', color: '#fff' }}>{pos}</span>
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ background: 'var(--accent)', color: 'var(--on-accent)' }}>{pos}</span>
                                       )}
                                       {nflTeam && (
                                         <span className="text-[10px] text-[var(--muted)] shrink-0">{nflTeam}</span>
@@ -1400,7 +1385,7 @@ export default function TeamContent() {
                                   <button key={s} type="button" onClick={() => setDraftRosterSort(s)}
                                     className="text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors"
                                     style={draftRosterSort === s
-                                      ? { background: teamColors.primary, color: '#fff', borderColor: 'transparent' }
+                                      ? { background: teamColors.primary, color: 'var(--on-accent)', borderColor: 'transparent' }
                                       : { background: 'transparent', color: 'var(--muted)', borderColor: 'var(--border)' }}
                                   >{s === 'pick' ? 'Pick Order' : 'By Position'}</button>
                                 ))}
