@@ -67,13 +67,14 @@ export async function middleware(req: NextRequest) {
   const adminCookie = req.cookies.get('evw_admin')?.value || '';
   const siteAdminCookie = req.cookies.get('site_admin')?.value || '';
   const isAdmin = isAdminCookieValue(adminCookie) || isSiteAdminCookieValue(siteAdminCookie);
+  const sessionCookie = req.cookies.get('evw_session')?.value || '';
+  const hasAuthenticatedViewer = hasUsableSessionCookie(sessionCookie);
 
   const newsletterEnabled = process.env.NEXT_PUBLIC_NEWSLETTER_ENABLED === 'true';
   const isNewsletterPath = pathname === '/newsletter' || pathname.startsWith('/newsletter/') || pathname === '/api/newsletter' || pathname.startsWith('/api/newsletter/');
   if (!newsletterEnabled && isNewsletterPath) { const dormant = newsletterDormantResponse(req); if (dormant) return dormant; }
 
   if (pathname === '/' && req.nextUrl.searchParams.get('view') !== 'public' && !qaSession) {
-    const sessionCookie = req.cookies.get('evw_session')?.value || '';
     if (hasUsableUserSessionCookie(sessionCookie)) { const authenticatedHome = req.nextUrl.clone(); authenticatedHome.pathname = '/app'; return NextResponse.rewrite(authenticatedHome); }
   }
 
@@ -88,14 +89,13 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // EVW_PREVIEW_SECRET is retained only for the presentation overlay. Normal LeagueZone
-  // draft room/API/admin access is governed by the authenticated page boundary and the
-  // server-side league membership/commissioner checks in the draft routes. A legacy
-  // East v. West preview cookie must never block a legitimate LeagueZone member.
+  // Retain the legacy preview-key path for unauthenticated presentation displays,
+  // but never make an authenticated LeagueZone member or commissioner re-enter an
+  // East v. West preview secret just to view the draft presentation.
   const previewSecret = process.env.EVW_PREVIEW_SECRET || '';
   const isDraftPresentationPath = pathname === '/draft/overlay';
   if (previewSecret && isDraftPresentationPath && !isQaRehearsal) {
-    if (!isAdmin) {
+    if (!isAdmin && !hasAuthenticatedViewer) {
       const key = req.nextUrl.searchParams.get('preview_key');
       if (key && key === previewSecret) { const url = new URL(req.url); url.searchParams.delete('preview_key'); const res = NextResponse.redirect(url); res.cookies.set('evw_preview', previewSecret, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 7 }); return res; }
       if (req.cookies.get('evw_preview')?.value !== previewSecret) return NextResponse.redirect(new URL('/', req.url));
@@ -105,8 +105,7 @@ export async function middleware(req: NextRequest) {
   if (pathname === '/draft/room' && isAdmin) return NextResponse.next();
   if (!isProtectedPath(pathname)) return NextResponse.next();
   if (qaSession && qaPerspective === 'public') return unauthenticatedResponse(req);
-  const sessionCookie = req.cookies.get('evw_session')?.value || '';
-  if (!hasUsableSessionCookie(sessionCookie)) return unauthenticatedResponse(req);
+  if (!hasAuthenticatedViewer) return unauthenticatedResponse(req);
   return NextResponse.next();
 }
 
