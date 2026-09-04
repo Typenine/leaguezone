@@ -1,0 +1,93 @@
+name: Finalize legacy team branding
+
+on:
+  push:
+    branches: [fix/branding-contrast-and-team-colors]
+    paths:
+      - .github/workflows/branding-finalize-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/branding-contrast-and-team-colors
+      - name: Patch legacy team page
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('src/app/teams/[id]/TeamContent.tsx')
+          source = path.read_text()
+
+          def replace_once(old: str, new: str, label: str):
+              global source
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 match, found {count}')
+              source = source.replace(old, new, 1)
+
+          replace_once(
+              "import Image from 'next/image';",
+              "import { TeamLogo } from '@/components/ui/TeamLogo';",
+              'next image import',
+          )
+          replace_once(
+              "import { getTeamLogoPath, getTeamColorStyle, getTeamColors, resolveCanonicalTeamName, getReadableTextForColors } from '@/lib/utils/team-utils';",
+              "import { getTeamColorStyle, getTeamColors, resolveCanonicalTeamName, getReadableTextForColors } from '@/lib/utils/team-utils';\nimport { getReadableTextColor } from '@/lib/branding/colors';",
+              'team utils import',
+          )
+          replace_once(
+              "  type TabsAccentVars = React.CSSProperties & { '--accent'?: string };\n  const tabsAccentVars: TabsAccentVars = { '--accent': teamColors.primary };",
+              "  type TabsAccentVars = React.CSSProperties & { '--accent'?: string; '--on-accent'?: string };\n  const tabsAccentVars: TabsAccentVars = {\n    '--accent': teamColors.primary,\n    '--on-accent': getReadableTextColor(teamColors.primary),\n  };",
+              'tabs accent variables',
+          )
+
+          source, removed = re.subn(
+              r"\n  // Function to handle missing logo images\n  const handleImageError = \(e: React\.SyntheticEvent<HTMLImageElement, Event>\) => \{.*?\n  \};\n",
+              "\n",
+              source,
+              count=1,
+              flags=re.S,
+          )
+          if removed != 1:
+              raise SystemExit(f'legacy image error handler: expected 1 match, found {removed}')
+
+          logo_pattern = re.compile(
+              r"          <Image\n"
+              r"            src=\{getTeamLogoPath\(teamName\)\}\n"
+              r"            alt=\{teamName\}\n"
+              r"            width=\{100\}\n"
+              r"            height=\{100\}\n"
+              r"            className=\"object-contain p-2\"\n"
+              r"            onError=\{handleImageError\}\n"
+              r"          />"
+          )
+          source, logo_count = logo_pattern.subn(
+              '          <TeamLogo teamName={teamName} size={100} className="p-2" />',
+              source,
+              count=1,
+          )
+          if logo_count != 1:
+              raise SystemExit(f'legacy team logo: expected 1 match, found {logo_count}')
+
+          forced_white = source.count("color: '#fff'")
+          if forced_white < 4:
+              raise SystemExit(f'forced-white accent controls: expected at least 4 matches, found {forced_white}')
+          source = source.replace("color: '#fff'", "color: 'var(--on-accent)'")
+
+          path.write_text(source)
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add 'src/app/teams/[id]/TeamContent.tsx'
+          git diff --cached --check
+          git commit -m "Finish legacy team branding integration"
+          git push origin HEAD:fix/branding-contrast-and-team-colors
