@@ -204,13 +204,15 @@ small, .text-small { font-size: var(--fs-small); line-height: var(--lh-small); }
   font-weight: 950;
 }
 
-/* Links */
-a {
-  color: var(--accent);
-  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  text-underline-offset: 4px;
+/* Links: keep default content links branded, but let Tailwind component utilities override color. */
+@layer base {
+  a {
+    color: var(--accent);
+    text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    text-underline-offset: 4px;
+  }
+  a:hover { text-decoration: underline; }
 }
-a:hover { text-decoration: underline; }
 
 /* Hairline separators */
 hr { border-color: var(--border); opacity: 0.7; }
