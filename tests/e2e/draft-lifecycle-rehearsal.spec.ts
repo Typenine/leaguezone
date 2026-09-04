@@ -40,7 +40,7 @@ function mockSessionCookie() {
 }
 
 test.describe('draft lifecycle rehearsal', () => {
-  test('trades a pick, queues/autopicks, approves, drafts a defense, animates media, completes and archives', async ({ page }) => {
+  test('trades a pick, queues/autopicks, approves, drafts a defense, animates media, completes and archives', async ({ page }, testInfo) => {
     let status: DraftStatus = 'LIVE';
     let curOverall = 1;
     let remainingSec: number | null = 30;
@@ -92,6 +92,14 @@ test.describe('draft lifecycle rehearsal', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ authenticated: false, isAdmin: true, claims: {} }),
+      });
+    });
+
+    await page.route('**/api/draft/teams**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ teams: [firstTeam, secondTeam] }),
       });
     });
 
@@ -319,6 +327,17 @@ test.describe('draft lifecycle rehearsal', () => {
 
     await page.goto('/draft/room');
     await expect(page.getByText('LeagueZone Rehearsal Draft').or(page.getByText('2027 Draft'))).toBeVisible();
+    await expect(page.getByRole('button', { name: 'DEF', exact: true })).toBeVisible();
+
+    if (testInfo.project.name === 'mobile-chrome') {
+      const dimensions = await page.evaluate(() => ({
+        viewport: window.innerWidth,
+        documentWidth: document.documentElement.scrollWidth,
+        bodyWidth: document.body.scrollWidth,
+      }));
+      expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewport + 1);
+      expect(dimensions.bodyWidth).toBeLessThanOrEqual(dimensions.viewport + 1);
+    }
 
     await page.getByRole('button', { name: /Trade/ }).first().click();
     await page.getByRole('button', { name: 'Propose' }).click();
@@ -360,10 +379,11 @@ test.describe('draft lifecycle rehearsal', () => {
     await expect.poll(() => headshotRequests.includes('auto1'), { timeout: 8_000 }).toBe(true);
 
     await page.reload();
+    await page.getByRole('button', { name: 'DEF', exact: true }).click();
     const defenseRow = page.getByText('GB Defense', { exact: true }).first().locator('xpath=ancestor::div[contains(@class,"flex items-start")][1]');
     await defenseRow.getByRole('button', { name: 'Pick' }).click();
     await expect(page.getByText('Confirm Selection')).toBeVisible();
-    await page.getByRole('button', { name: 'Yes, Draft Him' }).click();
+    await page.getByRole('button', { name: 'Confirm Pick' }).click();
     await expect.poll(() => pending?.playerId || null).toBe('GB');
 
     await page.evaluate(async () => {
@@ -375,7 +395,7 @@ test.describe('draft lifecycle rehearsal', () => {
     await expect(page.locator('.gsap-player-card')).toHaveCount(1, { timeout: 8_000 });
     expect(headshotRequests).not.toContain('GB');
 
-    await page.goto('/__e2e/draft-setup');
+    await page.goto('/e2e-test/draft-setup');
     await expect(page.getByText('2027 Draft')).toBeVisible();
     await page.getByRole('button', { name: 'Archive' }).click();
     await expect.poll(() => archived).toBe(true);
