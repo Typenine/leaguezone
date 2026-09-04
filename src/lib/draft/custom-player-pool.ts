@@ -34,7 +34,7 @@ function normalizePlayer(input: Record<string, unknown>, index: number): CustomD
   const id = rawId || fallbackId(name, pos, nfl) || `custom:${index + 1}`;
   const rankRaw = input.rank ?? input.overall_rank ?? input.overall_pick ?? input.pick;
   const rankNumber = rankRaw == null || rankRaw === '' ? null : Number(rankRaw);
-  const rank = Number.isFinite(rankNumber) && rankNumber! > 0 ? Math.trunc(rankNumber!) : null;
+  const rank = rankNumber != null && Number.isFinite(rankNumber) && rankNumber > 0 ? Math.trunc(rankNumber) : null;
   const source = rawId ? 'custom-import-id' : 'custom-import';
 
   return {
@@ -48,6 +48,13 @@ function normalizePlayer(input: Record<string, unknown>, index: number): CustomD
       importedIndex: index + 1,
     },
   };
+}
+
+export function normalizeCustomDraftPlayersInput(value: unknown): CustomDraftPlayer[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item, index) => item && typeof item === 'object' ? normalizePlayer(item as Record<string, unknown>, index) : null)
+    .filter((player): player is CustomDraftPlayer => Boolean(player));
 }
 
 function parseCsvLine(line: string): string[] {
@@ -80,11 +87,7 @@ export function parseCustomDraftPlayerPool(text: string): CustomDraftPlayer[] {
 
   try {
     const json = JSON.parse(trimmed) as unknown;
-    if (Array.isArray(json)) {
-      return json
-        .map((item, index) => item && typeof item === 'object' ? normalizePlayer(item as Record<string, unknown>, index) : null)
-        .filter((player): player is CustomDraftPlayer => Boolean(player));
-    }
+    if (Array.isArray(json)) return normalizeCustomDraftPlayersInput(json);
   } catch {
     // Continue to CSV parsing.
   }
