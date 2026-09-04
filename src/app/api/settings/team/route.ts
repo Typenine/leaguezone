@@ -80,7 +80,16 @@ export async function GET() {
 
   try {
     const row = await getLeagueRow(ctx.leagueId);
-    if (!row) return NextResponse.json({ logoUrl: null, primaryColor: null, secondaryColor: null });
+    if (!row) {
+      return NextResponse.json({
+        logoUrl: null,
+        primaryColor: null,
+        secondaryColor: null,
+        tertiaryColor: null,
+        quaternaryColor: null,
+        helmetColorIndex: null,
+      });
+    }
 
     const config = (row.config as Record<string, unknown>) ?? {};
     const teamLogos = (config.teamLogos as Record<string, string | null>) ?? {};
@@ -96,7 +105,14 @@ export async function GET() {
       helmetColorIndex: legacyColors[ctx.team]?.helmetIndex ?? null,
     });
   } catch {
-    return NextResponse.json({ logoUrl: null, primaryColor: null, secondaryColor: null });
+    return NextResponse.json({
+      logoUrl: null,
+      primaryColor: null,
+      secondaryColor: null,
+      tertiaryColor: null,
+      quaternaryColor: null,
+      helmetColorIndex: null,
+    });
   }
 }
 
@@ -108,6 +124,8 @@ export async function POST(req: NextRequest) {
   const logoProvided = Object.prototype.hasOwnProperty.call(body, 'logoUrl');
   const primaryProvided = Object.prototype.hasOwnProperty.call(body, 'primaryColor');
   const secondaryProvided = Object.prototype.hasOwnProperty.call(body, 'secondaryColor');
+  const tertiaryProvided = Object.prototype.hasOwnProperty.call(body, 'tertiaryColor');
+  const quaternaryProvided = Object.prototype.hasOwnProperty.call(body, 'quaternaryColor');
   const helmetProvided = Object.prototype.hasOwnProperty.call(body, 'helmetColorIndex');
 
   const rawLogo = typeof body.logoUrl === 'string' ? body.logoUrl.trim() : '';
@@ -118,14 +136,24 @@ export async function POST(req: NextRequest) {
 
   const rawPrimary = typeof body.primaryColor === 'string' ? body.primaryColor.trim() : '';
   const rawSecondary = typeof body.secondaryColor === 'string' ? body.secondaryColor.trim() : '';
+  const rawTertiary = typeof body.tertiaryColor === 'string' ? body.tertiaryColor.trim() : '';
+  const rawQuaternary = typeof body.quaternaryColor === 'string' ? body.quaternaryColor.trim() : '';
   const submittedPrimary = rawPrimary ? normalizeHexColor(rawPrimary) : null;
   const submittedSecondary = rawSecondary ? normalizeHexColor(rawSecondary) : null;
+  const submittedTertiary = rawTertiary ? normalizeHexColor(rawTertiary) : null;
+  const submittedQuaternary = rawQuaternary ? normalizeHexColor(rawQuaternary) : null;
 
   if (primaryProvided && !submittedPrimary) {
     return NextResponse.json({ error: 'Primary color must be a valid hex color.' }, { status: 400 });
   }
   if (secondaryProvided && !submittedSecondary) {
     return NextResponse.json({ error: 'Secondary color must be a valid hex color.' }, { status: 400 });
+  }
+  if (tertiaryProvided && rawTertiary && !submittedTertiary) {
+    return NextResponse.json({ error: 'Tertiary color must be a valid hex color or left blank.' }, { status: 400 });
+  }
+  if (quaternaryProvided && rawQuaternary && !submittedQuaternary) {
+    return NextResponse.json({ error: 'Quaternary color must be a valid hex color or left blank.' }, { status: 400 });
   }
 
   const helmetColorIndex = typeof body.helmetColorIndex === 'number' && Number.isFinite(body.helmetColorIndex)
@@ -143,11 +171,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Primary and secondary colors are required.' }, { status: 400 });
     }
 
+    const tertiary = tertiaryProvided ? submittedTertiary : currentPalette?.tertiary;
+    const quaternary = quaternaryProvided ? submittedQuaternary : currentPalette?.quaternary;
     const nextPalette: BrandPalette = {
       primary,
       secondary,
-      ...(currentPalette?.tertiary ? { tertiary: currentPalette.tertiary } : {}),
-      ...(currentPalette?.quaternary ? { quaternary: currentPalette.quaternary } : {}),
+      ...(tertiary ? { tertiary } : {}),
+      ...(quaternary ? { quaternary } : {}),
     };
 
     const rowId = row.id as string;
