@@ -52,16 +52,12 @@ export function contrastRatio(first: string, second: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-/**
- * Choose the higher-contrast neutral foreground for a solid brand color.
- * Using near-black instead of pure black keeps the result aligned with the UI,
- * while still meeting WCAG AA for normal text against any valid hex background.
- */
-export function getReadableTextColor(background: string): '#ffffff' | '#111827' {
+/** Choose the higher-contrast black/white foreground for a solid brand color. */
+export function getReadableTextColor(background: string): '#ffffff' | '#000000' {
   const normalized = normalizeHexColor(background);
   if (!normalized) return '#ffffff';
   const light = '#ffffff';
-  const dark = '#111827';
+  const dark = '#000000';
   return contrastRatio(normalized, dark) >= contrastRatio(normalized, light) ? dark : light;
 }
 
