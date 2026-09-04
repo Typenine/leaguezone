@@ -1,21 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
-import { requireUser } from '@/lib/server/session';
-import { getUserById, generateSecureToken } from '@/lib/server/user-auth';
+import {
+  getUserByEmail,
+  generateSecureToken,
+  validateEmail,
+} from '@/lib/server/user-auth';
 import { sendEmailVerification } from '@/lib/server/email';
+import { rateLimitByIp, AUTH_RATE_LIMITS } from '@/lib/server/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function safeNextPath(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const next = value.trim();
+  if (!next.startsWith('/') || next.startsWith('//')) return null;
+  return next;
+}
+
+function verificationUrl(siteUrl: string, token: string, nextPath: string | null): string {
+  const url = new URL(`/verify-email/${token}`, siteUrl);
+  if (nextPath) url.searchParams.set('next', nextPath);
+  return url.toString();
+}
+
 export async function POST(req: NextRequest) {
-  const session = await requireUser();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const limit = await rateLimitByIp(ip, 'resend-verification', AUTH_RATE_LIMITS.resendVerification);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many verification email requests. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((limit.resetAt - Date.now()) / 1000)) } },
+    );
+  }
 
   try {
-    const user = await getUserById(session.userId);
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    if (user.emailVerified) return NextResponse.json({ ok: true, alreadyVerified: true });
+    const body = await req.json().catch(() => ({}));
+    const email = typeof body.email === 'string' ? body.email.trim() : '';
+    const nextPath = safeNextPath(body.next);
+
+    const validationError = validateEmail(email);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+
+    const user = await getUserByEmail(email);
+
+    // Always return the same successful shape for unknown, grandfathered, or
+    // already verified accounts so this endpoint cannot be used to enumerate users.
+    if (!user || !user.emailVerificationRequired || user.emailVerified) {
+      return NextResponse.json({ ok: true });
+    }
 
     const db = getDb();
     await db.execute(sql`
@@ -32,7 +68,7 @@ export async function POST(req: NextRequest) {
 
     const origin = req.nextUrl.origin;
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || origin;
-    await sendEmailVerification(user.email, `${siteUrl}/verify-email/${token}`);
+    await sendEmailVerification(user.email, verificationUrl(siteUrl, token, nextPath));
 
     return NextResponse.json({ ok: true });
   } catch (e) {

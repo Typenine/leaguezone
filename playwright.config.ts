@@ -27,11 +27,15 @@ export default defineConfig({
     { name: 'mobile-chrome', use: { ...devices['Pixel 7'] } },
   ],
   // Reuse a dev server if one is already running (common in this workspace);
-  // otherwise start one for the test run.
+  // otherwise start one for the test run. E2E mode suppresses real outbound
+  // email while preserving token creation and verification behavior.
   webServer: {
     command: 'npm run dev',
     url: BASE_URL,
     reuseExistingServer: true,
     timeout: 120_000,
+    env: {
+      E2E_TEST_MODE: 'true',
+    },
   },
 });
