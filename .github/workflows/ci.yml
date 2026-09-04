@@ -87,3 +87,6 @@ jobs:
       - run: npm run test:e2e
         env:
           TEST_BASE_URL: 'http://localhost:3000'
+          # The already-running app has its own stub DB URL. Leaving the Playwright
+          # process DB-less makes the existing DB-writing specs skip safely in CI.
+          DATABASE_URL: ''
