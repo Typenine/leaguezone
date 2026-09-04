@@ -16,7 +16,7 @@ const WEBSITE_TOKENS = {
   accent: 'var(--brand-blue)',
   accentText: '#ffffff',
   gold: 'var(--brand-gold)',
-  goldText: '#111827',
+  goldText: '#000000',
 };
 
 export default function LeagueThemeScope() {
@@ -52,5 +52,14 @@ export default function LeagueThemeScope() {
     }
   }, [pathname]);
 
-  return null;
+  return (
+    <style>{`
+      [class~="bg-[var(--accent)]"][class~="text-white"] {
+        color: var(--on-accent, #ffffff) !important;
+      }
+      [class~="bg-[var(--gold)]"][class~="text-white"] {
+        color: var(--on-gold, #000000) !important;
+      }
+    `}</style>
+  );
 }
