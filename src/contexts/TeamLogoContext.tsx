@@ -5,10 +5,10 @@ import { createContext, useContext, useEffect, useState } from 'react';
 export type TeamBrandingOverride = {
   logoUrl: string | null;
   helmetColorIndex: number | null;
-  primaryColor: string | null;
-  secondaryColor: string | null;
-  tertiaryColor: string | null;
-  quaternaryColor: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  tertiaryColor?: string | null;
+  quaternaryColor?: string | null;
 };
 
 export type TeamLogoOverride = TeamBrandingOverride;
