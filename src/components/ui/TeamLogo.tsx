@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { getTeamLogoPath } from '@/lib/utils/team-utils';
 import { DefaultTeamHelmet } from './DefaultTeamHelmet';
@@ -24,9 +24,17 @@ export function TeamLogo({
   const overrides = useTeamLogos();
   const override = overrides[teamName];
   const helmetColorIndex = override?.helmetColorIndex ?? undefined;
-  const [failed, setFailed] = useState(false);
+  const customLogo = override?.logoUrl || null;
+  const staticLogo = teamName ? getTeamLogoPath(teamName) : null;
+  const src = customLogo || staticLogo;
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = Boolean(src && failedSrc === src);
 
-  const src = override?.logoUrl || (teamName ? getTeamLogoPath(teamName) : null);
+  useEffect(() => {
+    if (src !== failedSrc) return;
+    // Keep the failure attached to the exact source. If branding changes to a
+    // new URL, the new image gets a fresh attempt instead of staying hidden.
+  }, [src, failedSrc]);
 
   if (!teamName || failed || !src) {
     return (
@@ -39,14 +47,30 @@ export function TeamLogo({
     );
   }
 
+  if (customLogo) {
+    return (
+      // User-provided logo domains are intentionally not routed through
+      // next/image because leagues can host logos anywhere over http(s).
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={customLogo}
+        alt={teamName}
+        width={size}
+        height={size}
+        className={`object-contain ${className}`}
+        onError={() => setFailedSrc(customLogo)}
+      />
+    );
+  }
+
   return (
     <Image
-      src={src}
+      src={staticLogo!}
       alt={teamName}
       width={size}
       height={size}
       className={`object-contain ${className}`}
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(staticLogo!)}
     />
   );
 }
