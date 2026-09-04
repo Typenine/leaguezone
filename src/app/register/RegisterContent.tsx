@@ -19,6 +19,14 @@ export default function RegisterContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const verificationPath = (deliveryFailed = false) => {
+    const params = new URLSearchParams();
+    if (inviteCode) params.set('next', `/join/${encodeURIComponent(inviteCode)}`);
+    if (deliveryFailed) params.set('delivery', 'failed');
+    const query = params.toString();
+    return query ? `/verify-email?${query}` : '/verify-email';
+  };
+
   const handleSubmit = async () => {
     setError(null);
     if (password !== confirmPassword) {
@@ -33,14 +41,20 @@ export default function RegisterContent() {
         body: JSON.stringify({ email, displayName, password, confirmPassword, inviteCode: inviteCode || undefined }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Registration failed');
-      // If we came from an invite link, go there to claim the roster
-      if (inviteCode) {
-        router.push(`/join/${inviteCode}`);
-      } else {
-        // New users without invite go to /app with welcome banner
-        router.push('/app?welcome=true');
+
+      if (res.ok) {
+        window.sessionStorage.setItem('pendingVerificationEmail', email.trim());
+        router.push(verificationPath());
+        return;
       }
+
+      if (res.status === 503 && data?.code === 'VERIFICATION_EMAIL_FAILED') {
+        window.sessionStorage.setItem('pendingVerificationEmail', email.trim());
+        router.push(verificationPath(true));
+        return;
+      }
+
+      throw new Error(data?.error || 'Registration failed');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Registration failed');
     } finally {
