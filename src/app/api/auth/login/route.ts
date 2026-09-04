@@ -43,6 +43,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
+    if (user.emailVerificationRequired && !user.emailVerified) {
+      return NextResponse.json(
+        {
+          error: 'Verify your email address before signing in.',
+          code: 'EMAIL_NOT_VERIFIED',
+        },
+        { status: 403 },
+      );
+    }
+
     const token = signUserSession(user.id);
     const jar = await cookies();
     jar.set(SESSION_COOKIE, token, sessionCookieOptions());
