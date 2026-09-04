@@ -360,9 +360,9 @@ test.describe('draft lifecycle rehearsal', () => {
     const autoRunner = page.getByText('Auto Runner', { exact: true }).first().locator('xpath=ancestor::div[contains(@class,"flex items-start")][1]');
     await autoRunner.getByRole('button', { name: 'Queue' }).click();
     await expect.poll(() => queue.some((player) => player.id === 'auto1')).toBe(true);
-    await page.locator('button').filter({ hasText: /^Queue$/ }).first().click();
+    await page.getByRole('button', { name: /^Queue \(\d+\)$/ }).click();
     const autoPickLabel = page.getByText('Instant auto-pick');
-    await autoPickLabel.locator('xpath=..').locator('div').click();
+    await autoPickLabel.locator('xpath=..').locator('div').first().click();
     await expect(page.getByText(/Instant — top queued player submitted/i)).toBeVisible();
 
     remainingSec = 0;
