@@ -19,6 +19,7 @@ jobs:
       - name: Patch branding settings UI
         run: |
           sed -i "s|league_end = source.index('// ─── User: team profile editor', league_start)|league_end = source.index('// ─── Helmet color picker', league_start)|" scripts/branding-settings-finalize.py
+          sed -i "s/if count != 1:/if count < 1:/" scripts/branding-settings-finalize.py
           python scripts/branding-settings-finalize.py
       - name: Commit patch
         run: |
