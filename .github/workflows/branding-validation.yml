@@ -1,5 +1,6 @@
 name: Branding branch validation
 
+# Temporary branch-only validation used before the branding changes are merged.
 on:
   push:
     branches: [fix/branding-contrast-and-team-colors]
