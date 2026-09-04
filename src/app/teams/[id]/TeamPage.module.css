@@ -34,3 +34,24 @@
   color: var(--text) !important;
   font-weight: 700;
 }
+
+/* Legacy team sections still use arbitrary two-color franchise gradients. A
+ * single foreground cannot guarantee AA contrast across every possible pair
+ * (for example black -> white), so keep the gradient as decoration and put the
+ * actual heading on a theme-readable surface. */
+.teamPage :global([style*="linear-gradient"] > h3),
+.teamPage :global([style*="linear-gradient"] > h4) {
+  display: inline-block;
+  max-width: 100%;
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text) !important;
+  padding: 0.125rem 0.375rem;
+}
+
+/* A few legacy controls set the team primary as a local --accent and then force
+ * white text inline. The local --on-accent token is computed from that same
+ * franchise color and wins over those old inline colors. */
+.teamPage :global([style*="background: var(--accent)"]) {
+  color: var(--on-accent, #ffffff) !important;
+}
