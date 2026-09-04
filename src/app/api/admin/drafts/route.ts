@@ -7,13 +7,16 @@ import { getUnderlyingPlatformAdminUserFromRequest } from '@/lib/server/admin-au
 import {
   archiveLiveDraft,
   createLiveDraftForLeague,
+  deleteDraftScoped,
   findLiveDraftForYear,
   listLeagueDrafts,
 } from '@/server/db/draft-scope-queries';
 import {
   getSleeperDraftPoolPreview,
+  setDraftPlayerPoolType,
   syncSleeperDraftPlayerPool,
 } from '@/server/db/draft-player-pool-queries';
+import { setDraftOrderType } from '@/server/db/draft-setup-queries';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,7 +24,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   if (!(await getUnderlyingPlatformAdminUserFromRequest(req))) return NextResponse.json({ error: 'Platform admin required' }, { status: 403 });
   const leagues = await getAllLeagues();
-  const drafts = (await Promise.all(leagues.map(async (league) => ({ leagueId: league.id, drafts: await listLeagueDrafts(league.id, true) }))));
+  const drafts = await Promise.all(leagues.map(async (league) => ({ leagueId: league.id, drafts: await listLeagueDrafts(league.id, true) })));
   return NextResponse.json({ leagues, drafts: Object.fromEntries(drafts.map((entry) => [entry.leagueId, entry.drafts])) });
 }
 
@@ -62,30 +65,40 @@ export async function POST(req: NextRequest) {
     const teams = await getLeagueTeamOptions(leagueId);
     if (teams.length === 0) return NextResponse.json({ error: 'No league teams are available. Finish team/provider setup first.' }, { status: 400 });
 
-    let preparedPool: Awaited<ReturnType<typeof getSleeperDraftPoolPreview>>;
-    try {
-      preparedPool = await getSleeperDraftPoolPreview(year, playerPoolType);
-      if (playerPoolType === 'all_players' && preparedPool.players.length === 0) {
-        return NextResponse.json({ error: 'Sleeper returned an empty standard player pool. The draft was not created.' }, { status: 502 });
+    let preparedPool: Awaited<ReturnType<typeof getSleeperDraftPoolPreview>> | undefined;
+    if (playerPoolType !== 'custom') {
+      try {
+        preparedPool = await getSleeperDraftPoolPreview(year, playerPoolType);
+        if (playerPoolType === 'all_players' && preparedPool.players.length === 0) {
+          return NextResponse.json({ error: 'Sleeper returned an empty standard player pool. The draft was not created.' }, { status: 502 });
+        }
+      } catch (error) {
+        console.error('[admin/drafts] Sleeper player pool fetch failed', error);
+        return NextResponse.json({ error: 'Sleeper player data is unavailable right now. The draft was not created.' }, { status: 502 });
       }
-    } catch (error) {
-      console.error('[admin/drafts] Sleeper player pool fetch failed', error);
-      return NextResponse.json({ error: 'Sleeper player data is unavailable right now. The draft was not created.' }, { status: 502 });
     }
 
     const draftId = await createLiveDraftForLeague({ leagueId, year, rounds, teams: teams.map((team) => team.teamName), clockSeconds });
-    const pool = await syncSleeperDraftPlayerPool(draftId, year, playerPoolType, preparedPool);
-    const res = NextResponse.json({
-      ok: true,
-      draftId,
-      pool,
-      warning: playerPoolType !== 'all_players' && pool.count === 0
-        ? `Sleeper does not currently list any eligible ${year} players for this pool. Refresh the pool before the draft starts.`
-        : null,
-    });
-    res.cookies.set('active_league_id', leagueId, { httpOnly: false, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 30 });
-    res.cookies.set('lz_admin_draft_id', draftId, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 30 });
-    return res;
+    try {
+      await setDraftOrderType(draftId, 'linear');
+      const pool = playerPoolType === 'custom'
+        ? (await setDraftPlayerPoolType(draftId, 'custom'), { count: 0, defenses: 0, rookies: 0, usesLiveSleeperPool: false })
+        : await syncSleeperDraftPlayerPool(draftId, year, playerPoolType, preparedPool);
+      const warning = playerPoolType === 'custom'
+        ? 'Custom draft created. Import the custom player list in the league commissioner Draft Setup before starting it.'
+        : playerPoolType !== 'all_players' && pool.count === 0
+          ? `Sleeper does not currently list any eligible ${year} players for this pool. Refresh the pool before the draft starts.`
+          : playerPoolType === 'rookies_plus_defenses' && pool.defenses !== 32
+            ? `Sleeper returned ${pool.defenses} team defenses instead of 32. Review the pool before starting.`
+            : null;
+      const res = NextResponse.json({ ok: true, draftId, pool, warning });
+      res.cookies.set('active_league_id', leagueId, { httpOnly: false, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 30 });
+      res.cookies.set('lz_admin_draft_id', draftId, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 30 });
+      return res;
+    } catch (error) {
+      await deleteDraftScoped(draftId).catch(() => {});
+      return NextResponse.json({ error: error instanceof Error ? error.message : 'Draft setup failed.' }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
