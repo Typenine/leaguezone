@@ -20,6 +20,14 @@ function stableMediaUrl(key: string): string {
   return publicUrl(key) || `/api/media/${key.split('/').map(encodeURIComponent).join('/')}`;
 }
 
+async function commissionerLeagueId(): Promise<string | null> {
+  try {
+    return (await requireLeagueCommissioner()).leagueId;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
@@ -44,8 +52,12 @@ export async function POST(req: NextRequest) {
         leagueId = setupLeagueId;
       } else {
         const legacyAdmin = isAdminCookieValue(jar.get('evw_admin')?.value) || isSiteAdminCookieValue(jar.get('site_admin')?.value);
-        if (legacyAdmin) leagueId = jar.get('active_league_id')?.value || null;
-        else leagueId = (await requireLeagueCommissioner()).leagueId;
+        if (legacyAdmin) {
+          leagueId = jar.get('active_league_id')?.value || null;
+        } else {
+          leagueId = await commissionerLeagueId();
+          if (!leagueId) return NextResponse.json({ error: 'Commissioner access required.' }, { status: 403 });
+        }
       }
     } else if (type === 'team-logo') {
       const membership = await getActiveLeagueMembership();
@@ -55,8 +67,8 @@ export async function POST(req: NextRequest) {
         ? `team-${membership.membership.rosterId}`
         : `team-${membership.membership.userId}`;
     } else if (type === 'history-logo') {
-      const commissioner = await requireLeagueCommissioner();
-      leagueId = commissioner.leagueId;
+      leagueId = await commissionerLeagueId();
+      if (!leagueId) return NextResponse.json({ error: 'Commissioner access required.' }, { status: 403 });
       const season = String(form.get('season') || '').replace(/[^0-9]/g, '').slice(0, 4);
       const franchise = String(form.get('franchiseKey') || '').replace(/[^a-z0-9:_-]/gi, '').slice(0, 128);
       ownerSegment = `history-${season || 'unknown'}-${franchise || 'franchise'}`;

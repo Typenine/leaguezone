@@ -22,10 +22,7 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
     theme_color: theme,
     lang: 'en-US',
     categories: ['sports', 'entertainment'],
-    icons: [
-      { src: icon, sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: icon, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-    ],
+    icons: [{ src: icon, sizes: 'any', purpose: 'any' }],
   }, {
     headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600' },
   });

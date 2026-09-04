@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { deriveSemanticBrandTokens, getReadableTextColor, normalizeBrandPalette, normalizeHexColor } from '@/lib/branding/colors';
 import { getReadableTextForColors, getTeamBrandCssKey } from '@/lib/utils/team-utils';
 
@@ -106,8 +106,7 @@ function legacyTeamBrandingCss(data: TeamBrandingMap): string {
   }).join('\n');
 }
 
-function detectSeason(pathname: string): string | null {
-  const querySeason = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('season') : null;
+function detectSeason(pathname: string, querySeason: string | null): string | null {
   if (querySeason && /^20\d{2}$/.test(querySeason)) return querySeason;
   const match = pathname.match(/(?:^|\/)(20\d{2})(?:\/|$)/);
   return match?.[1] || null;
@@ -115,6 +114,8 @@ function detectSeason(pathname: string): string | null {
 
 export function TeamLogoProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const querySeason = searchParams.get('season');
   const [overrides, setOverrides] = useState<TeamBrandingMap>({});
   const appliedKeys = useRef<string[]>([]);
 
@@ -122,7 +123,7 @@ export function TeamLogoProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     const load = () => {
-      const season = detectSeason(pathname || '');
+      const season = detectSeason(pathname || '', querySeason);
       const url = season ? `/api/team-logos?season=${encodeURIComponent(season)}` : '/api/team-logos';
       fetch(url, { cache: 'no-store' })
         .then(r => (r.ok ? r.json() : {}))
@@ -143,7 +144,7 @@ export function TeamLogoProvider({ children }: { children: React.ReactNode }) {
       clearTeamBrandingVariables(appliedKeys.current);
       window.removeEventListener('leaguezone:league-changed', onLeagueChanged);
     };
-  }, [pathname]);
+  }, [pathname, querySeason]);
 
   return (
     <TeamLogoContext.Provider value={overrides}>

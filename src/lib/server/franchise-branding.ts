@@ -211,9 +211,9 @@ export async function updateFranchiseBrandSnapshot(params: {
     WHERE league_id = ${params.leagueId}::uuid
       AND season = ${params.season}
       AND franchise_key = ${params.franchiseKey}
+    RETURNING id
   `);
-  const rowCount = Number((res as { rowCount?: number }).rowCount || 0);
-  return rowCount > 0;
+  return ((res as { rows?: unknown[] }).rows?.length || 0) > 0;
 }
 
 export async function syncFranchiseBrandHistory(params: {
