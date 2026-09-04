@@ -5,6 +5,8 @@ import { getAllPlayersCached } from '@/lib/utils/sleeper-api';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const SLEEPER_PLAYER_TTL_MS = 24 * 60 * 60 * 1000;
+
 export async function GET(req: NextRequest) {
   const playerId = req.nextUrl.searchParams.get('playerId');
   if (!playerId) return new NextResponse(null, { status: 404 });
@@ -42,7 +44,7 @@ export async function GET(req: NextRequest) {
     // Sleeper's player payload does not include an image URL, but its CDN keys NFL
     // headshots by Sleeper player ID. Only use this fallback for confirmed Sleeper
     // players so custom/imported player IDs do not produce broken external requests.
-    const players = await getAllPlayersCached();
+    const players = await getAllPlayersCached(SLEEPER_PLAYER_TTL_MS);
     const sleeperPlayer = players[playerId];
     if (!sleeperPlayer || String(sleeperPlayer.position || '').toUpperCase() === 'DEF') {
       return new NextResponse(null, { status: 404 });
