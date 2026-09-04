@@ -22,10 +22,26 @@ export async function verifyPin(pin: string, hash: string, salt: string): Promis
   return timingSafeEqual(hashBuf, key);
 }
 
+// Only used as a fallback outside production, so that local dev works
+// without an .env file. It is generated once per process at random, never
+// hardcoded, so it cannot be used to forge sessions against a real
+// deployment. In production, a missing/weak AUTH_SECRET is a hard failure:
+// falling back to any fixed string here would let anyone who has read this
+// public template's source code forge a valid session for any user.
+let devFallbackSecret: string | null = null;
+
 function getSecret(): string {
   const secret = process.env.AUTH_SECRET;
   if (secret && secret.length >= 16) return secret;
-  return 'league-default-auth-secret-change-me';
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'AUTH_SECRET environment variable must be set (>= 16 characters) in production.',
+    );
+  }
+  if (!devFallbackSecret) {
+    devFallbackSecret = randomBytes(32).toString('hex');
+  }
+  return devFallbackSecret;
 }
 
 export function signSession(payload: Record<string, unknown>): string {

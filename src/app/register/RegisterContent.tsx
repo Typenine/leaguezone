@@ -149,6 +149,13 @@ export default function RegisterContent() {
             >
               {loading ? 'Creating account…' : 'Create account'}
             </Button>
+
+            <p className="text-center text-xs text-white/35">
+              This is an early beta. By creating an account you agree to our{' '}
+              <Link href="/terms" className="text-[var(--brand-gold)] hover:underline">Beta Terms</Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="text-[var(--brand-gold)] hover:underline">Privacy Notice</Link>.
+            </p>
           </CardContent>
         </Card>
       </div>

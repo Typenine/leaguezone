@@ -49,23 +49,30 @@ export async function POST(req: NextRequest) {
     const teamName = invite.team_name as string;
     const alreadyClaimed = Boolean(invite.claimed_at);
 
+    // Once an invite has been claimed, this public/unauthenticated endpoint
+    // must never be allowed to overwrite the team's PIN again — otherwise
+    // anyone who ever saw the invite link (e.g. shared in a group chat)
+    // could hijack the team's account indefinitely. Re-setting a PIN after
+    // claiming requires an authenticated session (see /api/auth/change-pin).
+    if (alreadyClaimed) {
+      return NextResponse.json({ error: 'This invite has already been claimed.' }, { status: 409 });
+    }
+
     // Resolve canonical team name
     let team = TEAM_NAMES.includes(teamName) ? teamName : resolveCanonicalTeamName({ rosterTeamName: teamName });
     if (team === 'Unknown Team') team = teamName;
 
-    // Hash and store the PIN (allows re-setting even if already claimed)
+    // Hash and store the PIN
     const { hash, salt } = await hashPin(pin);
     const stored = { hash, salt, pinVersion: 1, updatedAt: new Date().toISOString() };
     await writeTeamPinWithResult(team, stored);
 
-    // Mark invite as claimed if not already
-    if (!alreadyClaimed) {
-      await db.execute(sql`
-        UPDATE league_invites
-        SET claimed_at = NOW()
-        WHERE id = ${invite.id as string}::uuid
-      `);
-    }
+    // Mark invite as claimed
+    await db.execute(sql`
+      UPDATE league_invites
+      SET claimed_at = NOW()
+      WHERE id = ${invite.id as string}::uuid
+    `);
 
     // Issue session cookie
     const ttlDays = 30;

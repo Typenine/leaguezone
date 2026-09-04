@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { isAdminCookieValue } from '@/lib/auth/admin';
 import { isCronAuthorized } from '@/lib/server/cron-auth';
-import { verifySession } from '@/lib/server/auth';
+import { verifySession, signSession } from '@/lib/server/auth';
 
 function setNodeEnv(value: string | undefined) {
   if (value === undefined) {
@@ -29,10 +29,15 @@ describe('auth hardening helpers', () => {
     setNodeEnv(originalNodeEnv);
   });
 
-  it('keeps the simple default admin cookie when no admin secret is configured', () => {
+  it('fails closed (rejects every value) when no admin secret is configured', () => {
     delete process.env.EVW_ADMIN_SECRET;
 
-    expect(isAdminCookieValue('002023')).toBe(true);
+    // No hardcoded fallback: an unconfigured deployment must not grant
+    // commissioner-equivalent access to anyone, including the historical
+    // default value that used to be baked into this file.
+    expect(isAdminCookieValue('002023')).toBe(false);
+    expect(isAdminCookieValue('')).toBe(false);
+    expect(isAdminCookieValue(undefined)).toBe(false);
   });
 
   it('accepts the configured admin cookie value when set', () => {
@@ -40,6 +45,7 @@ describe('auth hardening helpers', () => {
 
     expect(isAdminCookieValue('configured-secret')).toBe(true);
     expect(isAdminCookieValue('002023')).toBe(false);
+    expect(isAdminCookieValue('wrong-secret')).toBe(false);
   });
 
   it('requires cron auth in production when a cron secret is set', () => {
@@ -56,5 +62,16 @@ describe('auth hardening helpers', () => {
 
   it('returns null for malformed session signatures instead of throwing', () => {
     expect(verifySession('eyJmb28iOiJiYXIifQ.short')).toBeNull();
+  });
+
+  it('refuses to sign sessions in production without a configured AUTH_SECRET', () => {
+    const originalAuthSecret = process.env.AUTH_SECRET;
+    setNodeEnv('production');
+    delete (process.env as Record<string, string | undefined>).AUTH_SECRET;
+
+    expect(() => signSession({ sub: 'user-1' })).toThrow();
+
+    if (originalAuthSecret === undefined) delete process.env.AUTH_SECRET;
+    else process.env.AUTH_SECRET = originalAuthSecret;
   });
 });

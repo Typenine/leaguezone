@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       }
 
       const res = await db.execute(sql`
-        SELECT id, setup_completed, config, name FROM leagues
+        SELECT id, setup_completed, config, name, slug, short_name, founded_year FROM leagues
         WHERE id = ${qLeagueId}::uuid
           AND (commissioner_user_id = ${session.userId}::uuid OR commissioner_user_id IS NULL)
         LIMIT 1
@@ -38,6 +38,9 @@ export async function GET(request: NextRequest) {
         setupCompleted: Boolean(row.setup_completed),
         leagueId: row.id,
         leagueName: row.name ?? null,
+        leagueSlug: row.slug ?? null,
+        leagueShortName: row.short_name ?? null,
+        leagueFoundedYear: row.founded_year ?? null,
         completedSteps: (config.completedSetupSteps as string[]) || [],
       });
     }
@@ -51,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     if (cookieLeagueId) {
       const res = await db.execute(sql`
-        SELECT id, setup_completed, config, name FROM leagues
+        SELECT id, setup_completed, config, name, slug, short_name, founded_year FROM leagues
         WHERE id = ${cookieLeagueId}::uuid
         LIMIT 1
       `);
@@ -62,8 +65,48 @@ export async function GET(request: NextRequest) {
           setupCompleted: Boolean(row.setup_completed),
           leagueId: row.id,
           leagueName: row.name ?? null,
+          leagueSlug: row.slug ?? null,
+          leagueShortName: row.short_name ?? null,
+          leagueFoundedYear: row.founded_year ?? null,
           completedSteps: (config.completedSetupSteps as string[]) || [],
         });
+      }
+    }
+
+    // No cookie (new device, cleared cookies, or the 24h setup cookie expired).
+    // If the caller is signed in, resume their own most recent in-progress
+    // league instead of silently restarting the wizard from scratch — this
+    // is what lets a commissioner pick setup back up after an interruption.
+    const session = await requireUser();
+    if (session) {
+      const res = await db.execute(sql`
+        SELECT id, setup_completed, config, name, slug, short_name, founded_year FROM leagues
+        WHERE commissioner_user_id = ${session.userId}::uuid
+          AND setup_completed = false
+        ORDER BY created_at DESC
+        LIMIT 1
+      `);
+      const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+      if (row) {
+        const config = (row.config as Record<string, unknown>) || {};
+        const response = NextResponse.json({
+          setupCompleted: false,
+          leagueId: row.id,
+          leagueName: row.name ?? null,
+          leagueSlug: row.slug ?? null,
+          leagueShortName: row.short_name ?? null,
+          leagueFoundedYear: row.founded_year ?? null,
+          completedSteps: (config.completedSetupSteps as string[]) || [],
+        });
+        // Re-establish the cookies so the rest of the wizard's steps resolve
+        // the same league without needing the leagueId on every request.
+        response.cookies.set('setup_league_id', row.id as string, {
+          httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24,
+        });
+        response.cookies.set('active_league_id', row.id as string, {
+          httpOnly: false, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 30,
+        });
+        return response;
       }
     }
 

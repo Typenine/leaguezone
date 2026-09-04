@@ -149,6 +149,14 @@ export default function Navbar() {
   const [changePwLoading, setChangePwLoading] = useState(false);
   const [changePwError, setChangePwError] = useState(false);
 
+  // Beta feedback / account deletion request modal
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackCategory, setFeedbackCategory] = useState<'Beta Feedback' | 'Account Deletion Request'>('Beta Feedback');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+  const [feedbackError, setFeedbackError] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+
   const toggleMobileSection = (id: string) => setMobileExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   const closeMobile = () => setMobileMenuOpen(false);
 
@@ -298,6 +306,46 @@ export default function Navbar() {
       setChangePwError(true);
     } finally {
       setChangePwLoading(false);
+    }
+  };
+
+  const openFeedback = (category: 'Beta Feedback' | 'Account Deletion Request') => {
+    setFeedbackCategory(category);
+    setFeedbackMessage('');
+    setFeedbackMsg(null);
+    setFeedbackError(false);
+    setFeedbackOpen(true);
+  };
+
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFeedbackMsg(null);
+    setFeedbackError(false);
+    if (feedbackMessage.trim().length < 3) {
+      setFeedbackMsg('Please include a few more details.');
+      setFeedbackError(true);
+      return;
+    }
+    setFeedbackLoading(true);
+    try {
+      const r = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: feedbackMessage.trim(), category: feedbackCategory, pageUrl: pathname }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error || 'Failed to send. Please try again.');
+      setFeedbackMsg(
+        feedbackCategory === 'Account Deletion Request'
+          ? "Request received — we'll follow up at your account email."
+          : 'Thanks! Your feedback was sent.'
+      );
+      setFeedbackMessage('');
+    } catch (err) {
+      setFeedbackMsg(err instanceof Error ? err.message : 'Failed to send. Please try again.');
+      setFeedbackError(true);
+    } finally {
+      setFeedbackLoading(false);
     }
   };
 
@@ -667,6 +715,14 @@ export default function Navbar() {
                         </>
                       )}
 
+                      {/* Beta feedback — available to any authenticated tester */}
+                      <button
+                        className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm font-medium text-[var(--accent)]"
+                        onClick={() => { setAccountMenuOpen(false); openFeedback('Beta Feedback'); }}
+                      >
+                        💬 Send feedback / report a bug
+                      </button>
+
                       {/* Account actions */}
                       {sessionUser && (
                         <>
@@ -675,6 +731,12 @@ export default function Navbar() {
                             onClick={() => { setAccountMenuOpen(false); setChangePwOpen(true); }}
                           >
                             Change password
+                          </button>
+                          <button
+                            className="w-full text-left px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] text-sm text-[var(--muted)]"
+                            onClick={() => { setAccountMenuOpen(false); openFeedback('Account Deletion Request'); }}
+                          >
+                            Request account deletion
                           </button>
                           {!sessionUser.emailVerified && (
                             <button
@@ -931,7 +993,16 @@ export default function Navbar() {
         </div>
 
         {/* Drawer footer — account */}
-        <div className="border-t border-[var(--border)] px-3 py-4 flex-shrink-0">
+        <div className="border-t border-[var(--border)] px-3 py-4 flex-shrink-0 space-y-3">
+          {isLoggedIn && (
+            <button
+              type="button"
+              className="w-full text-center px-3 py-2 rounded-lg text-sm font-semibold text-[var(--accent)] border border-[var(--accent)]/30 hover:bg-[var(--accent)]/10 transition-colors"
+              onClick={() => { closeMobile(); openFeedback('Beta Feedback'); }}
+            >
+              💬 Send feedback / report a bug
+            </button>
+          )}
           <div className="flex items-center gap-2">
             <ThemeToggle />
             {isLoggedIn ? (
@@ -989,6 +1060,63 @@ export default function Navbar() {
           <Button type="button" variant="secondary" onClick={() => setChangePwOpen(false)}>Cancel</Button>
           <Button type="submit" disabled={changePwLoading || !currentPw || !newPw || !confirmPw}>
             {changePwLoading ? 'Updating…' : 'Update password'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+
+    {/* Beta Feedback / Account Deletion Request Modal */}
+    <Modal
+      open={feedbackOpen}
+      onClose={() => { setFeedbackOpen(false); setFeedbackMsg(null); setFeedbackError(false); }}
+      title={feedbackCategory === 'Account Deletion Request' ? 'Request account deletion' : 'Send feedback / report a bug'}
+      autoFocusPanel={false}
+    >
+      <form onSubmit={handleSubmitFeedback} noValidate className="space-y-4">
+        {feedbackCategory === 'Account Deletion Request' ? (
+          <p className="text-sm text-[var(--muted)]">
+            This sends a request to the team — we review deletions manually since league data (rosters,
+            trades, suggestions) is often shared with other league members. Tell us what to remove.
+          </p>
+        ) : (
+          <p className="text-sm text-[var(--muted)]">
+            Found a bug, confusing behavior, or incorrect league data? Let us know — we automatically
+            include the current page{activeTeam?.leagueName ? ` and league (${activeTeam.leagueName})` : ''}
+            {' '}for context, so you don&apos;t have to explain everything.
+          </p>
+        )}
+        <div>
+          <Label htmlFor="feedback-message">
+            {feedbackCategory === 'Account Deletion Request' ? 'What would you like removed?' : 'What happened?'}
+          </Label>
+          <textarea
+            id="feedback-message"
+            rows={5}
+            className="w-full league-surface border border-[var(--border)] rounded px-3 py-2 mt-1 text-sm"
+            placeholder={feedbackCategory === 'Account Deletion Request'
+              ? 'e.g. Please delete my account and personal data.'
+              : 'Describe the bug or feedback in a sentence or two…'}
+            value={feedbackMessage}
+            onChange={(e) => setFeedbackMessage(e.target.value)}
+            maxLength={3000}
+          />
+        </div>
+        {feedbackCategory !== 'Account Deletion Request' && (
+          <button
+            type="button"
+            className="text-xs text-[var(--muted)] hover:text-[var(--text)] underline"
+            onClick={() => openFeedback('Account Deletion Request')}
+          >
+            Want your account/data deleted instead?
+          </button>
+        )}
+        {feedbackMsg && (
+          <div className={`text-sm ${feedbackError ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`} role="status">{feedbackMsg}</div>
+        )}
+        <div className="flex items-center gap-2 justify-end">
+          <Button type="button" variant="secondary" onClick={() => setFeedbackOpen(false)}>Cancel</Button>
+          <Button type="submit" disabled={feedbackLoading || feedbackMessage.trim().length < 3}>
+            {feedbackLoading ? 'Sending…' : 'Send'}
           </Button>
         </div>
       </form>

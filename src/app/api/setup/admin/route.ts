@@ -1,26 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
-import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
+import { requireUser } from '@/lib/server/session';
+import { requireSetupLeagueOwnership } from '@/lib/server/setup-ownership';
+
+async function resolveLeagueId(bodyLeagueId?: string | null): Promise<string | null> {
+  const jar = await cookies();
+  return (
+    (typeof bodyLeagueId === 'string' ? bodyLeagueId : null) ||
+    jar.get('setup_league_id')?.value ||
+    jar.get('active_league_id')?.value ||
+    null
+  );
+}
 
 export async function GET(request: NextRequest) {
-  const adminCookie = request.cookies.get('evw_admin')?.value;
-  const siteAdminCookie = request.cookies.get('site_admin')?.value;
-  if (!isAdminCookieValue(adminCookie) && !isSiteAdminCookieValue(siteAdminCookie)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await requireUser();
+  if (!session) {
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 
   try {
-    const db = getDb();
-    const leagueRes = await db.execute(sql`
-      SELECT id FROM leagues WHERE setup_completed = false ORDER BY created_at DESC LIMIT 1
-    `);
-    const leagueRow = (leagueRes as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-
-    if (!leagueRow) {
+    const url = new URL(request.url);
+    const leagueId = await resolveLeagueId(url.searchParams.get('leagueId'));
+    if (!leagueId) {
       return NextResponse.json({ error: 'No league found. Please start setup from the beginning.' }, { status: 400 });
     }
 
+    const owned = await requireSetupLeagueOwnership(session.userId, leagueId);
+    if (!owned) {
+      return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
+    }
+
+    const db = getDb();
     await db.execute(sql`
       UPDATE leagues SET
         config = jsonb_set(
@@ -28,11 +41,11 @@ export async function GET(request: NextRequest) {
           '{completedSetupSteps}',
           (
             SELECT COALESCE(config->'completedSetupSteps', '[]'::jsonb) || '["admin"]'::jsonb
-            FROM leagues WHERE id = ${leagueRow.id}::uuid
+            FROM leagues WHERE id = ${leagueId}::uuid
           )
         ),
         updated_at = now()
-      WHERE id = ${leagueRow.id}::uuid
+      WHERE id = ${leagueId}::uuid
     `);
 
     return NextResponse.json({ success: true, skipped: true });
@@ -43,9 +56,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await requireUser();
+  if (!session) {
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
-    const { email, pin, displayName } = body;
+    const { email, pin, displayName, leagueId: bodyLeagueId } = body;
 
     if (!email || !pin) {
       return NextResponse.json(
@@ -63,21 +81,19 @@ export async function POST(request: NextRequest) {
 
     const db = getDb();
 
-    // Get the league being set up
-    const leagueRes = await db.execute(sql`
-      SELECT id FROM leagues WHERE setup_completed = false ORDER BY created_at DESC LIMIT 1
-    `);
-    
-    const leagueRow = (leagueRes as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-    
-    if (!leagueRow) {
+    // Resolve and verify ownership of the league being set up
+    const leagueId = await resolveLeagueId(bodyLeagueId);
+    if (!leagueId) {
       return NextResponse.json(
         { error: 'No league found. Please start setup from the beginning.' },
         { status: 400 }
       );
     }
 
-    const leagueId = leagueRow.id;
+    const owned = await requireSetupLeagueOwnership(session.userId, leagueId);
+    if (!owned) {
+      return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
+    }
 
     // Check if email already exists
     const existingUser = await db.execute(sql`

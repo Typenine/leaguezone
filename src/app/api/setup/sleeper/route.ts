@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
 import { requireUser } from '@/lib/server/session';
+import { requireSetupLeagueOwnership } from '@/lib/server/setup-ownership';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,13 +41,8 @@ export async function POST(request: NextRequest) {
     const db = getDb();
 
     // Verify ownership
-    const ownerCheck = await db.execute(sql`
-      SELECT id FROM leagues
-      WHERE id = ${leagueId}::uuid
-        AND (commissioner_user_id = ${userId}::uuid OR commissioner_user_id IS NULL)
-      LIMIT 1
-    `);
-    if (!(ownerCheck as { rows?: unknown[] }).rows?.length) {
+    const owned = await requireSetupLeagueOwnership(userId, leagueId);
+    if (!owned) {
       return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
     }
 

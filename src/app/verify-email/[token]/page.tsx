@@ -51,8 +51,8 @@ export default async function VerifyEmailPage({ params }: PageProps) {
   const result = await verifyToken(token);
 
   if (result === 'ok') {
-    // Verified — redirect to home with a success flag
-    redirect('/home?verified=1');
+    // Verified — send them to the multi-league dashboard with a success flag
+    redirect('/app?verified=1');
   }
 
   // Show a user-facing error for invalid / expired tokens
@@ -72,10 +72,10 @@ export default async function VerifyEmailPage({ params }: PageProps) {
           : 'Something went wrong. Try signing in and requesting a new verification email.'}
       </p>
       <Link
-        href="/home"
+        href="/app"
         className="text-[var(--accent)] hover:underline text-sm"
       >
-        Go to League Home →
+        Go to My Leagues →
       </Link>
     </div>
   );

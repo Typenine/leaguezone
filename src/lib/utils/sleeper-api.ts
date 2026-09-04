@@ -5,7 +5,7 @@
  * using the provided league IDs.
  */
 
-import { LEAGUE_IDS, CHAMPIONS, getLeagueIdForSeason } from '../constants/league';
+import { LEAGUE_IDS, CHAMPIONS, getLeagueIdForSeason, getAvailableSeasonYears } from '../constants/league';
 import { resolveCanonicalTeamName, cacheOwnerName } from '../utils/team-utils';
 
 // Base URL for Sleeper API
@@ -2159,21 +2159,20 @@ export async function derivePodiumFromWinnersBracketByYear(
  */
 export async function getAllTeamsData(options?: SleeperFetchOptions): Promise<Record<string, TeamData[]>> {
   try {
-    const currentYearTeams = getTeamsData(LEAGUE_IDS.CURRENT, options);
-    const year2024Teams = getTeamsData(LEAGUE_IDS.PREVIOUS['2024'], options);
-    const year2023Teams = getTeamsData(LEAGUE_IDS.PREVIOUS['2023'], options);
-    
-    const [current, y2024, y2023] = await Promise.all([
-      currentYearTeams,
-      year2024Teams,
-      year2023Teams
-    ]);
-    
-    return {
-      '2025': current,
-      '2024': y2024,
-      '2023': y2023
-    };
+    // Previously hardcoded to '2025'/'2024'/'2023' (the East v. West demo
+    // league's seasons). Derive the actual configured seasons for whichever
+    // league is active instead, so this works for any league regardless of
+    // how many seasons of history it has configured.
+    const years = getAvailableSeasonYears();
+    const entries = await Promise.all(
+      years.map(async (year) => {
+        const leagueId = getLeagueIdForSeason(year);
+        const teams = leagueId ? await getTeamsData(leagueId, options) : [];
+        return [year, teams] as const;
+      })
+    );
+
+    return Object.fromEntries(entries);
   } catch (error) {
     console.error('Error fetching all teams data:', error);
     throw error;

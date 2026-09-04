@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
 import { requireUser } from '@/lib/server/session';
+import { requireSetupLeagueOwnership } from '@/lib/server/setup-ownership';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,14 +17,12 @@ async function resolveSetupLeague(userId: string, bodyLeagueId?: string) {
     null;
   if (!leagueId) return null;
 
+  const owned = await requireSetupLeagueOwnership(userId, leagueId);
+  if (!owned) return null;
+
   const db = getDb();
-  const ownerCheck = await db.execute(sql`
-    SELECT id, config FROM leagues
-    WHERE id = ${leagueId}::uuid
-      AND (commissioner_user_id = ${userId}::uuid OR commissioner_user_id IS NULL)
-    LIMIT 1
-  `);
-  const rows = (ownerCheck as { rows?: Array<Record<string, unknown>> }).rows ?? [];
+  const rowRes = await db.execute(sql`SELECT id, config FROM leagues WHERE id = ${leagueId}::uuid LIMIT 1`);
+  const rows = (rowRes as { rows?: Array<Record<string, unknown>> }).rows ?? [];
   return rows[0] ? { leagueId, row: rows[0] } : null;
 }
 

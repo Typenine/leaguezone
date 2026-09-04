@@ -1,10 +1,19 @@
+import { NextRequest, NextResponse } from 'next/server';
 import { getKV } from '@/lib/server/kv';
 import { listKeys } from '@/server/storage/r2';
+import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const isAdmin =
+    isAdminCookieValue(req.cookies.get('evw_admin')?.value) ||
+    isSiteAdminCookieValue(req.cookies.get('site_admin')?.value);
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const out: Record<string, unknown> = { ok: true };
 

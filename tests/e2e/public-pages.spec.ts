@@ -9,6 +9,8 @@ test.describe('Public product pages', () => {
   test('homepage shows LeagueZone HQ branding', async ({ page }) => {
     await page.goto(BASE_URL + '/');
     await expect(page.getByText('LeagueZone HQ', { exact: false }).first()).toBeVisible();
+    // Should NOT show East v. West specific branding on the product homepage
+    // (It may appear in a "demo league" section, but not as the primary identity)
   });
 
   test('homepage calls to action navigate instead of being masked by setup state', async ({ page }) => {
@@ -38,6 +40,8 @@ test.describe('Public product pages', () => {
 
   test('invalid invite code shows a not-found state', async ({ page }) => {
     await page.goto(BASE_URL + '/join/INVALIDCODE999');
+    // Should show 404 or "not found" page
+    // Either redirected to 404 or content shows not found
     const body = await page.content();
     expect(body.toLowerCase()).toMatch(/not found|404|invalid/);
   });

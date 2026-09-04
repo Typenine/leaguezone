@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getLeagueIdForSeason } from '@/lib/constants/league';
 import { getTeamsData, getLeagueMatchups, getAllPlayersCached, getLeagueRosters } from '@/lib/utils/sleeper-api';
 import { getObjectText, putObjectText } from '@/server/storage/r2';
+import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const isAdmin =
+    isAdminCookieValue(req.cookies.get('evw_admin')?.value) ||
+    isSiteAdminCookieValue(req.cookies.get('site_admin')?.value);
+  if (!isAdmin) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     let raw: unknown;
     try { raw = await req.json(); } catch { raw = {}; }

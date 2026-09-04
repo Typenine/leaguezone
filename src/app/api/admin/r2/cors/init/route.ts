@@ -1,7 +1,17 @@
+import { NextRequest } from 'next/server';
+import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const isAdmin =
+    isAdminCookieValue(req.cookies.get('evw_admin')?.value) ||
+    isSiteAdminCookieValue(req.cookies.get('site_admin')?.value);
+  if (!isAdmin) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const origins: string[] = [];
   const publicBase = (process.env.R2_PUBLIC_BASE || '').trim();
   const vercelUrl = (process.env.VERCEL_URL || '').trim();

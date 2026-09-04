@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -18,13 +18,49 @@ function slugify(text: string): string {
 export default function SetupLeaguePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [checkingExisting, setCheckingExisting] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
+  const [existingLeagueId, setExistingLeagueId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [shortName, setShortName] = useState('');
   const [foundedYear, setFoundedYear] = useState('');
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+
+  // Resume an in-progress league (from cookie, or from the server-side
+  // fallback that resolves the caller's own incomplete league) instead of
+  // always starting a blank "create" form — otherwise re-submitting this
+  // step after an interruption creates a duplicate league / hits a
+  // duplicate-slug 409 instead of updating the original draft.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadExisting() {
+      try {
+        const res = await fetch('/api/setup/status');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !data.leagueId) return;
+        setExistingLeagueId(data.leagueId as string);
+        // Prefill from the league's current values (returned directly by
+        // /api/setup/status) so the commissioner sees what they already
+        // entered rather than a blank form. Note: /api/settings/league only
+        // returns leagues with setup_completed = true, so it can't be used
+        // here — the league is by definition still mid-setup.
+        if (typeof data.leagueName === 'string') setName(data.leagueName);
+        if (typeof data.leagueSlug === 'string') setSlug(data.leagueSlug);
+        if (typeof data.leagueShortName === 'string') setShortName(data.leagueShortName || '');
+        if (data.leagueFoundedYear != null) setFoundedYear(String(data.leagueFoundedYear));
+        setSlugManuallyEdited(true);
+      } catch {
+        // Non-fatal — fall back to a blank create form.
+      } finally {
+        if (!cancelled) setCheckingExisting(false);
+      }
+    }
+    loadExisting();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleNameChange = (value: string) => {
     setName(value);
@@ -63,6 +99,9 @@ export default function SetupLeaguePage() {
           slug: slug.trim(),
           shortName: shortName.trim() || null,
           foundedYear: foundedYear ? parseInt(foundedYear, 10) : null,
+          // Resuming an in-progress league updates it in place instead of
+          // creating a duplicate / colliding with its own slug.
+          leagueId: existingLeagueId || undefined,
         }),
       });
       
@@ -185,8 +224,8 @@ export default function SetupLeaguePage() {
               >
                 Back
               </Button>
-              <Button type="submit" disabled={loading} className="flex-1">
-                {loading ? 'Saving...' : 'Continue'}
+              <Button type="submit" disabled={loading || checkingExisting} className="flex-1">
+                {loading ? 'Saving...' : checkingExisting ? 'Loading…' : 'Continue'}
               </Button>
             </div>
           </form>
