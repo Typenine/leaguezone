@@ -72,7 +72,7 @@ test.describe('LeagueZone member draft hub', () => {
     });
 
     await page.goto('/draft?view=next');
-    await expect(page.getByText('2027 Startup Draft')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '2027 Startup Draft', exact: true })).toBeVisible();
     await expect(page.getByText('All players')).toBeVisible();
     await expect(page.getByText('Snake')).toBeVisible();
     await expect(page.getByText('Rookie Draft')).toHaveCount(0);
