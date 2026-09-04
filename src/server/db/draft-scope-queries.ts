@@ -64,7 +64,7 @@ async function readWorkspace(key: string): Promise<legacy.DraftWorkspaceRow | nu
     SELECT event_name, event_logo_url, event_color_1, event_color_2, default_player_pool_id
     FROM draft_workspace WHERE id = ${key} LIMIT 1
   `);
-  const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+  const row = (res as unknown as { rows?: Array<Record<string, unknown>> }).rows?.[0];
   if (!row) return null;
   return {
     eventName: row.event_name ? String(row.event_name) : null,
@@ -213,7 +213,7 @@ export async function getActiveOrLatestDraftIdScoped(): Promise<string | null> {
         AND qa_session_id = ${qa.id}::uuid
       LIMIT 1
     `);
-    const row = (rehearsal as { rows?: Array<{ id: string }> }).rows?.[0];
+    const row = (rehearsal as unknown as { rows?: Array<{ id: string }> }).rows?.[0];
     if (row?.id) return row.id;
   }
 
@@ -232,7 +232,7 @@ export async function getActiveOrLatestDraftIdScoped(): Promise<string | null> {
           AND archived_at IS NULL
         LIMIT 1
       `);
-      const row = (selectedRes as { rows?: Array<{ id: string }> }).rows?.[0];
+      const row = (selectedRes as unknown as { rows?: Array<{ id: string }> }).rows?.[0];
       if (row?.id) return row.id;
     }
   } catch {}
@@ -245,7 +245,7 @@ export async function getActiveOrLatestDraftIdScoped(): Promise<string | null> {
       AND status IN ('LIVE','PAUSED')
     ORDER BY created_at DESC LIMIT 1
   `);
-  const activeRow = (active as { rows?: Array<{ id: string }> }).rows?.[0];
+  const activeRow = (active as unknown as { rows?: Array<{ id: string }> }).rows?.[0];
   if (activeRow?.id) return activeRow.id;
 
   const latest = await db.execute(sql`
@@ -255,7 +255,7 @@ export async function getActiveOrLatestDraftIdScoped(): Promise<string | null> {
       AND archived_at IS NULL
     ORDER BY year DESC, created_at DESC LIMIT 1
   `);
-  return (latest as { rows?: Array<{ id: string }> }).rows?.[0]?.id || null;
+  return (latest as unknown as { rows?: Array<{ id: string }> }).rows?.[0]?.id || null;
 }
 
 export async function listLeagueDrafts(leagueId: string, includeRehearsals = true): Promise<ScopedDraftSummary[]> {
@@ -268,7 +268,7 @@ export async function listLeagueDrafts(leagueId: string, includeRehearsals = tru
       AND (${includeRehearsals} OR environment = 'live')
     ORDER BY year DESC, created_at DESC
   `);
-  const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
+  const rows = (res as unknown as { rows?: Array<Record<string, unknown>> }).rows ?? [];
   return rows.map((row) => ({
     id: String(row.id),
     leagueId: String(row.league_id),
@@ -294,7 +294,7 @@ export async function findLiveDraftForYear(leagueId: string, year: number): Prom
       AND archived_at IS NULL
     ORDER BY created_at DESC LIMIT 1
   `);
-  return (res as { rows?: Array<{ id: string }> }).rows?.[0]?.id || null;
+  return (res as unknown as { rows?: Array<{ id: string }> }).rows?.[0]?.id || null;
 }
 
 export async function createLiveDraftForLeague(params: {
@@ -330,14 +330,14 @@ export async function createRehearsalDraftForLeague(params: {
       WHERE id = ${params.sourceDraftId}::uuid AND league_id = ${params.leagueId}::uuid
       LIMIT 1
     `);
-    const head = (headRes as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+    const head = (headRes as unknown as { rows?: Array<Record<string, unknown>> }).rows?.[0];
     if (head) {
       const slotRes = await db.execute(sql`
         SELECT round, pick_in_round, team FROM draft_slots
         WHERE draft_id = ${params.sourceDraftId}::uuid
         ORDER BY round, pick_in_round
       `);
-      const slots = (slotRes as { rows?: Array<{ round: number; pick_in_round: number; team: string }> }).rows ?? [];
+      const slots = (slotRes as unknown as { rows?: Array<{ round: number; pick_in_round: number; team: string }> }).rows ?? [];
       const roundOrders: Record<number, string[]> = {};
       for (const slot of slots) {
         if (!roundOrders[slot.round]) roundOrders[slot.round] = [];
@@ -403,14 +403,14 @@ export async function deleteRehearsalDraft(draftId: string, qaSessionId: string)
   const res = await getDb().execute(sql`
     SELECT 1 FROM drafts WHERE id = ${draftId}::uuid AND environment = 'rehearsal' AND qa_session_id = ${qaSessionId}::uuid LIMIT 1
   `);
-  if (((res as { rows?: unknown[] }).rows ?? []).length === 0) throw new Error('rehearsal_draft_not_found');
+  if (((res as unknown as { rows?: unknown[] }).rows ?? []).length === 0) throw new Error('rehearsal_draft_not_found');
   await deleteDraftRows(draftId);
 }
 
 export async function deleteDraftScoped(draftId: string): Promise<{ ok: true }> {
   await ensureDraftTablesScoped();
   const res = await getDb().execute(sql`SELECT environment, status FROM drafts WHERE id = ${draftId}::uuid LIMIT 1`);
-  const row = (res as { rows?: Array<{ environment: string; status: string }> }).rows?.[0];
+  const row = (res as unknown as { rows?: Array<{ environment: string; status: string }> }).rows?.[0];
   if (!row) return { ok: true };
   if (row.environment === 'rehearsal' || row.status === 'NOT_STARTED') {
     await deleteDraftRows(draftId);
@@ -430,7 +430,7 @@ export async function archiveLiveDraft(draftId: string, leagueId: string): Promi
       AND archived_at IS NULL
     RETURNING id
   `);
-  if (((res as { rows?: unknown[] }).rows ?? []).length === 0) {
+  if (((res as unknown as { rows?: unknown[] }).rows ?? []).length === 0) {
     throw new Error('only_completed_live_drafts_can_be_archived');
   }
 }
