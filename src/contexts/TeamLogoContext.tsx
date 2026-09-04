@@ -1,7 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { getReadableTextColor, normalizeHexColor } from '@/lib/branding/colors';
+import { usePathname } from 'next/navigation';
+import { deriveSemanticBrandTokens, getReadableTextColor, normalizeBrandPalette, normalizeHexColor } from '@/lib/branding/colors';
 import { getReadableTextForColors, getTeamBrandCssKey } from '@/lib/utils/team-utils';
 
 export type TeamBrandingOverride = {
@@ -30,6 +31,10 @@ function clearTeamBrandingVariables(keys: string[]) {
       root.style.removeProperty(`--team-brand-${key}-${slot}-text`);
     }
     root.style.removeProperty(`--team-brand-${key}-gradient-text`);
+    root.style.removeProperty(`--team-brand-${key}-accent`);
+    root.style.removeProperty(`--team-brand-${key}-secondary-accent`);
+    root.style.removeProperty(`--team-brand-${key}-highlight`);
+    root.style.removeProperty(`--team-brand-${key}-border-highlight`);
   }
 }
 
@@ -52,6 +57,20 @@ function applyTeamBrandingVariables(data: TeamBrandingMap): string[] {
       if (!color) continue;
       root.style.setProperty(`--team-brand-${key}-${slot}`, color);
       root.style.setProperty(`--team-brand-${key}-${slot}-text`, getReadableTextColor(color));
+    }
+
+    const normalizedPalette = normalizeBrandPalette({
+      primary: palette.primary,
+      secondary: palette.secondary,
+      tertiary: palette.tertiary,
+      quaternary: palette.quaternary,
+    });
+    if (normalizedPalette) {
+      const semantic = deriveSemanticBrandTokens(normalizedPalette);
+      root.style.setProperty(`--team-brand-${key}-accent`, semantic.accent);
+      root.style.setProperty(`--team-brand-${key}-secondary-accent`, semantic.secondaryAccent);
+      root.style.setProperty(`--team-brand-${key}-highlight`, semantic.highlight);
+      root.style.setProperty(`--team-brand-${key}-border-highlight`, semantic.borderHighlight);
     }
 
     const gradientColors = [palette.primary, palette.secondary].filter((color): color is string => Boolean(color));
@@ -87,7 +106,15 @@ function legacyTeamBrandingCss(data: TeamBrandingMap): string {
   }).join('\n');
 }
 
+function detectSeason(pathname: string): string | null {
+  const querySeason = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('season') : null;
+  if (querySeason && /^20\d{2}$/.test(querySeason)) return querySeason;
+  const match = pathname.match(/(?:^|\/)(20\d{2})(?:\/|$)/);
+  return match?.[1] || null;
+}
+
 export function TeamLogoProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [overrides, setOverrides] = useState<TeamBrandingMap>({});
   const appliedKeys = useRef<string[]>([]);
 
@@ -95,7 +122,9 @@ export function TeamLogoProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     const load = () => {
-      fetch('/api/team-logos', { cache: 'no-store' })
+      const season = detectSeason(pathname || '');
+      const url = season ? `/api/team-logos?season=${encodeURIComponent(season)}` : '/api/team-logos';
+      fetch(url, { cache: 'no-store' })
         .then(r => (r.ok ? r.json() : {}))
         .then((data: TeamBrandingMap) => {
           if (cancelled) return;
@@ -114,7 +143,7 @@ export function TeamLogoProvider({ children }: { children: React.ReactNode }) {
       clearTeamBrandingVariables(appliedKeys.current);
       window.removeEventListener('leaguezone:league-changed', onLeagueChanged);
     };
-  }, []);
+  }, [pathname]);
 
   return (
     <TeamLogoContext.Provider value={overrides}>

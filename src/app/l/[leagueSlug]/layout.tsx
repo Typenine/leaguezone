@@ -1,5 +1,6 @@
+import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getCurrentLeagueBySlug, getLeagueFeatures } from '@/lib/server/league-context';
 import { getFranchiseNamesByOwnerId } from '@/lib/server/franchise-identities';
@@ -10,7 +11,7 @@ import LeagueMobileNav from '@/components/league/LeagueMobileNav';
 import { verifySession } from '@/lib/server/auth';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { getUserLeagues } from '@/lib/server/user-auth';
-import { getReadableTextColor, normalizeHexColor } from '@/lib/branding/colors';
+import { deriveSemanticBrandTokens, normalizeBrandPalette, normalizeHexColor } from '@/lib/branding/colors';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,61 @@ function initials(name: string): string {
 
 function safeJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+async function requestOrigin(): Promise<string> {
+  const h = await headers();
+  const host = h.get('x-forwarded-host') || h.get('host') || 'leaguezone.app';
+  const proto = h.get('x-forwarded-proto') || 'https';
+  return `${proto}://${host}`;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ leagueSlug: string }> }): Promise<Metadata> {
+  const { leagueSlug } = await params;
+  const league = await getCurrentLeagueBySlug(leagueSlug);
+  if (!league) return {};
+  const origin = await requestOrigin();
+  const shareImage = `${origin}/api/share-card/${encodeURIComponent(league.slug)}?type=league&title=${encodeURIComponent(league.name)}`;
+  const icon = league.logoUrl || '/assets/LeagueZone HQ Logo.png';
+  const description = `${league.name} fantasy league home, standings, teams, history, drafts, transactions, and league content.`;
+  return {
+    metadataBase: new URL(origin),
+    title: { default: league.name, template: `%s | ${league.name}` },
+    description,
+    applicationName: league.name,
+    manifest: `/api/leagues/${encodeURIComponent(league.slug)}/manifest`,
+    icons: {
+      icon: [{ url: icon }],
+      shortcut: icon,
+      apple: [{ url: icon }],
+    },
+    openGraph: {
+      type: 'website',
+      title: league.name,
+      description,
+      siteName: league.name,
+      url: `/l/${league.slug}`,
+      images: [{ url: shareImage, width: 1200, height: 630, alt: `${league.name} on LeagueZone` }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: league.name,
+      description,
+      images: [shareImage],
+    },
+  };
+}
+
+export async function generateViewport({ params }: { params: Promise<{ leagueSlug: string }> }): Promise<Viewport> {
+  const { leagueSlug } = await params;
+  const league = await getCurrentLeagueBySlug(leagueSlug);
+  const primary = normalizeHexColor(league?.primaryColor) || '#08111f';
+  return {
+    width: 'device-width',
+    initialScale: 1,
+    viewportFit: 'cover',
+    themeColor: primary,
+  };
 }
 
 export default async function LeagueLayout({
@@ -62,10 +118,14 @@ export default async function LeagueLayout({
   const features = getLeagueFeatures(league);
   const storedAccent = normalizeHexColor(league.primaryColor);
   const storedSecondary = normalizeHexColor(league.secondaryColor);
-  const accent = storedAccent || 'var(--brand-blue)';
-  const secondary = storedSecondary || 'var(--brand-gold)';
-  const onAccent = storedAccent ? getReadableTextColor(storedAccent) : '#ffffff';
-  const onSecondary = storedSecondary ? getReadableTextColor(storedSecondary) : '#111827';
+  const semantic = deriveSemanticBrandTokens(normalizeBrandPalette({
+    primary: storedAccent || '#0b5f98',
+    secondary: storedSecondary || '#d4a017',
+  }) || { primary: '#0b5f98', secondary: '#d4a017' });
+  const accent = semantic.accent;
+  const secondary = semantic.secondaryAccent;
+  const onAccent = semantic.onAccent;
+  const onSecondary = semantic.onSecondaryAccent;
 
   const visibleNavItems = LEAGUE_NAV.filter(
     (item) => (!item.feature || features[item.feature]) && (!item.adminOnly || canAdmin),
@@ -104,8 +164,9 @@ export default async function LeagueLayout({
     ...orderedStandalone,
     ...additionalStandalone,
   ];
+  const brandingHref = `/api/league/select?id=${encodeURIComponent(league.id)}&next=${encodeURIComponent('/settings/branding')}`;
   const mobileLinks = [
-    ...(canOpenDashboard ? [{ href: leagueUrl(league.slug, 'dashboard'), label: 'Dashboard' }] : []),
+    ...(canOpenDashboard ? [{ href: leagueUrl(league.slug, 'dashboard'), label: 'Dashboard' }, { href: brandingHref, label: 'Branding' }] : []),
     ...visibleNavItems
       .filter((item) => item.segment !== '')
       .map((item) => ({ href: leagueUrl(league.slug, item.segment), label: item.label })),
@@ -150,6 +211,10 @@ export default async function LeagueLayout({
         '--on-gold': onSecondary,
         '--league-accent': accent,
         '--league-secondary': secondary,
+        '--league-highlight': semantic.highlight,
+        '--league-border-highlight': semantic.borderHighlight,
+        '--league-on-accent': semantic.onAccent,
+        '--league-on-secondary': semantic.onSecondaryAccent,
       } as React.CSSProperties}
     >
       <LeagueRuntimeSync leagueId={league.id} config={runtimeConfigValue} branding={runtimeBrandingValue} />
@@ -179,6 +244,7 @@ export default async function LeagueLayout({
             </Link>
             <div className="hidden shrink-0 items-center gap-2 sm:flex">
               {canOpenDashboard && <a href={dashboardHref} className="rounded-full border border-white/15 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/60 transition hover:border-white/30 hover:text-white">League Dashboard</a>}
+              {canOpenDashboard && <a href={brandingHref} className="rounded-full border border-white/15 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/60 transition hover:border-white/30 hover:text-white">Branding</a>}
               {canAdmin && <a href={adminHref} className="rounded-full border border-[var(--gold)]/60 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-white/5">Commissioner Settings</a>}
             </div>
           </div>

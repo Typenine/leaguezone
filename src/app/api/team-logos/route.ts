@@ -1,13 +1,14 @@
 /**
  * GET /api/team-logos
  * Returns public team branding for the active league.
- * Used by TeamLogoProvider to hydrate client-side logo, helmet and color overrides.
+ * Accepts ?season=YYYY so historical pages can render the branding that existed that season.
  */
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
 import { normalizeBrandPalette, type BrandPalette } from '@/lib/branding/colors';
+import { getFranchiseBrandHistory } from '@/lib/server/franchise-branding';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,11 +24,32 @@ type TeamBrandingResponse = {
   quaternaryColor: string | null;
 };
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const jar = await cookies();
     const activeLeagueId = jar.get('active_league_id')?.value;
     if (!activeLeagueId) return NextResponse.json({});
+
+    const requestedSeason = Number(new URL(req.url).searchParams.get('season'));
+    if (Number.isFinite(requestedSeason) && requestedSeason >= 1900 && requestedSeason <= 2200) {
+      const snapshots = await getFranchiseBrandHistory({ leagueId: activeLeagueId, season: requestedSeason });
+      if (snapshots.length > 0) {
+        const historical: Record<string, TeamBrandingResponse> = {};
+        for (const snapshot of snapshots) {
+          historical[snapshot.teamName] = {
+            logoUrl: snapshot.logoUrl,
+            helmetColorIndex: null,
+            primaryColor: snapshot.primaryColor,
+            secondaryColor: snapshot.secondaryColor,
+            tertiaryColor: snapshot.tertiaryColor,
+            quaternaryColor: snapshot.quaternaryColor,
+          };
+        }
+        return NextResponse.json(historical, {
+          headers: { 'Cache-Control': 'private, max-age=60' },
+        });
+      }
+    }
 
     const db = getDb();
     const res = await db.execute(sql`

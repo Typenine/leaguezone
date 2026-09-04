@@ -5,6 +5,16 @@ export type BrandPalette = {
   quaternary?: string;
 };
 
+export type SemanticBrandTokens = {
+  accent: string;
+  secondaryAccent: string;
+  highlight: string;
+  borderHighlight: string;
+  onAccent: '#ffffff' | '#000000';
+  onSecondaryAccent: '#ffffff' | '#000000';
+  chartColors: string[];
+};
+
 const SHORT_HEX = /^#([0-9a-f]{3})$/i;
 const LONG_HEX = /^#([0-9a-f]{6})$/i;
 
@@ -81,6 +91,26 @@ export function normalizeBrandPalette(value: unknown): BrandPalette | null {
     secondary,
     ...(tertiary ? { tertiary } : {}),
     ...(quaternary ? { quaternary } : {}),
+  };
+}
+
+export function deriveSemanticBrandTokens(palette: BrandPalette): SemanticBrandTokens {
+  const normalized = normalizeBrandPalette(palette) || { primary: '#0b5f98', secondary: '#be161e' };
+  const highlight = normalized.tertiary || normalized.secondary;
+  const borderHighlight = normalized.quaternary || normalized.primary;
+  return {
+    accent: normalized.primary,
+    secondaryAccent: normalized.secondary,
+    highlight,
+    borderHighlight,
+    onAccent: getReadableTextColor(normalized.primary),
+    onSecondaryAccent: getReadableTextColor(normalized.secondary),
+    chartColors: [
+      normalized.primary,
+      normalized.secondary,
+      ...(normalized.tertiary ? [normalized.tertiary] : []),
+      ...(normalized.quaternary ? [normalized.quaternary] : []),
+    ],
   };
 }
 

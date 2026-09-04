@@ -2,8 +2,9 @@
  * GET  /api/settings/team  – get team-specific settings for the logged-in team
  * POST /api/settings/team  – update team logo / colors / helmet choice
  *
- * Team colors live in leagues.team_colors. Logo and helmet overrides remain in
- * leagues.config because they are presentation metadata rather than the palette.
+ * Current values remain in leagues.team_colors/config for compatibility. Every save also
+ * snapshots the current season into franchise_brand_history so future rebrands do not
+ * rewrite historical pages.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
@@ -17,6 +18,7 @@ import {
   normalizeHexColor,
   type BrandPalette,
 } from '@/lib/branding/colors';
+import { currentSeasonFromLeague, upsertFranchiseBrandSnapshot } from '@/lib/server/franchise-branding';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,11 +31,21 @@ type LegacyTeamColor = {
   helmetIndex?: number | null;
 };
 
+type StoredTeam = {
+  rosterId?: number;
+  ownerId?: string;
+  teamName?: string;
+};
+
 /** Resolve team name and active league from either account session or legacy PIN session. */
-async function resolveTeamContext(): Promise<{ team: string; leagueId: string } | null> {
+async function resolveTeamContext(): Promise<{ team: string; leagueId: string; rosterId: number | null } | null> {
   const membership = await getActiveLeagueMembership();
   if (membership.ok) {
-    return { team: membership.membership.teamName, leagueId: membership.membership.leagueId };
+    return {
+      team: membership.membership.teamName,
+      leagueId: membership.membership.leagueId,
+      rosterId: membership.membership.rosterId,
+    };
   }
 
   const jar = await cookies();
@@ -45,7 +57,7 @@ async function resolveTeamContext(): Promise<{ team: string; leagueId: string } 
     const claims = verifySession(token);
     const team = (claims?.team as string) || (claims?.sub as string) || null;
     if (!team) return null;
-    return { team, leagueId: activeLeagueId };
+    return { team, leagueId: activeLeagueId, rosterId: null };
   } catch {
     return null;
   }
@@ -54,7 +66,7 @@ async function resolveTeamContext(): Promise<{ team: string; leagueId: string } 
 async function getLeagueRow(activeLeagueId: string) {
   const db = getDb();
   const res = await db.execute(sql`
-    SELECT id, config, team_colors
+    SELECT id, config, team_colors, sleeper_league_id, sleeper_league_ids
     FROM leagues
     WHERE setup_completed = true AND id = ${activeLeagueId}::uuid
     LIMIT 1
@@ -67,8 +79,6 @@ function getStoredTeamPalette(row: Record<string, unknown>, team: string): Brand
   const canonicalPalette = normalizeBrandPalette(canonical[team]);
   if (canonicalPalette) return canonicalPalette;
 
-  // Preserve palettes saved by the older settings implementation until each
-  // team next saves its profile into the canonical team_colors column.
   const config = (row.config as Record<string, unknown>) ?? {};
   const legacyColors = (config.teamColors as Record<string, LegacyTeamColor>) ?? {};
   return normalizeBrandPalette(legacyColors[team]);
@@ -76,7 +86,7 @@ function getStoredTeamPalette(row: Record<string, unknown>, team: string): Brand
 
 export async function GET() {
   const ctx = await resolveTeamContext();
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized or no active league selected' }, { status: 401 });
+  if (!ctx || !ctx.team) return NextResponse.json({ error: 'Unauthorized or no team selected' }, { status: 401 });
 
   try {
     const row = await getLeagueRow(ctx.leagueId);
@@ -97,6 +107,7 @@ export async function GET() {
     const palette = getStoredTeamPalette(row, ctx.team);
 
     return NextResponse.json({
+      teamName: ctx.team,
       logoUrl: teamLogos[ctx.team] ?? null,
       primaryColor: palette?.primary ?? null,
       secondaryColor: palette?.secondary ?? null,
@@ -118,7 +129,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const ctx = await resolveTeamContext();
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized or no active league selected' }, { status: 401 });
+  if (!ctx || !ctx.team) return NextResponse.json({ error: 'Unauthorized or no team selected' }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const logoProvided = Object.prototype.hasOwnProperty.call(body, 'logoUrl');
@@ -207,6 +218,30 @@ export async function POST(req: NextRequest) {
         updated_at = now()
       WHERE id = ${rowId}::uuid
     `);
+
+    try {
+      const storedTeams = Array.isArray(config.teams) ? config.teams as StoredTeam[] : [];
+      const rosterId = ctx.rosterId ?? storedTeams.find((team) => team.teamName === ctx.team)?.rosterId ?? null;
+      if (rosterId != null && Number.isFinite(Number(rosterId))) {
+        const storedTeam = storedTeams.find((team) => Number(team.rosterId) === Number(rosterId));
+        const season = currentSeasonFromLeague({
+          sleeperLeagueId: row.sleeper_league_id ? String(row.sleeper_league_id) : null,
+          sleeperLeagueIds: (row.sleeper_league_ids as Record<string, string> | null) || {},
+        });
+        await upsertFranchiseBrandSnapshot({
+          leagueId: rowId,
+          season,
+          rosterId: Number(rosterId),
+          sleeperOwnerId: storedTeam?.ownerId || null,
+          teamName: ctx.team,
+          logoUrl: teamLogos[ctx.team] || null,
+          palette: nextPalette,
+          source: 'team-settings',
+        });
+      }
+    } catch (snapshotError) {
+      console.warn('[settings/team] branding snapshot failed', snapshotError);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
