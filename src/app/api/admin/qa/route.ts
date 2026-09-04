@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
     VALUES (${admin.id}::uuid, ${leagueId}::uuid, ${perspective}, ${selected?.teamName ?? null}, ${selected?.rosterId ?? null}, ${mode}, true, now() + interval '8 hours')
     RETURNING id::text AS id
   `);
-  const sessionId = (insert as { rows?: Array<{ id: string }> }).rows?.[0]?.id;
+  const sessionId = (insert as unknown as { rows?: Array<{ id: string }> }).rows?.[0]?.id;
   if (!sessionId) return NextResponse.json({ error: 'Could not create QA session' }, { status: 500 });
 
   let draftId: string | null = null;
