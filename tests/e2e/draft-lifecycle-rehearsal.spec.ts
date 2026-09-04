@@ -51,7 +51,7 @@ test.describe('draft lifecycle rehearsal', () => {
     let tradeAccepted = false;
     let tradeApproved = false;
     let archived = false;
-    let headshotRequests: string[] = [];
+    const headshotRequests: string[] = [];
     let slots = [
       { overall: 1, round: 1, team: firstTeam },
       { overall: 2, round: 1, team: secondTeam },
@@ -178,6 +178,10 @@ test.describe('draft lifecycle rehearsal', () => {
     await page.route('**/api/draft**', async (route) => {
       const request = route.request();
       const url = new URL(request.url());
+      if (url.pathname !== '/api/draft') {
+        await route.fallback();
+        return;
+      }
       if (request.method() === 'GET') {
         if (url.searchParams.get('action') === 'player_info') {
           const playerId = url.searchParams.get('playerId');
@@ -313,11 +317,9 @@ test.describe('draft lifecycle rehearsal', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
     });
 
-    // Open the real draft room with a mocked isolated rehearsal backend.
     await page.goto('/draft/room');
     await expect(page.getByText('LeagueZone Rehearsal Draft').or(page.getByText('2027 Draft'))).toBeVisible();
 
-    // Trade the first current pick through the actual Trade Center UI.
     await page.getByRole('button', { name: /Trade/ }).first().click();
     await page.getByRole('button', { name: 'Propose' }).click();
     const addTeam = page.locator('select').filter({ has: page.locator('option', { hasText: '+ Add team' }) });
@@ -327,18 +329,15 @@ test.describe('draft lifecycle rehearsal', () => {
     await page.getByRole('button', { name: 'Send Trade Offer' }).click();
     await expect.poll(() => tradeProposed).toBe(true);
 
-    // Simulate the other team accepting and the commissioner approving the trade.
     await page.evaluate(async ({ draftId }) => {
       await fetch('/api/draft/trade', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'accept', draftId, tradeId: 'trade-1', team: 'Mt. Lebanon Cake Eaters' }) });
       await fetch('/api/draft/trade', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'approve', draftId, tradeId: 'trade-1' }) });
     }, { draftId });
     await expect.poll(() => tradeAccepted && tradeApproved && slots[0].team === secondTeam).toBe(true);
 
-    // Reload after the approved trade. Admin auto-view follows the new on-clock owner.
     await page.reload();
     await expect(page.getByText(secondTeam).first()).toBeVisible();
 
-    // Queue a player through the UI and enable instant auto-pick.
     const autoRunner = page.getByText('Auto Runner', { exact: true }).first().locator('xpath=ancestor::div[contains(@class,"flex items-start")][1]');
     await autoRunner.getByRole('button', { name: 'Queue' }).click();
     await expect.poll(() => queue.some((player) => player.id === 'auto1')).toBe(true);
@@ -347,13 +346,11 @@ test.describe('draft lifecycle rehearsal', () => {
     await autoPickLabel.locator('xpath=..').locator('div').click();
     await expect(page.getByText(/Instant — top queued player submitted/i)).toBeVisible();
 
-    // Expire the clock and force the normal room refresh. The real room effect submits the queue leader.
     remainingSec = 0;
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await expect.poll(() => pending?.playerId || null, { timeout: 8_000 }).toBe('auto1');
     await expect(page.getByText(/Pick Submitted — Awaiting Admin Approval/i)).toBeVisible();
 
-    // Commissioner approves the pending autopick. The room refresh then triggers the pick animation.
     await page.evaluate(async () => {
       await fetch('/api/draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'approve_pick' }) });
       document.dispatchEvent(new Event('visibilitychange'));
@@ -362,7 +359,6 @@ test.describe('draft lifecycle rehearsal', () => {
     await expect(page.locator('.gsap-player-card')).toHaveCount(1, { timeout: 8_000 });
     await expect.poll(() => headshotRequests.includes('auto1'), { timeout: 8_000 }).toBe(true);
 
-    // Reload to skip the completed animation, then draft a DEF with the normal manual pick flow.
     await page.reload();
     const defenseRow = page.getByText('GB Defense', { exact: true }).first().locator('xpath=ancestor::div[contains(@class,"flex items-start")][1]');
     await defenseRow.getByRole('button', { name: 'Pick' }).click();
@@ -379,7 +375,6 @@ test.describe('draft lifecycle rehearsal', () => {
     await expect(page.locator('.gsap-player-card')).toHaveCount(1, { timeout: 8_000 });
     expect(headshotRequests).not.toContain('GB');
 
-    // The completed draft remains in commissioner setup and can be archived without deletion.
     await page.goto('/__e2e/draft-setup');
     await expect(page.getByText('2027 Draft')).toBeVisible();
     await page.getByRole('button', { name: 'Archive' }).click();
