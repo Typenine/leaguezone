@@ -25,16 +25,10 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     const file = form.get('file');
     const type = String(form.get('type') || '');
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: 'Image file is required.' }, { status: 400 });
-    }
+    if (!(file instanceof File)) return NextResponse.json({ error: 'Image file is required.' }, { status: 400 });
     const ext = MIME_TO_EXT[file.type];
-    if (!ext) {
-      return NextResponse.json({ error: 'Use a PNG, JPEG, or WebP image.' }, { status: 400 });
-    }
-    if (file.size <= 0 || file.size > MAX_BYTES) {
-      return NextResponse.json({ error: 'Image must be 5 MB or smaller.' }, { status: 400 });
-    }
+    if (!ext) return NextResponse.json({ error: 'Use a PNG, JPEG, or WebP image.' }, { status: 400 });
+    if (file.size <= 0 || file.size > MAX_BYTES) return NextResponse.json({ error: 'Image must be 5 MB or smaller.' }, { status: 400 });
 
     const jar = await cookies();
     let leagueId: string | null = null;
@@ -49,31 +43,28 @@ export async function POST(req: NextRequest) {
         }
         leagueId = setupLeagueId;
       } else {
-        const legacyAdmin = isAdminCookieValue(jar.get('evw_admin')?.value)
-          || isSiteAdminCookieValue(jar.get('site_admin')?.value);
-        if (legacyAdmin) {
-          leagueId = jar.get('active_league_id')?.value || null;
-        } else {
-          const commissioner = await requireLeagueCommissioner();
-          leagueId = commissioner.leagueId;
-        }
+        const legacyAdmin = isAdminCookieValue(jar.get('evw_admin')?.value) || isSiteAdminCookieValue(jar.get('site_admin')?.value);
+        if (legacyAdmin) leagueId = jar.get('active_league_id')?.value || null;
+        else leagueId = (await requireLeagueCommissioner()).leagueId;
       }
     } else if (type === 'team-logo') {
       const membership = await getActiveLeagueMembership();
-      if (!membership.ok) {
-        return NextResponse.json({ error: membership.error }, { status: membership.status });
-      }
+      if (!membership.ok) return NextResponse.json({ error: membership.error }, { status: membership.status });
       leagueId = membership.membership.leagueId;
       ownerSegment = membership.membership.rosterId != null
         ? `team-${membership.membership.rosterId}`
         : `team-${membership.membership.userId}`;
+    } else if (type === 'history-logo') {
+      const commissioner = await requireLeagueCommissioner();
+      leagueId = commissioner.leagueId;
+      const season = String(form.get('season') || '').replace(/[^0-9]/g, '').slice(0, 4);
+      const franchise = String(form.get('franchiseKey') || '').replace(/[^a-z0-9:_-]/gi, '').slice(0, 128);
+      ownerSegment = `history-${season || 'unknown'}-${franchise || 'franchise'}`;
     } else {
       return NextResponse.json({ error: 'Unsupported upload type.' }, { status: 400 });
     }
 
-    if (!leagueId) {
-      return NextResponse.json({ error: 'No active league selected.' }, { status: 400 });
-    }
+    if (!leagueId) return NextResponse.json({ error: 'No active league selected.' }, { status: 400 });
 
     const key = `branding/${leagueId}/${ownerSegment}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
     await putObjectBytes({ key, body: await file.arrayBuffer(), contentType: file.type });

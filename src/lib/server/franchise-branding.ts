@@ -161,16 +161,59 @@ export async function upsertFranchiseBrandSnapshot(params: {
     ON CONFLICT (league_id, franchise_key, season) DO UPDATE SET
       roster_id = EXCLUDED.roster_id,
       sleeper_owner_id = EXCLUDED.sleeper_owner_id,
-      team_name = EXCLUDED.team_name,
-      abbreviation = COALESCE(EXCLUDED.abbreviation, franchise_brand_history.abbreviation),
+      team_name = CASE
+        WHEN franchise_brand_history.source = 'commissioner' AND EXCLUDED.source = 'sleeper-sync'
+          THEN franchise_brand_history.team_name
+        ELSE EXCLUDED.team_name
+      END,
+      abbreviation = CASE
+        WHEN franchise_brand_history.source = 'commissioner' AND EXCLUDED.source = 'sleeper-sync'
+          THEN franchise_brand_history.abbreviation
+        ELSE COALESCE(EXCLUDED.abbreviation, franchise_brand_history.abbreviation)
+      END,
       logo_url = COALESCE(EXCLUDED.logo_url, franchise_brand_history.logo_url),
       primary_color = COALESCE(EXCLUDED.primary_color, franchise_brand_history.primary_color),
       secondary_color = COALESCE(EXCLUDED.secondary_color, franchise_brand_history.secondary_color),
       tertiary_color = COALESCE(EXCLUDED.tertiary_color, franchise_brand_history.tertiary_color),
       quaternary_color = COALESCE(EXCLUDED.quaternary_color, franchise_brand_history.quaternary_color),
-      source = EXCLUDED.source,
+      source = CASE
+        WHEN franchise_brand_history.source = 'commissioner' AND EXCLUDED.source = 'sleeper-sync'
+          THEN franchise_brand_history.source
+        ELSE EXCLUDED.source
+      END,
       updated_at = now()
   `);
+}
+
+export async function updateFranchiseBrandSnapshot(params: {
+  leagueId: string;
+  season: number;
+  franchiseKey: string;
+  teamName: string;
+  abbreviation?: string | null;
+  logoUrl?: string | null;
+  palette: BrandPalette;
+}): Promise<boolean> {
+  const palette = normalizeBrandPalette(params.palette);
+  if (!palette) return false;
+  const db = getDb();
+  const res = await db.execute(sql`
+    UPDATE franchise_brand_history SET
+      team_name = ${params.teamName},
+      abbreviation = ${params.abbreviation || abbreviation(params.teamName)},
+      logo_url = ${params.logoUrl || null},
+      primary_color = ${palette.primary},
+      secondary_color = ${palette.secondary},
+      tertiary_color = ${palette.tertiary || null},
+      quaternary_color = ${palette.quaternary || null},
+      source = 'commissioner',
+      updated_at = now()
+    WHERE league_id = ${params.leagueId}::uuid
+      AND season = ${params.season}
+      AND franchise_key = ${params.franchiseKey}
+  `);
+  const rowCount = Number((res as { rowCount?: number }).rowCount || 0);
+  return rowCount > 0;
 }
 
 export async function syncFranchiseBrandHistory(params: {
