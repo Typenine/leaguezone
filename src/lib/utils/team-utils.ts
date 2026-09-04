@@ -6,6 +6,7 @@
 import { TEAM_COLORS, TeamColors } from '../constants/team-colors';
 import { TEAM_NAMES } from '../constants/league';
 import { CANONICAL_TEAM_BY_USER_ID, TEAM_ALIASES, normalizeName } from '../constants/team-mapping';
+import { contrastRatio, getReadableTextColor } from '../branding/colors';
 
 /**
  * Shared position ranking for roster sorting
@@ -41,9 +42,8 @@ export const POSITION_RANK: Record<string, number> = {
 };
 
 /**
- * Converts a team name to the stable slug used by locally hosted team logos.
- * Provider display names can contain smart quotes, punctuation, or inconsistent
- * spacing, so normalize all of those before resolving the asset path.
+ * Converts a team name to the stable slug used by locally hosted team logos and
+ * runtime CSS branding variables.
  */
 export const formatTeamNameForLogo = (teamName: string): string => {
   return teamName
@@ -52,6 +52,10 @@ export const formatTeamNameForLogo = (teamName: string): string => {
     .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035`']/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+};
+
+export const getTeamBrandCssKey = (teamName: string): string => {
+  return formatTeamNameForLogo(teamName) || 'unknown-team';
 };
 
 /**
@@ -66,62 +70,71 @@ export const getTeamLogoPath = (teamName: string): string => {
   return `/assets/teams/logos/${encodeURIComponent(formatTeamNameForLogo(teamName))}.png`;
 };
 
+const DEFAULT_TEAM_COLORS: TeamColors = {
+  primary: '#3b5b8b',
+  secondary: '#ba1010',
+};
+
+const getStaticTeamColors = (teamName: string): TeamColors => TEAM_COLORS[teamName] || DEFAULT_TEAM_COLORS;
+
+function teamColorVar(teamName: string, slot: 'primary' | 'secondary' | 'tertiary' | 'quaternary', fallback: string): string {
+  return `var(--team-brand-${getTeamBrandCssKey(teamName)}-${slot}, ${fallback})`;
+}
+
 /**
- * Gets a team's colors
- * @param teamName The team name
- * @returns The team's colors object
+ * Gets a team's colors. The returned values are CSS variables with stable
+ * fallbacks so legacy callers automatically pick up database-backed branding
+ * when TeamLogoProvider hydrates the active league palette.
  */
 export const getTeamColors = (teamName: string): TeamColors => {
-  return TEAM_COLORS[teamName] || {
-    primary: '#3b5b8b',
-    secondary: '#ba1010'
+  const fallback = getStaticTeamColors(teamName);
+  return {
+    primary: teamColorVar(teamName, 'primary', fallback.primary),
+    secondary: teamColorVar(teamName, 'secondary', fallback.secondary),
+    tertiary: teamColorVar(teamName, 'tertiary', fallback.tertiary || fallback.primary),
+    quaternary: teamColorVar(teamName, 'quaternary', fallback.quaternary || fallback.secondary),
   };
 };
 
 /**
- * Generates a CSS style object for team-colored elements
- * @param teamName The team name
- * @param variant 'primary' | 'secondary' | 'tertiary' - which color to use as background
- * @returns CSS style object with background and text colors
+ * Generates a CSS style object for team-colored elements.
+ * Foreground colors use a companion runtime variable calculated with WCAG
+ * contrast rules rather than assuming white text.
  */
 export const getTeamColorStyle = (
-  teamName: string, 
+  teamName: string,
   variant: 'primary' | 'secondary' | 'tertiary' = 'primary'
 ): React.CSSProperties => {
   const colors = getTeamColors(teamName);
+  const fallback = getStaticTeamColors(teamName);
   const bgColor = colors[variant] || colors.primary;
-  
-  // Calculate if text should be light or dark based on background color
-  const isLight = (color: string): boolean => {
-    // Convert hex to RGB
-    const hex = color.replace('#', '');
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    
-    // Calculate luminance (perceived brightness)
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return luminance > 0.5;
-  };
-  
+  const fallbackBg = fallback[variant] || fallback.primary;
+  const textVar = `--team-brand-${getTeamBrandCssKey(teamName)}-${variant}-text`;
+
   return {
     backgroundColor: bgColor,
-    color: isLight(bgColor) ? '#000000' : '#ffffff',
+    color: `var(${textVar}, ${getReadableTextColor(fallbackBg)})`,
   };
 };
 
-/** Choose readable text for a solid color or gradient palette. */
+/** Choose the best black/white text for a solid color or gradient palette. */
 export const getReadableTextForColors = (colors: string[]): string => {
+  const runtimeKey = colors
+    .map((color) => color.match(/^var\(--team-brand-([a-z0-9-]+)-(?:primary|secondary|tertiary|quaternary),/i)?.[1])
+    .find(Boolean);
+  if (runtimeKey) {
+    return `var(--team-brand-${runtimeKey}-gradient-text, #ffffff)`;
+  }
+
   const valid = colors.filter((color) => /^#[0-9a-fA-F]{6}$/.test(color));
   if (!valid.length) return '#ffffff';
-  const luminance = valid.reduce((sum, color) => {
-    const hex = color.slice(1);
-    const red = Number.parseInt(hex.slice(0, 2), 16);
-    const green = Number.parseInt(hex.slice(2, 4), 16);
-    const blue = Number.parseInt(hex.slice(4, 6), 16);
-    return sum + ((0.299 * red + 0.587 * green + 0.114 * blue) / 255);
-  }, 0) / valid.length;
-  return luminance > 0.55 ? '#000000' : '#ffffff';
+  if (valid.length === 1) return getReadableTextColor(valid[0]);
+
+  const light = '#ffffff';
+  const dark = '#000000';
+  const lightScore = Math.min(...valid.map((color) => contrastRatio(color, light)));
+  const darkScore = Math.min(...valid.map((color) => contrastRatio(color, dark)));
+  return darkScore >= lightScore ? dark : light;
 };
 
 /**
