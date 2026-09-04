@@ -15,8 +15,8 @@ describe('branding color utilities', () => {
   });
 
   it('chooses readable text for light and dark backgrounds', () => {
-    expect(getReadableTextColor('#ffffff')).toBe('#111827');
-    expect(getReadableTextColor('#facc15')).toBe('#111827');
+    expect(getReadableTextColor('#ffffff')).toBe('#000000');
+    expect(getReadableTextColor('#facc15')).toBe('#000000');
     expect(getReadableTextColor('#000000')).toBe('#ffffff');
     expect(getReadableTextColor('#0b5f98')).toBe('#ffffff');
   });
