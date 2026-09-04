@@ -1,13 +1,11 @@
 /**
- * Team colors for your fantasy football league.
- * Each team has up to 4 colors used for branding and UI elements.
- * Keys must match the canonical team names in team-mapping.ts.
+ * Static team-color fallbacks.
  *
- * Example entry:
- *   'My Team Name': { primary: '#123456', secondary: '#abcdef' },
+ * LeagueZone stores user-configured team palettes in the league record and
+ * hydrates them into per-team CSS variables at runtime. Entries here are only
+ * optional file-level fallbacks for installations that want bundled defaults.
  */
 
-// Type for team colors
 export interface TeamColors {
   primary: string;
   secondary: string;
@@ -15,26 +13,42 @@ export interface TeamColors {
   quaternary?: string;
 }
 
-// Map of team names to their colors.
-// Add an entry here for each team in your league after setup.
 export const TEAM_COLORS: Record<string, TeamColors> = {
   // 'Team Name': { primary: '#000000', secondary: '#ffffff' },
 };
 
-// League colors for global UI elements
 export const LEAGUE_COLORS = {
-  primary: '#0b5f98',    // Accent / brand
-  secondary: '#be161e',  // Danger
-  tertiary: '#bf9944',   // Gold highlight
-  quaternary: '#fcfcfc', // White
-  dark: '#050505',       // Near-black
+  primary: '#0b5f98',
+  secondary: '#be161e',
+  tertiary: '#bf9944',
+  quaternary: '#fcfcfc',
+  dark: '#050505',
 };
 
-// Function to get team colors by team name
+function teamCssKey(teamName: string): string {
+  return teamName
+    .normalize('NFKD')
+    .toLowerCase()
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035`']/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'unknown-team';
+}
+
+/**
+ * Backward-compatible low-level helper. Prefer the helpers in team-utils.ts for
+ * new UI work because they also derive readable foreground colors.
+ */
 export const getTeamColors = (teamName: string): TeamColors => {
-  return TEAM_COLORS[teamName] || {
+  const fallback = TEAM_COLORS[teamName] || {
     primary: LEAGUE_COLORS.primary,
-    secondary: LEAGUE_COLORS.secondary
+    secondary: LEAGUE_COLORS.secondary,
+  };
+  const key = teamCssKey(teamName);
+  return {
+    primary: `var(--team-brand-${key}-primary, ${fallback.primary})`,
+    secondary: `var(--team-brand-${key}-secondary, ${fallback.secondary})`,
+    tertiary: `var(--team-brand-${key}-tertiary, ${fallback.tertiary || fallback.primary})`,
+    quaternary: `var(--team-brand-${key}-quaternary, ${fallback.quaternary || fallback.secondary})`,
   };
 };
 
