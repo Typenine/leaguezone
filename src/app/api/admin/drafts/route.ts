@@ -62,14 +62,15 @@ export async function POST(req: NextRequest) {
     const teams = await getLeagueTeamOptions(leagueId);
     if (teams.length === 0) return NextResponse.json({ error: 'No league teams are available. Finish team/provider setup first.' }, { status: 400 });
 
-    let preparedPool: Awaited<ReturnType<typeof getSleeperDraftPoolPreview>> | undefined;
-    if (playerPoolType !== 'all_players') {
-      try {
-        preparedPool = await getSleeperDraftPoolPreview(year, playerPoolType);
-      } catch (error) {
-        console.error('[admin/drafts] Sleeper player pool fetch failed', error);
-        return NextResponse.json({ error: 'Sleeper player data is unavailable right now. The draft was not created.' }, { status: 502 });
+    let preparedPool: Awaited<ReturnType<typeof getSleeperDraftPoolPreview>>;
+    try {
+      preparedPool = await getSleeperDraftPoolPreview(year, playerPoolType);
+      if (playerPoolType === 'all_players' && preparedPool.players.length === 0) {
+        return NextResponse.json({ error: 'Sleeper returned an empty standard player pool. The draft was not created.' }, { status: 502 });
       }
+    } catch (error) {
+      console.error('[admin/drafts] Sleeper player pool fetch failed', error);
+      return NextResponse.json({ error: 'Sleeper player data is unavailable right now. The draft was not created.' }, { status: 502 });
     }
 
     const draftId = await createLiveDraftForLeague({ leagueId, year, rounds, teams: teams.map((team) => team.teamName), clockSeconds });
