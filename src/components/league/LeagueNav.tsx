@@ -48,7 +48,7 @@ export default function LeagueNav({ links, accent }: { links: LeagueNavLink[]; a
   const [desktopMenuPinned, setDesktopMenuPinned] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<Record<string, boolean>>({});
-  const resolvedAccent = accent || 'var(--brand-gold)';
+  const resolvedAccent = accent || 'var(--brand-blue)';
 
   const cancelClose = () => {
     if (closeTimerRef.current) {
@@ -136,7 +136,7 @@ export default function LeagueNav({ links, accent }: { links: LeagueNavLink[]; a
                   href={link.href}
                   aria-current={active ? 'page' : undefined}
                   className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
-                    active ? 'text-white' : 'text-white/60 hover:bg-white/10 hover:text-white'
+                    active ? 'text-[var(--on-accent)]' : 'text-white/60 hover:bg-white/10 hover:text-white'
                   }`}
                   style={active ? { backgroundColor: resolvedAccent } : undefined}
                   onClick={closeDesktopMenus}
@@ -156,7 +156,7 @@ export default function LeagueNav({ links, accent }: { links: LeagueNavLink[]; a
                 <button
                   type="button"
                   className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
-                    active || menuOpen ? 'text-white' : 'text-white/60 hover:bg-white/10 hover:text-white'
+                    active || menuOpen ? 'text-[var(--on-accent)]' : 'text-white/60 hover:bg-white/10 hover:text-white'
                   }`}
                   style={active || menuOpen ? { backgroundColor: resolvedAccent } : undefined}
                   aria-haspopup="menu"
@@ -236,7 +236,7 @@ export default function LeagueNav({ links, accent }: { links: LeagueNavLink[]; a
                       href={link.href}
                       aria-current={active ? 'page' : undefined}
                       className={`block min-h-11 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${
-                        active ? 'text-white' : 'text-white/65 hover:bg-white/10 hover:text-white'
+                        active ? 'text-[var(--on-accent)]' : 'text-white/65 hover:bg-white/10 hover:text-white'
                       }`}
                       style={active ? { backgroundColor: resolvedAccent } : undefined}
                       onClick={() => setMobileOpen(false)}
