@@ -1,3 +1,5 @@
+import { getFranchiseBrandHistory, resolveLeagueSeasonForSleeperId } from '@/lib/server/franchise-branding';
+
 export type FranchiseNamesByOwnerId = Record<string, string>;
 
 type StoredTeamIdentity = {
@@ -88,15 +90,10 @@ async function fetchCurrentFranchiseNames(sleeperLeagueId: string): Promise<Fran
 }
 
 /**
- * Resolve the current canonical franchise name for each Sleeper owner in a league.
- *
- * Priority, lowest to highest:
- *  1. team identities saved during setup
- *  2. current names from the active Sleeper league
- *  3. explicit commissioner overrides in config.franchiseNamesByOwnerId
- *
- * Historical seasons can then display the current franchise identity even when the
- * same owner used a different team name in an earlier season.
+ * Resolve canonical franchise names for a Sleeper league season.
+ * Historical Sleeper league IDs use the normalized season snapshot when available,
+ * so a later rename does not rewrite old standings, drafts, records, or matchup pages.
+ * Current-season identity still follows live Sleeper data plus commissioner overrides.
  */
 export async function getFranchiseNamesByOwnerId(params: {
   sleeperLeagueId: string | null | undefined;
@@ -108,6 +105,18 @@ export async function getFranchiseNamesByOwnerId(params: {
 
   if (!params.sleeperLeagueId) {
     return { ...storedTeams, ...explicitOverrides };
+  }
+
+  const resolved = await resolveLeagueSeasonForSleeperId(params.sleeperLeagueId);
+  if (resolved && !resolved.isCurrent) {
+    const snapshots = await getFranchiseBrandHistory({ leagueId: resolved.leagueId, season: resolved.season });
+    const historical: FranchiseNamesByOwnerId = {};
+    for (const snapshot of snapshots) {
+      if (snapshot.sleeperOwnerId && snapshot.teamName) {
+        historical[snapshot.sleeperOwnerId] = snapshot.teamName;
+      }
+    }
+    if (Object.keys(historical).length > 0) return historical;
   }
 
   const sleeperNames = await fetchCurrentFranchiseNames(params.sleeperLeagueId);

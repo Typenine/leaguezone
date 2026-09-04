@@ -8,7 +8,7 @@ import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { normalizeBrandImageUrl, normalizeHexColor } from '@/lib/branding/colors';
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
-import { requireLeagueCommissioner } from '@/lib/server/membership';
+import { getActiveLeagueMembership, requireLeagueCommissioner } from '@/lib/server/membership';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,24 +18,32 @@ export async function GET() {
     const jar = await cookies();
     const activeLeagueId = jar.get('active_league_id')?.value;
     if (!activeLeagueId) {
-      return NextResponse.json({ logoUrl: null, primaryColor: null, secondaryColor: null });
+      return NextResponse.json({ logoUrl: null, primaryColor: null, secondaryColor: null, canManage: false, slug: null, name: null });
     }
+
+    const isLegacyAdmin = isAdminCookieValue(jar.get('evw_admin')?.value)
+      || isSiteAdminCookieValue(jar.get('site_admin')?.value);
+    const membership = await getActiveLeagueMembership(activeLeagueId);
+    const canManage = isLegacyAdmin || (membership.ok && membership.membership.isCommissioner);
 
     const db = getDb();
     const res = await db.execute(sql`
-      SELECT logo_url, primary_color, secondary_color
+      SELECT slug, name, logo_url, primary_color, secondary_color
       FROM leagues
       WHERE setup_completed = true AND id = ${activeLeagueId}::uuid
       LIMIT 1
     `);
     const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
     return NextResponse.json({
+      slug: row?.slug ? String(row.slug) : null,
+      name: row?.name ? String(row.name) : null,
       logoUrl: (row?.logo_url as string | null) ?? null,
       primaryColor: (row?.primary_color as string | null) ?? null,
       secondaryColor: (row?.secondary_color as string | null) ?? null,
+      canManage,
     });
   } catch {
-    return NextResponse.json({ logoUrl: null, primaryColor: null, secondaryColor: null });
+    return NextResponse.json({ logoUrl: null, primaryColor: null, secondaryColor: null, canManage: false, slug: null, name: null });
   }
 }
 
