@@ -20,6 +20,8 @@ test.describe('league draft commissioner console', () => {
     let skipCount = 0;
     let autoPickCount = 0;
 
+    page.on('dialog', (dialog) => { void dialog.accept(); });
+
     const draftBody = () => ({
       draft: {
         id: draftId,
@@ -197,9 +199,6 @@ test.describe('league draft commissioner console', () => {
     await expect.poll(() => forcedPlayer).toBe('12345');
 
     if (undoCount === 0) {
-      // The button is only shown when a completed pick exists. The API path remains
-      // covered by the core unit/integration suite and is intentionally not forced
-      // into this UI fixture with fabricated pick history.
       expect(undoCount).toBe(0);
     }
   });
