@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Label from '@/components/ui/Label';
+import { contrastRatio, getReadableTextColor, normalizeHexColor } from '@/lib/branding/colors';
 
 export default function SetupBrandingPage() {
   const router = useRouter();
@@ -15,6 +16,13 @@ export default function SetupBrandingPage() {
   const [secondaryColor, setSecondaryColor] = useState('#be161e');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+  const normalizedPrimary = normalizeHexColor(primaryColor);
+  const normalizedSecondary = normalizeHexColor(secondaryColor);
+  const primaryPreview = normalizedPrimary || '#0b5f98';
+  const secondaryPreview = normalizedSecondary || '#be161e';
+  const primaryText = getReadableTextColor(primaryPreview);
+  const secondaryText = getReadableTextColor(secondaryPreview);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -29,13 +37,17 @@ export default function SetupBrandingPage() {
   };
 
   const handleSubmit = async () => {
+    if (!normalizedPrimary || !normalizedSecondary) {
+      setError('Primary and secondary colors must be valid hex colors, such as #0b5f98.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       let logoUrl = null;
 
-      // Upload logo if provided
       if (logoFile) {
         const formData = new FormData();
         formData.append('file', logoFile);
@@ -46,18 +58,20 @@ export default function SetupBrandingPage() {
           body: formData,
         });
 
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          logoUrl = uploadData.url;
+        if (!uploadRes.ok) {
+          const uploadData = await uploadRes.json().catch(() => ({}));
+          throw new Error(uploadData.error || 'Failed to upload league logo');
         }
+        const uploadData = await uploadRes.json();
+        logoUrl = uploadData.url;
       }
 
       const res = await fetch('/api/setup/branding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          primaryColor,
-          secondaryColor,
+          primaryColor: normalizedPrimary,
+          secondaryColor: normalizedSecondary,
           logoUrl,
         }),
       });
@@ -95,7 +109,7 @@ export default function SetupBrandingPage() {
         </div>
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--accent)] text-white text-lg font-bold mb-4">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--accent)] text-[var(--on-accent,#ffffff)] text-lg font-bold mb-4">
             3
           </div>
           <h1 className="text-2xl font-bold text-[var(--text)] mb-2">
@@ -114,15 +128,14 @@ export default function SetupBrandingPage() {
           )}
 
           <div className="space-y-6">
-            {/* Color Pickers */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="primaryColor">Primary Color</Label>
                 <div className="flex items-center gap-3 mt-1">
                   <input
                     type="color"
                     id="primaryColor"
-                    value={primaryColor}
+                    value={primaryPreview}
                     onChange={(e) => setPrimaryColor(e.target.value)}
                     className="w-12 h-12 rounded cursor-pointer border border-[var(--border)]"
                   />
@@ -130,7 +143,8 @@ export default function SetupBrandingPage() {
                     type="text"
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] text-sm"
+                    aria-invalid={!normalizedPrimary}
+                    className={`min-w-0 flex-1 px-3 py-2 rounded-lg bg-[var(--surface)] border text-[var(--text)] text-sm ${normalizedPrimary ? 'border-[var(--border)]' : 'border-red-500'}`}
                     placeholder="#0b5f98"
                   />
                 </div>
@@ -142,7 +156,7 @@ export default function SetupBrandingPage() {
                   <input
                     type="color"
                     id="secondaryColor"
-                    value={secondaryColor}
+                    value={secondaryPreview}
                     onChange={(e) => setSecondaryColor(e.target.value)}
                     className="w-12 h-12 rounded cursor-pointer border border-[var(--border)]"
                   />
@@ -150,38 +164,43 @@ export default function SetupBrandingPage() {
                     type="text"
                     value={secondaryColor}
                     onChange={(e) => setSecondaryColor(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] text-sm"
+                    aria-invalid={!normalizedSecondary}
+                    className={`min-w-0 flex-1 px-3 py-2 rounded-lg bg-[var(--surface)] border text-[var(--text)] text-sm ${normalizedSecondary ? 'border-[var(--border)]' : 'border-red-500'}`}
                     placeholder="#be161e"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Color Preview */}
             <div className="p-4 rounded-lg border border-[var(--border)]">
-              <p className="text-sm text-[var(--muted)] mb-3">Preview</p>
-              <div className="flex gap-2">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <p className="text-sm text-[var(--muted)]">Accessible preview</p>
+                <p className="text-xs text-[var(--muted)]">Text color adjusts automatically</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div
-                  className="flex-1 h-16 rounded-lg flex items-center justify-center text-white font-medium"
-                  style={{ backgroundColor: primaryColor }}
+                  className="min-h-20 rounded-lg flex flex-col items-center justify-center px-3 font-medium"
+                  style={{ backgroundColor: primaryPreview, color: primaryText }}
                 >
-                  Primary
+                  <span>Primary</span>
+                  <span className="text-xs opacity-75">{contrastRatio(primaryPreview, primaryText).toFixed(1)}:1 contrast</span>
                 </div>
                 <div
-                  className="flex-1 h-16 rounded-lg flex items-center justify-center text-white font-medium"
-                  style={{ backgroundColor: secondaryColor }}
+                  className="min-h-20 rounded-lg flex flex-col items-center justify-center px-3 font-medium"
+                  style={{ backgroundColor: secondaryPreview, color: secondaryText }}
                 >
-                  Secondary
+                  <span>Secondary</span>
+                  <span className="text-xs opacity-75">{contrastRatio(secondaryPreview, secondaryText).toFixed(1)}:1 contrast</span>
                 </div>
               </div>
             </div>
 
-            {/* Logo Upload */}
             <div>
               <Label>League Logo (Optional)</Label>
               <div className="mt-2">
                 {logoPreview ? (
                   <div className="relative inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={logoPreview}
                       alt="Logo preview"
@@ -214,12 +233,12 @@ export default function SetupBrandingPage() {
                 )}
               </div>
               <p className="text-xs text-[var(--muted)] mt-2">
-                Recommended: Square image, at least 200x200px
+                Recommended: square image, at least 200x200px
               </p>
             </div>
           </div>
 
-          <div className="flex gap-3 pt-6 mt-6 border-t border-[var(--border)]">
+          <div className="flex flex-col sm:flex-row gap-3 pt-6 mt-6 border-t border-[var(--border)]">
             <Button
               type="button"
               variant="ghost"
@@ -238,7 +257,7 @@ export default function SetupBrandingPage() {
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={loading || !normalizedPrimary || !normalizedSecondary}
               className="flex-1"
             >
               {loading ? 'Saving...' : 'Continue'}
