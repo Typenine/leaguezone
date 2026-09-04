@@ -10,6 +10,8 @@ import {
 } from '@/server/db/queries';
 import { getAllPlayersCached } from '@/lib/utils/sleeper-api';
 import { isAdminCookieValue } from '@/lib/auth/admin';
+import { getActiveLeagueMembership } from '@/lib/server/membership';
+import { getUnderlyingPlatformAdminUserFromRequest } from '@/lib/server/admin-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,8 +21,11 @@ const SLEEPER_PLAYER_TTL_MS = 24 * 60 * 60 * 1000;
 function ok(data: unknown) { return new Response(JSON.stringify(data), { status: 200, headers: { 'content-type': 'application/json' } }); }
 function bad(msg: string, status = 400) { return new Response(JSON.stringify({ error: msg }), { status, headers: { 'content-type': 'application/json' } }); }
 
-function isAdmin(req: NextRequest): boolean {
-  return isAdminCookieValue(req.cookies.get('evw_admin')?.value);
+async function isDraftAdmin(req: NextRequest): Promise<boolean> {
+  if (isAdminCookieValue(req.cookies.get('evw_admin')?.value)) return true;
+  if (await getUnderlyingPlatformAdminUserFromRequest(req)) return true;
+  const membership = await getActiveLeagueMembership();
+  return membership.ok && membership.membership.isCommissioner;
 }
 
 export async function GET() {
@@ -72,7 +77,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isAdmin(req)) return bad('Unauthorized', 403);
+  if (!(await isDraftAdmin(req))) return bad('Unauthorized', 403);
   try {
     const body = await req.json().catch(() => null);
     if (!body?.playerId) return bad('playerId required');
