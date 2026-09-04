@@ -15,14 +15,14 @@ describe('branding color utilities', () => {
   });
 
   it('chooses readable text for light and dark backgrounds', () => {
-    expect(getReadableTextColor('#ffffff')).toBe('#000000');
-    expect(getReadableTextColor('#facc15')).toBe('#000000');
+    expect(getReadableTextColor('#ffffff')).toBe('#111827');
+    expect(getReadableTextColor('#facc15')).toBe('#111827');
     expect(getReadableTextColor('#000000')).toBe('#ffffff');
     expect(getReadableTextColor('#0b5f98')).toBe('#ffffff');
   });
 
   it('keeps the chosen foreground at WCAG AA contrast for representative colors', () => {
-    for (const background of ['#ffffff', '#000000', '#facc15', '#5aaddb', '#0b5f98', '#7b1c2e', '#909090']) {
+    for (const background of ['#ffffff', '#000000', '#facc15', '#5aaddb', '#0b5f98', '#7b1c2e', '#909090', '#ffff00', '#00ffff', '#ff69b4']) {
       const foreground = getReadableTextColor(background);
       expect(contrastRatio(background, foreground)).toBeGreaterThanOrEqual(4.5);
     }
