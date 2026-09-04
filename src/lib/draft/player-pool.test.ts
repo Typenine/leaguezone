@@ -28,6 +28,17 @@ describe('draft player pool presets', () => {
     expect(isSleeperPlayerEligibleForDraft({ position: 'WR', rookie_year: '2026' }, 2027, 'rookies_plus_defenses')).toBe(false);
   });
 
+  it('keeps veterans and excludes rookies and defenses from the veteran preset', () => {
+    expect(isSleeperPlayerEligibleForDraft({ position: 'WR', rookie_year: 2024, years_exp: 3 }, 2027, 'veterans_only')).toBe(true);
+    expect(isSleeperPlayerEligibleForDraft({ position: 'WR', rookie_year: 2027, years_exp: 0 }, 2027, 'veterans_only')).toBe(false);
+    expect(isSleeperPlayerEligibleForDraft({ position: 'TE', years_exp: 2 }, 2027, 'veterans_only')).toBe(true);
+    expect(isSleeperPlayerEligibleForDraft({ position: 'DEF' }, 2027, 'veterans_only')).toBe(false);
+  });
+
+  it('never fills a custom pool from Sleeper automatically', () => {
+    expect(isSleeperPlayerEligibleForDraft({ position: 'QB', rookie_year: 2027 }, 2027, 'custom')).toBe(false);
+  });
+
   it('gives defense entries a readable fallback name', () => {
     expect(sleeperDraftPlayerDisplayName({ player_id: 'GB', position: 'DEF', team: 'GB' })).toBe('GB Defense');
   });
