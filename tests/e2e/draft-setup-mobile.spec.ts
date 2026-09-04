@@ -35,7 +35,7 @@ test.describe('commissioner draft setup', () => {
       });
     });
 
-    await page.goto('/__e2e/draft-setup');
+    await page.goto('/e2e-test/draft-setup');
     await expect(page.getByRole('heading', { name: 'Draft Setup' })).toBeVisible();
 
     const selects = page.locator('select');
@@ -80,7 +80,7 @@ test.describe('commissioner draft setup', () => {
         body: JSON.stringify({ league: { id: '1', slug: 'e2e-draft-league', name: 'Draft E2E League' }, teams, drafts: [] }),
       });
     });
-    await page.goto('/__e2e/draft-setup');
+    await page.goto('/e2e-test/draft-setup');
     const selects = page.locator('select');
     await expect(selects.nth(0).locator('option')).toHaveCount(5);
     await expect(selects.nth(1).locator('option')).toHaveCount(3);
