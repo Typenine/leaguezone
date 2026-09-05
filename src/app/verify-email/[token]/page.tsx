@@ -7,13 +7,27 @@ export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ next?: string | string[] }>;
+}
+
+function safeNextPath(value: string | string[] | undefined): string | null {
+  const next = Array.isArray(value) ? value[0] : value;
+  if (!next || !next.startsWith('/') || next.startsWith('//')) return null;
+  return next;
+}
+
+function loginUrl(nextPath: string | null, verified = false): string {
+  const params = new URLSearchParams();
+  if (verified) params.set('verified', '1');
+  if (nextPath) params.set('next', nextPath);
+  const query = params.toString();
+  return query ? `/login?${query}` : '/login';
 }
 
 async function verifyToken(token: string): Promise<'ok' | 'already_verified' | 'invalid'> {
   try {
     const db = getDb();
 
-    // Look up the token
     const res = await db.execute(sql`
       SELECT id, user_id::text AS user_id, used_at
       FROM email_verification_tokens
@@ -30,7 +44,6 @@ async function verifyToken(token: string): Promise<'ok' | 'already_verified' | '
     const userId = row.user_id as string;
     const tokenId = row.id as string;
 
-    // Mark user as verified + mark token used (both in parallel)
     await Promise.all([
       db.execute(sql`
         UPDATE users SET email_verified = true WHERE id = ${userId}::uuid
@@ -46,17 +59,15 @@ async function verifyToken(token: string): Promise<'ok' | 'already_verified' | '
   }
 }
 
-export default async function VerifyEmailPage({ params }: PageProps) {
+export default async function VerifyEmailPage({ params, searchParams }: PageProps) {
   const { token } = await params;
+  const query = await searchParams;
+  const nextPath = safeNextPath(query.next);
   const result = await verifyToken(token);
 
   if (result === 'ok') {
-    // Verified — send them to the multi-league dashboard with a success flag
-    redirect('/app?verified=1');
+    redirect(loginUrl(nextPath, true));
   }
-
-  // Show a user-facing error for invalid / expired tokens
-  const isExpired = result === 'invalid';
 
   return (
     <div className="container mx-auto px-4 py-20 max-w-md text-center">
@@ -66,16 +77,14 @@ export default async function VerifyEmailPage({ params }: PageProps) {
       </h1>
       <p className="text-[var(--muted)] mb-6 text-sm">
         {result === 'already_verified'
-          ? 'Your email is already verified. You can sign in normally.'
-          : isExpired
-          ? 'This verification link has expired or already been used. Request a new one from your profile.'
-          : 'Something went wrong. Try signing in and requesting a new verification email.'}
+          ? 'Your email is already verified. Sign in to continue.'
+          : 'This verification link has expired or already been used. Request a new one to continue.'}
       </p>
       <Link
-        href="/app"
+        href={result === 'already_verified' ? loginUrl(nextPath) : '/verify-email'}
         className="text-[var(--accent)] hover:underline text-sm"
       >
-        Go to My Leagues →
+        {result === 'already_verified' ? 'Sign in →' : 'Request a new verification email →'}
       </Link>
     </div>
   );

@@ -23,13 +23,20 @@ export interface UserRecord {
   passwordHash: string | null;
   role: string;
   emailVerified: boolean;
+  emailVerificationRequired: boolean;
+}
+
+export function requiresEmailVerification(
+  user: Pick<UserRecord, 'emailVerified' | 'emailVerificationRequired'>,
+): boolean {
+  return user.emailVerificationRequired && !user.emailVerified;
 }
 
 export async function getUserByEmail(email: string): Promise<UserRecord | null> {
   try {
     const db = getDb();
     const res = await db.execute(sql`
-      SELECT id, email, display_name, password_hash, role, email_verified
+      SELECT id, email, display_name, password_hash, role, email_verified, email_verification_required
       FROM users WHERE email = ${email.toLowerCase()} LIMIT 1
     `);
     const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
@@ -44,7 +51,7 @@ export async function getUserById(id: string): Promise<UserRecord | null> {
   try {
     const db = getDb();
     const res = await db.execute(sql`
-      SELECT id, email, display_name, password_hash, role, email_verified
+      SELECT id, email, display_name, password_hash, role, email_verified, email_verification_required
       FROM users WHERE id = ${id}::uuid LIMIT 1
     `);
     const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
@@ -63,6 +70,7 @@ function rowToUser(r: Record<string, unknown>): UserRecord {
     passwordHash: (r.password_hash as string | null) ?? null,
     role: (r.role as string) || 'user',
     emailVerified: Boolean(r.email_verified),
+    emailVerificationRequired: Boolean(r.email_verification_required),
   };
 }
 
@@ -74,9 +82,16 @@ export async function createUser(
   const db = getDb();
   const hash = await hashPassword(password);
   const res = await db.execute(sql`
-    INSERT INTO users (email, display_name, password_hash, role, email_verified)
-    VALUES (${email.toLowerCase()}, ${displayName.trim()}, ${hash}, 'user', false)
-    RETURNING id, email, display_name, password_hash, role, email_verified
+    INSERT INTO users (
+      email,
+      display_name,
+      password_hash,
+      role,
+      email_verified,
+      email_verification_required
+    )
+    VALUES (${email.toLowerCase()}, ${displayName.trim()}, ${hash}, 'user', false, true)
+    RETURNING id, email, display_name, password_hash, role, email_verified, email_verification_required
   `);
   const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
   if (!rows[0]) throw new Error('User creation failed');

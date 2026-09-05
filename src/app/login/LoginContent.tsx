@@ -12,6 +12,7 @@ export default function LoginContent() {
   const searchParams = useSearchParams();
   const requestedNext = searchParams?.get('next') || '/app';
   const next = requestedNext.startsWith('/') && !requestedNext.startsWith('//') ? requestedNext : '/app';
+  const justVerified = searchParams?.get('verified') === '1';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,7 +31,20 @@ export default function LoginContent() {
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Login failed');
+
+      if (!res.ok) {
+        if (res.status === 403 && data?.code === 'EMAIL_NOT_VERIFIED') {
+          window.sessionStorage.setItem('pendingVerificationEmail', email.trim());
+          const params = new URLSearchParams();
+          if (next !== '/app') params.set('next', next);
+          const query = params.toString();
+          router.push(query ? `/verify-email?${query}` : '/verify-email');
+          return;
+        }
+        throw new Error(data?.error || 'Login failed');
+      }
+
+      window.sessionStorage.removeItem('pendingVerificationEmail');
       router.push(next);
       router.refresh();
     } catch (e) {
@@ -58,6 +72,11 @@ export default function LoginContent() {
         <p className="text-center text-sm text-white/45 mb-8">Don&apos;t have an account? <Link href="/register" className="text-[var(--brand-gold)] hover:underline font-bold">Create one</Link></p>
         <Card style={{ background: '#0d1422' }}>
           <CardContent className="pt-6 space-y-5">
+            {justVerified && (
+              <div className="text-sm text-green-400 border border-green-500/30 bg-green-500/10 px-3 py-2" role="status">
+                Email verified. Sign in to continue.
+              </div>
+            )}
             <div>
               <Label htmlFor="email" className="mb-2 block text-[10px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">Email</Label>
               <input id="email" type="email" autoComplete="email" autoFocus placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} className="w-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-2.5 text-[var(--text)] focus:outline-none focus:border-[var(--brand-gold)]/60 focus:ring-1 focus:ring-[var(--brand-gold)]/30 transition-colors" />

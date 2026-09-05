@@ -29,4 +29,14 @@ describe('migration deployment safety', () => {
     expect(migrator).toContain("await client.query('ROLLBACK')");
     expect(migrator).toContain('pg_advisory_lock');
   });
+
+  it('grandfathers existing users while requiring verification for new inserts', () => {
+    const sql = fs.readFileSync(
+      path.join(process.cwd(), 'drizzle', '0100_email_verification_enforcement.sql'),
+      'utf8',
+    );
+    expect(sql).toContain('SET email_verification_required = false');
+    expect(sql).toContain('ALTER COLUMN email_verification_required SET DEFAULT true');
+    expect(sql).toContain('ALTER COLUMN email_verification_required SET NOT NULL');
+  });
 });

@@ -4,141 +4,145 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/Card';
+import Label from '@/components/ui/Label';
 import Button from '@/components/ui/Button';
+
+function safeNextPath(value: string | null): string | null {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return null;
+  return value;
+}
 
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
-  const next = searchParams?.get('next') || '/home';
-  
-  const [loading, setLoading] = useState(true);
-  const [verified, setVerified] = useState(false);
-  const [email, setEmail] = useState<string | null>(null);
+  const nextPath = safeNextPath(searchParams?.get('next') || null);
+  const initialDeliveryFailed = searchParams?.get('delivery') === 'failed';
+
+  const [email, setEmail] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(
+    initialDeliveryFailed
+      ? 'Your account was created, but we could not send the first verification email. Try sending it again below.'
+      : null,
+  );
 
   useEffect(() => {
-    async function checkStatus() {
-      try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.user?.emailVerified) {
-            setVerified(true);
-          }
-          if (data?.user?.email) {
-            setEmail(data.user.email);
-          }
-        }
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    }
-    checkStatus();
+    const pendingEmail = window.sessionStorage.getItem('pendingVerificationEmail');
+    if (pendingEmail) setEmail(pendingEmail);
   }, []);
 
   async function handleResend() {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) {
+      setResendError('Enter the email address you used to create your account.');
+      return;
+    }
+
     setResendLoading(true);
     setResendMessage(null);
+    setResendError(null);
+
     try {
       const res = await fetch('/api/auth/resend-verification', {
         method: 'POST',
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail, next: nextPath || undefined }),
       });
-      if (res.ok) {
-        setResendMessage('Verification email sent! Check your inbox.');
-      } else {
-        setResendMessage('Failed to send email. Please try again.');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || 'Verification email could not be sent.');
       }
-    } catch {
-      setResendMessage('Failed to send email. Please try again.');
+
+      window.sessionStorage.setItem('pendingVerificationEmail', normalizedEmail);
+      setResendMessage(
+        'If an unverified LeagueZone account exists for that email, a new verification message has been sent.',
+      );
+    } catch (e) {
+      setResendError(e instanceof Error ? e.message : 'Verification email could not be sent.');
     } finally {
       setResendLoading(false);
     }
   }
 
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-20 max-w-md text-center">
-        <div className="text-4xl mb-4">📧</div>
-        <p className="text-[var(--muted)]">Checking verification status...</p>
-      </div>
-    );
-  }
-
-  if (verified) {
-    return (
-      <div className="container mx-auto px-4 py-20 max-w-md text-center">
-        <div className="text-4xl mb-4">✅</div>
-        <h1 className="text-2xl font-bold text-[var(--text)] mb-4">Email Verified!</h1>
-        <p className="text-[var(--muted)] mb-6">
-          Your email has been verified. You can now access all league features.
-        </p>
-        <Link
-          href={next}
-          className="inline-flex items-center px-4 py-2 bg-[var(--accent)] text-white rounded-lg font-medium hover:opacity-90"
-        >
-          Continue →
-        </Link>
-      </div>
-    );
-  }
+  const loginHref = nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : '/login';
+  const inputCls = 'w-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-2.5 text-[var(--text)] focus:outline-none focus:border-[var(--brand-gold)]/60 focus:ring-1 focus:ring-[var(--brand-gold)]/30 transition-colors';
 
   return (
-    <div className="container mx-auto px-4 py-20 max-w-md">
-      <div className="text-center mb-8">
-        <div className="text-4xl mb-4">📧</div>
-        <h1 className="text-2xl font-bold text-[var(--text)] mb-2">Verify Your Email</h1>
-        <p className="text-[var(--muted)]">
-          Please verify your email address to access league features.
+    <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen flex items-center justify-center py-12 px-4">
+      <div className="w-full max-w-md">
+        <div className="flex justify-center mb-8">
+          <Link href="/" aria-label="Website home">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/LeagueZone HQ Logo.png" alt="LeagueZone HQ" className="w-20 h-20 object-contain" />
+          </Link>
+        </div>
+
+        <div className="flex items-center justify-center gap-3 mb-3">
+          <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+          <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Verify Email</span>
+          <span className="block w-6 h-px bg-[var(--brand-gold)]" />
+        </div>
+        <h1 className="text-3xl font-black text-center text-white uppercase tracking-tight mb-2">Check your inbox</h1>
+        <p className="text-center text-sm text-white/45 mb-8">
+          Verify your email address before signing in to LeagueZone.
         </p>
-      </div>
 
-      <Card>
-        <CardContent className="pt-6 space-y-6">
-          <div className="bg-[var(--surface-strong)] rounded-lg p-4 text-center">
-            <p className="text-sm text-[var(--muted)] mb-1">Verification sent to:</p>
-            <p className="font-medium text-[var(--text)]">{email || 'your email address'}</p>
-          </div>
+        <Card style={{ background: '#0d1422' }}>
+          <CardContent className="pt-6 space-y-5">
+            <div className="space-y-3 text-sm text-white/60">
+              <p>We sent a verification link that expires in 24 hours.</p>
+              <p>Click the link in the email, then sign in to continue.</p>
+            </div>
 
-          <div className="space-y-3">
-            <p className="text-sm text-[var(--text)]">
-              <strong>Next steps:</strong>
-            </p>
-            <ol className="text-sm text-[var(--muted)] space-y-2 list-decimal list-inside">
-              <li>Check your inbox for the verification email</li>
-              <li>Click the verification link in the email</li>
-              <li>Return here to continue</li>
-            </ol>
-          </div>
+            <div>
+              <Label htmlFor="verification-email" className="mb-2 block text-[10px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">
+                Email
+              </Label>
+              <input
+                id="verification-email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleResend()}
+                className={inputCls}
+              />
+            </div>
 
-          <div className="border-t border-[var(--border)] pt-4">
-            <p className="text-sm text-[var(--muted)] mb-3">
-              Didn&apos;t receive the email? Check your spam folder or resend it.
-            </p>
+            {resendError && (
+              <div className="text-sm text-red-400 border border-red-500/30 bg-red-500/10 px-3 py-2" role="alert">
+                {resendError}
+              </div>
+            )}
+
+            {resendMessage && (
+              <div className="text-sm text-green-400 border border-green-500/30 bg-green-500/10 px-3 py-2" role="status">
+                {resendMessage}
+              </div>
+            )}
+
             <Button
               onClick={handleResend}
-              disabled={resendLoading}
+              disabled={resendLoading || !email.trim()}
               variant="secondary"
               className="w-full"
             >
-              {resendLoading ? 'Sending...' : 'Resend Verification Email'}
+              {resendLoading ? 'Sending…' : 'Resend verification email'}
             </Button>
-            {resendMessage && (
-              <p className={`text-sm mt-2 text-center ${resendMessage.includes('sent') ? 'text-green-500' : 'text-red-500'}`}>
-                {resendMessage}
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
-      <p className="text-center text-sm text-[var(--muted)] mt-6">
-        <Link href="/login" className="text-[var(--accent)] hover:underline">
-          ← Back to login
-        </Link>
-      </p>
+            <p className="text-center text-xs text-white/35">
+              Didn&apos;t receive it? Check your spam folder, confirm the address above, then resend.
+            </p>
+          </CardContent>
+        </Card>
+
+        <p className="text-center text-sm text-white/45 mt-6">
+          <Link href={loginHref} className="text-[var(--brand-gold)] hover:underline font-bold">
+            Back to sign in
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

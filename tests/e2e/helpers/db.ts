@@ -14,6 +14,23 @@ export function getTestDb() {
   return neon(url);
 }
 
+export async function getEmailVerificationToken(email: string): Promise<string> {
+  const sql = getTestDb();
+  const rows = await sql`
+    SELECT evt.token
+    FROM email_verification_tokens evt
+    JOIN users u ON u.id = evt.user_id
+    WHERE lower(u.email) = lower(${email})
+      AND evt.used_at IS NULL
+      AND evt.expires_at > NOW()
+    ORDER BY evt.created_at DESC
+    LIMIT 1
+  `;
+  const token = rows[0]?.token as string | undefined;
+  if (!token) throw new Error(`No active verification token found for ${email}`);
+  return token;
+}
+
 export async function deleteTestUserAndLeagues(email: string) {
   const sql = getTestDb();
   const userRows = await sql`SELECT id::text AS id FROM users WHERE email = ${email} LIMIT 1`;
