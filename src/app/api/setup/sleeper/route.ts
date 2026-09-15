@@ -19,12 +19,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { sleeperLeagueId, sleeperLeagueIds, teams, leagueId: bodyLeagueId } = body;
 
-    if (!sleeperLeagueId) {
+    if (typeof sleeperLeagueId !== 'string' || !sleeperLeagueId.trim()) {
       return NextResponse.json({ error: 'Sleeper League ID is required' }, { status: 400 });
+    }
+    if (!Array.isArray(teams) || teams.length === 0) {
+      return NextResponse.json({ error: 'Sleeper league teams are required' }, { status: 400 });
     }
 
     const jar = await cookies();
-    // Prefer leagueId from body, then from setup cookie, then active_league_id
     const leagueId =
       (typeof bodyLeagueId === 'string' ? bodyLeagueId : null) ||
       jar.get('setup_league_id')?.value ||
@@ -39,44 +41,104 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getDb();
-
-    // Verify ownership
     const owned = await requireSetupLeagueOwnership(userId, leagueId);
     if (!owned) {
       return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
     }
 
-    // Update league with Sleeper info
+    const normalizedCurrentId = sleeperLeagueId.trim();
+    const normalizedLeagueIds: Record<string, string> = {};
+    if (sleeperLeagueIds && typeof sleeperLeagueIds === 'object' && !Array.isArray(sleeperLeagueIds)) {
+      for (const [season, providerLeagueId] of Object.entries(sleeperLeagueIds as Record<string, unknown>)) {
+        if (/^\d{4}$/.test(season) && typeof providerLeagueId === 'string' && providerLeagueId.trim()) {
+          normalizedLeagueIds[season] = providerLeagueId.trim();
+        }
+      }
+    }
+
     await db.execute(sql`
       UPDATE leagues SET
-        sleeper_league_id = ${sleeperLeagueId},
-        sleeper_league_ids = ${JSON.stringify(sleeperLeagueIds ?? {})}::jsonb,
+        sleeper_league_id = ${normalizedCurrentId},
+        sleeper_league_ids = ${JSON.stringify(normalizedLeagueIds)}::jsonb,
         config = jsonb_set(
           jsonb_set(
-            COALESCE(config, '{}'),
-            '{completedSetupSteps}',
-            (
-              SELECT COALESCE(config->'completedSetupSteps', '[]'::jsonb) || '["sleeper"]'::jsonb
-              FROM leagues WHERE id = ${leagueId}::uuid
-            )
+            jsonb_set(
+              COALESCE(config, '{}'::jsonb),
+              '{completedSetupSteps}',
+              CASE
+                WHEN COALESCE(config->'completedSetupSteps', '[]'::jsonb) ? 'sleeper'
+                  THEN COALESCE(config->'completedSetupSteps', '[]'::jsonb)
+                ELSE COALESCE(config->'completedSetupSteps', '[]'::jsonb) || '["sleeper"]'::jsonb
+              END
+            ),
+            '{teams}',
+            ${JSON.stringify(teams)}::jsonb
           ),
-          '{teams}',
-          ${JSON.stringify(teams ?? [])}::jsonb
+          '{provider}',
+          '"sleeper"'::jsonb
         ),
         updated_at = now()
       WHERE id = ${leagueId}::uuid
     `);
 
-    // Create league invites for each team
-    if (teams && Array.isArray(teams)) {
-      for (const team of teams) {
-        const inviteCode = generateInviteCode();
-        await db.execute(sql`
-          INSERT INTO league_invites (league_id, team_name, roster_id, invite_code)
-          VALUES (${leagueId}::uuid, ${team.teamName}, ${team.rosterId ?? null}, ${inviteCode})
-          ON CONFLICT (invite_code) DO NOTHING
-        `);
-      }
+    await db.execute(sql`
+      UPDATE league_provider_seasons
+      SET is_current = false, updated_at = now()
+      WHERE league_id = ${leagueId}::uuid
+    `);
+
+    for (const [season, providerLeagueId] of Object.entries(normalizedLeagueIds)) {
+      const seasonNumber = Number.parseInt(season, 10);
+      const isCurrent = providerLeagueId === normalizedCurrentId;
+      await db.execute(sql`
+        INSERT INTO league_provider_seasons (
+          league_id,
+          season,
+          provider,
+          provider_league_id,
+          is_current,
+          metadata,
+          last_synced_at,
+          created_at,
+          updated_at
+        ) VALUES (
+          ${leagueId}::uuid,
+          ${seasonNumber},
+          'sleeper',
+          ${providerLeagueId},
+          ${isCurrent},
+          '{"source":"setup"}'::jsonb,
+          now(),
+          now(),
+          now()
+        )
+        ON CONFLICT (league_id, season) DO UPDATE SET
+          provider = 'sleeper',
+          provider_league_id = EXCLUDED.provider_league_id,
+          provider_game_id = NULL,
+          is_current = EXCLUDED.is_current,
+          metadata = EXCLUDED.metadata,
+          last_synced_at = now(),
+          updated_at = now()
+      `);
+    }
+
+    // Re-submitting setup should not accumulate stale, unclaimed invites.
+    await db.execute(sql`
+      DELETE FROM league_invites
+      WHERE league_id = ${leagueId}::uuid
+        AND claimed_at IS NULL
+    `);
+
+    for (const team of teams as Array<{ teamName?: unknown; rosterId?: unknown }>) {
+      const teamName = typeof team.teamName === 'string' ? team.teamName.trim() : '';
+      const rosterId = typeof team.rosterId === 'number' && Number.isInteger(team.rosterId) ? team.rosterId : null;
+      if (!teamName) continue;
+      const inviteCode = generateInviteCode();
+      await db.execute(sql`
+        INSERT INTO league_invites (league_id, team_name, roster_id, invite_code)
+        VALUES (${leagueId}::uuid, ${teamName}, ${rosterId}, ${inviteCode})
+      `);
     }
 
     return NextResponse.json({ success: true, leagueId });

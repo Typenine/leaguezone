@@ -15,8 +15,18 @@ DISCORD_TRADES_WEBHOOK_URL=
 # Webhook for trade block updates (Clancy reporter - batched every 120s)
 DISCORD_TRADE_BLOCK_WEBHOOK_URL=
 
-# Sleeper league ID for trade monitoring
+# Sleeper league ID for legacy/default trade monitoring
 SLEEPER_LEAGUE_ID=
 
-# Site URL for links in Discord embeds
+# Yahoo Fantasy provider
+# Yahoo Fantasy API access requires an approved Yahoo developer application.
+# Keep false until Yahoo-backed core league views have been validated.
+YAHOO_FANTASY_ENABLED=false
+YAHOO_CLIENT_ID=
+YAHOO_CLIENT_SECRET=
+YAHOO_REDIRECT_URI=https://leaguezonehq.vercel.app/api/providers/yahoo/callback
+# Dedicated 32+ character server-only secret used to encrypt provider OAuth tokens at rest.
+PROVIDER_TOKEN_ENCRYPTION_KEY=
+
+# Site URL for links in Discord embeds and auth redirects
 SITE_URL=

@@ -110,7 +110,7 @@ export default function SetupLeaguePage() {
         throw new Error(data.error || 'Failed to save league');
       }
       
-      router.push('/setup/sleeper');
+      router.push('/setup/provider');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {

@@ -14,13 +14,17 @@ type SetupStep = {
 
 const SETUP_STEPS: SetupStep[] = [
   { id: 'league', title: 'League Identity', description: 'Name your league and set basic info', completed: false },
-  { id: 'sleeper', title: 'Sleeper Integration', description: 'Connect your Sleeper league', completed: false },
+  { id: 'sleeper', title: 'Fantasy Provider', description: 'Connect Sleeper or Yahoo Fantasy', completed: false },
   { id: 'branding', title: 'Branding', description: 'Set colors and upload logo', completed: false },
   { id: 'teams', title: 'Team Colors', description: 'Customize team colors (optional)', completed: false },
   { id: 'rules', title: 'Rules', description: 'Add league rules (optional)', completed: false },
   { id: 'admin', title: 'Admin Account', description: 'Create your admin login', completed: false },
   { id: 'auth', title: 'Team Signup', description: 'Configure how teams join', completed: false },
 ];
+
+function setupStepPath(stepId: string): string {
+  return stepId === 'sleeper' ? '/setup/provider' : `/setup/${stepId}`;
+}
 
 export default function SetupPage() {
   const router = useRouter();
@@ -29,9 +33,7 @@ export default function SetupPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if setup is already completed
     async function checkSetup() {
-      // Read directly from window.location so the value is always current on the client
       const isNewLeague = new URLSearchParams(window.location.search).get('new') === '1';
 
       try {
@@ -42,17 +44,14 @@ export default function SetupPage() {
 
         if (statusRes.ok) {
           const data = await statusRes.json();
-          // Allow site admins to start a new league even if one is already set up
           const meData = meRes ? await meRes.json().catch(() => ({})) : {};
           if (data.setupCompleted && !(isNewLeague && meData.isSiteAdmin)) {
             router.push('/');
             return;
           }
 
-          // When starting a new league, always begin with empty steps
           let completedSteps: string[] = isNewLeague ? [] : (data.completedSteps || []);
 
-          // If already signed in as admin, auto-skip the admin account creation step
           if (meData.isAdmin && !completedSteps.includes('admin')) {
             try {
               const skipRes = await fetch('/api/setup/admin');
@@ -64,12 +63,10 @@ export default function SetupPage() {
             }
           }
 
-          // Update steps based on saved progress
           setSteps(prev => prev.map(step => ({
             ...step,
             completed: completedSteps.includes(step.id)
           })));
-          // Find first incomplete step
           const firstIncomplete = SETUP_STEPS.findIndex(
             s => !completedSteps.includes(s.id)
           );
@@ -84,15 +81,14 @@ export default function SetupPage() {
   }, [router]);
 
   const handleStepClick = (index: number) => {
-    // Can only go to completed steps or next incomplete step
     const canNavigate = index <= currentStep || steps[index - 1]?.completed;
     if (canNavigate) {
-      router.push(`/setup/${steps[index].id}`);
+      router.push(setupStepPath(steps[index].id));
     }
   };
 
   const handleStart = () => {
-    router.push(`/setup/${steps[currentStep].id}`);
+    router.push(setupStepPath(steps[currentStep].id));
   };
 
   if (loading) {
