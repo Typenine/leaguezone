@@ -1,5 +1,5 @@
 import { getLeagueById } from '@/lib/server/league-context';
-import { getLeagueUsers, getTeamsData } from '@/lib/utils/sleeper-api';
+import { getFantasyStandings } from '@/lib/server/fantasy-data';
 
 export type LeagueTeamOption = {
   rosterId: number;
@@ -23,21 +23,10 @@ export async function getLeagueTeamOptions(leagueId: string): Promise<LeagueTeam
     .filter((team) => team.rosterId > 0 && team.teamName);
   if (fromConfig.length > 0) return fromConfig.sort((a, b) => a.rosterId - b.rosterId);
 
-  if (!league.sleeperLeagueId) return [];
   try {
-    const [teams, users] = await Promise.all([
-      getTeamsData(league.sleeperLeagueId),
-      getLeagueUsers(league.sleeperLeagueId).catch(() => []),
-    ]);
-    const ownerNames = new Map(
-      users.map((user) => [user.user_id, user.display_name || user.username || null] as const),
-    );
-    return teams
-      .map((team) => ({
-        rosterId: Number(team.rosterId),
-        teamName: String(team.teamName || '').trim(),
-        ownerName: ownerNames.get(team.ownerId) ?? null,
-      }))
+    const standings = await getFantasyStandings(leagueId);
+    return standings.teams
+      .map((team) => ({ rosterId: team.rosterId, teamName: team.teamName, ownerName: team.ownerName }))
       .filter((team) => team.rosterId > 0 && team.teamName)
       .sort((a, b) => a.rosterId - b.rosterId);
   } catch {

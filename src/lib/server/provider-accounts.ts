@@ -114,3 +114,20 @@ export async function getFreshYahooAccessToken(userId: string): Promise<string> 
   await saveYahooProviderAccount(userId, refreshed, currentRefreshToken);
   return refreshed.access_token;
 }
+
+export async function getFreshYahooAccessTokenForLeague(leagueId: string): Promise<string> {
+  const db = getDb();
+  const result = await db.execute(sql`
+    SELECT commissioner_user_id
+    FROM leagues
+    WHERE id = ${leagueId}::uuid
+      AND setup_completed = true
+      AND is_active = true
+    LIMIT 1
+  `);
+  const commissionerUserId = rowsOf(result)[0]?.commissioner_user_id;
+  if (typeof commissionerUserId !== 'string' || !commissionerUserId) {
+    throw new Error('Yahoo league does not have a connected LeagueZone commissioner.');
+  }
+  return getFreshYahooAccessToken(commissionerUserId);
+}

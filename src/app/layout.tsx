@@ -12,7 +12,7 @@ import Footer from '@/components/layout/footer';
 import LeagueThemeScope from '@/components/LeagueThemeScope';
 import { TeamLogoProvider } from '@/contexts/TeamLogoContext';
 import { getLeagueById } from '@/lib/server/league-context';
-import { discoverLeagueChain } from '@/lib/utils/sleeper-api';
+import { getLeagueProviderRuntimeConfig } from '@/lib/server/provider-seasons';
 import PwaInstallPrompt from '@/components/pwa/PwaInstallPrompt';
 import PwaRegistration from '@/components/pwa/PwaRegistration';
 import PlayerModalProvider from '@/components/players/PlayerModalProvider';
@@ -50,20 +50,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const activeLeagueId = cookieJar.get('active_league_id')?.value || null;
   const hasQaSession = Boolean(cookieJar.get('lz_qa_session')?.value);
   const activeLeague = activeLeagueId ? await getLeagueById(activeLeagueId) : null;
-  const currentLeagueId = activeLeague?.sleeperLeagueId || '';
-  let allLeagueIds = activeLeague?.sleeperLeagueIds || {};
+  const providerRuntime = activeLeague
+    ? await getLeagueProviderRuntimeConfig(activeLeague.id).catch(() => ({
+        currentSeason: '', provider: null, seasons: {},
+        currentLeagueId: activeLeague.sleeperLeagueId || '',
+        previousLeagueIds: activeLeague.sleeperLeagueIds || {},
+      }))
+    : { currentSeason: '', provider: null, seasons: {}, currentLeagueId: '', previousLeagueIds: {} };
 
-  if (currentLeagueId && Object.keys(allLeagueIds).length === 0) {
-    try {
-      allLeagueIds = await discoverLeagueChain(currentLeagueId);
-    } catch {
-      // History pages can still render the current season.
-    }
-  }
-
-  const currentSeason = Object.entries(allLeagueIds).find(([, id]) => id === currentLeagueId)?.[0] || '';
-  const previousLeagueIds = Object.fromEntries(Object.entries(allLeagueIds).filter(([, id]) => id !== currentLeagueId));
-  const leagueConfigJson = JSON.stringify({ currentLeagueId, currentSeason, previousLeagueIds }).replace(/</g, '\\u003c');
+  const leagueConfigJson = JSON.stringify(providerRuntime).replace(/</g, '\\u003c');
   const leagueBrandingJson = JSON.stringify({
     name: activeLeague?.name || '',
     shortName: activeLeague?.shortName || null,
