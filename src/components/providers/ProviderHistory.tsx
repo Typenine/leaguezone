@@ -20,7 +20,7 @@ export default async function ProviderHistory({ leagueId, leagueSlug }: { league
         <Card><CardHeader><CardTitle>Top Scoring Weeks</CardTitle></CardHeader><CardContent><div className="divide-y divide-[var(--border)]">{history.topScoringWeeks.slice(0, 10).map((row, index) => <div key={`${row.season}-${row.week}-${row.franchiseId}-${index}`} className="flex justify-between gap-4 py-2 text-sm"><span><strong>{row.teamName}</strong> · {row.season} W{row.week}</span><strong>{row.points.toFixed(2)}</strong></div>)}</div></CardContent></Card>
         <Card><CardHeader><CardTitle>Head-to-Head</CardTitle></CardHeader><CardContent><div className="divide-y divide-[var(--border)]">{history.headToHead.sort((a, b) => (b.aWins + b.bWins + b.ties) - (a.aWins + a.bWins + a.ties)).slice(0, 15).map((row) => <div key={`${row.franchiseA}-${row.franchiseB}`} className="py-2 text-sm"><p className="font-semibold">{nameById.get(row.franchiseA) || 'Franchise'} vs. {nameById.get(row.franchiseB) || 'Franchise'}</p><p className="text-[var(--muted)]">{row.aWins}-{row.bWins}{row.ties ? `-${row.ties}` : ''}</p></div>)}</div></CardContent></Card>
       </div>
-      <p className="text-xs text-[var(--muted)]">Historical totals are calculated from LeagueZone's normalized provider seasons. Playoff bracket awards remain provider-capability dependent and are not inferred when a provider does not expose them.</p>
+      <p className="text-xs text-[var(--muted)]">Historical totals are calculated from LeagueZone&apos;s normalized provider seasons. Playoff bracket awards remain provider-capability dependent and are not inferred when a provider does not expose them.</p>
     </div>
   );
 }
