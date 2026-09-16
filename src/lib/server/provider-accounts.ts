@@ -84,6 +84,15 @@ export async function getYahooConnectionStatus(userId: string): Promise<YahooCon
   };
 }
 
+export async function disconnectYahooProviderAccount(userId: string): Promise<void> {
+  const db = getDb();
+  await db.execute(sql`
+    DELETE FROM provider_accounts
+    WHERE user_id = ${userId}::uuid
+      AND provider = ${YAHOO_PROVIDER}
+  `);
+}
+
 async function getYahooProviderAccount(userId: string): Promise<ProviderAccountRow | null> {
   const db = getDb();
   const result = await db.execute(sql`

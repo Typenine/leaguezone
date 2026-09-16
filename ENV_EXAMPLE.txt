@@ -20,11 +20,11 @@ SLEEPER_LEAGUE_ID=
 
 # Yahoo Fantasy provider
 # Yahoo Fantasy API access requires an approved Yahoo developer application.
-# Keep false until Yahoo-backed core league views have been validated.
+# Keep false until the Yahoo app, production secrets, OAuth, and a real league import are validated.
 YAHOO_FANTASY_ENABLED=false
 YAHOO_CLIENT_ID=
 YAHOO_CLIENT_SECRET=
-YAHOO_REDIRECT_URI=https://leaguezonehq.vercel.app/api/providers/yahoo/callback
+YAHOO_REDIRECT_URI=https://leaguezonehq.com/api/providers/yahoo/callback
 # Dedicated 32+ character server-only secret used to encrypt provider OAuth tokens at rest.
 PROVIDER_TOKEN_ENCRYPTION_KEY=
 

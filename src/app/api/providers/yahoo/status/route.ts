@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/server/session';
-import { getYahooConnectionStatus } from '@/lib/server/provider-accounts';
+import { disconnectYahooProviderAccount, getYahooConnectionStatus } from '@/lib/server/provider-accounts';
 import { isYahooAvailable, isYahooConfigured, isYahooFantasyEnabled } from '@/lib/providers/yahoo';
 
 export const runtime = 'nodejs';
@@ -31,4 +31,19 @@ export async function GET() {
     available: isYahooAvailable(),
     connected,
   });
+}
+
+export async function DELETE() {
+  const session = await requireUser();
+  if (!session) {
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+  }
+
+  try {
+    await disconnectYahooProviderAccount(session.userId);
+    return NextResponse.json({ success: true, connected: false });
+  } catch (error) {
+    console.error('[yahoo/status] Disconnect failed:', error instanceof Error ? error.message : 'unknown error');
+    return NextResponse.json({ error: 'Could not disconnect Yahoo.' }, { status: 500 });
+  }
 }

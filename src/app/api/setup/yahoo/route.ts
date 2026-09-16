@@ -52,28 +52,57 @@ export async function POST(request: NextRequest) {
 
     const linkedHistory = findLinkedYahooLeagueHistory(providerLeague, availableLeagues);
     const db = getDb();
-    await db.execute(sql`UPDATE league_provider_seasons SET is_current = false, updated_at = now() WHERE league_id = ${leagueId}::uuid`);
+    const existingResult = await db.execute(sql`
+      SELECT id, season, provider, provider_league_id, is_current
+      FROM league_provider_seasons
+      WHERE league_id = ${leagueId}::uuid
+    `);
+    const existingBySeason = new Map(
+      rowsOf(existingResult).map((row) => [Number(row.season), row] as const),
+    );
+    const selectedExisting = existingBySeason.get(providerLeague.season);
+    if (selectedExisting && (
+      String(selectedExisting.provider) !== 'yahoo'
+      || String(selectedExisting.provider_league_id) !== providerLeague.providerLeagueId
+    )) {
+      return NextResponse.json({
+        error: `The ${providerLeague.season} LeagueZone season is already linked to another provider season. Yahoo import will not replace existing league history.`,
+      }, { status: 409 });
+    }
+
+    const importableHistory = linkedHistory.filter((linked) => {
+      const existing = existingBySeason.get(linked.season);
+      if (!existing) return true;
+      return String(existing.provider) === 'yahoo'
+        && String(existing.provider_league_id) === linked.providerLeagueId;
+    });
+    const skippedSeasons = linkedHistory
+      .filter((linked) => !importableHistory.includes(linked))
+      .map((linked) => linked.season);
 
     let currentProviderSeasonId: string | null = null;
-    for (const linked of linkedHistory) {
-      const isCurrent = linked.providerLeagueId === providerLeague.providerLeagueId;
+    for (const linked of importableHistory) {
+      const isSelected = linked.providerLeagueId === providerLeague.providerLeagueId;
       const result = await db.execute(sql`
         INSERT INTO league_provider_seasons (
           league_id, season, provider, provider_league_id, provider_game_id, is_current,
           metadata, last_synced_at, created_at, updated_at
         ) VALUES (
-          ${leagueId}::uuid, ${linked.season}, 'yahoo', ${linked.providerLeagueId}, ${linked.providerGameId}, ${isCurrent},
+          ${leagueId}::uuid, ${linked.season}, 'yahoo', ${linked.providerLeagueId}, ${linked.providerGameId}, false,
           ${JSON.stringify(linked.metadata || {})}::jsonb, now(), now(), now()
         )
         ON CONFLICT (league_id, season) DO UPDATE SET
-          provider = 'yahoo', provider_league_id = EXCLUDED.provider_league_id,
-          provider_game_id = EXCLUDED.provider_game_id, is_current = EXCLUDED.is_current,
-          metadata = EXCLUDED.metadata, last_synced_at = now(), updated_at = now()
+          provider_game_id = EXCLUDED.provider_game_id,
+          metadata = EXCLUDED.metadata,
+          last_synced_at = now(),
+          updated_at = now()
+        WHERE league_provider_seasons.provider = 'yahoo'
+          AND league_provider_seasons.provider_league_id = EXCLUDED.provider_league_id
         RETURNING id
       `);
       const seasonId = rowsOf(result)[0]?.id ? String(rowsOf(result)[0].id) : null;
       if (!seasonId) continue;
-      if (isCurrent) currentProviderSeasonId = seasonId;
+      if (isSelected) currentProviderSeasonId = seasonId;
       await db.execute(sql`
         INSERT INTO provider_league_snapshots (league_provider_season_id, snapshot_type, payload, fetched_at)
         VALUES (${seasonId}::uuid, 'league', ${JSON.stringify(linked)}::jsonb, now())
@@ -81,6 +110,12 @@ export async function POST(request: NextRequest) {
       `);
     }
     if (!currentProviderSeasonId) throw new Error('Provider season mapping was not created.');
+
+    await db.execute(sql`
+      UPDATE league_provider_seasons
+      SET is_current = (id = ${currentProviderSeasonId}::uuid), updated_at = now()
+      WHERE league_id = ${leagueId}::uuid
+    `);
 
     await db.execute(sql`
       INSERT INTO provider_league_snapshots (league_provider_season_id, snapshot_type, payload, fetched_at)
@@ -130,7 +165,8 @@ export async function POST(request: NextRequest) {
       leagueId,
       provider: 'yahoo',
       season: providerLeague.season,
-      importedSeasons: linkedHistory.map((league) => league.season),
+      importedSeasons: importableHistory.map((league) => league.season),
+      skippedSeasons,
       teams: setupTeams.length,
     });
   } catch (error) {
