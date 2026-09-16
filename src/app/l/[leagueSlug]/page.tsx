@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import SeasonLaunchHome from '@/components/home/SeasonLaunchHome';
+import ProviderSeasonHome from '@/components/home/ProviderSeasonHome';
 import { verifySession } from '@/lib/server/auth';
 import { getCurrentLeagueBySlug } from '@/lib/server/league-context';
+import { resolveLeagueProviderSeason } from '@/lib/server/provider-seasons';
 import { getUserLeagues } from '@/lib/server/user-auth';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +27,18 @@ export default async function LeagueHomePage({
   const userId = claims?.type === 'user' && typeof claims.sub === 'string' ? claims.sub : null;
   const userLeagues = userId ? await getUserLeagues(userId) : [];
   const membership = userLeagues.find((item) => item.leagueId === league.id) ?? null;
+  const currentProvider = await resolveLeagueProviderSeason(league.id).catch(() => null);
+
+  if (currentProvider?.provider === 'yahoo') {
+    return (
+      <ProviderSeasonHome
+        league={league}
+        teamName={membership?.teamName ?? null}
+        rosterId={membership?.rosterId ?? null}
+        searchParams={searchParams}
+      />
+    );
+  }
 
   return (
     <SeasonLaunchHome

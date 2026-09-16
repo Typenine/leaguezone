@@ -117,6 +117,7 @@ export async function PUT(req: NextRequest) {
     const webhookUrl = await getTradeBlockDiscordWebhook(membership.leagueId);
     if (webhookUrl) {
       const message = await buildTradeBlockWebhookMessage({
+        leagueId: membership.leagueId,
         team: membership.teamName,
         oldBlock: oldDoc.tradeBlock,
         newBlock: filtered,

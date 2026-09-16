@@ -1,10 +1,9 @@
 import { getCurrentPhase } from '@/lib/utils/phase-resolver';
-import {
-  getLeague,
-  getLeagueRosters,
-  type SleeperLeague,
-  type SleeperRoster,
-} from '@/lib/utils/sleeper-api';
+import { getLeague, getLeagueRosters } from '@/lib/utils/sleeper-api';
+import { getFantasyRosters, getFantasyTransactionsForSeason } from '@/lib/server/fantasy-data';
+import { getFantasyLeagueSettings } from '@/lib/server/provider-settings';
+import { resolveLeagueProviderSeason } from '@/lib/server/provider-seasons';
+import type { FantasyProviderId } from '@/lib/providers/types';
 import type { TradeAsset, TradeBlockLeague, TradeBlockTeam } from '@/lib/server/trade-block-store';
 
 export type TeamAssets = {
@@ -20,27 +19,47 @@ type SleeperTradedPick = {
   owner_id?: number;
 };
 
+type ProviderSeasonRef = {
+  provider: FantasyProviderId;
+  providerLeagueId: string;
+  season: number;
+};
+
 export type TradeBlockLeagueContext = {
   league: TradeBlockLeague;
-  providerLeague: SleeperLeague;
-  rosters: SleeperRoster[];
+  provider: FantasyProviderId;
+  season: number;
   teams: TradeBlockTeam[];
   seasons: number[];
   rounds: number;
-  waiverBudget: number;
+  waiverBudget: number | null;
+  rosterPlayers: Map<number, string[]>;
+  faabByRoster: Map<number, number>;
   pickOwners: Map<string, number>;
+  rosterIds: number[];
 };
 
 export type TradeBlockProviderDeps = {
   getLeague: typeof getLeague;
   getLeagueRosters: typeof getLeagueRosters;
   fetchImpl: typeof fetch;
+  resolveProviderSeason?: (leagueId: string) => Promise<ProviderSeasonRef | null>;
+  getFantasyRosters?: typeof getFantasyRosters;
+  getFantasyLeagueSettings?: typeof getFantasyLeagueSettings;
+  getFantasyTransactionsForSeason?: typeof getFantasyTransactionsForSeason;
 };
 
 const defaultDeps: TradeBlockProviderDeps = {
   getLeague,
   getLeagueRosters,
   fetchImpl: fetch,
+  resolveProviderSeason: async (leagueId) => {
+    const mapped = await resolveLeagueProviderSeason(leagueId);
+    return mapped ? { provider: mapped.provider, providerLeagueId: mapped.providerLeagueId, season: mapped.season } : null;
+  },
+  getFantasyRosters,
+  getFantasyLeagueSettings,
+  getFantasyTransactionsForSeason,
 };
 
 export class TradeBlockProviderError extends Error {
@@ -60,35 +79,41 @@ function finitePositive(value: unknown, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export async function loadTradeBlockLeagueContext(
+async function resolveContextProvider(
+  league: TradeBlockLeague,
+  deps: TradeBlockProviderDeps,
+): Promise<ProviderSeasonRef | null> {
+  if (deps.resolveProviderSeason) return deps.resolveProviderSeason(league.id);
+
+  // Dependency-injected unit tests predate provider seasons. Preserve that seam
+  // without letting production fall back from a Yahoo league to a stale Sleeper ID.
+  const sleeperLeagueId = String(league.sleeperLeagueId || '').trim();
+  return sleeperLeagueId
+    ? { provider: 'sleeper', providerLeagueId: sleeperLeagueId, season: 0 }
+    : null;
+}
+
+async function sleeperContext(
   league: TradeBlockLeague,
   teams: TradeBlockTeam[],
-  deps: TradeBlockProviderDeps = defaultDeps,
+  providerLeagueId: string,
+  deps: TradeBlockProviderDeps,
 ): Promise<TradeBlockLeagueContext> {
-  const sleeperLeagueId = String(league.sleeperLeagueId || '').trim();
-  if (!sleeperLeagueId) {
-    throw new TradeBlockProviderError(
-      'provider_not_configured',
-      `${league.name || 'This league'} does not have a Sleeper league ID configured.`,
-      409,
-    );
-  }
-
-  let providerLeague: SleeperLeague;
-  let rosters: SleeperRoster[];
+  let providerLeague: Awaited<ReturnType<typeof getLeague>>;
+  let rosters: Awaited<ReturnType<typeof getLeagueRosters>>;
   try {
     [providerLeague, rosters] = await Promise.all([
-      deps.getLeague(sleeperLeagueId),
-      deps.getLeagueRosters(sleeperLeagueId),
+      deps.getLeague(providerLeagueId),
+      deps.getLeagueRosters(providerLeagueId),
     ]);
   } catch (error) {
-    console.error('[trade-block] Sleeper league/roster request failed', { leagueId: league.id, sleeperLeagueId, error });
+    console.error('[trade-block] Sleeper league/roster request failed', { leagueId: league.id, providerLeagueId, error });
     throw new TradeBlockProviderError('provider_unavailable', 'Sleeper data is temporarily unavailable.', 502);
   }
 
-  const currentSeason = finitePositive(providerLeague.season, new Date().getFullYear());
+  const season = finitePositive(providerLeague.season, new Date().getFullYear());
   const phase = getCurrentPhase();
-  const firstPickSeason = phase === 'post_championship_pre_draft' ? currentSeason : currentSeason + 1;
+  const firstPickSeason = phase === 'post_championship_pre_draft' ? season : season + 1;
   const seasons = [firstPickSeason, firstPickSeason + 1, firstPickSeason + 2];
   const settings = providerLeague.settings || {};
   const rounds = Math.max(1, Math.min(20, finitePositive(settings.draft_rounds, 4)));
@@ -97,47 +122,123 @@ export async function loadTradeBlockLeagueContext(
   let tradedPicks: SleeperTradedPick[] = [];
   try {
     const response = await deps.fetchImpl(
-      `https://api.sleeper.app/v1/league/${encodeURIComponent(sleeperLeagueId)}/traded_picks`,
+      `https://api.sleeper.app/v1/league/${encodeURIComponent(providerLeagueId)}/traded_picks`,
       { cache: 'no-store' },
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const body = await response.json();
     tradedPicks = Array.isArray(body) ? body as SleeperTradedPick[] : [];
   } catch (error) {
-    console.error('[trade-block] Sleeper traded-picks request failed', { leagueId: league.id, sleeperLeagueId, error });
+    console.error('[trade-block] Sleeper traded-picks request failed', { leagueId: league.id, providerLeagueId, error });
     throw new TradeBlockProviderError('provider_unavailable', 'Sleeper draft-pick data is temporarily unavailable.', 502);
   }
 
-  const rosterIds = new Set(rosters.map((roster) => roster.roster_id));
+  const rosterIds = rosters.map((roster) => roster.roster_id);
+  const rosterIdSet = new Set(rosterIds);
   const pickOwners = new Map<string, number>();
-  for (const season of seasons) {
+  for (const year of seasons) {
     for (const roster of rosters) {
-      for (let round = 1; round <= rounds; round++) {
-        pickOwners.set(`${season}-${roster.roster_id}-${round}`, roster.roster_id);
+      for (let round = 1; round <= rounds; round += 1) {
+        pickOwners.set(`${year}-${roster.roster_id}-${round}`, roster.roster_id);
       }
     }
   }
-
   for (const pick of tradedPicks) {
-    const season = Number(pick.season);
+    const year = Number(pick.season);
     const round = Number(pick.round);
-    const originalRosterId = Number(pick.roster_id);
-    const ownerRosterId = Number(pick.owner_id);
-    if (!seasons.includes(season) || !Number.isFinite(round) || round < 1 || round > rounds) continue;
-    if (!rosterIds.has(originalRosterId) || !rosterIds.has(ownerRosterId)) continue;
-    pickOwners.set(`${season}-${originalRosterId}-${round}`, ownerRosterId);
+    const original = Number(pick.roster_id);
+    const owner = Number(pick.owner_id);
+    if (!seasons.includes(year) || !Number.isFinite(round) || round < 1 || round > rounds) continue;
+    if (!rosterIdSet.has(original) || !rosterIdSet.has(owner)) continue;
+    pickOwners.set(`${year}-${original}-${round}`, owner);
+  }
+
+  const rosterPlayers = new Map<number, string[]>();
+  const faabByRoster = new Map<number, number>();
+  for (const roster of rosters) {
+    rosterPlayers.set(roster.roster_id, Array.isArray(roster.players) ? roster.players.filter(Boolean) : []);
+    const used = Number(roster.settings?.waiver_budget_used ?? 0);
+    faabByRoster.set(roster.roster_id, Math.max(0, waiverBudget - (Number.isFinite(used) ? used : 0)));
   }
 
   return {
     league,
-    providerLeague,
-    rosters,
+    provider: 'sleeper',
+    season,
     teams,
     seasons,
     rounds,
     waiverBudget,
+    rosterPlayers,
+    faabByRoster,
     pickOwners,
+    rosterIds,
   };
+}
+
+async function yahooContext(
+  league: TradeBlockLeague,
+  teams: TradeBlockTeam[],
+  season: number,
+  deps: TradeBlockProviderDeps,
+): Promise<TradeBlockLeagueContext> {
+  const loadRosters = deps.getFantasyRosters || getFantasyRosters;
+  const loadSettings = deps.getFantasyLeagueSettings || getFantasyLeagueSettings;
+  const loadTransactions = deps.getFantasyTransactionsForSeason || getFantasyTransactionsForSeason;
+
+  try {
+    const [rosters, settings, transactions] = await Promise.all([
+      loadRosters(league.id, season),
+      loadSettings(league.id, season),
+      loadTransactions(league.id, season).catch(() => []),
+    ]);
+    const rosterPlayers = new Map(rosters.teams.map((team) => [team.rosterId, team.players] as const));
+    const rosterIds = rosters.teams.map((team) => team.rosterId);
+    const faabByRoster = new Map<number, number>();
+
+    if (settings.usesFaab && settings.waiverBudget != null) {
+      for (const team of rosters.teams) {
+        const spent = transactions
+          .filter((txn) => txn.rosterId === team.rosterId && txn.type === 'waiver')
+          .reduce((sum, txn) => sum + Math.max(0, Number(txn.faab || 0)), 0);
+        faabByRoster.set(team.rosterId, Math.max(0, settings.waiverBudget - spent));
+      }
+    }
+
+    return {
+      league,
+      provider: 'yahoo',
+      season,
+      teams,
+      seasons: [],
+      rounds: settings.draftRounds || 0,
+      waiverBudget: settings.usesFaab ? settings.waiverBudget : null,
+      rosterPlayers,
+      faabByRoster,
+      pickOwners: new Map(),
+      rosterIds,
+    };
+  } catch (error) {
+    console.error('[trade-block] Yahoo roster request failed', { leagueId: league.id, error });
+    throw new TradeBlockProviderError('provider_unavailable', 'Yahoo roster data is temporarily unavailable.', 502);
+  }
+}
+
+export async function loadTradeBlockLeagueContext(
+  league: TradeBlockLeague,
+  teams: TradeBlockTeam[],
+  deps: TradeBlockProviderDeps = defaultDeps,
+): Promise<TradeBlockLeagueContext> {
+  const mapped = await resolveContextProvider(league, deps).catch(() => null);
+  if (!mapped) {
+    throw new TradeBlockProviderError(
+      'provider_not_configured',
+      `${league.name || 'This league'} does not have a fantasy provider configured.`,
+      409,
+    );
+  }
+  if (mapped.provider === 'yahoo') return yahooContext(league, teams, mapped.season, deps);
+  return sleeperContext(league, teams, mapped.providerLeagueId, deps);
 }
 
 export function teamAssetsFromContext(
@@ -147,30 +248,21 @@ export function teamAssetsFromContext(
 ): TeamAssets {
   const team = ctx.teams.find((entry) => entry.team === teamName);
   const resolvedRosterId = rosterId ?? team?.rosterId ?? null;
-  const roster = resolvedRosterId == null
-    ? undefined
-    : ctx.rosters.find((entry) => entry.roster_id === resolvedRosterId);
-
-  const players = Array.isArray(roster?.players) ? roster.players.filter(Boolean) : [];
-  const used = Number(roster?.settings?.waiver_budget_used ?? 0);
-  const faab = Math.max(0, ctx.waiverBudget - (Number.isFinite(used) ? used : 0));
+  const players = resolvedRosterId == null ? [] : (ctx.rosterPlayers.get(resolvedRosterId) || []);
+  const faab = resolvedRosterId == null ? 0 : (ctx.faabByRoster.get(resolvedRosterId) || 0);
 
   const teamByRosterId = new Map<number, string>();
-  for (const entry of ctx.teams) {
-    if (entry.rosterId != null) teamByRosterId.set(entry.rosterId, entry.team);
-  }
+  for (const entry of ctx.teams) if (entry.rosterId != null) teamByRosterId.set(entry.rosterId, entry.team);
 
   const picks: TeamAssets['picks'] = [];
-  if (resolvedRosterId != null) {
-    for (const season of ctx.seasons) {
-      for (const originalRoster of ctx.rosters) {
-        const originalTeam = teamByRosterId.get(originalRoster.roster_id);
+  if (ctx.provider === 'sleeper' && resolvedRosterId != null) {
+    for (const year of ctx.seasons) {
+      for (const originalRosterId of ctx.rosterIds) {
+        const originalTeam = teamByRosterId.get(originalRosterId);
         if (!originalTeam) continue;
-        for (let round = 1; round <= ctx.rounds; round++) {
-          const owner = ctx.pickOwners.get(`${season}-${originalRoster.roster_id}-${round}`) ?? originalRoster.roster_id;
-          if (owner === resolvedRosterId) {
-            picks.push({ year: season, round, originalTeam });
-          }
+        for (let round = 1; round <= ctx.rounds; round += 1) {
+          const owner = ctx.pickOwners.get(`${year}-${originalRosterId}-${round}`) ?? originalRosterId;
+          if (owner === resolvedRosterId) picks.push({ year, round, originalTeam });
         }
       }
     }
@@ -219,7 +311,7 @@ export function sanitizeTradeBlock(requested: TradeAsset[], assets: TeamAssets):
     if (item.type === 'faab') {
       const amount = Number(item.amount ?? assets.faab);
       const safe = Math.max(0, Math.min(assets.faab, Number.isFinite(amount) ? amount : 0));
-      if (seen.has('faab')) continue;
+      if (safe <= 0 || seen.has('faab')) continue;
       seen.add('faab');
       result.push({ type: 'faab', amount: safe });
     }

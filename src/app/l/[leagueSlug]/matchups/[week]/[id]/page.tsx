@@ -1,6 +1,6 @@
 import MatchupDetailPage from '@/app/matchups/[week]/[id]/page';
 import LeagueShareCardLink from '@/components/branding/LeagueShareCardLink';
-import ProviderMatchupDetail from '@/components/providers/ProviderMatchupDetail';
+import YahooMatchupDetail from '@/components/providers/YahooMatchupDetail';
 import { getFantasyMatchupDetail } from '@/lib/server/provider-deep-data';
 import { getLeagueBySlug } from '@/lib/server/league-context';
 import { resolveLeagueProviderSeason } from '@/lib/server/provider-seasons';
@@ -32,7 +32,7 @@ export default async function LeagueMatchupDetailPage({
     return (
       <>
         <div className="container mx-auto flex justify-end px-4 pt-6"><LeagueShareCardLink leagueSlug={resolved.leagueSlug} type="matchup" title={`Week ${resolved.week} Matchup`} left={labels[0]} right={labels[1]} /></div>
-        <ProviderMatchupDetail leagueId={league.id} leagueSlug={league.slug} week={week} matchupId={matchupId} season={String(mapped.season)} />
+        <YahooMatchupDetail leagueId={league.id} leagueSlug={league.slug} week={week} matchupId={matchupId} season={String(mapped.season)} />
       </>
     );
   }

@@ -20,37 +20,15 @@ export type ProviderCapabilities = {
 
 const CAPABILITIES: Record<FantasyProviderId, ProviderCapabilities> = {
   sleeper: {
-    standings: true,
-    rosters: true,
-    matchups: true,
-    transactions: true,
-    teamDetail: true,
-    playerDetail: true,
-    matchupPlayerScoring: true,
-    historicalRecords: true,
-    headToHead: true,
-    draftHistory: true,
-    playoffBrackets: true,
-    taxi: true,
-    health: true,
-    projections: true,
+    standings: true, rosters: true, matchups: true, transactions: true, teamDetail: true,
+    playerDetail: true, matchupPlayerScoring: true, historicalRecords: true, headToHead: true,
+    draftHistory: true, playoffBrackets: true, taxi: true, health: true, projections: true,
     tradedDraftPicks: true,
   },
   yahoo: {
-    standings: true,
-    rosters: true,
-    matchups: true,
-    transactions: true,
-    teamDetail: true,
-    playerDetail: true,
-    matchupPlayerScoring: false,
-    historicalRecords: true,
-    headToHead: true,
-    draftHistory: true,
-    playoffBrackets: false,
-    taxi: false,
-    health: false,
-    projections: false,
+    standings: true, rosters: true, matchups: true, transactions: true, teamDetail: true,
+    playerDetail: true, matchupPlayerScoring: true, historicalRecords: true, headToHead: true,
+    draftHistory: true, playoffBrackets: false, taxi: false, health: true, projections: true,
     tradedDraftPicks: false,
   },
 };
@@ -63,11 +41,8 @@ export function providerFeatureMessage(provider: FantasyProviderId, feature: key
   if (CAPABILITIES[provider][feature]) return null;
   const label = provider === 'yahoo' ? 'Yahoo Fantasy' : 'Sleeper';
   const names: Partial<Record<keyof ProviderCapabilities, string>> = {
-    matchupPlayerScoring: 'individual historical matchup scoring',
-    playoffBrackets: 'playoff bracket imports',
+    playoffBrackets: 'provider-supplied playoff bracket imports',
     taxi: 'taxi-squad validation',
-    health: 'provider-specific roster health data',
-    projections: 'provider-specific lineup projections',
     tradedDraftPicks: 'provider-tracked future draft picks',
   };
   return `${names[feature] || feature} is not currently available from ${label}. LeagueZone will leave this section unavailable rather than infer or fabricate data.`;

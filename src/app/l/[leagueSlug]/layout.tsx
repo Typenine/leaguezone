@@ -4,6 +4,7 @@ import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getCurrentLeagueBySlug, getLeagueFeatures } from '@/lib/server/league-context';
 import { getFranchiseNamesByOwnerId } from '@/lib/server/franchise-identities';
+import { getLeagueProviderRuntimeConfig } from '@/lib/server/provider-seasons';
 import { LEAGUE_NAV, leagueUrl } from '@/lib/config/platform';
 import LeagueNav, { type LeagueNavLink } from '@/components/league/LeagueNav';
 import LeagueRuntimeSync from '@/components/league/LeagueRuntimeSync';
@@ -229,20 +230,24 @@ export default async function LeagueLayout({
     ...flattenNavLinks(navLinks),
   ];
 
-  const allLeagueIds = league.sleeperLeagueIds || {};
-  const currentSeason = Object.entries(allLeagueIds)
-    .find(([, id]) => id === league.sleeperLeagueId)?.[0] || '';
-  const previousLeagueIds = Object.fromEntries(
-    Object.entries(allLeagueIds).filter(([, id]) => id !== league.sleeperLeagueId),
+  const legacyPreviousLeagueIds = Object.fromEntries(
+    Object.entries(league.sleeperLeagueIds || {}).filter(([, id]) => id !== league.sleeperLeagueId),
   );
+  const providerRuntime = await getLeagueProviderRuntimeConfig(league.id).catch(() => ({
+    currentSeason: '',
+    provider: league.sleeperLeagueId ? 'sleeper' as const : null,
+    seasons: {},
+    currentLeagueId: league.sleeperLeagueId || '',
+    previousLeagueIds: legacyPreviousLeagueIds,
+  }));
   const franchiseNamesByOwnerId = await getFranchiseNamesByOwnerId({
     sleeperLeagueId: league.sleeperLeagueId,
     config: league.config,
   });
   const runtimeConfigValue = {
-    currentLeagueId: league.sleeperLeagueId || '',
-    currentSeason,
-    previousLeagueIds,
+    currentLeagueId: providerRuntime.currentLeagueId,
+    currentSeason: providerRuntime.currentSeason,
+    previousLeagueIds: providerRuntime.previousLeagueIds,
     franchiseNamesByOwnerId,
   };
   const runtimeBrandingValue = {

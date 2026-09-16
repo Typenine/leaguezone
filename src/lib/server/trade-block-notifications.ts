@@ -1,3 +1,4 @@
+import { getFantasyRosters } from '@/lib/server/fantasy-data';
 import { getAllPlayersCached } from '@/lib/utils/sleeper-api';
 import type { TradeAsset, TradeWants } from '@/lib/server/trade-block-store';
 
@@ -17,6 +18,7 @@ function ordinal(round: number): string {
 }
 
 export async function buildTradeBlockWebhookMessage(args: {
+  leagueId?: string;
   team: string;
   oldBlock: TradeAsset[];
   newBlock: TradeAsset[];
@@ -28,20 +30,34 @@ export async function buildTradeBlockWebhookMessage(args: {
   const added = [...newByKey.entries()].filter(([key]) => !oldByKey.has(key)).map(([, asset]) => asset);
   const removed = [...oldByKey.entries()].filter(([key]) => !newByKey.has(key)).map(([, asset]) => asset);
 
-  let playerNames: Record<string, string> = {};
-  const playerIds = [...added, ...removed]
+  const playerNames: Record<string, string> = {};
+  const playerIds = [...new Set([...added, ...removed]
     .filter((asset): asset is Extract<TradeAsset, { type: 'player' }> => asset.type === 'player')
-    .map((asset) => asset.playerId);
-  if (playerIds.length) {
+    .map((asset) => asset.playerId))];
+
+  if (playerIds.length && args.leagueId) {
+    try {
+      const rosterData = await getFantasyRosters(args.leagueId);
+      for (const id of playerIds) {
+        const player = rosterData.players[id];
+        if (player?.fullName) playerNames[id] = player.fullName;
+      }
+    } catch {
+      // Fall through to the shared NFL player catalog below.
+    }
+  }
+
+  const unresolved = playerIds.filter((id) => !playerNames[id]);
+  if (unresolved.length) {
     try {
       const players = await getAllPlayersCached();
-      playerNames = Object.fromEntries(playerIds.map((id) => {
+      for (const id of unresolved) {
         const row = players[id] as unknown as { full_name?: string; first_name?: string; last_name?: string } | undefined;
         const fallback = [row?.first_name, row?.last_name].filter(Boolean).join(' ');
-        return [id, row?.full_name || fallback || id];
-      }));
+        playerNames[id] = row?.full_name || fallback || id;
+      }
     } catch {
-      playerNames = Object.fromEntries(playerIds.map((id) => [id, id]));
+      for (const id of unresolved) playerNames[id] = id;
     }
   }
 

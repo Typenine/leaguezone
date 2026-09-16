@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getActiveLeagueMembership } from '@/lib/server/membership';
-import { buildTeamLineupOptimizerV3 } from '@/lib/fantasy/weekly-projections-next';
+import { buildProviderTeamLineupOptimizer } from '@/lib/fantasy/provider-projections';
 import type { LineupOptimizerResponse } from '@/lib/fantasy/lineup-types';
 
 export const runtime = 'nodejs';
@@ -19,24 +19,17 @@ export async function GET() {
   const cacheKey = `${membership.leagueId}:${membership.teamName}`;
   const cached = responseCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-    return NextResponse.json(cached.data, {
-      headers: { 'Cache-Control': 'private, max-age=300' },
-    });
+    return NextResponse.json(cached.data, { headers: { 'Cache-Control': 'private, max-age=300' } });
   }
 
   try {
-    const data = await buildTeamLineupOptimizerV3(membership.teamName, membership.leagueId);
+    const data = await buildProviderTeamLineupOptimizer(membership.leagueId, membership.teamName);
     responseCache.set(cacheKey, { ts: Date.now(), data });
-    return NextResponse.json(data, {
-      headers: { 'Cache-Control': 'private, max-age=300' },
-    });
+    return NextResponse.json(data, { headers: { 'Cache-Control': 'private, max-age=300' } });
   } catch (error) {
     console.error('[home-lineup-optimizer] failed', error);
     const message = error instanceof Error ? error.message : '';
     const status = message === 'Team roster not found' ? 404 : 500;
-    return NextResponse.json(
-      { error: status === 404 ? message : 'Unable to build lineup projections' },
-      { status }
-    );
+    return NextResponse.json({ error: status === 404 ? message : 'Unable to build lineup projections' }, { status });
   }
 }
