@@ -10,6 +10,18 @@ describe('migration deployment safety', () => {
     expect(pkg.scripts.build).toBe('node scripts/migrate-on-build.mjs && next build');
   });
 
+  it('does not wake production Postgres for Vercel code-only commits', () => {
+    const migrator = fs.readFileSync(
+      path.join(process.cwd(), 'scripts', 'migrate-on-build.mjs'),
+      'utf8',
+    );
+    expect(migrator).toContain('VERCEL_GIT_COMMIT_SHA');
+    expect(migrator).toContain("filename.startsWith('drizzle/')");
+    expect(migrator).toContain('touchesMigrations === false');
+    expect(migrator).toContain('Skipping db:migrate');
+    expect(migrator).toContain('Falling back to normal migration execution');
+  });
+
   it('keeps the pre-ledger newsletter migration idempotent', () => {
     const sql = fs.readFileSync(
       path.join(process.cwd(), 'drizzle', '0007_newsletter_episodes.sql'),
