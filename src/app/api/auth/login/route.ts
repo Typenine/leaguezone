@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import {
-  getUserByEmail,
+  getUserByEmailOrThrow,
   verifyPassword,
   requiresEmailVerification,
   signUserSession,
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    const user = await getUserByEmail(email);
+    const user = await getUserByEmailOrThrow(email);
     if (!user || !user.passwordHash) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
@@ -91,6 +91,12 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error('POST /api/auth/login failed', e);
-    return NextResponse.json({ error: 'Login failed' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Sign-in service is temporarily unavailable. Please try again later.',
+        code: 'AUTH_SERVICE_UNAVAILABLE',
+      },
+      { status: 503 },
+    );
   }
 }

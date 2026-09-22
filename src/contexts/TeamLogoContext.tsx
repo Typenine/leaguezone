@@ -112,6 +112,22 @@ function detectSeason(pathname: string, querySeason: string | null): string | nu
   return match?.[1] || null;
 }
 
+function needsTeamBranding(pathname: string): boolean {
+  if (pathname === '/') return false;
+  return ![
+    '/features',
+    '/pricing',
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+    '/verify-email',
+    '/privacy',
+    '/terms',
+    '/offline',
+  ].some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export function TeamLogoProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -121,6 +137,15 @@ export function TeamLogoProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+
+    if (!needsTeamBranding(pathname || '/')) {
+      clearTeamBrandingVariables(appliedKeys.current);
+      appliedKeys.current = [];
+      setOverrides({});
+      return () => {
+        cancelled = true;
+      };
+    }
 
     const load = () => {
       const season = detectSeason(pathname || '', querySeason);

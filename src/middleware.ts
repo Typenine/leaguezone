@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
+import { isAutomatedPublicClient } from '@/lib/security/crawler-shield';
 
 type SessionMetadata = { exp?: number; type?: string; sub?: string; team?: string };
 function decodeSession(token: string): SessionMetadata | null { try { const parts = token.split('.'); if (parts.length !== 2) return null; return JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')) as SessionMetadata; } catch { return null; } }
@@ -9,6 +10,118 @@ const PROTECTED_PREFIXES = ['/trade-block', '/vote', '/api/trade-block', '/api/v
 function isProtectedPath(pathname: string): boolean { return PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)); }
 function unauthenticatedResponse(req: NextRequest) { const { pathname, search } = req.nextUrl; if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); const url = new URL('/login', req.url); url.searchParams.set('next', pathname + (search || '')); return NextResponse.redirect(url); }
 function newsletterDormantResponse(req: NextRequest) { const { pathname } = req.nextUrl; const isApi = pathname === '/api/newsletter' || pathname.startsWith('/api/newsletter/'); if (isApi) return NextResponse.json({ error: 'Newsletter feature is currently dormant.' }, { status: 410 }); if (pathname !== '/newsletter') return NextResponse.redirect(new URL('/newsletter', req.url)); return null; }
+
+
+function safeRefererHost(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).host || null;
+  } catch {
+    return null;
+  }
+}
+
+function crawlerShieldResponse(req: NextRequest): NextResponse {
+  const pathname = req.nextUrl.pathname;
+  const userAgent = req.headers.get('user-agent') || '';
+  console.info('[crawler-shield]', JSON.stringify({
+    path: pathname,
+    userAgent: userAgent.slice(0, 180),
+    refererHost: safeRefererHost(req.headers.get('referer')),
+  }));
+
+  const body = req.method.toUpperCase() === 'HEAD'
+    ? null
+    : `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>LeagueZone</title>
+</head>
+<body>
+  <main>
+    <h1>LeagueZone</h1>
+    <p>This interactive league site is available in a regular web browser.</p>
+    <p><a href="/">LeagueZone home</a></p>
+  </main>
+</body>
+</html>`;
+
+  return new NextResponse(body, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, s-maxage=86400',
+      'X-Robots-Tag': 'noindex, nofollow, noarchive',
+      'X-LeagueZone-Crawler-Shield': '1',
+    },
+  });
+}
+
+
+function publicBrowserGateResponse(req: NextRequest): NextResponse {
+  const pathname = req.nextUrl.pathname;
+  console.info('[public-browser-gate]', JSON.stringify({
+    path: pathname,
+    userAgent: (req.headers.get('user-agent') || '').slice(0, 180),
+    refererHost: safeRefererHost(req.headers.get('referer')),
+  }));
+
+  if (req.method.toUpperCase() === 'HEAD') {
+    return new NextResponse(null, {
+      status: 204,
+      headers: {
+        'Cache-Control': 'no-store',
+        'X-Robots-Tag': 'noindex, nofollow, noarchive',
+        'X-LeagueZone-Browser-Gate': '1',
+      },
+    });
+  }
+
+  const body = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Opening LeagueZone…</title>
+  <style>
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#08111f;color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    main{text-align:center;padding:24px}
+    p{opacity:.65}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>LeagueZone</h1>
+    <p>Opening league site…</p>
+  </main>
+  <script>
+    (() => {
+      const secure = location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = 'lz_public_browser=1; Path=/; Max-Age=604800; SameSite=Lax' + secure;
+      if (document.cookie.includes('lz_public_browser=1')) {
+        location.reload();
+      } else {
+        document.querySelector('p').textContent = 'Enable cookies to open this league site.';
+      }
+    })();
+  </script>
+</body>
+</html>`;
+
+  return new NextResponse(body, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Robots-Tag': 'noindex, nofollow, noarchive',
+      'X-LeagueZone-Browser-Gate': '1',
+    },
+  });
+}
 
 const LEGACY_LEAGUE_ROOTS = ['history', 'players', 'teams', 'rosters', 'matchups', 'calendar', 'hall-of-fame', 'news', 'transactions', 'trades'] as const;
 
@@ -70,6 +183,23 @@ export async function middleware(req: NextRequest) {
   const sessionCookie = req.cookies.get('evw_session')?.value || '';
   const hasAuthenticatedViewer = hasUsableSessionCookie(sessionCookie);
 
+  const requestMethod = req.method.toUpperCase();
+  const publicLeagueSurface = pathname === '/demo' || pathname === '/l' || pathname.startsWith('/l/');
+  const anonymousPublicLeagueRequest =
+    (requestMethod === 'GET' || requestMethod === 'HEAD')
+    && publicLeagueSurface
+    && !hasAuthenticatedViewer
+    && !isAdmin
+    && !qaSession;
+
+  if (anonymousPublicLeagueRequest && isAutomatedPublicClient(req.headers.get('user-agent'))) {
+    return crawlerShieldResponse(req);
+  }
+
+  if (anonymousPublicLeagueRequest && req.cookies.get('lz_public_browser')?.value !== '1') {
+    return publicBrowserGateResponse(req);
+  }
+
   const newsletterEnabled = process.env.NEXT_PUBLIC_NEWSLETTER_ENABLED === 'true';
   const isNewsletterPath = pathname === '/newsletter' || pathname.startsWith('/newsletter/') || pathname === '/api/newsletter' || pathname.startsWith('/api/newsletter/');
   if (!newsletterEnabled && isNewsletterPath) { const dormant = newsletterDormantResponse(req); if (dormant) return dormant; }
@@ -126,6 +256,8 @@ export const config = {
     '/draft/:path*',
     '/admin/draft',
     '/newsletter/:path*',
+    '/demo',
+    '/l/:path*',
     '/history/:path*',
     '/players/:path*',
     '/teams/:path*',

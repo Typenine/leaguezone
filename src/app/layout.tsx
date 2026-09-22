@@ -17,6 +17,7 @@ import PwaInstallPrompt from '@/components/pwa/PwaInstallPrompt';
 import PwaRegistration from '@/components/pwa/PwaRegistration';
 import PlayerModalProvider from '@/components/players/PlayerModalProvider';
 import QABar from '@/components/admin/QABar';
+import { verifySession } from '@/lib/server/auth';
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
@@ -49,7 +50,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const cookieJar = await cookies();
   const activeLeagueId = cookieJar.get('active_league_id')?.value || null;
   const hasQaSession = Boolean(cookieJar.get('lz_qa_session')?.value);
-  const activeLeague = activeLeagueId ? await getLeagueById(activeLeagueId) : null;
+  const sessionToken = cookieJar.get('evw_session')?.value || '';
+  const hasAuthenticatedSession = Boolean(sessionToken && verifySession(sessionToken));
+
+  // Anonymous visitors can carry an active_league_id after viewing a public
+  // league. Do not let that stale public cookie make every marketing/auth page
+  // wake Postgres. Public league routes resolve their own league context.
+  const activeLeague = hasAuthenticatedSession && activeLeagueId
+    ? await getLeagueById(activeLeagueId)
+    : null;
   const providerRuntime = activeLeague
     ? await getLeagueProviderRuntimeConfig(activeLeague.id).catch(() => ({
         currentSeason: '', provider: null, seasons: {},

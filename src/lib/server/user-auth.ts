@@ -32,19 +32,32 @@ export function requiresEmailVerification(
   return user.emailVerificationRequired && !user.emailVerified;
 }
 
+async function queryUserByEmail(email: string): Promise<UserRecord | null> {
+  const db = getDb();
+  const res = await db.execute(sql`
+    SELECT id, email, display_name, password_hash, role, email_verified, email_verification_required
+    FROM users WHERE email = ${email.toLowerCase()} LIMIT 1
+  `);
+  const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
+  if (!rows[0]) return null;
+  return rowToUser(rows[0]);
+}
+
 export async function getUserByEmail(email: string): Promise<UserRecord | null> {
   try {
-    const db = getDb();
-    const res = await db.execute(sql`
-      SELECT id, email, display_name, password_hash, role, email_verified, email_verification_required
-      FROM users WHERE email = ${email.toLowerCase()} LIMIT 1
-    `);
-    const rows = (res as { rows?: Array<Record<string, unknown>> }).rows ?? [];
-    if (!rows[0]) return null;
-    return rowToUser(rows[0]);
+    return await queryUserByEmail(email);
   } catch {
     return null;
   }
+}
+
+/**
+ * Authentication must distinguish "no such account" from "the database is
+ * unavailable". Use this strict variant in sign-in paths so infrastructure
+ * failures never masquerade as a bad password.
+ */
+export async function getUserByEmailOrThrow(email: string): Promise<UserRecord | null> {
+  return queryUserByEmail(email);
 }
 
 export async function getUserById(id: string): Promise<UserRecord | null> {

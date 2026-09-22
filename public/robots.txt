@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /l/
+Disallow: /demo
+Disallow: /app
+Disallow: /admin/
+Disallow: /setup/
+Disallow: /api/
+
+# League sites are interactive and database-backed. During public beta they
+# should be opened by people, not crawled/indexed by automated agents.
