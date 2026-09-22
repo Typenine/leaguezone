@@ -10,6 +10,7 @@ import Label from '@/components/ui/Label';
 import { PLATFORM } from '@/lib/config/platform';
 import { getLeagueSwitchDestination } from '@/lib/navigation/league-switch';
 import { getNavigationSurface } from '@/lib/navigation/surfaces';
+import { getLoginHref } from '@/lib/navigation/auth-redirect';
 
 type SessionUser = {
   displayName: string | null;
@@ -119,6 +120,7 @@ export default function UnifiedNavbar() {
   const displayName = user?.displayName || user?.email || (isAdmin ? 'Admin' : 'Account');
   const brandHref = platform ? '/' : activeTeam ? `/l/${activeTeam.leagueSlug}` : '/app';
   const brandLabel = platform ? PLATFORM.name : activeTeam?.leagueName || 'League Dashboard';
+  const loginHref = getLoginHref(pathname);
 
   const platformLinks = [
     { href: '/', label: 'Home' },
@@ -322,7 +324,7 @@ export default function UnifiedNavbar() {
                 </>
               ) : (
                 <div className="flex items-center gap-2">
-                  <Link href={`/login?next=${encodeURIComponent(pathname)}`} className="text-sm font-semibold text-white/70 hover:text-white">Sign In</Link>
+                  <Link href={loginHref} className="text-sm font-semibold text-white/70 hover:text-white">Sign In</Link>
                   <Link href="/register" className="rounded-md bg-[var(--brand-gold)] px-3 py-2 text-xs font-black uppercase tracking-wider text-[var(--brand-ink)]">Sign Up</Link>
                 </div>
               )}
@@ -348,7 +350,7 @@ export default function UnifiedNavbar() {
         <div className="border-t border-[var(--border)]">
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <ThemeToggle />
-            {!signedIn && <Link href={`/login?next=${encodeURIComponent(pathname)}`} onClick={() => setMobileOpen(false)} className="text-sm font-bold text-[var(--accent)]">Sign In</Link>}
+            {!signedIn && <Link href={loginHref} onClick={() => setMobileOpen(false)} className="text-sm font-bold text-[var(--accent)]">Sign In</Link>}
           </div>
           {signedIn && <div className="max-h-[48vh] overflow-y-auto">{accountActions(() => setMobileOpen(false))}</div>}
         </div>

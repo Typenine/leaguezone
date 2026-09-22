@@ -6,12 +6,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/Card';
 import Label from '@/components/ui/Label';
 import Button from '@/components/ui/Button';
+import { getSafePostLoginPath } from '@/lib/navigation/auth-redirect';
 
 export default function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const requestedNext = searchParams?.get('next') || '/app';
-  const next = requestedNext.startsWith('/') && !requestedNext.startsWith('//') ? requestedNext : '/app';
+  const next = getSafePostLoginPath(searchParams?.get('next'));
   const justVerified = searchParams?.get('verified') === '1';
 
   const [email, setEmail] = useState('');
