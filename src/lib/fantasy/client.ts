@@ -4,6 +4,18 @@ async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
   const payload = await response.json().catch(() => ({})) as { error?: string } & T;
   if (!response.ok) throw new Error(payload.error || 'League data could not be loaded.');
+
+  if (typeof window !== 'undefined') {
+    const mode = response.headers.get('x-leaguezone-data-mode');
+    if (mode === 'stale') {
+      window.dispatchEvent(new CustomEvent('leaguezone:data-stale', {
+        detail: { cachedAt: response.headers.get('x-leaguezone-cached-at') },
+      }));
+    } else if (mode === 'live') {
+      window.dispatchEvent(new Event('leaguezone:data-live'));
+    }
+  }
+
   return payload;
 }
 

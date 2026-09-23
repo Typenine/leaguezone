@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTradeSubgraphByRoot, RootSelector } from '@/lib/utils/trade-graph';
 import { fetchTradesAllTime } from '@/lib/utils/trades';
+import { guardPublicDataRequest } from '@/lib/server/public-api-guard';
 
 export async function GET(req: NextRequest) {
+  const guarded = await guardPublicDataRequest(req, {
+    action: 'trade-tree',
+    requireBrowserGate: true,
+    limit: { maxRequests: 30, windowSeconds: 5 * 60 },
+  });
+  if (guarded) return guarded;
+
   try {
     const { searchParams } = new URL(req.url);
 

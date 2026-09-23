@@ -1,18 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { buildTransactionLedger } from "@/lib/utils/transactions";
-
-const TTL_MS = 5 * 60 * 1000;
-let cache: { ts: number; data: Awaited<ReturnType<typeof buildTransactionLedger>> } | null = null;
-
-async function getLedgerCached() {
-  const now = Date.now();
-  if (cache && now - cache.ts < TTL_MS) {
-    return cache.data;
-  }
-  const data = await buildTransactionLedger();
-  cache = { ts: now, data };
-  return data;
-}
+import { getCurrentLeague } from "@/lib/server/league-context";
+import { guardPublicDataRequest } from "@/lib/server/public-api-guard";
+import { readThroughReliabilityCache, reliabilityKey, reliabilityResponseHeaders } from "@/lib/server/reliability-cache";
 
 function sortTransactions(
   transactions: Awaited<ReturnType<typeof buildTransactionLedger>>,
@@ -41,7 +31,14 @@ function sortTransactions(
   return sorted;
 }
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  const guarded = await guardPublicDataRequest(req, {
+    action: 'transactions-ledger',
+    requireBrowserGate: true,
+    limit: { maxRequests: 30, windowSeconds: 5 * 60 },
+  });
+  if (guarded) return guarded;
+
   try {
     const url = new URL(req.url);
     const season = url.searchParams.get("season");
@@ -49,7 +46,15 @@ export async function GET(req: Request) {
     const sortKey = url.searchParams.get("sort");
     const direction = url.searchParams.get("direction");
 
-    const ledger = await getLedgerCached();
+    const league = await getCurrentLeague();
+    if (!league) return NextResponse.json({ error: 'No active league selected.' }, { status: 404 });
+    const result = await readThroughReliabilityCache({
+      key: reliabilityKey('transactions-ledger', league.id),
+      freshForSeconds: 5 * 60,
+      staleForSeconds: 7 * 24 * 60 * 60,
+      load: () => buildTransactionLedger({ dbLeagueId: league.id }),
+    });
+    const ledger = result.value;
     const allSeasons = Array.from(new Set(ledger.map((txn) => txn.season))).sort((a, b) => b.localeCompare(a));
     const allTeams = Array.from(new Set(ledger.map((txn) => txn.team))).sort();
 
@@ -72,10 +77,10 @@ export async function GET(req: Request) {
         seasons: allSeasons,
         teams: allTeams,
       },
-    });
+    }, { headers: reliabilityResponseHeaders(result) });
   } catch (error) {
     console.error("/api/transactions error", error);
-    return NextResponse.json({ error: "server_error" }, { status: 500 });
+    return NextResponse.json({ error: "Transactions are temporarily unavailable." }, { status: 503, headers: { "Retry-After": "60" } });
   }
 }
 

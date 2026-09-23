@@ -7,6 +7,7 @@ import {
   SleeperPlayer,
   SleeperNFLState,
 } from '@/lib/utils/sleeper-api';
+import { guardPublicDataRequest } from '@/lib/server/public-api-guard';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,13 @@ function clamp(n: number, min: number, max: number) {
 }
 
 export async function GET(req: NextRequest) {
+  const guarded = await guardPublicDataRequest(req, {
+    action: 'team-feed',
+    requireBrowserGate: true,
+    limit: { maxRequests: 30, windowSeconds: 5 * 60 },
+  });
+  if (guarded) return guarded;
+
   try {
     const { searchParams } = new URL(req.url);
 

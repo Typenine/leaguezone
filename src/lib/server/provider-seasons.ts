@@ -1,8 +1,9 @@
 import { sql } from 'drizzle-orm';
-import { getDb } from '@/server/db/client';
+import { getDb, isDatabaseCircuitOpen } from '@/server/db/client';
 import { getLeagueById } from '@/lib/server/league-context';
 import { discoverLeagueChain, getLeague } from '@/lib/utils/sleeper-api';
 import type { FantasyProviderId } from '@/lib/providers/types';
+import { readReliabilityCache, reliabilityKey, writeReliabilityCache, type ReliabilityCacheResult } from '@/lib/server/reliability-cache';
 
 export type LeagueProviderSeason = {
   id: string | null;
@@ -48,7 +49,14 @@ function rowToSeason(row: Record<string, unknown>): LeagueProviderSeason | null 
   };
 }
 
-async function readMappedSeasons(leagueId: string): Promise<LeagueProviderSeason[]> {
+const PROVIDER_SEASONS_FRESH_SECONDS = 5 * 60;
+const PROVIDER_SEASONS_STALE_SECONDS = 7 * 24 * 60 * 60;
+
+function providerSeasonsKey(leagueId: string): string {
+  return reliabilityKey('provider-seasons', leagueId);
+}
+
+async function queryMappedSeasons(leagueId: string): Promise<LeagueProviderSeason[]> {
   const db = getDb();
   const result = await db.execute(sql`
     SELECT id, league_id, season, provider, provider_league_id, provider_game_id,
@@ -59,6 +67,23 @@ async function readMappedSeasons(leagueId: string): Promise<LeagueProviderSeason
   `);
   return rowsOf(result).map(rowToSeason).filter((row): row is LeagueProviderSeason => Boolean(row));
 }
+
+async function readMappedSeasonsResult(leagueId: string): Promise<ReliabilityCacheResult<LeagueProviderSeason[]>> {
+  const key = providerSeasonsKey(leagueId);
+  const fresh = await readReliabilityCache<LeagueProviderSeason[]>(key, PROVIDER_SEASONS_FRESH_SECONDS);
+  if (fresh) return { ...fresh, stale: false };
+
+  try {
+    const value = await queryMappedSeasons(leagueId);
+    await writeReliabilityCache(key, value, PROVIDER_SEASONS_STALE_SECONDS);
+    return { value, stale: false, cachedAt: Date.now(), source: 'live' };
+  } catch (error) {
+    const fallback = await readReliabilityCache<LeagueProviderSeason[]>(key, PROVIDER_SEASONS_STALE_SECONDS);
+    if (fallback) return fallback;
+    throw error;
+  }
+}
+
 
 async function backfillLegacySleeperMappings(leagueId: string, existing: LeagueProviderSeason[]): Promise<void> {
   const league = await getLeagueById(leagueId);
@@ -101,11 +126,22 @@ async function backfillLegacySleeperMappings(leagueId: string, existing: LeagueP
   }
 }
 
+export async function listLeagueProviderSeasonsResult(
+  leagueId: string,
+): Promise<ReliabilityCacheResult<LeagueProviderSeason[]>> {
+  let result = await readMappedSeasonsResult(leagueId);
+
+  if (!result.stale && !isDatabaseCircuitOpen()) {
+    await backfillLegacySleeperMappings(leagueId, result.value).catch(() => {});
+    result = await readMappedSeasonsResult(leagueId).catch(() => result);
+  }
+
+  const value = result.value.sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent) || b.season - a.season);
+  return { ...result, value };
+}
+
 export async function listLeagueProviderSeasons(leagueId: string): Promise<LeagueProviderSeason[]> {
-  let seasons = await readMappedSeasons(leagueId).catch(() => []);
-  await backfillLegacySleeperMappings(leagueId, seasons).catch(() => {});
-  seasons = await readMappedSeasons(leagueId).catch(() => seasons);
-  return seasons.sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent) || b.season - a.season);
+  return (await listLeagueProviderSeasonsResult(leagueId)).value;
 }
 
 export async function resolveLeagueProviderSeason(

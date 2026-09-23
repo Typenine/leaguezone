@@ -28,6 +28,7 @@ import {
   NICKNAMES,
 } from '@/lib/news/news-matching';
 import { getNewsModerationRules, type NewsModerationRule } from '@/server/db/news-moderation-queries';
+import { guardPublicDataRequest } from '@/lib/server/public-api-guard';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -96,6 +97,13 @@ async function getLeagueRosterMaps(leagueId: string): Promise<RosterCache> {
 }
 
 export async function GET(req: NextRequest) {
+  const guarded = await guardPublicDataRequest(req, {
+    action: 'league-news',
+    requireBrowserGate: true,
+    limit: { maxRequests: 20, windowSeconds: 5 * 60 },
+  });
+  if (guarded) return guarded;
+
   try {
     const { searchParams } = new URL(req.url);
     const explicitSlug = searchParams.get('league')?.trim();

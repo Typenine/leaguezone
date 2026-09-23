@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '@/server/db/client';
+import { guardPublicDataRequest } from '@/lib/server/public-api-guard';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  const guarded = await guardPublicDataRequest(req, {
+    action: 'league-search',
+    requireBrowserGate: false,
+    allowAutomatedClients: false,
+    limit: { maxRequests: 10, windowSeconds: 60 },
+  });
+  if (guarded) return guarded;
+
   const sleeperLeagueId = req.nextUrl.searchParams.get('sleeperLeagueId')?.trim();
   if (!sleeperLeagueId || !/^\d{3,}$/.test(sleeperLeagueId)) {
     return NextResponse.json({ error: 'Enter a valid Sleeper league ID' }, { status: 400 });
@@ -68,6 +77,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error('[league/search] GET error:', err);
-    return NextResponse.json({ error: 'Search failed' }, { status: 500 });
+    return NextResponse.json({ error: 'League search is temporarily unavailable.' }, { status: 503, headers: { 'Retry-After': '60' } });
   }
 }

@@ -2,6 +2,7 @@ import { type NextRequest } from 'next/server';
 import { getPlayerProfile, type PlayerProfileLeagueContext } from '@/lib/players/player-profile-service';
 import { getCurrentLeague, getLeagueBySlug, type League } from '@/lib/server/league-context';
 import { getLeague as getSleeperLeague } from '@/lib/utils/sleeper-api';
+import { guardPublicDataRequest } from '@/lib/server/public-api-guard';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,13 @@ async function buildPlayerContext(league: League): Promise<PlayerProfileLeagueCo
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ playerId: string }> }) {
+  const guarded = await guardPublicDataRequest(req, {
+    action: 'player-profile',
+    requireBrowserGate: true,
+    limit: { maxRequests: 60, windowSeconds: 5 * 60 },
+  });
+  if (guarded) return guarded;
+
   const { playerId } = await params;
   const requestedLeagueSlug = req.nextUrl.searchParams.get('league')?.trim().toLowerCase() || '';
 
