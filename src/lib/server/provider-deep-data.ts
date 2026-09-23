@@ -6,6 +6,7 @@ import { getFantasyMatchups, getFantasyRosters, getFantasyStandings } from '@/li
 import { syncProviderIdentities, resolveLeaguePlayerId, type ProviderIdentityMaps } from '@/lib/server/provider-identities';
 import { listLeagueProviderSeasons, resolveLeagueProviderSeason } from '@/lib/server/provider-seasons';
 import { readProviderSnapshot, snapshotIsFresh, writeProviderSnapshot } from '@/lib/server/provider-snapshots';
+import { readThroughReliabilityCache, reliabilityKey, type ReliabilityCacheResult } from '@/lib/server/reliability-cache';
 
 const emptyIdentities = (): ProviderIdentityMaps => ({
   franchiseByRosterId: {},
@@ -195,7 +196,7 @@ export type FantasyHistorySummary = {
   seasons: Array<{ season: number; provider: FantasyProviderId }>;
 };
 
-export async function getFantasyHistorySummary(leagueId: string): Promise<FantasyHistorySummary> {
+async function loadFantasyHistorySummary(leagueId: string): Promise<FantasyHistorySummary> {
   const seasons = await listLeagueProviderSeasons(leagueId);
   const franchiseMap = new Map<string, FranchiseHistoryRow>();
   const h2h = new Map<string, HeadToHeadRow>();
@@ -241,6 +242,21 @@ export async function getFantasyHistorySummary(leagueId: string): Promise<Fantas
     topScoringWeeks: scoringWeeks.sort((a, b) => b.points - a.points).slice(0, 25),
     seasons: seasons.map((row) => ({ season: row.season, provider: row.provider })).sort((a, b) => b.season - a.season),
   };
+}
+
+export async function getFantasyHistorySummaryResult(
+  leagueId: string,
+): Promise<ReliabilityCacheResult<FantasyHistorySummary>> {
+  return readThroughReliabilityCache({
+    key: reliabilityKey('fantasy', 'history-summary', leagueId),
+    freshForSeconds: 60 * 60,
+    staleForSeconds: 30 * 24 * 60 * 60,
+    load: () => loadFantasyHistorySummary(leagueId),
+  });
+}
+
+export async function getFantasyHistorySummary(leagueId: string): Promise<FantasyHistorySummary> {
+  return (await getFantasyHistorySummaryResult(leagueId)).value;
 }
 
 export async function getFantasyDraftHistory(leagueId: string): Promise<Array<{ season: number; provider: FantasyProviderId; results: ProviderDraftResult[] }>> {

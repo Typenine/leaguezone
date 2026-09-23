@@ -1,17 +1,15 @@
 /**
  * League Context Helper
  * Provides the current league context scoped to the active request.
- * The active league is resolved from:
- *   1. An explicit slug (from /l/[leagueSlug] routes)
- *   2. The active_league_id cookie (from the user's selected league)
- *
- * Does NOT fall back to "most recently created league" to prevent cross-league
- * data leakage on a multi-tenant platform.
  */
 
 import { getDb } from '@/server/db/client';
 import { sql } from 'drizzle-orm';
 import { DEFAULT_LEAGUE_FEATURES, type LeagueFeatureKey } from '@/lib/config/platform';
+import { readReliabilityCache, reliabilityKey, writeReliabilityCache } from '@/lib/server/reliability-cache';
+
+const LEAGUE_FRESH_SECONDS = 5 * 60;
+const LEAGUE_STALE_SECONDS = 7 * 24 * 60 * 60;
 
 export type League = {
   id: string;
@@ -26,6 +24,10 @@ export type League = {
   config: Record<string, unknown>;
   foundedYear: number | null;
   isActive: boolean;
+  _reliability?: {
+    stale: boolean;
+    cachedAt: number | null;
+  };
 };
 
 function rowToLeague(row: Record<string, unknown>): League {
@@ -45,39 +47,92 @@ function rowToLeague(row: Record<string, unknown>): League {
   };
 }
 
-/**
- * Get the league for a given DB league ID.
- * Only returns active, setup-completed leagues.
- */
-export async function getLeagueById(leagueId: string): Promise<League | null> {
-  try {
-    const db = getDb();
-    const res = await db.execute(sql`
-      SELECT * FROM leagues WHERE id = ${leagueId}::uuid AND setup_completed = true AND is_active = true LIMIT 1
-    `);
-    const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-    return row ? rowToLeague(row) : null;
-  } catch {
-    return null;
-  }
+function plainLeague(league: League): League {
+  const { _reliability: _ignored, ...rest } = league;
+  return rest;
+}
+
+function marked(league: League, stale: boolean, cachedAt: number | null): League {
+  return { ...league, _reliability: { stale, cachedAt } };
+}
+
+function idKey(id: string) {
+  return reliabilityKey('league', 'id', id);
+}
+
+function slugKey(slug: string) {
+  return reliabilityKey('league', 'slug', slug);
+}
+
+async function cacheLeague(league: League): Promise<void> {
+  const value = plainLeague(league);
+  await Promise.all([
+    writeReliabilityCache(idKey(value.id), value, LEAGUE_STALE_SECONDS),
+    writeReliabilityCache(slugKey(value.slug), value, LEAGUE_STALE_SECONDS),
+  ]);
+}
+
+async function cachedLeague(key: string, maxAgeSeconds: number, stale: boolean): Promise<League | null> {
+  const cached = await readReliabilityCache<League>(key, maxAgeSeconds);
+  return cached ? marked(cached.value, stale, cached.cachedAt) : null;
+}
+
+async function queryLeagueById(leagueId: string): Promise<League | null> {
+  const db = getDb();
+  const res = await db.execute(sql`
+    SELECT * FROM leagues
+    WHERE id = ${leagueId}::uuid
+      AND setup_completed = true
+      AND is_active = true
+    LIMIT 1
+  `);
+  const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+  return row ? rowToLeague(row) : null;
+}
+
+async function queryLeagueBySlug(slug: string): Promise<League | null> {
+  const db = getDb();
+  const res = await db.execute(sql`
+    SELECT * FROM leagues
+    WHERE slug = ${slug}
+      AND setup_completed = true
+      AND is_active = true
+    LIMIT 1
+  `);
+  const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
+  return row ? rowToLeague(row) : null;
 }
 
 /**
- * Get a league by its slug.
- * Only returns active, setup-completed leagues.
+ * Read-through league metadata cache. This is intentionally outside Postgres so
+ * league shells and branding can still render during a Neon outage.
  */
+export async function getLeagueById(leagueId: string): Promise<League | null> {
+  const fresh = await cachedLeague(idKey(leagueId), LEAGUE_FRESH_SECONDS, false);
+  if (fresh) return fresh;
+
+  try {
+    const league = await queryLeagueById(leagueId);
+    if (league) await cacheLeague(league);
+    return league;
+  } catch {
+    return cachedLeague(idKey(leagueId), LEAGUE_STALE_SECONDS, true);
+  }
+}
+
 export async function getLeagueBySlug(slug: string): Promise<League | null> {
   const normalized = slug.trim().toLowerCase();
   if (!normalized) return null;
+
+  const fresh = await cachedLeague(slugKey(normalized), LEAGUE_FRESH_SECONDS, false);
+  if (fresh) return fresh;
+
   try {
-    const db = getDb();
-    const res = await db.execute(sql`
-      SELECT * FROM leagues WHERE slug = ${normalized} AND setup_completed = true AND is_active = true LIMIT 1
-    `);
-    const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
-    return row ? rowToLeague(row) : null;
+    const league = await queryLeagueBySlug(normalized);
+    if (league) await cacheLeague(league);
+    return league;
   } catch {
-    return null;
+    return cachedLeague(slugKey(normalized), LEAGUE_STALE_SECONDS, true);
   }
 }
 
@@ -86,14 +141,6 @@ export async function getCurrentLeagueBySlug(slug: string): Promise<League | nul
   return getLeagueBySlug(slug);
 }
 
-/**
- * Get the current league from the active_league_id cookie.
- * Returns null if no active league is selected.
- *
- * IMPORTANT: This must only be called from Server Components or API routes
- * (requires next/headers). Do NOT fall back to "most recently created league"
- * as that would bleed League data into other leagues.
- */
 export async function getCurrentLeague(): Promise<League | null> {
   try {
     const { cookies } = await import('next/headers');
@@ -114,10 +161,6 @@ export async function getCurrentLeagueId(): Promise<string | null> {
 /** No-op — kept for backwards compatibility; there is no longer a module-level cache. */
 export function clearLeagueCache(): void {}
 
-/**
- * Effective feature flags for a league: defaults merged with any overrides
- * stored under `leagues.config.features`.
- */
 export function getLeagueFeatures(league: League): Record<LeagueFeatureKey, boolean> {
   const overrides = (league.config?.features ?? {}) as Partial<Record<LeagueFeatureKey, boolean>>;
   return { ...DEFAULT_LEAGUE_FEATURES, ...overrides };

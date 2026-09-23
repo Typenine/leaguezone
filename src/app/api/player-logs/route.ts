@@ -1,11 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getNFLWeekStats, getNFLState } from '@/lib/utils/sleeper-api';
+import { guardPublicDataRequest } from '@/lib/server/public-api-guard';
 
 // 10 min TTL per season-week
 const TTL_MS = 10 * 60 * 1000;
 const cache: Record<string, { ts: number; data: unknown }> = {};
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  const guarded = await guardPublicDataRequest(req, {
+    action: 'player-logs',
+    requireBrowserGate: true,
+    limit: { maxRequests: 20, windowSeconds: 5 * 60 },
+  });
+  if (guarded) return guarded;
+
   try {
     const url = new URL(req.url);
     const playerId = url.searchParams.get('playerId');

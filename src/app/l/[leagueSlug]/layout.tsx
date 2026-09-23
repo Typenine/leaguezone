@@ -13,6 +13,7 @@ import { verifySession } from '@/lib/server/auth';
 import { isAdminCookieValue, isSiteAdminCookieValue } from '@/lib/auth/admin';
 import { getUserLeagues } from '@/lib/server/user-auth';
 import { deriveSemanticBrandTokens, normalizeBrandPalette, normalizeHexColor } from '@/lib/branding/colors';
+import ReadOnlyFallbackBanner from '@/components/reliability/ReadOnlyFallbackBanner';
 
 export const dynamic = 'force-dynamic';
 
@@ -285,6 +286,7 @@ export default async function LeagueLayout({
           __html: `(() => { window.__LEAGUE_CONFIG__ = ${runtimeConfig}; window.__LEAGUE_BRANDING__ = ${runtimeBranding}; const secure = location.protocol === 'https:' ? '; Secure' : ''; document.cookie = 'active_league_id=${encodeURIComponent(league.id)}; Path=/; Max-Age=2592000; SameSite=Lax' + secure; document.cookie = 'active_league_slug=${encodeURIComponent(league.slug)}; Path=/; Max-Age=2592000; SameSite=Lax' + secure; window.dispatchEvent(new Event('leaguezone:league-changed')); })();`,
         }}
       />
+      <ReadOnlyFallbackBanner initialDegraded={Boolean(league._reliability?.stale)} />
       <header style={{ background: 'var(--brand-navy)', boxShadow: `inset 0 -3px 0 ${accent}`, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between gap-3 py-3">

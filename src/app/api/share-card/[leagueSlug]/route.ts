@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getLeagueBySlug } from '@/lib/server/league-context';
 import { createLeagueShareCard, type ShareCardKind } from '@/lib/branding/share-card';
+import { guardPublicDataRequest } from '@/lib/server/public-api-guard';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,14 @@ function clean(value: string | null, max: number): string | undefined {
 }
 
 export async function GET(req: NextRequest, context: { params: Promise<{ leagueSlug: string }> }) {
+  const guarded = await guardPublicDataRequest(req, {
+    action: 'share-card',
+    allowAutomatedClients: true,
+    requireBrowserGate: false,
+    limit: { maxRequests: 60, windowSeconds: 5 * 60 },
+  });
+  if (guarded) return guarded;
+
   const { leagueSlug } = await context.params;
   const league = await getLeagueBySlug(leagueSlug);
   if (!league) return Response.json({ error: 'League not found' }, { status: 404 });

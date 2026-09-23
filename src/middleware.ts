@@ -123,6 +123,34 @@ function publicBrowserGateResponse(req: NextRequest): NextResponse {
   });
 }
 
+const PUBLIC_DATA_API_PREFIXES = [
+  '/api/fantasy/',
+  '/api/team-logos',
+  '/api/home/recent-transactions',
+  '/api/league/info',
+  '/api/players/',
+  '/api/player-logs',
+  '/api/player-baselines',
+  '/api/roster-news',
+  '/api/team-feed',
+  '/api/transactions',
+  '/api/trade-tree',
+  '/api/matchup-points',
+  '/api/league-news',
+  '/api/draft/history',
+  '/api/draft/team-history',
+  '/api/draft/team-roster',
+  '/api/draft/team-season-stats',
+  '/api/draft/teams',
+  '/api/teams/trade-blocks',
+  '/api/trade-analyzer/values',
+  '/api/search/players',
+] as const;
+
+function isPublicDataApi(pathname: string): boolean {
+  return PUBLIC_DATA_API_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
+}
+
 const LEGACY_LEAGUE_ROOTS = ['history', 'players', 'teams', 'rosters', 'matchups', 'calendar', 'hall-of-fame', 'news', 'transactions', 'trades'] as const;
 
 function legacyLeagueDestination(pathname: string): string | null {
@@ -198,6 +226,27 @@ export async function middleware(req: NextRequest) {
 
   if (anonymousPublicLeagueRequest && req.cookies.get('lz_public_browser')?.value !== '1') {
     return publicBrowserGateResponse(req);
+  }
+
+  const anonymousPublicDataRequest =
+    (requestMethod === 'GET' || requestMethod === 'HEAD')
+    && isPublicDataApi(pathname)
+    && !hasAuthenticatedViewer
+    && !isAdmin
+    && !qaSession;
+
+  if (anonymousPublicDataRequest && isAutomatedPublicClient(req.headers.get('user-agent'))) {
+    return NextResponse.json(
+      { error: 'Automated access to LeagueZone public data is not allowed.' },
+      { status: 403, headers: { 'X-Robots-Tag': 'noindex, nofollow, noarchive' } },
+    );
+  }
+
+  if (anonymousPublicDataRequest && req.cookies.get('lz_public_browser')?.value !== '1') {
+    return NextResponse.json(
+      { error: 'Open the LeagueZone league site in a browser before requesting league data.' },
+      { status: 403, headers: { 'X-Robots-Tag': 'noindex, nofollow, noarchive' } },
+    );
   }
 
   const newsletterEnabled = process.env.NEXT_PUBLIC_NEWSLETTER_ENABLED === 'true';

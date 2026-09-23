@@ -20,6 +20,7 @@ import {
   resolveLeagueProviderSeason,
   type LeagueProviderSeason,
 } from '@/lib/server/provider-seasons';
+import { readThroughReliabilityCache, reliabilityKey, type ReliabilityCacheResult } from '@/lib/server/reliability-cache';
 import {
   readProviderSnapshot,
   snapshotIsFresh,
@@ -107,11 +108,27 @@ async function sleeperStandings(season: LeagueProviderSeason): Promise<FantasySt
   };
 }
 
-export async function getFantasyStandings(leagueId: string, season?: string | number | null): Promise<FantasyStandingsData> {
+async function loadFantasyStandings(leagueId: string, season?: string | number | null): Promise<FantasyStandingsData> {
   const mapped = requireMappedSeason(await resolveLeagueProviderSeason(leagueId, season));
   if (mapped.provider === 'sleeper') return sleeperStandings(mapped);
   const standings = await yahooSnapshot(mapped, 'standings', TTL.standings, async (accessToken) => getYahooLeagueStandings(accessToken, mapped.providerLeagueId));
   return { provider: 'yahoo', season: String(mapped.season), teams: standings.teams, streaks: standings.streaks };
+}
+
+export async function getFantasyStandingsResult(
+  leagueId: string,
+  season?: string | number | null,
+): Promise<ReliabilityCacheResult<FantasyStandingsData>> {
+  return readThroughReliabilityCache({
+    key: reliabilityKey('fantasy', 'standings', leagueId, season == null ? 'current' : String(season)),
+    freshForSeconds: 2 * 60,
+    staleForSeconds: 7 * 24 * 60 * 60,
+    load: () => loadFantasyStandings(leagueId, season),
+  });
+}
+
+export async function getFantasyStandings(leagueId: string, season?: string | number | null): Promise<FantasyStandingsData> {
+  return (await getFantasyStandingsResult(leagueId, season)).value;
 }
 
 async function sleeperRosters(season: LeagueProviderSeason): Promise<FantasyRostersData> {
@@ -125,7 +142,7 @@ async function sleeperRosters(season: LeagueProviderSeason): Promise<FantasyRost
   return { provider: 'sleeper', season: String(season.season), teams: standings.teams, players };
 }
 
-export async function getFantasyRosters(leagueId: string, season?: string | number | null): Promise<FantasyRostersData> {
+async function loadFantasyRosters(leagueId: string, season?: string | number | null): Promise<FantasyRostersData> {
   const mapped = requireMappedSeason(await resolveLeagueProviderSeason(leagueId, season));
   if (mapped.provider === 'sleeper') return sleeperRosters(mapped);
   return yahooSnapshot<FantasyRostersData>(mapped, 'rosters', TTL.rosters, async (accessToken) => {
@@ -150,6 +167,22 @@ export async function getFantasyRosters(leagueId: string, season?: string | numb
     });
     return { provider: 'yahoo', season: String(mapped.season), teams, players };
   });
+}
+
+export async function getFantasyRostersResult(
+  leagueId: string,
+  season?: string | number | null,
+): Promise<ReliabilityCacheResult<FantasyRostersData>> {
+  return readThroughReliabilityCache({
+    key: reliabilityKey('fantasy', 'rosters', leagueId, season == null ? 'current' : String(season)),
+    freshForSeconds: 5 * 60,
+    staleForSeconds: 7 * 24 * 60 * 60,
+    load: () => loadFantasyRosters(leagueId, season),
+  });
+}
+
+export async function getFantasyRosters(leagueId: string, season?: string | number | null): Promise<FantasyRostersData> {
+  return (await getFantasyRostersResult(leagueId, season)).value;
 }
 
 function groupSleeperMatchups(
@@ -177,13 +210,23 @@ function groupSleeperMatchups(
   })).sort((a, b) => a.matchupId - b.matchupId);
 }
 
-export async function getFantasyMatchups(leagueId: string, week: number, season?: string | number | null): Promise<FantasyMatchup[]> {
+async function loadFantasyMatchups(leagueId: string, week: number, season?: string | number | null): Promise<FantasyMatchup[]> {
   const mapped = requireMappedSeason(await resolveLeagueProviderSeason(leagueId, season));
   if (mapped.provider === 'sleeper') {
     const [raw, names] = await Promise.all([getLeagueMatchups(mapped.providerLeagueId, week), getRosterIdToTeamNameMap(mapped.providerLeagueId)]);
     return groupSleeperMatchups(mapped, week, raw, names);
   }
   return yahooSnapshot<FantasyMatchup[]>(mapped, `matchups:${week}`, mapped.isCurrent ? TTL.matchupsCurrent : TTL.matchupsHistorical, async (accessToken) => getYahooLeagueScoreboard(accessToken, mapped.providerLeagueId, String(mapped.season), week));
+}
+
+export async function getFantasyMatchups(leagueId: string, week: number, season?: string | number | null): Promise<FantasyMatchup[]> {
+  const historical = season != null && String(season) !== String(new Date().getUTCFullYear());
+  return (await readThroughReliabilityCache({
+    key: reliabilityKey('fantasy', 'matchups', leagueId, season == null ? 'current' : String(season), week),
+    freshForSeconds: historical ? 24 * 60 * 60 : 2 * 60,
+    staleForSeconds: historical ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60,
+    load: () => loadFantasyMatchups(leagueId, week, season),
+  })).value;
 }
 
 export async function getFantasyCurrentWeek(): Promise<number> {
@@ -257,10 +300,19 @@ async function sleeperTransactions(season: LeagueProviderSeason): Promise<Fantas
   return chunk.sort((a, b) => b.created - a.created);
 }
 
-export async function getFantasyTransactionsForSeason(leagueId: string, season: string | number): Promise<FantasyTransaction[]> {
+async function loadFantasyTransactionsForSeason(leagueId: string, season: string | number): Promise<FantasyTransaction[]> {
   const mapped = requireMappedSeason(await resolveLeagueProviderSeason(leagueId, season));
   if (mapped.provider === 'sleeper') return sleeperTransactions(mapped);
   return yahooSnapshot<FantasyTransaction[]>(mapped, 'transactions', TTL.transactions, async (accessToken) => getYahooLeagueTransactions(accessToken, mapped.providerLeagueId, String(mapped.season)));
+}
+
+export async function getFantasyTransactionsForSeason(leagueId: string, season: string | number): Promise<FantasyTransaction[]> {
+  return (await readThroughReliabilityCache({
+    key: reliabilityKey('fantasy', 'transactions', leagueId, String(season)),
+    freshForSeconds: 5 * 60,
+    staleForSeconds: 7 * 24 * 60 * 60,
+    load: () => loadFantasyTransactionsForSeason(leagueId, season),
+  })).value;
 }
 
 async function getTeamRecordsForMappedSeason(mapped: LeagueProviderSeason): Promise<FantasyTeamData[]> {
@@ -274,7 +326,7 @@ async function getTeamRecordsForMappedSeason(mapped: LeagueProviderSeason): Prom
   }));
 }
 
-export async function getFantasyTeamDirectory(leagueId: string): Promise<{
+async function loadFantasyTeamDirectory(leagueId: string): Promise<{
   provider: 'sleeper' | 'yahoo' | null;
   teams: FantasyTeamData[];
   allTimeByOwner: Record<string, { wins: number; losses: number; ties: number }>;
@@ -289,4 +341,21 @@ export async function getFantasyTeamDirectory(leagueId: string): Promise<{
     existing.wins += team.wins; existing.losses += team.losses; existing.ties += team.ties; allTimeByOwner[key] = existing;
   }
   return { provider: current.provider, teams: currentTeams, allTimeByOwner };
+}
+
+export type FantasyTeamDirectoryData = Awaited<ReturnType<typeof loadFantasyTeamDirectory>>;
+
+export async function getFantasyTeamDirectoryResult(
+  leagueId: string,
+): Promise<ReliabilityCacheResult<FantasyTeamDirectoryData>> {
+  return readThroughReliabilityCache({
+    key: reliabilityKey('fantasy', 'teams', leagueId),
+    freshForSeconds: 15 * 60,
+    staleForSeconds: 7 * 24 * 60 * 60,
+    load: () => loadFantasyTeamDirectory(leagueId),
+  });
+}
+
+export async function getFantasyTeamDirectory(leagueId: string): Promise<FantasyTeamDirectoryData> {
+  return (await getFantasyTeamDirectoryResult(leagueId)).value;
 }
