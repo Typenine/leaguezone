@@ -88,7 +88,7 @@ export default function SetupAuthPage() {
 
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--accent)] text-white text-lg font-bold mb-4">
-            7
+            6
           </div>
           <h1 className="text-2xl font-bold text-[var(--text)] mb-2">
             Team Signup
@@ -228,7 +228,7 @@ export default function SetupAuthPage() {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => router.push('/setup/admin')}
+              onClick={() => router.push('/setup/rules')}
               className="flex-1"
             >
               Back

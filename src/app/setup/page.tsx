@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import type { SetupStepId } from '@/lib/setup/steps';
 
 type SetupStep = {
-  id: string;
+  id: SetupStepId;
   title: string;
   description: string;
   completed: boolean;
@@ -14,81 +15,79 @@ type SetupStep = {
 
 const SETUP_STEPS: SetupStep[] = [
   { id: 'league', title: 'League Identity', description: 'Name your league and set basic info', completed: false },
-  { id: 'sleeper', title: 'Fantasy Provider', description: 'Connect Sleeper or Yahoo Fantasy', completed: false },
+  { id: 'provider', title: 'Fantasy Provider', description: 'Connect Sleeper or Yahoo Fantasy', completed: false },
   { id: 'branding', title: 'Branding', description: 'Set colors and upload logo', completed: false },
   { id: 'teams', title: 'Team Colors', description: 'Customize team colors (optional)', completed: false },
   { id: 'rules', title: 'Rules', description: 'Add league rules (optional)', completed: false },
-  { id: 'admin', title: 'Admin Account', description: 'Create your admin login', completed: false },
-  { id: 'auth', title: 'Team Signup', description: 'Configure how teams join', completed: false },
+  { id: 'auth', title: 'Team Signup', description: 'Configure how managers join', completed: false },
 ];
 
-function setupStepPath(stepId: string): string {
-  return stepId === 'sleeper' ? '/setup/provider' : `/setup/${stepId}`;
+function setupStepPath(stepId: SetupStepId, startingFresh: boolean): string {
+  if (stepId === 'provider') return '/setup/provider';
+  if (stepId === 'league' && startingFresh) return '/setup/league?new=1';
+  return `/setup/${stepId}`;
 }
 
 export default function SetupPage() {
   const router = useRouter();
   const [steps, setSteps] = useState<SetupStep[]>(SETUP_STEPS);
   const [currentStep, setCurrentStep] = useState(0);
+  const [startingFresh, setStartingFresh] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function checkSetup() {
       const isNewLeague = new URLSearchParams(window.location.search).get('new') === '1';
+      setStartingFresh(isNewLeague);
 
       try {
         const [statusRes, meRes] = await Promise.all([
-          fetch('/api/setup/status'),
-          fetch('/api/auth/me').catch(() => null),
+          fetch('/api/setup/status', { cache: 'no-store' }),
+          fetch('/api/auth/me', { cache: 'no-store' }).catch(() => null),
         ]);
+        const meData = meRes ? await meRes.json().catch(() => ({})) : {};
+
+        if (isNewLeague && !meData.authenticated) {
+          router.push('/login?next=%2Fsetup%3Fnew%3D1');
+          return;
+        }
 
         if (statusRes.ok) {
           const data = await statusRes.json();
-          const meData = meRes ? await meRes.json().catch(() => ({})) : {};
-          if (data.setupCompleted && !(isNewLeague && meData.isSiteAdmin)) {
-            router.push('/');
+          if (data.setupCompleted && !isNewLeague) {
+            router.push('/app');
             return;
           }
 
-          let completedSteps: string[] = isNewLeague ? [] : (data.completedSteps || []);
-
-          if (meData.isAdmin && !completedSteps.includes('admin')) {
-            try {
-              const skipRes = await fetch('/api/setup/admin');
-              if (skipRes.ok) {
-                completedSteps = [...completedSteps, 'admin'];
-              }
-            } catch {
-              // Non-fatal: step will be skipped when navigated to directly
-            }
-          }
-
-          setSteps(prev => prev.map(step => ({
+          const completedSteps: string[] = isNewLeague ? [] : (data.completedSteps || []);
+          setSteps((prev) => prev.map((step) => ({
             ...step,
-            completed: completedSteps.includes(step.id)
+            completed: completedSteps.includes(step.id),
           })));
+
           const firstIncomplete = SETUP_STEPS.findIndex(
-            s => !completedSteps.includes(s.id)
+            (step) => !completedSteps.includes(step.id),
           );
           setCurrentStep(firstIncomplete >= 0 ? firstIncomplete : 0);
         }
       } catch {
-        // API not ready yet, show setup
+        // If status cannot load, leave the setup overview visible rather than
+        // inventing completion state.
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
-    checkSetup();
+
+    void checkSetup();
   }, [router]);
 
   const handleStepClick = (index: number) => {
     const canNavigate = index <= currentStep || steps[index - 1]?.completed;
-    if (canNavigate) {
-      router.push(setupStepPath(steps[index].id));
-    }
+    if (canNavigate) router.push(setupStepPath(steps[index].id, startingFresh));
   };
 
   const handleStart = () => {
-    router.push(setupStepPath(steps[currentStep].id));
+    router.push(setupStepPath(steps[currentStep].id, startingFresh));
   };
 
   if (loading) {
@@ -109,10 +108,10 @@ export default function SetupPage() {
             <span className="block w-6 h-px bg-[var(--brand-gold)]" />
           </div>
           <h1 className="text-3xl font-black uppercase tracking-tight text-white mb-2">
-            Welcome to Your Fantasy League
+            {startingFresh ? 'Create a New League' : 'Set Up Your Fantasy League'}
           </h1>
           <p className="text-white/50">
-            Let&apos;s set up your league website in a few easy steps.
+            Connect your provider, customize the site, and choose how league managers join.
           </p>
         </div>
 
@@ -155,13 +154,8 @@ export default function SetupPage() {
                       <div className="text-xs text-[var(--muted)] mt-0.5">{step.description}</div>
                     </div>
                     {isActive && (
-                      <svg
-                        className="w-4 h-4 text-[var(--brand-gold)]"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                      <svg className="w-4 h-4 text-[var(--brand-gold)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path d="M9 5l7 7-7 7" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     )}
                   </div>
@@ -178,7 +172,7 @@ export default function SetupPage() {
         </Card>
 
         <p className="text-center text-xs text-white/25 mt-6">
-          You can always change these settings later in the admin panel.
+          League commissioners can change these settings later from Commissioner Settings.
         </p>
       </div>
     </div>

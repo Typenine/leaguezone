@@ -76,7 +76,7 @@ test.describe('Clean-user onboarding journey', () => {
     await page.goto('/app');
     await expect(page).not.toHaveURL(/\/login/);
 
-    // 6. Start league creation from the dashboard.
+    // 6. Start league creation from the dashboard. Existing commissioners must be able to create another league without being bounced back to their completed league.
     await page.getByRole('link', { name: /create league/i }).first().click();
     await page.waitForURL(/\/setup/);
     await page.getByRole('button', { name: /get started/i }).click();
@@ -85,7 +85,7 @@ test.describe('Clean-user onboarding journey', () => {
     // 7. Fill out and submit the League Identity step.
     await page.locator('#name').fill(leagueName);
     await page.getByRole('button', { name: /continue/i }).click();
-    await page.waitForURL(/\/setup\/sleeper/, { timeout: 15_000 });
+    await page.waitForURL(/\/setup\/provider/, { timeout: 15_000 });
 
     // 8. Simulate an interruption. Re-visiting the league step must resume the
     // same league, never create a second one or collide with its own slug.
@@ -93,7 +93,7 @@ test.describe('Clean-user onboarding journey', () => {
     await expect(page.locator('#name')).toHaveValue(leagueName, { timeout: 15_000 });
 
     await page.getByRole('button', { name: /continue/i }).click();
-    await page.waitForURL(/\/setup\/sleeper/, { timeout: 15_000 });
+    await page.waitForURL(/\/setup\/provider/, { timeout: 15_000 });
 
     // 9. Log out cleanly, then log back in and land on the dashboard again.
     const logoutResponse = await page.request.post('/api/auth/logout');

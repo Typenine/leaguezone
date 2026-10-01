@@ -103,7 +103,7 @@ export default async function AppDashboardPage({
                   : 'Your account is ready. Join a league with an invite or create a new league site to get started.'}
               </p>
               <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold uppercase tracking-wider">
-                <Link href="/setup" className="text-[var(--brand-gold)] hover:underline">Create League</Link>
+                <Link href="/setup?new=1" className="text-[var(--brand-gold)] hover:underline">Create League</Link>
                 <a href="#join-league" className="text-white/60 hover:text-white">Join League</a>
                 <Link href="/?view=public" className="text-white/40 hover:text-white">View Public Site</Link>
               </div>
@@ -120,7 +120,7 @@ export default async function AppDashboardPage({
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
                   <a href="#join-league" className="bg-[var(--brand-gold)] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-[var(--brand-ink)]">Join a League</a>
-                  <Link href="/setup" className="border border-white/20 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white">Create League</Link>
+                  <Link href="/setup?new=1" className="border border-white/20 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white">Create League</Link>
                 </div>
               </div>
             )}
@@ -155,7 +155,7 @@ export default async function AppDashboardPage({
               {userLeagues.length > 0 ? 'Join Another League' : 'Find or Join Your League'}
             </h2>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Search with a Sleeper league ID or use the invite code supplied by your commissioner.
+              Search by a supported provider league ID or use the invite code supplied by your commissioner.
             </p>
           </div>
           <LeagueWebsiteSearch />
@@ -172,7 +172,7 @@ export default async function AppDashboardPage({
         )}
 
         <section className="grid gap-3 border-t border-white/10 pt-8 sm:grid-cols-3" aria-label="Account shortcuts">
-          <Link href="/setup" className="border border-white/10 bg-white/[0.03] p-5 transition hover:border-[var(--brand-gold)]/40 hover:bg-white/[0.05]">
+          <Link href="/setup?new=1" className="border border-white/10 bg-white/[0.03] p-5 transition hover:border-[var(--brand-gold)]/40 hover:bg-white/[0.05]">
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">Create</p>
             <h3 className="mt-2 font-black uppercase text-white">New League Site</h3>
             <p className="mt-2 text-sm leading-6 text-white/45">Connect and configure another fantasy league.</p>

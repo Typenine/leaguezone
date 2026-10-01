@@ -19,10 +19,10 @@ export default function FeaturesPage() {
             <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Features</span>
           </div>
           <h1 className="mt-2 max-w-3xl text-4xl font-black uppercase leading-none tracking-tighter text-white sm:text-6xl">
-            Everything Sleeper doesn&apos;t do, in one league headquarters.
+            Everything your fantasy platform leaves out, in one league headquarters.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-white/60">
-            {PLATFORM.name} works alongside your Sleeper league. Rosters and scores stay where they are —
+            {PLATFORM.name} works alongside your connected fantasy provider. Rosters and scores stay where they are —
             your identity, rules, history, and league culture get a real home.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -63,7 +63,7 @@ export default function FeaturesPage() {
             <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">How It Works</span>
           </div>
           <h2 className="mt-2 text-3xl font-black uppercase leading-none tracking-tighter text-white sm:text-4xl">
-            From Sleeper league to league site in four steps.
+            From fantasy league to league site in four steps.
           </h2>
           <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 border border-white/10">
             {HOW_IT_WORKS.map((item, i) => (

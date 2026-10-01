@@ -9,7 +9,7 @@ export const PLATFORM = {
   name: 'LeagueZone HQ',
   tagline: 'Custom fantasy football league websites for serious dynasty commissioners.',
   description:
-    'A branded league headquarters that works alongside Sleeper — team pages, rulebook, draft hub, trade block, suggestions, voting, and league history in one polished home.',
+    'A branded league headquarters that connects to supported fantasy providers — team pages, rulebook, draft hub, trade block, suggestions, voting, and league history in one polished home.',
   contactEmail: process.env.PLATFORM_CONTACT_EMAIL || 'hello@leaguezonehq.com',
   disclaimer:
     'LeagueZone HQ is an independent product and is not affiliated with, endorsed by, or sponsored by the NFL, Sleeper, ESPN, Yahoo, or any other league platform.',
@@ -71,8 +71,8 @@ export const PRODUCT_FEATURES = [
 export const HOW_IT_WORKS = [
   {
     step: '01',
-    title: 'Connect Sleeper',
-    description: 'Link your Sleeper league once. Rosters, standings, matchups, and transactions stay in sync automatically.',
+    title: 'Connect your league',
+    description: 'Choose a supported fantasy provider and import the league. Rosters, standings, matchups, and transactions stay connected to LeagueZone.',
   },
   {
     step: '02',
@@ -96,7 +96,7 @@ export const PRICING_TIERS = [
     name: 'Starter',
     price: 'Free',
     period: 'during beta',
-    description: 'A league homepage with Sleeper-connected standings, teams, and history.',
+    description: 'A league homepage with provider-connected standings, teams, and history.',
     features: ['League homepage', 'Team pages', 'Standings & matchups', 'Season history'],
     cta: 'View demo',
     href: '/demo',

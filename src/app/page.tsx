@@ -145,7 +145,7 @@ export default async function RootPage() {
               )}
             </div>
             <div className="mt-12 grid grid-cols-3 gap-3 max-w-sm">
-              {[['24/7', 'League Access'], ['Live', 'Sleeper Sync'], ['All-Time', 'History']].map(([val, lbl]) => (
+              {[['24/7', 'League Access'], ['Live', 'Data Sync'], ['All-Time', 'History']].map(([val, lbl]) => (
                 <div key={lbl} className="border border-white/10 bg-white/5 p-3 text-center">
                   <p className="text-xl font-black text-white">{val}</p>
                   <p className="text-[10px] uppercase tracking-wider text-white/45 mt-0.5">{lbl}</p>
@@ -167,10 +167,10 @@ export default async function RootPage() {
         </div>
         <div className="mb-10 grid gap-4 lg:grid-cols-[0.8fr_1fr] lg:items-end">
           <h2 className="text-4xl sm:text-5xl font-black text-white uppercase leading-none tracking-tighter">
-            The features Sleeper doesn&apos;t do.
+            The features your fantasy platform doesn&apos;t do.
           </h2>
           <p className="text-white/60 text-lg max-w-2xl">
-            Sleeper handles rosters and scoring. {PLATFORM.name} handles identity, history, rules, and league culture — the things that make a dynasty league feel permanent.
+            Your fantasy provider handles the underlying league. {PLATFORM.name} adds identity, history, rules, commissioner tools, and league culture — the things that make a dynasty league feel permanent.
           </p>
         </div>
         <div className="grid gap-px md:grid-cols-2 lg:grid-cols-4 bg-white/10">

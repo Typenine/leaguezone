@@ -67,7 +67,7 @@ export default function SetupRulesPage() {
         throw new Error(data.error || 'Failed to save rules');
       }
 
-      router.push('/setup/admin');
+      router.push('/setup/auth');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -76,7 +76,7 @@ export default function SetupRulesPage() {
   };
 
   const handleSkip = () => {
-    router.push('/setup/admin');
+    router.push('/setup/auth');
   };
 
   return (

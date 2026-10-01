@@ -11,6 +11,8 @@ type JoinRequest = {
   name: string;
   email: string;
   message?: string;
+  providerLeagueId?: string;
+  provider?: 'sleeper' | 'yahoo';
   sleeperLeagueId?: string;
   createdAt: string;
 };
@@ -22,7 +24,14 @@ export async function POST(req: NextRequest) {
     const name = typeof body.name === 'string' ? body.name.trim().slice(0, 80) : '';
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase().slice(0, 120) : '';
     const message = typeof body.message === 'string' ? body.message.trim().slice(0, 300) : '';
-    const sleeperLeagueId = typeof body.sleeperLeagueId === 'string' ? body.sleeperLeagueId.trim().slice(0, 32) : '';
+    const providerLeagueId = typeof body.providerLeagueId === 'string'
+      ? body.providerLeagueId.trim().slice(0, 128)
+      : typeof body.sleeperLeagueId === 'string'
+        ? body.sleeperLeagueId.trim().slice(0, 128)
+        : '';
+    const provider = body.provider === 'sleeper' || body.provider === 'yahoo'
+      ? body.provider
+      : undefined;
 
     if (!leagueId) return NextResponse.json({ error: 'leagueId is required' }, { status: 400 });
     if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -52,7 +61,8 @@ export async function POST(req: NextRequest) {
       name,
       email,
       ...(message ? { message } : {}),
-      ...(sleeperLeagueId ? { sleeperLeagueId } : {}),
+      ...(providerLeagueId ? { providerLeagueId } : {}),
+      ...(provider ? { provider } : {}),
       createdAt: new Date().toISOString(),
     };
 

@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 type User = { id: string; email: string; display_name: string | null; role: string };
 type League = {
-  id: string; slug: string; name: string; short_name: string | null; sleeper_league_id: string | null;
+  id: string; slug: string; name: string; short_name: string | null; provider: 'sleeper' | 'yahoo' | null;
   setup_completed: boolean; is_active: boolean; founded_year: number | null; commissioner_user_id: string | null;
   commissioner_email: string | null; commissioner_name: string | null; roster_count: string | number; claimed_count: string | number;
 };
@@ -40,7 +40,7 @@ export default function AdminLeaguesPage() {
       {message && <div className="mb-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm text-[var(--text)]">{message}</div>}
       {loading ? <p className="text-[var(--muted)]">Loading leagues…</p> : <div className="grid gap-4 lg:grid-cols-2">
         {leagues.map((league) => <section key={league.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-          <div className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h2 className="text-lg font-black text-[var(--text)]">{league.name}</h2><span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${league.is_active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-zinc-500/10 text-[var(--muted)]'}`}>{league.is_active ? 'Active' : 'Inactive'}</span></div><p className="text-xs text-[var(--muted)]">{league.slug}{league.founded_year ? ` · Est. ${league.founded_year}` : ''}</p></div><div className="text-right text-xs text-[var(--muted)]"><div>{Number(league.claimed_count)} / {Number(league.roster_count)} claimed</div><div>{league.sleeper_league_id ? 'Sleeper connected' : 'Provider missing'}</div></div></div>
+          <div className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h2 className="text-lg font-black text-[var(--text)]">{league.name}</h2><span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${league.is_active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-zinc-500/10 text-[var(--muted)]'}`}>{league.is_active ? 'Active' : 'Inactive'}</span></div><p className="text-xs text-[var(--muted)]">{league.slug}{league.founded_year ? ` · Est. ${league.founded_year}` : ''}</p></div><div className="text-right text-xs text-[var(--muted)]"><div>{Number(league.claimed_count)} / {Number(league.roster_count)} claimed</div><div>{league.provider === 'yahoo' ? 'Yahoo Fantasy connected' : league.provider === 'sleeper' ? 'Sleeper connected' : 'Provider missing'}</div></div></div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="text-xs font-semibold text-[var(--muted)]">Commissioner account
               <select value={league.commissioner_user_id || ''} onChange={(e) => update(league.id, { commissionerUserId: e.target.value || null })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-2 text-sm text-[var(--text)]">

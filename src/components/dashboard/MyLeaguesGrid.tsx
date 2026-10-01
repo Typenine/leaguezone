@@ -95,7 +95,7 @@ export default function MyLeaguesGrid({ leagues }: { leagues: UserLeague[] }) {
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <Link
-                  href="/setup"
+                  href="/setup?new=1"
                   className="inline-flex justify-center bg-[var(--brand-gold)] text-[var(--brand-ink)] px-5 py-2.5 text-xs font-black uppercase tracking-wider transition hover:brightness-110"
                 >
                   Create League
