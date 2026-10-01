@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/server/session';
 import { resolveOwnedSetupLeagueId } from '@/lib/server/setup-league-context';
 import { buildYahooAuthorizationUrl, isYahooAvailable } from '@/lib/providers/yahoo';
+import { yahooOAuthCookieOptions } from '@/lib/providers/yahoo-oauth-cookie';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,22 +25,10 @@ export async function GET(request: NextRequest) {
 
   const state = randomBytes(32).toString('base64url');
   const response = NextResponse.redirect(buildYahooAuthorizationUrl(state));
-  const secure = process.env.NODE_ENV === 'production';
+  const oauthCookieOptions = yahooOAuthCookieOptions(request.url, 10 * 60);
 
-  response.cookies.set('lz_yahoo_oauth_state', state, {
-    httpOnly: true,
-    secure,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 10 * 60,
-  });
-  response.cookies.set('lz_yahoo_oauth_league', leagueId, {
-    httpOnly: true,
-    secure,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 10 * 60,
-  });
+  response.cookies.set('lz_yahoo_oauth_state', state, oauthCookieOptions);
+  response.cookies.set('lz_yahoo_oauth_league', leagueId, oauthCookieOptions);
 
   return response;
 }

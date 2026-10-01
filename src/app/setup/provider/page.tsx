@@ -68,7 +68,7 @@ export default function SetupProviderPage() {
     if (yahooError) {
       const messages: Record<string, string> = {
         denied: 'Yahoo authorization was cancelled.',
-        state: 'Yahoo authorization expired. Please try connecting again.',
+        state: 'Yahoo authorization could not be verified. Please try connecting again.',
         exchange: 'Yahoo could not be connected. Please try again.',
         league: 'Your league setup session changed during Yahoo authorization. Please try again.',
         session: 'Your LeagueZone session expired. Sign in and try again.',

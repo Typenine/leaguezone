@@ -4,6 +4,7 @@ import { exchangeYahooAuthorizationCode, isYahooAvailable } from '@/lib/provider
 import { saveYahooProviderAccount } from '@/lib/server/provider-accounts';
 import { requireUser } from '@/lib/server/session';
 import { requireSetupLeagueOwnership } from '@/lib/server/setup-ownership';
+import { yahooOAuthCookieOptions } from '@/lib/providers/yahoo-oauth-cookie';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,8 +17,9 @@ function providerPage(request: NextRequest, params: Record<string, string>): URL
 
 function redirectAndClearOAuth(request: NextRequest, params: Record<string, string>): NextResponse {
   const response = NextResponse.redirect(providerPage(request, params));
-  response.cookies.set('lz_yahoo_oauth_state', '', { path: '/', maxAge: 0 });
-  response.cookies.set('lz_yahoo_oauth_league', '', { path: '/', maxAge: 0 });
+  const clearOptions = yahooOAuthCookieOptions(request.url, 0);
+  response.cookies.set('lz_yahoo_oauth_state', '', clearOptions);
+  response.cookies.set('lz_yahoo_oauth_league', '', clearOptions);
   return response;
 }
 
@@ -36,6 +38,14 @@ export async function GET(request: NextRequest) {
 
   if (oauthError) return redirectAndClearOAuth(request, { yahooError: 'denied' });
   if (!code || !state || !expectedState || state !== expectedState || !setupLeagueId) {
+    console.warn('[yahoo/callback] OAuth state validation failed', {
+      host: request.nextUrl.hostname,
+      hasCode: Boolean(code),
+      hasState: Boolean(state),
+      hasExpectedState: Boolean(expectedState),
+      stateMatches: Boolean(state && expectedState && state === expectedState),
+      hasSetupLeagueId: Boolean(setupLeagueId),
+    });
     return redirectAndClearOAuth(request, { yahooError: 'state' });
   }
 

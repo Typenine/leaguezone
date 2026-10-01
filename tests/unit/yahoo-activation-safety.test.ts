@@ -12,12 +12,18 @@ describe('Yahoo activation safety', () => {
     expect(env).toContain(`YAHOO_REDIRECT_URI=${callback}`);
   });
 
-  it('clears short-lived OAuth cookies on terminal callback outcomes', () => {
+  it('shares OAuth state across apex/www and clears it with the same cookie scope', () => {
+    const start = source('src/app/api/providers/yahoo/start/route.ts');
     const callback = source('src/app/api/providers/yahoo/callback/route.ts');
-    expect(callback).toContain('redirectAndClearOAuth');
-    expect(callback).toContain("response.cookies.set('lz_yahoo_oauth_state', '', { path: '/', maxAge: 0 })");
-    expect(callback).toContain("response.cookies.set('lz_yahoo_oauth_league', '', { path: '/', maxAge: 0 })");
+    const helper = source('src/lib/providers/yahoo-oauth-cookie.ts');
+
+    expect(start).toContain('yahooOAuthCookieOptions(request.url, 10 * 60)');
+    expect(callback).toContain('yahooOAuthCookieOptions(request.url, 0)');
     expect(callback).toContain('state !== expectedState');
+    expect(callback).toContain('OAuth state validation failed');
+    expect(helper).toContain("replace(/^www\\./, '')");
+    expect(helper).toContain('return `.${callbackBase}`');
+    expect(helper).toContain("callbackBase.endsWith('.vercel.app')");
   });
 
   it('scopes Yahoo disconnect to the authenticated provider account only', () => {
