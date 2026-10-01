@@ -15,9 +15,19 @@ export async function GET(req: NextRequest) {
   const db = getDb();
   const [leagueRes, userRes] = await Promise.all([
     db.execute(sql`
-      SELECT l.id::text, l.slug, l.name, l.short_name, l.sleeper_league_id, l.setup_completed, l.is_active,
+      SELECT l.id::text, l.slug, l.name, l.short_name, l.setup_completed, l.is_active,
              l.founded_year, l.created_at, l.commissioner_user_id::text,
              u.email AS commissioner_email, u.display_name AS commissioner_name,
+             COALESCE(
+               (
+                 SELECT lps.provider
+                 FROM league_provider_seasons lps
+                 WHERE lps.league_id = l.id
+                 ORDER BY lps.is_current DESC, lps.season DESC
+                 LIMIT 1
+               ),
+               CASE WHEN l.sleeper_league_id IS NOT NULL THEN 'sleeper' ELSE NULL END
+             ) AS provider,
              COUNT(DISTINCT COALESCE(li.roster_id::text, li.team_name)) AS roster_count,
              COUNT(DISTINCT CASE WHEN li.claimed_by IS NOT NULL THEN COALESCE(li.roster_id::text, li.team_name) END) AS claimed_count
       FROM leagues l

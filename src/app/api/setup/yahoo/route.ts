@@ -139,9 +139,9 @@ export async function POST(request: NextRequest) {
               COALESCE(config, '{}'::jsonb),
               '{completedSetupSteps}',
               CASE
-                WHEN COALESCE(config->'completedSetupSteps', '[]'::jsonb) ? 'sleeper'
+                WHEN COALESCE(config->'completedSetupSteps', '[]'::jsonb) ? 'provider'
                   THEN COALESCE(config->'completedSetupSteps', '[]'::jsonb)
-                ELSE COALESCE(config->'completedSetupSteps', '[]'::jsonb) || '["sleeper"]'::jsonb
+                ELSE COALESCE(config->'completedSetupSteps', '[]'::jsonb) || '["provider"]'::jsonb
               END
             ),
             '{teams}', ${JSON.stringify(setupTeams)}::jsonb

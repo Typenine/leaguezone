@@ -49,7 +49,8 @@ export async function GET(req: NextRequest) {
         leagueName: row.name,
         completed: !!row.setup_completed,
         completedSteps: (config.completedSetupSteps as string[]) || [],
-        sleeperLeagueId: config.sleeperLeagueId ?? null,
+        provider: config.provider ?? null,
+        legacySleeperLeagueId: config.sleeperLeagueId ?? null,
       };
     } else {
       results.setup = { completed: false, completedSteps: [] };
@@ -68,6 +69,18 @@ export async function GET(req: NextRequest) {
   results.r2 = { configured: Object.values(r2Vars).every(Boolean), vars: r2Vars };
 
   const sleeperLeagueId = process.env.SLEEPER_LEAGUE_ID?.trim() || null;
+  const yahooEnabled = process.env.YAHOO_FANTASY_ENABLED === 'true';
+  const yahooConfigured = Boolean(
+    process.env.YAHOO_CLIENT_ID?.trim()
+      && process.env.YAHOO_CLIENT_SECRET?.trim()
+      && process.env.YAHOO_REDIRECT_URI?.trim()
+      && process.env.PROVIDER_TOKEN_ENCRYPTION_KEY?.trim(),
+  );
+  results.providers = {
+    sleeper: { legacyDefaultLeagueConfigured: !!sleeperLeagueId },
+    yahoo: { enabled: yahooEnabled, configured: yahooConfigured, available: yahooEnabled && yahooConfigured },
+  };
+  // Retain the old key temporarily for admin-tool compatibility.
   results.sleeper = { configured: !!sleeperLeagueId, leagueId: sleeperLeagueId };
   results.discord = {
     trades: !!process.env.DISCORD_TRADES_WEBHOOK_URL?.trim(),

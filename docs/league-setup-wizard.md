@@ -1,117 +1,68 @@
 # League Setup Wizard
 
-## Overview
+## Purpose
 
-When a new user deploys this template, they go through a setup wizard to configure their league. The first user becomes the admin.
+LeagueZone setup creates a league site for an already authenticated LeagueZone account. The account that creates the league becomes that league's commissioner through `leagues.commissioner_user_id`.
 
-## Setup Flow
+League setup must never create or grant a platform-admin account.
 
-### Step 1: League Identity
-- **League Name** (becomes site title)
-- **League Slug** (URL-friendly, auto-generated from name)
-- **Short Name** (optional, e.g., "EvW")
-- **Founded Year** (optional)
+## Current setup flow
 
-### Step 2: Sleeper Integration
-- **Current Season Sleeper League ID** (required)
-- **Historical League IDs** (optional, keyed by year)
-- Validate IDs by fetching from Sleeper API
-- Show league info preview (team count, roster settings)
+1. **League Identity**
+   - League name
+   - URL slug
+   - Optional short name
+   - Optional founded year
+2. **Fantasy Provider**
+   - Sleeper: enter/import the league and linked historical seasons
+   - Yahoo Fantasy: authorize Yahoo, choose a league returned by the connected account, and import linked history where Yahoo exposes it
+3. **Branding**
+   - Primary/secondary colors
+   - Optional league logo
+4. **Team Colors**
+   - Optional per-team branding
+5. **Rules**
+   - Optional rules text or supported document upload
+6. **Team Signup**
+   - Configure how league managers claim/access teams
+7. **Complete**
+   - Open the new league site or Commissioner Settings
 
-### Step 3: Branding
-- **Primary Color** (color picker)
-- **Secondary Color** (color picker)
-- **League Logo** (file upload to R2, optional)
+The legacy **Admin Account** step is retired. The authenticated league creator is already the commissioner. Platform administration is managed separately from league setup.
 
-### Step 4: Team Colors (Optional)
-- After Sleeper import, show list of teams
-- For each team, allow setting:
-  - Primary color
-  - Secondary color
-  - Tertiary color (optional)
-  - Quaternary color (optional)
-- Can skip and use defaults
+## Setup progress compatibility
 
-### Step 5: Rules Document (Optional)
-- Upload PDF or paste markdown/HTML
-- Stored in R2 or database
-- Can skip and add later
+The canonical provider step key is `provider`.
 
-### Step 6: Admin Account
-- **Email** (for notifications)
-- **Password** (for admin access)
-- Creates first user with admin role
+Older LeagueZone setup records may contain `sleeper` in `config.completedSetupSteps`. The status API normalizes that legacy value to `provider` at read time, so existing in-progress setup sessions continue without a destructive data migration.
 
-### Step 7: Team Authentication Setup
-Choose one:
-- **Option A: Default PIN per team** - Admin sets a default PIN, teams change on first login
-- **Option B: Invite links** - Generate unique signup links per team
-- **Option C: Open signup** - Teams claim their roster by verifying Sleeper username
+The obsolete `admin` step is ignored when setup progress is normalized.
 
-## Database Changes Needed
+## Creating additional leagues
 
-### Extend `leagues` table
-Already has most fields. Add:
-- `setup_completed` boolean (default false)
-- `team_colors` jsonb (team name -> colors mapping)
-- `rules_content` text (markdown/HTML rules)
-- `rules_file_key` text (R2 key if PDF uploaded)
+Signed-in users can create more than one league.
 
-### New `league_invites` table (for Option B)
-```sql
-CREATE TABLE league_invites (
-  id uuid PRIMARY KEY,
-  league_id uuid REFERENCES leagues(id),
-  team_name varchar(255) NOT NULL,
-  roster_id integer,
-  invite_code varchar(64) UNIQUE NOT NULL,
-  claimed_at timestamptz,
-  claimed_by uuid REFERENCES users(id),
-  created_at timestamptz DEFAULT now()
-);
-```
+Dashboard create actions use `/setup?new=1`. The first league-identity page intentionally starts blank in that mode rather than reusing the user's active completed league. Once the new league is created, the normal setup cookie and active-league cookie keep the remaining steps scoped to that new league.
 
-### Extend `users` table
-- Add `league_id` uuid (which league they belong to)
-- Add `team_name` varchar (their team in the league)
-- Add `sleeper_user_id` varchar (for verification)
+Interrupted incomplete setup still resumes the user's in-progress league when `new=1` is not present.
 
-## API Routes
+## Provider data model
 
-- `POST /api/setup/league` - Create/update league basics
-- `POST /api/setup/sleeper` - Validate and save Sleeper IDs
-- `POST /api/setup/branding` - Save colors and logo
-- `POST /api/setup/team-colors` - Save per-team colors
-- `POST /api/setup/rules` - Save rules content
-- `POST /api/setup/admin` - Create admin account
-- `POST /api/setup/complete` - Mark setup done
+Provider-neutral season mappings live in `league_provider_seasons`.
 
-- `GET /api/invite/:code` - Get invite details
-- `POST /api/invite/:code/claim` - Claim team invite
+- Each LeagueZone season maps to one provider and provider league ID.
+- Historical seasons remain independently addressable.
+- Sleeper legacy columns remain for compatibility but must not be used as the sole test for whether a league has a provider.
+- Admin and operational views should resolve provider state from `league_provider_seasons`, with legacy Sleeper fields only as fallback for older records.
 
-## UI Pages
+## Team access
 
-- `/setup` - Wizard container (redirects if setup complete)
-- `/setup/league` - Step 1
-- `/setup/sleeper` - Step 2
-- `/setup/branding` - Step 3
-- `/setup/teams` - Step 4
-- `/setup/rules` - Step 5
-- `/setup/admin` - Step 6
-- `/setup/auth` - Step 7
-- `/setup/complete` - Success page
+League managers join through LeagueZone accounts and league invites/roster claims. Commissioner authority is derived from the league relationship, not from the global `users.role = 'admin'` platform-admin role.
 
-- `/join/:code` - Team invite claim page
-- `/claim` - Open signup page (if enabled)
+## Security rules
 
-## Middleware
-
-- If `setup_completed = false` and not on `/setup/*`, redirect to `/setup`
-- If `setup_completed = true` and on `/setup/*`, redirect to `/`
-
-## Migration Strategy
-
-For existing deployments being migrated to this template:
-- Set `setup_completed = true` on default league
-- Existing data continues to work
-- New deployments start with setup wizard
+- Every setup mutation requires an authenticated LeagueZone user.
+- Setup mutations must verify ownership of the league being configured.
+- League setup cannot create platform-admin users.
+- Provider credentials and OAuth tokens remain server-side.
+- Provider imports are collision-safe in both directions: Sleeper cannot overwrite Yahoo history, and Yahoo cannot overwrite Sleeper history or a different provider-season mapping.

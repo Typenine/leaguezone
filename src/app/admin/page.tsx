@@ -24,11 +24,21 @@ export default async function AdminHubPage() {
     countRows(sql`SELECT COUNT(*) AS count FROM qa_sessions WHERE active = true AND expires_at > now()`),
     countRows(sql`SELECT COUNT(*) AS count FROM drafts WHERE environment = 'live' AND archived_at IS NULL`).catch(() => 0),
     db.execute(sql`
-      SELECT id::text, slug, name, sleeper_league_id, commissioner_user_id::text,
-             setup_completed, is_active
-      FROM leagues
-      WHERE is_active = true
-      ORDER BY created_at ASC
+      SELECT l.id::text, l.slug, l.name, l.commissioner_user_id::text,
+             l.setup_completed, l.is_active,
+             COALESCE(
+               (
+                 SELECT lps.provider
+                 FROM league_provider_seasons lps
+                 WHERE lps.league_id = l.id
+                 ORDER BY lps.is_current DESC, lps.season DESC
+                 LIMIT 1
+               ),
+               CASE WHEN l.sleeper_league_id IS NOT NULL THEN 'sleeper' ELSE NULL END
+             ) AS provider
+      FROM leagues l
+      WHERE l.is_active = true
+      ORDER BY l.created_at ASC
     `),
     db.execute(sql`SELECT email, display_name, email_verified, created_at FROM users ORDER BY created_at DESC LIMIT 5`),
     db.execute(sql`
@@ -42,7 +52,7 @@ export default async function AdminHubPage() {
   ]);
   const leagueRows = (attentionRes as { rows?: Array<Record<string, unknown>> }).rows ?? [];
   const attention = [
-    ...leagueRows.filter((row) => !row.sleeper_league_id).map((row) => ({ text: `${row.name} has no provider league connected`, href: '/admin/leagues' })),
+    ...leagueRows.filter((row) => !row.provider).map((row) => ({ text: `${row.name} has no provider league connected`, href: '/admin/leagues' })),
     ...leagueRows.filter((row) => !row.commissioner_user_id).map((row) => ({ text: `${row.name} has no commissioner account assigned`, href: '/admin/leagues' })),
     ...(unverifiedCount > 0 ? [{ text: `${unverifiedCount} account${unverifiedCount === 1 ? '' : 's'} still need email verification`, href: '/admin/users' }] : []),
   ].slice(0, 6);

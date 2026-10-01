@@ -22,6 +22,7 @@ export default function SetupLeaguePage() {
   const [error, setError] = useState<string | null>(null);
 
   const [existingLeagueId, setExistingLeagueId] = useState<string | null>(null);
+  const [startingFresh, setStartingFresh] = useState(false);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [shortName, setShortName] = useState('');
@@ -36,6 +37,13 @@ export default function SetupLeaguePage() {
   useEffect(() => {
     let cancelled = false;
     async function loadExisting() {
+      const startFresh = new URLSearchParams(window.location.search).get('new') === '1';
+      if (startFresh) {
+        setStartingFresh(true);
+        setCheckingExisting(false);
+        return;
+      }
+
       try {
         const res = await fetch('/api/setup/status');
         if (!res.ok) return;
@@ -123,7 +131,7 @@ export default function SetupLeaguePage() {
       <div className="max-w-xl mx-auto">
         <div className="mb-6">
           <button
-            onClick={() => router.push('/setup')}
+            onClick={() => router.push(startingFresh ? '/setup?new=1' : '/setup')}
             className="text-[var(--muted)] hover:text-[var(--text)] flex items-center gap-1 text-sm"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -219,7 +227,7 @@ export default function SetupLeaguePage() {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => router.push('/setup')}
+                onClick={() => router.push(startingFresh ? '/setup?new=1' : '/setup')}
                 className="flex-1"
               >
                 Back

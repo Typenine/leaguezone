@@ -14,11 +14,19 @@ type LeagueSearchMatch = {
   primaryColor: string | null;
   foundedYear: number | null;
   matchedSeason: string | null;
+  matchedProvider: 'sleeper' | 'yahoo' | null;
+  providerLeagueId: string;
   openRosters: number;
 };
 
+function providerLabel(provider: LeagueSearchMatch['matchedProvider']): string {
+  if (provider === 'yahoo') return 'Yahoo Fantasy';
+  if (provider === 'sleeper') return 'Sleeper';
+  return 'Fantasy provider';
+}
+
 export default function LeagueWebsiteSearch() {
-  const [sleeperLeagueId, setSleeperLeagueId] = useState('');
+  const [providerLeagueId, setProviderLeagueId] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [match, setMatch] = useState<LeagueSearchMatch | null>(null);
   const [searched, setSearched] = useState(false);
@@ -42,7 +50,10 @@ export default function LeagueWebsiteSearch() {
     setRequestMsg('');
 
     try {
-      const res = await fetch(`/api/league/search?sleeperLeagueId=${encodeURIComponent(sleeperLeagueId.trim())}`, { cache: 'no-store' });
+      const res = await fetch(
+        `/api/league/search?providerLeagueId=${encodeURIComponent(providerLeagueId.trim())}`,
+        { cache: 'no-store' },
+      );
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || 'Search failed');
       setMatch(body.match || null);
@@ -66,7 +77,8 @@ export default function LeagueWebsiteSearch() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           leagueId: match.id,
-          sleeperLeagueId: sleeperLeagueId.trim(),
+          providerLeagueId: match.providerLeagueId,
+          provider: match.matchedProvider,
           name: requestName,
           email: requestEmail,
           message: requestMessage,
@@ -94,22 +106,20 @@ export default function LeagueWebsiteSearch() {
     <div className="league-card p-6 sm:p-8">
       <div className="mb-5">
         <p className="eyebrow">Find your league website</p>
-        <h2 className="mt-3 text-2xl font-black text-[var(--text)]">Search by Sleeper league ID</h2>
+        <h2 className="mt-3 text-2xl font-black text-[var(--text)]">Search by provider league ID</h2>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Enter any Sleeper league ID from a current or past season to see whether this site already hosts that league.
+          Enter a Sleeper or Yahoo Fantasy league ID from any hosted season. If your commissioner sent an invite code, use that below instead.
         </p>
       </div>
 
       <form onSubmit={search} className="flex flex-col gap-3 sm:flex-row">
         <Input
-          value={sleeperLeagueId}
-          onChange={(event) => setSleeperLeagueId(event.target.value)}
-          placeholder="Sleeper league ID"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          aria-label="Sleeper league ID"
+          value={providerLeagueId}
+          onChange={(event) => setProviderLeagueId(event.target.value)}
+          placeholder="Sleeper or Yahoo league ID"
+          aria-label="Fantasy provider league ID"
         />
-        <Button type="submit" disabled={loading || !sleeperLeagueId.trim()} className="shrink-0">
+        <Button type="submit" disabled={loading || !providerLeagueId.trim()} className="shrink-0">
           {loading ? 'Searching...' : 'Search'}
         </Button>
       </form>
@@ -118,7 +128,7 @@ export default function LeagueWebsiteSearch() {
 
       {searched && !match && !error && (
         <div className="mt-5 rounded-xl border border-dashed border-[var(--border)] p-4 text-sm text-[var(--muted)]">
-          No league website was found for that Sleeper ID.
+          No hosted LeagueZone site was found for that provider league ID.
         </div>
       )}
 
@@ -140,8 +150,9 @@ export default function LeagueWebsiteSearch() {
               <div className="min-w-0">
                 <h3 className="truncate font-bold text-[var(--text)]">{match.name}</h3>
                 <p className="text-sm text-[var(--muted)]">
-                  {match.matchedSeason ? `Matched ${match.matchedSeason} Sleeper ID` : 'Matched current Sleeper ID'}
-                  {match.openRosters > 0 ? ` • ${match.openRosters} open roster${match.openRosters === 1 ? '' : 's'}` : ''}
+                  {providerLabel(match.matchedProvider)}
+                  {match.matchedSeason ? ` · ${match.matchedSeason}` : ''}
+                  {match.openRosters > 0 ? ` · ${match.openRosters} open roster${match.openRosters === 1 ? '' : 's'}` : ''}
                 </p>
               </div>
             </div>
