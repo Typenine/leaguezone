@@ -7,10 +7,11 @@ describe('league switch navigation', () => {
   it('preserves equivalent canonical league-site pages and query strings', () => {
     expect(getLeagueSwitchDestination('/l/old-league/history', 'tab=records', target)).toBe('/l/new-league/history?tab=records');
     expect(getLeagueSwitchDestination('/l/old-league/teams', '', target)).toBe('/l/new-league/teams');
+    expect(getLeagueSwitchDestination('/l/old-league/dashboard', '', target)).toBe('/l/new-league/dashboard');
   });
 
   it('maps legacy league routes into the canonical league site', () => {
-    expect(getLeagueSwitchDestination('/home', '', target)).toBe('/l/new-league');
+    expect(getLeagueSwitchDestination('/home', '', target)).toBe('/l/new-league/dashboard');
     expect(getLeagueSwitchDestination('/rules', '', target)).toBe('/l/new-league/rulebook');
     expect(getLeagueSwitchDestination('/trades/block', '', target)).toBe('/l/new-league/trade-block');
   });
@@ -26,9 +27,9 @@ describe('league switch navigation', () => {
     expect(getLeagueSwitchDestination('/settings', '', target)).toBe('/l/new-league');
   });
 
-  it('retains legacy behavior when no target slug is supplied', () => {
-    expect(getLeagueSwitchDestination('/history', 'tab=records')).toBe('/history?tab=records');
-    expect(getLeagueSwitchDestination('/settings', '', { isCommissioner: false })).toBe('/home');
+  it('falls back to My Leagues when no target slug is supplied', () => {
+    expect(getLeagueSwitchDestination('/history', 'tab=records')).toBe('/app');
+    expect(getLeagueSwitchDestination('/settings', '', { isCommissioner: false })).toBe('/app');
   });
 
   it('builds a league selection URL with an encoded canonical destination', () => {

@@ -154,7 +154,14 @@ function isPublicDataApi(pathname: string): boolean {
 const LEGACY_LEAGUE_ROOTS = ['history', 'players', 'teams', 'rosters', 'matchups', 'calendar', 'hall-of-fame', 'news', 'transactions', 'trades'] as const;
 
 function legacyLeagueDestination(pathname: string): string | null {
+  if (pathname === '/home') return '/dashboard';
   if (pathname === '/draft') return '/draft';
+  if (pathname === '/standings' || pathname.startsWith('/standings/')) return pathname;
+  if (pathname === '/rules' || pathname.startsWith('/rules/')) {
+    return `/rulebook${pathname.slice('/rules'.length)}`;
+  }
+  if (pathname === '/suggestions' || pathname.startsWith('/suggestions/')) return pathname;
+  if (pathname === '/trade-block' || pathname.startsWith('/trade-block/')) return pathname;
   if (pathname === '/trades/block' || pathname.startsWith('/trades/block/')) {
     return `/trade-block${pathname.slice('/trades/block'.length)}`;
   }
@@ -303,6 +310,10 @@ export const config = {
     '/trade-block/:path*',
     '/vote/:path*',
     '/draft/:path*',
+    '/home',
+    '/standings/:path*',
+    '/rules/:path*',
+    '/suggestions/:path*',
     '/admin/draft',
     '/newsletter/:path*',
     '/demo',

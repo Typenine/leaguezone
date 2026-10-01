@@ -35,7 +35,7 @@ function ActiveLeagueCard({ league }: { league: UserLeague }) {
           Open League Site
         </Link>
         <a
-          href={selectedLeagueHref(league.leagueId, '/home')}
+          href={selectedLeagueHref(league.leagueId, leagueUrl(league.leagueSlug, 'dashboard'))}
           className="inline-flex items-center justify-center border border-white/25 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-white/5"
         >
           League Dashboard

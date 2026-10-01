@@ -69,7 +69,7 @@ export default function GlobalLeagueSwitcher() {
   }
 
   const siteHref = activeLeague ? selectHref(activeLeague, `/l/${activeLeague.leagueSlug}`) : null;
-  const dashboardHref = activeLeague ? selectHref(activeLeague, '/home') : null;
+  const dashboardHref = activeLeague ? selectHref(activeLeague, `/l/${activeLeague.leagueSlug}/dashboard`) : null;
 
   return (
     <aside aria-label="League navigation" className={`sticky z-40 border-b border-white/10 ${isLeagueSite ? 'top-0' : 'top-20'}`} style={{ background: 'var(--brand-navy)' }}>

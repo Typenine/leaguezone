@@ -25,14 +25,14 @@ function LeagueDashboardCard({ league }: { league: UserLeague }) {
         </Link>
         {league.isCommissioner && (
           <a
-            href={dashboardHref(league.leagueId, '/settings')}
+            href={dashboardHref(league.leagueId, leagueUrl(league.leagueSlug, 'admin'))}
             className="inline-flex items-center justify-center border border-white/20 text-[var(--text)] px-4 py-2 text-xs font-bold uppercase tracking-wider transition hover:bg-white/5"
           >
             Admin
           </a>
         )}
         <a
-          href={dashboardHref(league.leagueId, '/home')}
+          href={dashboardHref(league.leagueId, leagueUrl(league.leagueSlug, 'dashboard'))}
           className="inline-flex items-center justify-center border border-white/20 text-[var(--text)] px-4 py-2 text-xs font-bold uppercase tracking-wider transition hover:bg-white/5"
         >
           Dashboard

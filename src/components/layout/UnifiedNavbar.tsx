@@ -142,7 +142,7 @@ export default function UnifiedNavbar() {
   ] : [];
 
   const dashboardHref = activeTeam
-    ? `/api/league/select?id=${encodeURIComponent(activeTeam.leagueId)}&next=${encodeURIComponent('/home')}`
+    ? `/api/league/select?id=${encodeURIComponent(activeTeam.leagueId)}&next=${encodeURIComponent(`/l/${activeTeam.leagueSlug}/dashboard`)}`
     : '/app';
   const teamSettingsHref = activeTeam
     ? `/api/league/select?id=${encodeURIComponent(activeTeam.leagueId)}&next=${encodeURIComponent('/settings')}`

@@ -8,21 +8,8 @@ export type LeagueSwitchTarget = {
   leagueSlug?: string;
 };
 
-const PRESERVED_LEGACY_PATHS = new Set([
-  '/home',
-  '/teams',
-  '/standings',
-  '/rules',
-  '/history',
-  '/transactions',
-  '/trades',
-  '/trades/block',
-  '/trades/analyzer',
-  '/suggestions',
-]);
-
 const LEGACY_TO_SITE_SECTION: Record<string, string> = {
-  '/home': '',
+  '/home': 'dashboard',
   '/teams': 'teams',
   '/standings': 'standings',
   '/rules': 'rulebook',
@@ -34,6 +21,7 @@ const LEGACY_TO_SITE_SECTION: Record<string, string> = {
 
 const SAFE_SITE_SECTIONS = new Set([
   '',
+  'dashboard',
   'teams',
   'standings',
   'rulebook',
@@ -96,17 +84,9 @@ export function getLeagueSwitchDestination(
     });
   }
 
-  const query = normalizeSearch(search);
-
-  if (pathname === '/settings') {
-    return target.isCommissioner ? `/settings${query}` : '/home';
-  }
-
-  if (PRESERVED_LEGACY_PATHS.has(pathname)) {
-    return `${pathname}${query}`;
-  }
-
-  return '/home';
+  // Without a target slug we cannot safely construct a league-scoped URL.
+  // Return to My Leagues rather than reviving any legacy root-level league page.
+  return '/app';
 }
 
 export function buildLeagueSwitchHref(
