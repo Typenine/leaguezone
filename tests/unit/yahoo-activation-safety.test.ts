@@ -12,18 +12,19 @@ describe('Yahoo activation safety', () => {
     expect(env).toContain(`YAHOO_REDIRECT_URI=${callback}`);
   });
 
-  it('shares OAuth state across apex/www and clears it with the same cookie scope', () => {
+  it('uses signed OAuth state instead of browser cookies', () => {
     const start = source('src/app/api/providers/yahoo/start/route.ts');
     const callback = source('src/app/api/providers/yahoo/callback/route.ts');
-    const helper = source('src/lib/providers/yahoo-oauth-cookie.ts');
+    const helper = source('src/lib/providers/yahoo-oauth-state.ts');
 
-    expect(start).toContain('yahooOAuthCookieOptions(request.url, 10 * 60)');
-    expect(callback).toContain('yahooOAuthCookieOptions(request.url, 0)');
-    expect(callback).toContain('state !== expectedState');
-    expect(callback).toContain('OAuth state validation failed');
-    expect(helper).toContain("replace(/^www\\./, '')");
-    expect(helper).toContain('return `.${callbackBase}`');
-    expect(helper).toContain("callbackBase.endsWith('.vercel.app')");
+    expect(start).toContain('createYahooOAuthState(session.userId, leagueId)');
+    expect(start).not.toContain("response.cookies.set('lz_yahoo_oauth_state'");
+    expect(callback).toContain('verifyYahooOAuthState(stateValue)');
+    expect(callback).toContain('state.userId !== session.userId');
+    expect(callback).toContain('requireSetupLeagueOwnership(session.userId, state.leagueId)');
+    expect(helper).toContain("type: 'yahoo_oauth'");
+    expect(helper).toContain('randomBytes(16)');
+    expect(helper).toContain('YAHOO_OAUTH_STATE_TTL_MS');
   });
 
   it('scopes Yahoo disconnect to the authenticated provider account only', () => {
