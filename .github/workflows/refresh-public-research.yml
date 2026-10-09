@@ -40,6 +40,11 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            month="$(date -u +%m)"
+            if (( 10#$month < 9 )); then
+              echo "Offseason: nothing to refresh."
+              exit 0
+            fi
             python scripts/build-nflverse-research.py --seasons "$(date -u +%Y)"
             python scripts/validate-nflverse-research.py "$(date -u +%Y)"
           else
@@ -65,6 +70,8 @@ jobs:
           git add public/research/data/
           if ! git diff --staged --quiet; then
             git commit -m "Refresh validated nflverse research snapshots [skip ci]"
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase FETCH_HEAD
             git push origin HEAD:"${GITHUB_REF_NAME}"
           else
             echo "Research data unchanged; no Vercel deployment."
