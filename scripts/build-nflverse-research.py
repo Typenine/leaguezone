@@ -85,7 +85,22 @@ def completed_weeks(schedule_rows: list[dict], season: int) -> int:
     return last
 
 
-def build_season(season: int, stats: list[dict], schedule: list[dict], stamp: str) -> dict:
+def dst_points(row: dict, allowed: int) -> float:
+    """Default scoring: 1/sack, 2/takeaway, 6/TD, 2/safety or blocked kick,
+    and a total-points-allowed bonus/penalty. Not universal league scoring."""
+    pa_bonus = next((v for limit, v in [
+        (0, 10), (6, 7), (13, 4), (20, 1), (27, 0), (34, -1)
+    ] if allowed <= limit), -4)
+    return round(number(row, "def_sacks") + 2 * number(row, "def_interceptions")
+        + 2 * number(row, "fumble_recovery_opp")
+        + 6 * (number(row, "def_tds") + number(row, "fumble_recovery_tds")
+               + number(row, "special_teams_tds"))
+        + 2 * (number(row, "def_safeties") + number(row, "def_punt_blocks")
+               + number(row, "def_fg_blocks"))
+        + pa_bonus, 2)
+
+
+def build_season(season: int, stats: list[dict], teams: list[dict], schedule: list[dict], stamp: str) -> dict:
     through = completed_weeks(schedule, season)
     by_id: dict[str, dict] = {}
     weekly_seen: set[tuple[str, int]] = set()
@@ -145,6 +160,56 @@ def build_season(season: int, stats: list[dict], schedule: list[dict], stamp: st
             integer(row, "passing_tds"), integer(row, "passing_interceptions"),
             integer(row, "fg_made"), integer(row, "pat_made"),
         ])
+    matchups = {}
+    for game in schedule:
+        if int(game.get("season") or 0) != season or game.get("game_type") != "REG":
+            continue
+        week = int(game.get("week") or 0)
+        if not 1 <= week <= through:
+            continue
+        for team, opponent, points_against in (
+            (game.get("home_team"), game.get("away_team"), game.get("away_score")),
+            (game.get("away_team"), game.get("home_team"), game.get("home_score")),
+        ):
+            if team and opponent and points_against is not None:
+                matchups[(week, str(team))] = (str(opponent), int(points_against))
+    seen_def = set()
+    for row in teams:
+        if int(row.get("season") or 0) != season or row.get("season_type") != "REG":
+            continue
+        week, team = int(row.get("week") or 0), str(row.get("team") or "")
+        if not 1 <= week <= through or (week, team) not in matchups:
+            continue
+        opponent, allowed = matchups[(week, team)]
+        if row.get("opponent_team") != opponent or (week, team) in seen_def:
+            raise ValueError(f"Invalid defense matchup: {season} week {week} {team}")
+        seen_def.add((week, team))
+        pid = "DEF-" + team
+        if pid not in by_id:
+            by_id[pid] = {
+                "id": pid, "n": team + " Defense", "pos": "DEF", "team": team,
+                "g": 0, "p": 0.0, "rec": 0, "tgt": 0, "ry": 0, "rt": 0,
+                "car": 0, "ruy": 0, "rut": 0, "snap": None,
+                "ppyd": 0, "pptd": 0, "pint": 0, "fgm": 0, "xpm": 0,
+                "sacks": 0.0, "ints": 0, "fr": 0, "pa": 0, "w": [],
+            }
+        item = by_id[pid]
+        points = dst_points(row, allowed)
+        item["g"] += 1
+        item["p"] += points
+        item["sacks"] += number(row, "def_sacks")
+        item["ints"] += integer(row, "def_interceptions")
+        item["fr"] += integer(row, "fumble_recovery_opp")
+        item["pa"] += allowed
+        item["w"].append([week, team, points, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          round(number(row, "def_sacks"), 1),
+                          integer(row, "def_interceptions"),
+                          integer(row, "fumble_recovery_opp"), allowed])
+        weekly_positions[week]["DEF"] += 1
+    for week in range(1, through + 1):
+        expected = sum(1 for game_week, _ in matchups if game_week == week)
+        if expected < 24 or weekly_positions[week]["DEF"] != expected:
+            raise ValueError(f"Incomplete defenses week {week}: expected {expected}")
     people = list(by_id.values())
     for item in people:
         item["p"] = round(item["p"], 2)
@@ -165,7 +230,7 @@ def build_season(season: int, stats: list[dict], schedule: list[dict], stamp: st
         "source": "nflverse/nflverse-data weekly player statistics (direct)",
         "sourceUrl": "https://github.com/nflverse/nflverse-data/releases",
         "license": "CC BY 4.0 (subject to underlying source rights)",
-        "scoring": "NFL fantasy PPR; K: FG 0-39=3, 40-49=4, 50+=5, PAT=1",
+        "scoring": "NFL fantasy PPR; K: 3/4/5 by distance and PAT=1; DEF: default formula, total game points allowed",
         "schema": 2, "players": people,
     }
 
@@ -190,13 +255,15 @@ def main() -> None:
         print(f"Retrieving official nflverse weekly rows and schedules: {season}", flush=True)
         stats = nfl.load_player_stats(season, summary_level="week").to_dicts()
         schedule = nfl.load_schedules(season).to_dicts()
-        snapshot = build_season(season, stats, schedule, stamp)
+        teams = nfl.load_team_stats(season, summary_level="week").to_dicts()
+        snapshot = build_season(season, stats, teams, schedule, stamp)
         path = DEST / f"{season}.json"
         old = json.loads(path.read_text()) if path.exists() else None
         guard_previous(old, snapshot)
         pending.append((path, snapshot))
         print(f"Validated {season}: {len(snapshot['players'])} players through week {snapshot['throughWeek']}; "
-              f"kickers={sum(p['pos']=='K' for p in snapshot['players'])}", flush=True)
+              f"kickers={sum(p['pos']=='K' for p in snapshot['players'])}, "
+              f"defenses={sum(p['pos']=='DEF' for p in snapshot['players'])}", flush=True)
     # Only write when every requested season passed its validations.
     DEST.mkdir(parents=True, exist_ok=True)
     for path, data in pending:
