@@ -79,30 +79,32 @@
 1. Create a DEDICATED public-data R2 bucket, separate from the existing private
    team/media bucket. Use a private scoped R2 API token for GitHub Actions with
    write/read permissions only to this research bucket.
-2. In Cloudflare R2 > bucket > Settings > Custom Domains, attach and verify a
-   production hostname owned by the LeagueZone domain. Do not use an r2.dev
-   development address for real users. HTTPS must work.
-3. Add a bucket CORS policy for GET/HEAD from both:
+2. Cloudflare DNS for leaguezonehq.com is managed elsewhere. Use a small
+   public Cloudflare Worker at https://leaguezone-research-data.patrickmmcnulty62.workers.dev
+   with an R2 binding called RESEARCH_BUCKET pointing to leaguezone-research.
+   Do not change the main site's DNS or use the R2 development URL.
+3. The Worker (not a public R2 bucket URL) serves only research/v1/catalog.json
+   and immutable research/v1/objects/*.json. It must allow CORS GET/HEAD from
    https://www.leaguezonehq.com and https://leaguezonehq.com.
-   Suggested allowed headers: Content-Type. Expose ETag and Content-Length.
-   See https://developers.cloudflare.com/r2/buckets/cors/
-4. In Cloudflare caching rules, cache all immutable /research/v1/objects/*.json
-   for a long TTL, but make /research/v1/catalog.json short-lived (<=60 sec)
-   or bypass cache. JSON is not cached by default without an appropriate
-   Cloudflare Cache Rule. See https://developers.cloudflare.com/cache/interaction-cloudflare-products/r2/
+   The bucket remains private; read access comes through RESEARCH_BUCKET.
+4. The Worker sends immutable cache headers for object keys and a 60-second
+   header for the catalog. Worker subrequests still count toward Workers
+   limits; optional cache optimization can be considered after launch.
 5. In GitHub repo Settings > Secrets and variables > Actions, define secrets:
    RESEARCH_R2_ACCOUNT_ID, RESEARCH_R2_ACCESS_KEY_ID,
    RESEARCH_R2_SECRET_ACCESS_KEY. Define public variables:
-   RESEARCH_R2_BUCKET, RESEARCH_R2_PUBLIC_BASE (https://the-verified-host).
+   RESEARCH_R2_BUCKET=leaguezone-research, and RESEARCH_R2_PUBLIC_BASE=
+   https://leaguezone-research-data.patrickmmcnulty62.workers.dev.
    Do NOT copy credentials into source files or workflows.
-6. Run GitHub Actions > Refresh public research in R2 > Run workflow on main.
+6. Run GitHub Actions > Refresh public research in R2 > Run workflow on
+   feature/research-r2-uploads BEFORE the production merge.
    Publishing verifies data against all research validators, checks R2 object
    sizes and public browser CORS, and updates the catalog only after uploads
    succeed. Inspect job logs to confirm success.
 7. Verify remote /research/v1/catalog.json is reachable from both site origins
    and every advertised versioned season object returns valid JSON.
 8. Only after successful publication and checks, set public/research/data-source.json
-   publicBase to the verified R2 custom-domain HTTPS origin and merge once to
+   publicBase to the verified HTTPS Worker origin and merge once to
    main. This is the ONE required production deployment for the cutover.
    Prior to this step the existing static delivery stays fully operational.
 9. Rotate any previously committed R2 keys. Old Git history may still contain
