@@ -6,6 +6,8 @@
   <meta name="theme-color" content="#071020">
   <meta name="description" content="Explore NFL fantasy football player stats, leaders, game logs and comparisons on LeagueZone. No account required.">
   <title>Fantasy Football Player Research | LeagueZone</title>
+  <link rel="icon" type="image/png" href="/assets/LeagueZone%20HQ%20Logo.png">
+  <link rel="apple-touch-icon" href="/assets/LeagueZone%20HQ%20Logo.png">
   <link rel="stylesheet" href="/research/styles.css">
   <script defer src="/research/metrics.js"></script>
   <script defer src="/research/app.js"></script>
@@ -13,8 +15,9 @@
 <body>
   <header class="site-head">
     <div class="wrap head-inner">
-      <a class="wordmark" href="/research" aria-label="LeagueZone Research home"><span class="brand-icon">LZ</span><span>LeagueZone <small>RESEARCH</small></span></a>
+      <a class="wordmark" href="/" aria-label="LeagueZone home"><span class="brand-icon">LZ</span><span>LeagueZone <small>RESEARCH</small></span></a>
       <nav aria-label="Site navigation" class="nav">
+        <a href="/">Home</a>
         <a href="/research" data-nav="research">Overview</a>
         <a href="/research/players" data-nav="players">Players</a>
         <a href="/research/stats" data-nav="stats">Stat Leaders</a>
@@ -26,10 +29,9 @@
     <div class="eyebrow">NFL Fantasy Research · <span id="research-year-range">Historical seasons</span></div>
     <section class="intro">
       <h1 id="page-title">A clearer look at every player.</h1>
-      <p id="page-desc">Explore current-season fantasy production, discover statistical leaders, compare players, and review weekly game logs. No account or league connection required.</p>
+      <p id="page-desc">Explore current-season fantasy production, discover statistical leaders, compare players, and review weekly game logs.</p>
       <div class="meta-row">
         <span id="data-stamp" class="meta-pill">Loading player data…</span>
-        <span class="meta-note">Public data · CDN delivered · No league database access</span>
       </div>
     </section>
     <div id="error" role="alert" hidden></div>
@@ -72,8 +74,7 @@
       <div class="section-head"><div><div class="eyebrow">Head-to-head</div><h2>Player comparison</h2></div><button type="button" id="clear-compare" class="btn outline">Clear comparison</button></div>
       <div id="compare-grid" class="comparison"></div><div id="compare-detail"></div><p id="compare-notice" class="subdued" role="status"></p>
     </section>
-    <section class="source-note"><h2>About these statistics</h2><p>Player and team statistics come directly from <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noopener noreferrer">nflverse</a>, under CC BY 4.0, subject to underlying data rights. Fantasy points use nflverse PPR values; half-PPR and standard adjust receptions. Kicker scoring uses 3/4/5 points by field-goal distance and 1 per made PAT. Defense/ST points are calculated using sacks, turnovers, touchdowns, safeties, blocked kicks, and game scoreboard points allowed. DST scoring varies by provider, and opponent defensive scores may affect the points-allowed calculation. Rookie seasons are sourced from historical nflverse player metadata when available, excluding unverifiable records from rookie-only results. Custom league scoring, verified snap counts, snap share, routes and expected fantasy points are not available. Advanced usage and red-zone metrics are provided separately for supported seasons. Data may change following stat corrections. DST point totals are estimates, not official Sleeper or ESPN scoring.</p></section>
   </main>
-  <footer class="wrap footer"><span>LeagueZone · Independent fantasy research</span><a href="/">LeagueZone HQ</a></footer>
+  <footer class="wrap footer"><span>LeagueZone Research</span><details class="data-credit"><summary>Data credits</summary><p>NFL weekly statistics: <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noopener noreferrer">nflverse-data</a> (nflverse contributors), licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>. Fantasy scoring and statistics are calculated by LeagueZone; league-specific settings may vary.</p></details><a href="/">LeagueZone HQ</a></footer>
 </body>
 </html>
