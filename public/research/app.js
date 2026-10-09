@@ -62,7 +62,7 @@
     var weekIndex = {
       targets:4, receptions:3, carries:6, yards:5, rushing:7, passing:8,
       passTD:9, passINT:10, fgm:11, xpm:12, sacks:13, ints:14, fr:15, pa:16,
-      rushTD:17, recTD:18
+      rushTD:13, recTD:14
     };
     if (row && weekIndex[key] != null) return Number(row[weekIndex[key]]) || 0;
     return Number(p[season[key]]) || 0;
