@@ -9,6 +9,7 @@ on:
       - 'scripts/validate-nflverse-research.py'
       - 'public/research/**'
       - '.github/workflows/refresh-public-research.yml'
+      - 'tests/research_r2/**'
       - 'tests/unit/public-research-static.test.ts'
       - 'tests/e2e/public-research-history.spec.ts'
   schedule:
