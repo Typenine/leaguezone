@@ -715,8 +715,7 @@
       if (token!==state.requestId) return;
       state.players=data.players;state.byId=new Map(data.players.map(function (p) {return [p.id,p];}));
       state.throughWeek=data.throughWeek;
-      $('data-stamp').textContent=year+' Season · Through Week '+data.throughWeek+' · Updated '+data.updated+
-        (data._researchSource==='r2'?' · R2 live data':' · Last validated backup');
+      $('data-stamp').textContent=year+' Season · Through Week '+data.throughWeek+' · Updated '+data.updated;
       populateWeeks();sortOptions();renderTable();renderCompare();renderRoute();
       $('research-year-range').textContent=state.years[0]+'–'+state.latest;
     }).catch(function (error) {
