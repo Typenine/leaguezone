@@ -23,14 +23,17 @@ describe('public research database isolation', () => {
       expect(historical.throughWeek).toBe(18);
       expect(historical.players.length).toBeGreaterThan(500);
       expect(historical.source).toContain("nflverse/");
-      expect(historical.schema).toBe(2);
+      expect(historical.schema).toBe(3);
       expect(historical.players.filter((p: {pos:string}) => p.pos === "DEF").length).toBe(32);
       expect(historical.players.filter((p: {pos:string}) => p.pos === "K").length).toBeGreaterThan(25);
+      expect(historical.players.some((p: {ryr: number | null}) => p.ryr === year)).toBe(true);
       for(const player of historical.players) {
         expect(player.g).toBe(player.w.length);
         expect(new Set(player.w.map((w: number[]) => w[0])).size).toBe(player.w.length);
       }
     }
+    const manifest=JSON.parse(read('public/research/data/seasons.json'));
+    expect(manifest.years).toEqual([2023,2024,2025,2026]);
     expect(data.throughWeek).toBeGreaterThan(0);
     expect(data.players.length).toBeGreaterThan(100);
     expect(data.players.some((p: { pos: string }) => p.pos === 'K')).toBe(true);
@@ -49,6 +52,7 @@ describe('public research database isolation', () => {
   it('client application cannot call authenticated or database APIs', () => {
     const ui = read('public/research/app.js');
     expect(ui).toContain("fetch('/research/data/'+year+'.json'");
+    expect(ui).toContain("fetch('/research/data/seasons.json'");
     expect(ui).not.toMatch(/fetch\s*\(\s*['"\`]\/api\//);
     expect(ui).not.toMatch(/fetch\s*\(\s*['"\`]\/l\//);
     expect(ui).not.toMatch(/DATABASE_URL|@neondatabase|sql\`|\/api\/players/);
@@ -57,6 +61,8 @@ describe('public research database isolation', () => {
     const updater = read('scripts/build-nflverse-research.py');
     expect(updater).toContain('nfl.load_player_stats');
     expect(updater).toContain('nfl.load_team_stats');
+    expect(updater).toContain('nfl.load_players');
+    expect(updater).toContain('seasons.json');
     expect(updater).not.toMatch(/DATABASE_URL|@neondatabase|from ['"]@\/lib|from ['"]@\/server/);
     expect(updater).not.toContain('NityaGehlot');
   });
