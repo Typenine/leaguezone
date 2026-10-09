@@ -99,13 +99,14 @@ export default async function AppDashboardPage({
               </h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-white/55 sm:text-lg">
                 {activeLeague
-                  ? 'Return to your active league, switch to another league, or handle commissioner work without going through the public sales site.'
-                  : 'Your account is ready. Join a league with an invite or create a new league site to get started.'}
+                  ? 'Pick up with your league or jump into player research, all from your LeagueZone home.'
+                  : 'Explore player research, join a league with an invite, or create a new league site to get started.'}
               </p>
               <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold uppercase tracking-wider">
                 <Link href="/setup?new=1" className="text-[var(--brand-gold)] hover:underline">Create League</Link>
                 <a href="#join-league" className="text-white/60 hover:text-white">Join League</a>
-                <Link href="/?view=public" className="text-white/40 hover:text-white">View Public Site</Link>
+                <Link href="/research" className="text-white/60 hover:text-white">Player Research</Link>
+                <Link href="/?view=public" className="text-white/40 hover:text-white">LeagueZone Home</Link>
               </div>
             </div>
 
@@ -129,6 +130,29 @@ export default async function AppDashboardPage({
       </section>
 
       <div className="container mx-auto space-y-12 px-4 py-10 sm:py-12">
+        <section aria-labelledby="research-shortcuts-heading">
+          <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+            <div>
+              <p className="eyebrow">Player research</p>
+              <h2 id="research-shortcuts-heading" className="mt-2 text-3xl font-black uppercase tracking-tight text-white">Explore the NFL</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">Dive into player statistics, opportunity trends and career development outside your league pages.</p>
+            </div>
+            <Link href="/research" className="text-xs font-black uppercase tracking-wider text-[var(--brand-gold)] hover:underline">Research Home ↗</Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              { href: '/research/stats', label: 'Stat Leaders', detail: 'Filter and compare player production and usage.' },
+              { href: '/research/radar', label: 'Opportunity Radar', detail: 'Spot changing roles behind weekly fantasy scores.' },
+              { href: '/research/development', label: 'Development Lab', detail: 'Compare player growth across seasons.' },
+            ].map((item) => (
+              <Link key={item.href} href={item.href} className="rounded-lg border border-white/10 bg-white/[0.035] p-5 transition hover:border-[var(--brand-gold)]/40 hover:bg-white/[0.06]">
+                <h3 className="font-black uppercase tracking-wide text-white">{item.label}</h3>
+                <p className="mt-2 text-sm leading-6 text-white/50">{item.detail}</p>
+                <span className="mt-4 inline-flex text-xs font-black uppercase tracking-wider text-[var(--brand-gold)]">Explore ↗</span>
+              </Link>
+            ))}
+          </div>
+        </section>
         {userLeagues.length > 0 && (
           <section aria-labelledby="my-leagues-heading">
             <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">

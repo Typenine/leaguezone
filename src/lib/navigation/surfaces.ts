@@ -10,6 +10,7 @@ const PLATFORM_PREFIXES = [
   '/newsletter',
   '/pricing',
   '/register',
+  '/research',
   '/reset-password',
   '/setup',
   '/super-admin',

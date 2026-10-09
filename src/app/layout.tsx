@@ -23,8 +23,8 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'LeagueZone HQ — Custom Fantasy League Websites',
-  description: 'Custom fantasy football league websites for serious dynasty commissioners.',
+  title: 'LeagueZone HQ | Fantasy Football Research & League Management',
+  description: 'Research NFL players, compare fantasy football stats and opportunity trends, and manage your league with custom websites, draft tools, trades, and history.',
   applicationName: 'LeagueZone HQ',
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, title: 'LeagueZone HQ', statusBarStyle: 'default' },

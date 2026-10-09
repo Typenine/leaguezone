@@ -8,7 +8,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: base + '/research', changeFrequency: 'weekly', priority: 0.9 },
     { url: base + '/research/stats', changeFrequency: 'weekly', priority: 0.9 },
     { url: base + '/research/players', changeFrequency: 'weekly', priority: 0.9 },
-    { url: base + '/features', changeFrequency: 'monthly', priority: 0.5 },
-    { url: base + '/pricing', changeFrequency: 'monthly', priority: 0.5 },
+    { url: base + '/research/radar', changeFrequency: 'weekly', priority: 0.7 },
+    { url: base + '/research/receipts', changeFrequency: 'weekly', priority: 0.7 },
+    { url: base + '/research/development', changeFrequency: 'weekly', priority: 0.7 },
+    { url: base + '/features', changeFrequency: 'monthly', priority: 0.7 },
+    { url: base + '/demo', changeFrequency: 'monthly', priority: 0.6 },
   ];
 }

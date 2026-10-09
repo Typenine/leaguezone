@@ -9,19 +9,15 @@ async function getLeagueName(): Promise<string | null> {
   try {
     const jar = await cookies();
     const activeLeagueId = jar.get('active_league_id')?.value || undefined;
+    // Do not wake Postgres for every anonymous homepage visit.
+    // Only resolve a league name for a viewer who has selected one.
+    if (!activeLeagueId) return null;
     const db = getDb();
-    const res = activeLeagueId
-      ? await db.execute(sql`
-          SELECT name FROM leagues
-          WHERE setup_completed = true AND id = ${activeLeagueId}::uuid
-          LIMIT 1
-        `)
-      : await db.execute(sql`
-          SELECT name FROM leagues
-          WHERE setup_completed = true AND is_active = true
-          ORDER BY created_at ASC
-          LIMIT 1
-        `);
+    const res = await db.execute(sql`
+      SELECT name FROM leagues
+      WHERE setup_completed = true AND id = ${activeLeagueId}::uuid
+      LIMIT 1
+    `);
     const row = (res as { rows?: Array<Record<string, unknown>> }).rows?.[0];
     return row ? (row.name as string) : null;
   } catch {
@@ -41,8 +37,8 @@ export default async function Footer() {
             <p className="mt-1">© {CURRENT_YEAR} {leagueName ?? PLATFORM.name}</p>
           </div>
           <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-bold uppercase tracking-wider text-white/40">
-            <Link href="/features" className="hover:text-[var(--brand-gold)] transition-colors">Features</Link>
-            <Link href="/pricing" className="hover:text-[var(--brand-gold)] transition-colors">Pricing</Link>
+            <Link href="/research" className="hover:text-[var(--brand-gold)] transition-colors">Research</Link>
+            <Link href="/features" className="hover:text-[var(--brand-gold)] transition-colors">League Websites</Link>
             <Link href="/demo" className="hover:text-[var(--brand-gold)] transition-colors">Demo</Link>
             <Link href="/app" className="hover:text-[var(--brand-gold)] transition-colors">Dashboard</Link>
             <Link href="/privacy" className="hover:text-[var(--brand-gold)] transition-colors">Privacy</Link>
