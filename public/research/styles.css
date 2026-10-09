@@ -60,3 +60,75 @@
   .toolbar .search-field,.rookie-toggle{grid-column:span 1}
   .leader-card{padding:12px;min-height:140px}
 }
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.missing{position:relative;color:var(--muted)}
+.filter-meta{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:0 0 8px}
+.sort-context{margin:0;color:var(--ink);font-size:12px;font-weight:600}
+.sort-head{background:none;border:0;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;padding:0;cursor:pointer}
+.sort-head:hover,.sort-head:focus-visible{color:var(--gold);text-decoration:underline}
+th.sorted,td.sorted{color:var(--gold)}
+td.unqualified{color:var(--muted);font-style:italic}
+.sorted-stat b{color:var(--gold)!important}
+.metric .note{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.season-note{border-left:3px solid var(--gold);background:#221d15;color:var(--ink);padding:9px 12px;font-size:12px;margin:10px 0}
+.compact-table table{min-width:0}
+.compact-table td,.compact-table th{white-space:normal}
+.change.up{color:var(--teal)}
+.change.down{color:#f1b3b3}
+.chart-key{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.key-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--teal)}
+.key-dash{display:inline-block;width:18px;border-top:2px dashed var(--gold)}
+.trend-chart svg{width:100%;height:auto}
+.current-row{background:#122139}
+.metric-guide{margin:4px 0 18px;border:1px solid var(--line);background:var(--panel);padding:10px 14px;font-size:12px;color:var(--muted)}
+.metric-guide summary{cursor:pointer;color:var(--gold);font-weight:700}
+.metric-guide dt{color:var(--ink);font-weight:700;margin-top:10px}
+.metric-guide dd{margin:2px 0 0}
+#compare-detail{margin-top:12px}
+.cmp-table{border:1px solid var(--line);background:var(--panel)}
+.cmp-section h3{margin:0;padding:10px 12px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--gold);border-top:1px solid var(--line);background:var(--panel2)}
+.cmp-row{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr));gap:10px;padding:9px 12px;border-top:1px solid var(--line);font-size:13px;align-items:center}
+.cmp-head{font-size:11px;font-weight:800;text-transform:uppercase;color:#c6d2e1;border-top:0}
+.cmp-val,.cmp-diff{text-align:right;font-variant-numeric:tabular-nums}
+.cmp-val.lead{color:var(--gold);font-weight:800}
+.cmp-diff{color:var(--muted)}
+.cmp-tag{display:none}
+@media(max-width:650px){
+  .filter-meta{flex-direction:column;gap:4px}
+  .cmp-head{display:none}
+  .cmp-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 8px}
+  .cmp-label{grid-column:1/-1;font-weight:700}
+  .cmp-val,.cmp-diff{text-align:left}
+  .cmp-tag{display:block;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase}
+  .comparison{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .compare-card{padding:12px;min-width:0}
+  .compare-card h2{font-size:17px;overflow-wrap:anywhere}
+  .compare-card .metric{padding:8px}
+  .compare-card .metric .value{font-size:17px}
+}
+
+.usage-status{margin:.25rem 0 0}
+.usage-chart svg rect{fill:currentColor;opacity:.8}
+.usage-chart{color:var(--accent,#2f6fed)}
+.usage-chart .axis{font-size:10px;fill:var(--muted,#666)}
+#usage-profile h3{margin:1rem 0 .5rem;font-size:1rem}
+.usage-chart{margin-top:10px;overflow:hidden}
+.usage-chart svg{display:block;width:100%;height:auto;max-height:200px}
+.usage-trend{min-width:0}
+.usage-trend th,.usage-trend td{padding:10px 6px}
+.usage-trend td:first-child,.usage-trend th:first-child{white-space:normal}
+
+/* Red-zone profile chart and labels */
+.rz-chart { overflow-x: auto; max-width: 100%; }
+.rz-chart svg { display: block; width: 100%; min-width: 440px; height: auto; max-height: 220px; }
+.rz-chart text { font-size: 10px; fill: var(--muted, #8a94a6); }
+.rz-chart line { stroke: var(--line, #2a3242); }
+.rz-car, rect.rz-car { fill: #3b82f6; background: #3b82f6; }
+.rz-tgt, rect.rz-tgt { fill: #f59e0b; background: #f59e0b; }
+.rz-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; }
+.rz-zones { min-width: 0; }
+.rz-zones th, .rz-zones td { padding: 10px 6px; }
+.small-sample { font-size: 0.75em; color: var(--muted, #8a94a6); white-space: nowrap; }
+.rz-trend-table { min-width: 0; }
+.rz-trend-table th, .rz-trend-table td { padding: 10px 6px; }
+.rz-trend-table td:first-child, .rz-trend-table th:first-child { white-space: normal; }
