@@ -75,13 +75,13 @@ def build_catalog(data_dir: Path, old_catalog: dict | None = None):
         hexdigest = digest(d)
         key = f"{PREFIX}/objects/{year}-{hexdigest}.json"
         prior_file = prior.get("files", {}).get(str(year), {})
+        if int(prior_file.get("throughWeek", 0)) > int(d.get("throughWeek", 0)):
+            raise ValueError(f"Refusing to regress archived {year} from week "
+                             f"{prior_file['throughWeek']} to week {d['throughWeek']}")
         if (prior_file.get("sha256") == hexdigest and
                 prior_file.get("key") == key):
             files[str(year)] = prior_file
             continue
-        if int(prior_file.get("throughWeek", 0)) > int(d.get("throughWeek", 0)):
-            raise ValueError(f"Refusing to regress archived {year} from week "
-                             f"{prior_file['throughWeek']} to week {d['throughWeek']}")
         raw = (json.dumps(d, separators=(",", ":"), ensure_ascii=False)
                + "\n").encode("utf-8")
         uploads.append((key, raw))
