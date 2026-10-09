@@ -72,4 +72,7 @@ jobs:
           RESEARCH_R2_BUCKET: ${{ vars.RESEARCH_R2_BUCKET }}
           RESEARCH_R2_PUBLIC_BASE: ${{ vars.RESEARCH_R2_PUBLIC_BASE }}
           RESEARCH_R2_SITE_ORIGIN: https://www.leaguezonehq.com
+          # Browser access independently confirmed; GitHub's runner IP got a
+          # Cloudflare edge 403. Still verify every uploaded R2 file via S3 GET.
+          RESEARCH_R2_ALLOW_CLOUDFLARE_403: "true"
         run: python scripts/publish-public-research-r2.py
