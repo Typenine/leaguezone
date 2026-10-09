@@ -1,6 +1,16 @@
 name: Refresh public research in R2
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/refresh-public-research.yml'
+      - 'scripts/build-nflverse-research.py'
+      - 'scripts/build-research-usage.py'
+      - 'scripts/build-research-redzone.py'
+      - 'scripts/publish-public-research-r2.py'
+      - 'scripts/validate-research-usage.py'
+      - 'scripts/validate-research-redzone.py'
   schedule:
     - cron: '0 12 * 1,9-12 4'
 
@@ -47,7 +57,7 @@ jobs:
           npm run typecheck
           npx vitest run tests/unit/public-research-static.test.ts
       - name: Publish validated snapshots to R2 without Git commits
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push')
         env:
           RESEARCH_R2_ACCOUNT_ID: ${{ secrets.RESEARCH_R2_ACCOUNT_ID }}
           RESEARCH_R2_ACCESS_KEY_ID: ${{ secrets.RESEARCH_R2_ACCESS_KEY_ID }}

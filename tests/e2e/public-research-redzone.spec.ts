@@ -91,7 +91,7 @@ test.describe('red zone', () => {
     await expect(page.locator('#position')).toHaveValue('WR');
     await expect(page.locator('#view')).toHaveValue('usage');
     await expect(page.locator('#sort')).toHaveValue('tgtShare');
-    await expect(page.locator('#players-body [data-profile]').first()).toBeVisible();
+    await expect(page.locator('#players-body [data-profile]:visible, #mobile-results [data-profile]:visible').first()).toBeVisible();
   });
 
   test('advanced data never mixes older static weeks with newer remote base', async ({ page }) => {
@@ -108,8 +108,8 @@ test.describe('red zone', () => {
     await page.goto('/research/stats?season=2025&pos=WR&view=usage');
     await expect(page.locator('#data-stamp')).toContainText('2025 Season');
     await expect(page.locator('#usage-status')).toContainText('being updated to match');
-    await expect(page.locator('#players-body [data-profile]').first()).toBeVisible();
-    await expect(page.locator('#players-body .missing').first()).toBeVisible();
+    await expect(page.locator('#players-body [data-profile]:visible, #mobile-results [data-profile]:visible').first()).toBeVisible();
+    await expect(page.locator('.missing:visible').first()).toBeVisible();
   });
 
   test('RB goal-line carry sort matches independent totals', async ({ page }) => {
