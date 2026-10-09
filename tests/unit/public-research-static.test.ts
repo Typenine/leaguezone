@@ -6,6 +6,17 @@ describe('public research database isolation', () => {
   it('has a static dataset with real season metadata', () => {
     const data = JSON.parse(read('public/research/data/2026.json'));
     expect(data.year).toBe(2026);
+    const known = [
+      [2023, 'CeeDee Lamb', 403.2],
+      [2024, 'Ja\'Marr Chase', 403],
+      [2025, 'Christian McCaffrey', 416.6],
+    ] as const;
+    for (const [year, name, expected] of known) {
+      const data = JSON.parse(read('public/research/data/' + year + '.json'));
+      const player = data.players.find((p: { n: string }) => p.n === name);
+      expect(player, year + ' ' + name).toBeDefined();
+      expect(player.p).toBeCloseTo(expected, 1);
+    }
     for(const year of [2023,2024,2025]) {
       const historical=JSON.parse(read('public/research/data/'+year+'.json'));
       expect(historical.year).toBe(year);
