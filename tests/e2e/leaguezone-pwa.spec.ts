@@ -49,6 +49,20 @@ test.describe('LeagueZone app install', () => {
     await expect(page.getByText('LeagueZone is running in its installed app window.')).toBeVisible();
   });
 
+  test('native install offer survives navigation from the homepage', async ({ page }) => {
+    await page.goto('/?view=public');
+    await page.evaluate(() => {
+      const offered = new Event('beforeinstallprompt');
+      Object.defineProperties(offered, {
+        prompt: { value: () => Promise.resolve() },
+        userChoice: { value: Promise.resolve({ outcome: 'accepted', platform: 'web' }) },
+      });
+      window.dispatchEvent(offered);
+    });
+    await page.getByRole('link', { name: /get the leaguezone app for your phone/i }).click();
+    await expect(page.getByRole('button', { name: 'Install LeagueZone' })).toBeVisible();
+  });
+
   test('public research is an installable entry point and has a link back', async ({ page }) => {
     await page.goto('/research');
     await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/manifest.webmanifest');

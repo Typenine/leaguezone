@@ -9,6 +9,7 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 type InstallState = 'checking' | 'ready' | 'manual' | 'installed';
+type InstallWindow = Window & { __leaguezoneDeferredInstall?: BeforeInstallPromptEvent | null };
 
 function standalone(): boolean {
   const nav = navigator as Navigator & { standalone?: boolean };
@@ -27,14 +28,21 @@ export default function InstallAppActions() {
       setState('installed');
       return;
     }
+    const offeredOnAnotherPage = (window as InstallWindow).__leaguezoneDeferredInstall;
+    if (offeredOnAnotherPage) {
+      promptRef.current = offeredOnAnotherPage;
+      setState('ready');
+    }
 
     const onPrompt = (event: Event) => {
       event.preventDefault();
       promptRef.current = event as BeforeInstallPromptEvent;
+      (window as InstallWindow).__leaguezoneDeferredInstall = event as BeforeInstallPromptEvent;
       setState('ready');
     };
     const onInstalled = () => {
       promptRef.current = null;
+      (window as InstallWindow).__leaguezoneDeferredInstall = null;
       setState('installed');
     };
     window.addEventListener('beforeinstallprompt', onPrompt);
@@ -52,6 +60,7 @@ export default function InstallAppActions() {
     const pending = promptRef.current;
     if (!pending) return;
     promptRef.current = null;
+    (window as InstallWindow).__leaguezoneDeferredInstall = null;
     try {
       await pending.prompt();
       const choice = await pending.userChoice;

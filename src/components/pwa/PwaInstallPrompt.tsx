@@ -17,6 +17,10 @@ type BeforeInstallPromptEvent = Event & {
 const DISMISSED_AT_KEY = 'leaguezone-pwa-install-dismissed-at';
 const DISMISS_FOR_MS = 30 * 24 * 60 * 60 * 1000;
 
+// A native install offer may arrive before the user opens /install.
+// Keep that offer available across client-side navigation.
+type InstallWindow = Window & { __leaguezoneDeferredInstall?: BeforeInstallPromptEvent | null };
+
 function isStandalone(): boolean {
   const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
   return window.matchMedia('(display-mode: standalone)').matches || navigatorWithStandalone.standalone === true;
@@ -46,7 +50,10 @@ export default function PwaInstallPrompt() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (pathname !== '/' && pathname !== '/app' && !pathname.startsWith('/l/')) return;
+    if (pathname !== '/' && pathname !== '/app' && !pathname.startsWith('/l/')) {
+      setVisible(false);
+      return;
+    }
     if (isStandalone() || recentlyDismissed()) return;
     if (!window.matchMedia('(max-width: 767px)').matches) return;
 
@@ -56,12 +63,14 @@ export default function PwaInstallPrompt() {
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
+      (window as InstallWindow).__leaguezoneDeferredInstall = event as BeforeInstallPromptEvent;
       setInstallPrompt(event as BeforeInstallPromptEvent);
       setMode('native');
       setVisible(true);
     };
 
     const handleInstalled = () => {
+      (window as InstallWindow).__leaguezoneDeferredInstall = null;
       setVisible(false);
       setInstallPrompt(null);
       setMode(null);
@@ -94,6 +103,7 @@ export default function PwaInstallPrompt() {
   const install = async () => {
     if (!installPrompt) return;
 
+    (window as InstallWindow).__leaguezoneDeferredInstall = null;
     await installPrompt.prompt();
     const choice = await installPrompt.userChoice;
     if (choice.outcome === 'dismissed') rememberDismissal();
