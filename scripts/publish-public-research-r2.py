@@ -83,9 +83,17 @@ def build_catalog(data_dir: Path, old_catalog: dict | None = None):
 
 def create_client():
     import boto3
+    import re
+    account_id = required("RESEARCH_R2_ACCOUNT_ID")
+    if not re.fullmatch(r"[0-9a-fA-F]{32}", account_id):
+        raise ValueError(
+            "RESEARCH_R2_ACCOUNT_ID must contain only your 32-character Cloudflare "
+            "Account ID, not an S3 endpoint URL, bucket name, or path. "
+            "Update the GitHub Actions repository secret and rerun."
+        )
     return boto3.client(
         "s3",
-        endpoint_url=f"https://{required('RESEARCH_R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
+        endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
         aws_access_key_id=required("RESEARCH_R2_ACCESS_KEY_ID"),
         aws_secret_access_key=required("RESEARCH_R2_SECRET_ACCESS_KEY"),
         region_name="auto",
