@@ -1,6 +1,6 @@
 'use strict';
 (function () {
-  var state = { players:[], byId:new Map(), score:'half', query:'', position:'ALL', sort:'points', games:1, limit:60, compare:new Set(), throughWeek:0 };
+  var state = { year:2026, requestId:0, players:[], byId:new Map(), score:'half', query:'', position:'ALL', sort:'points', games:1, limit:60, compare:new Set(), throughWeek:0 };
   var el = function(id){ return document.getElementById(id); };
   var escape = function(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
   var fmt = function(n,d){ return (Number(n)||0).toFixed(d==null?1:d); };
@@ -14,7 +14,7 @@
     if(sort==='snaps')return p.snap||0;
     return score(p);
   }
-  function profileUrl(id){return '/research/players/'+encodeURIComponent(id);}
+  function profileUrl(id){return '/research/players/'+encodeURIComponent(id)+(state.year===2026?'':'?season='+state.year);}
   function positionLeaders() {
     var host=el('leaders');if(!host)return;
     host.innerHTML=['QB','RB','WR','TE','K'].map(function(pos){
@@ -52,7 +52,7 @@
       '<div class="profile-grid">'+metric('Fantasy points',fmt(score(p)))+metric('Points / game',fmt(ppg(p)))+
       metric('Games played',p.g)+metric('Targets',p.tgt)+metric('Receptions',p.rec)+
       metric('Receiving yards',p.ry)+metric('Carries',p.car)+metric('Rushing yards',p.ruy)+'</div>'+
-      '<h2>2026 game log</h2><div class="table-scroll"><table><thead><tr><th>Week</th><th>Team</th><th class="num">Fantasy points</th><th class="num">Targets</th><th class="num">Receptions</th><th class="num">Rec yards</th><th class="num">Carries</th><th class="num">Rush yards</th></tr></thead><tbody>';
+      '<h2>'+state.year+' game log</h2><div class="table-scroll"><table><thead><tr><th>Week</th><th>Team</th><th class="num">Fantasy points</th><th class="num">Targets</th><th class="num">Receptions</th><th class="num">Rec yards</th><th class="num">Carries</th><th class="num">Rush yards</th></tr></thead><tbody>';
     html+=history.map(function(w){return '<tr><td>'+w[0]+'</td><td>'+escape(w[1])+'</td><td class="num">'+fmt(w[2]-adjustments*w[3])+'</td><td class="num">'+w[4]+'</td><td class="num">'+w[3]+'</td><td class="num">'+w[5]+'</td><td class="num">'+w[6]+'</td><td class="num">'+w[7]+'</td></tr>';}).join('');
     el('profile').innerHTML=html+'</tbody></table></div>';el('profile').hidden=false;
   }
@@ -66,7 +66,7 @@
     }).join('');
   }
   function navigate(path){
-    history.pushState({},'',path);renderRoute();window.scrollTo({top:0,behavior:'smooth'});
+    history.pushState({},'',path.startsWith('/research')&&state.year!==2026&&!path.includes('?')?path+'?season='+state.year:path);renderRoute();window.scrollTo({top:0,behavior:'smooth'});
   }
   function renderRoute() {
     var path=location.pathname,match=path.match(/^\/research\/players\/([^/]+)\/?$/);
@@ -103,11 +103,40 @@
       state.limit=60;renderTable();renderCompare();renderRoute();
     });
   });
-  window.addEventListener('popstate',renderRoute);
-  fetch('/research/data/2026.json',{cache:'default'}).then(function(r){if(!r.ok)throw new Error('Statistics are temporarily unavailable');return r.json();}).then(function(data){
-    if(!Array.isArray(data.players)||data.players.length<100)throw new Error('Player data is incomplete');
-    state.players=data.players;state.byId=new Map(data.players.map(function(p){return [p.id,p];}));state.throughWeek=data.throughWeek;
-    el('data-stamp').textContent='2026 Season · Through Week '+data.throughWeek+' · Updated '+data.updated;
-    renderTable();renderCompare();renderRoute();
-  }).catch(function(error){el('data-stamp').textContent='Statistics unavailable';el('error').hidden=false;el('error').textContent=error.message||'Unable to load player data';el('players-body').innerHTML='<tr><td colspan="11" class="empty">Unable to load statistics.</td></tr>';});
+  window.addEventListener('popstate',function(){ var incoming=Number(new URLSearchParams(location.search).get('season'))||2026; if(incoming!==state.year&&[2023,2024,2025,2026].includes(incoming))loadSeason(incoming);else renderRoute(); });
+  function loadSeason(year) {
+    if(![2023,2024,2025,2026].includes(year))year=2026;
+    state.year=year; state.compare.clear();state.players=[];state.byId=new Map();state.limit=60;
+    el('year').value=String(year);
+    el('data-stamp').textContent='Loading '+year+' statistics…';
+    el('players-body').innerHTML='<tr><td colspan="11" class="empty">Loading season…</td></tr>';
+    el('leaders').innerHTML='<div class="empty">Loading season…</div>';
+    el('profile').hidden=true; el('compare-panel').hidden=true;
+    el('error').hidden=true;
+    var requestId=++state.requestId;
+    fetch('/research/data/'+year+'.json',{cache:'default'}).then(function(r){
+      if(!r.ok)throw new Error('Statistics are temporarily unavailable');return r.json();
+    }).then(function(data){
+      if(requestId!==state.requestId)return;
+      if(!Array.isArray(data.players)||data.players.length<100||data.year!==year)throw new Error('Season data is incomplete or mismatched');
+      state.players=data.players;state.byId=new Map(data.players.map(function(p){return [p.id,p];}));state.throughWeek=data.throughWeek;
+      el('data-stamp').textContent=year+' Season · Through Week '+data.throughWeek+' · Snapshot '+data.updated;
+      el('directory-title').textContent=year+' Fantasy Statistics';
+      renderTable();renderCompare();renderRoute();
+    }).catch(function(error){
+      if(requestId!==state.requestId)return;
+      el('data-stamp').textContent=year+' statistics unavailable';
+      el('error').hidden=false;el('error').textContent=error.message||'Unable to load player data';
+      el('players-body').innerHTML='<tr><td colspan="11" class="empty">Unable to load statistics.</td></tr>';
+    });
+  }
+  el('year').addEventListener('change',function(e){
+    var year=Number(e.target.value);
+    var u=new URL(location.href);
+    if(year===2026)u.searchParams.delete('season');else u.searchParams.set('season',String(year));
+    history.replaceState({},'',u.pathname+u.search);
+    loadSeason(year);
+  });
+  var initialYear=Number(new URLSearchParams(location.search).get('season'))||2026;
+  loadSeason(initialYear);
 })();
