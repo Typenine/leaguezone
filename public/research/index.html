@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#071020">
+  <meta name="description" content="Explore NFL fantasy football player stats, leaders, game logs and comparisons on LeagueZone. No account required.">
+  <title>Fantasy Football Player Research | LeagueZone</title>
+  <link rel="stylesheet" href="/research/styles.css">
+  <script defer src="/research/app.js"></script>
+</head>
+<body>
+  <header class="site-head">
+    <div class="wrap head-inner">
+      <a class="wordmark" href="/research" aria-label="LeagueZone Research home"><span class="brand-icon">LZ</span><span>LeagueZone <small>RESEARCH</small></span></a>
+      <nav aria-label="Site navigation" class="nav">
+        <a href="/research" data-nav="research">Overview</a>
+        <a href="/research/players" data-nav="players">Players</a>
+        <a href="/research/stats" data-nav="stats">Stat Leaders</a>
+        <a href="/app" class="my-leagues">My Leagues ↗</a>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <div class="eyebrow">NFL Fantasy Research · 2026</div>
+    <section class="intro">
+      <h1 id="page-title">A clearer look at every player.</h1>
+      <p id="page-desc">Explore current-season fantasy production, discover statistical leaders, compare players, and review weekly game logs. No account or league connection required.</p>
+      <div class="meta-row">
+        <span id="data-stamp" class="meta-pill">Loading player data…</span>
+        <span class="meta-note">Public data · CDN delivered · No league database access</span>
+      </div>
+    </section>
+    <div id="error" role="alert" hidden></div>
+    <section id="overview" aria-label="Season leaders">
+      <div class="section-head"><div><div class="eyebrow">Season snapshot</div><h2>Top performers by position</h2></div><a href="/research/stats">Full leaderboard →</a></div>
+      <div id="leaders" class="leader-grid"><div class="empty">Loading statistics…</div></div>
+    </section>
+    <section id="directory" class="directory" aria-labelledby="directory-title">
+      <div class="section-head"><div><div class="eyebrow">Player explorer</div><h2 id="directory-title">2026 Fantasy Statistics</h2></div><span id="result-count" class="subdued"></span></div>
+      <div class="toolbar">
+        <label class="search-field">Search player <input type="search" id="search" placeholder="Name or NFL team" autocomplete="off"></label>
+        <label>Position <select id="position"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option></select></label>
+        <label>Scoring <select id="scoring"><option value="half">Half PPR</option><option value="ppr">Full PPR</option><option value="standard">Standard</option></select></label>
+        <label>Sort by <select id="sort"><option value="points">Total points</option><option value="ppg">Points/game</option><option value="targets">Targets</option><option value="touches">Carries + catches</option><option value="yards">Receiving yards</option><option value="snaps">Offensive snaps</option></select></label>
+        <label>Minimum games <select id="games"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+      </div>
+      <div class="table-scroll">
+        <table><thead><tr><th>Player</th><th>Pos</th><th>Team</th><th class="num">GP</th><th class="num">FP</th><th class="num">PPG</th><th class="num">Targets</th><th class="num">Receptions</th><th class="num">Carries</th><th class="num">Rec yds</th><th>Compare</th></tr></thead><tbody id="players-body"><tr><td colspan="11" class="empty">Loading…</td></tr></tbody></table>
+      </div>
+      <div class="table-foot"><span id="shown-count" class="subdued"></span><button id="more" class="btn outline" type="button">Show more players</button></div>
+    </section>
+    <section id="profile" hidden aria-live="polite"></section>
+    <section id="compare-panel" class="compare-panel" hidden aria-live="polite">
+      <div class="section-head"><div><div class="eyebrow">Head-to-head</div><h2>Player comparison</h2></div><button type="button" id="clear-compare" class="btn outline">Clear comparison</button></div>
+      <div id="compare-grid" class="comparison"></div>
+    </section>
+    <section class="source-note"><h2>About these statistics</h2><p>Initial public beta uses weekly offensive player data from <a href="https://github.com/NityaGehlot/nfl-data" target="_blank" rel="noopener noreferrer">NityaGehlot/nfl-data</a>. Fantasy points are based on the source's PPR totals with receptions adjusted for half-PPR and standard scoring. This is a historical snapshot, not live play-by-play. DEF/DST, custom league scoring, and verified rookie-class filters are not yet supported. Statistics may be revised as sources are improved.</p></section>
+  </main>
+  <footer class="wrap footer"><span>LeagueZone · Independent fantasy research</span><a href="/">LeagueZone HQ</a></footer>
+</body>
+</html>
