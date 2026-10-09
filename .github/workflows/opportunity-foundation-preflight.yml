@@ -1,0 +1,71 @@
+name: Opportunity tools branch preflight
+on:
+  push:
+    branches: [feature/opportunity-tools-foundation]
+permissions:
+  contents: read
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install 'boto3>=1.34,<2'
+      - name: Validate publisher and forward receipts without R2 credentials
+        run: |
+          python -m compileall -q scripts/publish-public-research-r2.py scripts/validate-research-usage.py scripts/validate-research-redzone.py
+          node --check scripts/build-forward-research-receipts.cjs
+          node --check public/research/opportunities.js
+          node --check public/research/tools.js
+          node --check public/research/app.js
+          python scripts/validate-nflverse-research.py
+          python scripts/validate-research-usage.py
+          python scripts/validate-research-redzone.py
+          python -m unittest discover -s tests/research_r2 -p 'test_*.py' -v
+          python scripts/publish-public-research-r2.py --dry-run
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - name: Build without database migrations
+        run: SKIP_MIGRATION=true npx next build
+        env:
+          E2E_TEST_MODE: 'true'
+          DATABASE_URL: 'postgresql://ci:ci@localhost/ci'
+          AUTH_SECRET: 'ci-auth-secret-placeholder-12345'
+          NEXTAUTH_SECRET: 'ci-secret-placeholder'
+          ADMIN_PASSWORD_HASH: 'ci-placeholder'
+          KV_REST_API_URL: 'https://ci.kv.vercel.app'
+          KV_REST_API_TOKEN: 'ci-token'
+      - run: npx playwright install --with-deps chromium
+      - name: Start local test server
+        run: npm start &
+        env:
+          E2E_TEST_MODE: 'true'
+          DATABASE_URL: 'postgresql://ci:ci@localhost/ci'
+          AUTH_SECRET: 'ci-auth-secret-placeholder-12345'
+          NEXTAUTH_SECRET: 'ci-secret-placeholder'
+          ADMIN_PASSWORD_HASH: 'ci-placeholder'
+          KV_REST_API_URL: 'https://ci.kv.vercel.app'
+          KV_REST_API_TOKEN: 'ci-token'
+      - run: npx wait-on http://localhost:3000 --timeout 40000
+      - name: Research desktop and Pixel 7 browser suite
+        run: npx playwright test tests/e2e/public-research-history.spec.ts tests/e2e/public-research-metrics.spec.ts tests/e2e/public-research-profiles.spec.ts tests/e2e/public-research-usage.spec.ts tests/e2e/public-research-redzone.spec.ts tests/e2e/public-research-opportunities.spec.ts
+        env:
+          TEST_BASE_URL: 'http://localhost:3000'
+          DATABASE_URL: ''

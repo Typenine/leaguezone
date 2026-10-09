@@ -93,6 +93,31 @@ class ResearchPublisherTests(unittest.TestCase):
                 self.assertEqual(info["baseUpdated"],base[str(year)]["updated"])
                 self.assertRegex(info["key"],r"^research/v1/objects/20\d\d-[a-f0-9]{64}\.json$")
 
+    def test_forward_receipts_are_timestamped_immutable_and_idempotent(self):
+        timestamp="2026-10-09T15:00:00Z"
+        catalog,uploads=publisher.build_catalog(self.data,observation=timestamp)
+        entries=catalog["forwardReceipts"]["years"]["2026"]
+        self.assertEqual(len(entries),1)
+        self.assertEqual(entries[0]["week"],4)
+        self.assertEqual(entries[0]["recordedAt"],timestamp)
+        self.assertEqual(entries[0]["modelVersion"],"radar-v1")
+        self.assertEqual(len(uploads),13)
+        record=json.loads(uploads[-1][1])
+        self.assertEqual(record["year"],2026)
+        self.assertEqual(record["recordedAt"],timestamp)
+        self.assertTrue(record["signals"])
+        self.assertTrue(all(s["week"]==4 for s in record["signals"]))
+        again,files=publisher.build_catalog(self.data,catalog,observation="2026-10-10T09:00:00Z")
+        self.assertEqual(again,catalog)
+        self.assertEqual(files,[])
+        archive,_=publisher.build_catalog(self.data,catalog)
+        self.assertEqual(archive["forwardReceipts"],catalog["forwardReceipts"])
+        fake=FakeR2()
+        with patch.object(publisher,"public_check",return_value=b"ok"):
+            self.assertTrue(publisher.publish(fake,"research-public","https://data.example.com",
+                                               catalog,uploads,None))
+            self.assertEqual(fake.ops[-1],("put",publisher.CATALOG_KEY))
+
     def test_no_upload_for_identical_rebuilt_data(self):
         old, _ = publisher.build_catalog(self.data)
         new, uploads=publisher.build_catalog(self.data,old)

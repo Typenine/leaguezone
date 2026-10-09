@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySession } from '@/lib/server/auth';
+import { getUserLeagues } from '@/lib/server/user-auth';
+import { getFantasyLeagueSettings } from '@/lib/server/provider-settings';
 import { getCurrentLeagueBySlug } from '@/lib/server/league-context';
 import { getFantasyRostersResult } from '@/lib/server/fantasy-data';
 import { guardPublicDataRequest } from '@/lib/server/public-api-guard';
@@ -16,6 +19,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { slug } = await params;
   const league = await getCurrentLeagueBySlug(slug);
   if (!league) return NextResponse.json({ error: 'League not found.' }, { status: 404 });
+  // A browser-gate cookie is NOT league authorization. Restrict provider
+  // rosters, owner associations and the complete player identity catalog to
+  // actual league members; never expose another league's rosters by slug.
+  const claims = verifySession(request.cookies.get('evw_session')?.value || '');
+  if (!claims || claims.type !== 'user' || typeof claims.sub !== 'string') {
+    return NextResponse.json({ error: 'Sign in to view roster opportunities.' }, { status: 401 });
+  }
+  const membership = (await getUserLeagues(claims.sub)).find((item) => item.leagueId === league.id);
+  if (!membership) {
+    return NextResponse.json({ error: 'You are not a member of this league.' }, { status: 403 });
+  }
   try {
     const rosters = await getFantasyRostersResult(league.id);
     // The provider catalog is cached independently of this request. Only a
@@ -26,8 +40,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ['QB', 'RB', 'WR', 'TE'].includes(p.position) && Boolean(p.team) && Boolean(p.first_name && p.last_name),
     ).map(([id, p]) => ({ id, gsisId: p.gsis_id || null,
       name: `${p.first_name} ${p.last_name}`, position: p.position, team: p.team })) : [];
-    return NextResponse.json({ ...rosters.value, catalog }, {
-      headers: reliabilityResponseHeaders(rosters),
+    const settings = await getFantasyLeagueSettings(league.id).catch(() => null);
+    return NextResponse.json({ ...rosters.value, catalog,
+      viewerRosterId: membership.rosterId,
+      leaguePpr: settings?.ppr ?? null,
+    }, {
+      headers: {...reliabilityResponseHeaders(rosters), 'Cache-Control': 'private, no-store'},
     });
   } catch (error) {
     console.error('[league-opportunities]', error instanceof Error ? error.message : error);

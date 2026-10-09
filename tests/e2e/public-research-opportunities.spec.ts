@@ -16,17 +16,16 @@ test('Radar separates role change from scoring and retains filters across season
   expect(apiCalls).toEqual([]);
 });
 
-test('Receipts keeps forward observations separate from reconstructed history', async ({ page }) => {
-  await page.goto('/research/radar?season=2026');
-  await expect(page.locator('#tool-panel .tool-card').first()).toBeVisible();
+test('Receipts never presents browser-local observations as audited forward records', async ({ page }) => {
   await page.goto('/research/receipts?season=2026');
-  await expect(page.locator('.forward-receipts')).toContainText('Forward record on this device');
-  await expect(page.locator('.forward-receipts .receipt-row').first()).toBeVisible();
-  await expect(page.locator('.forward-receipts .receipt-row').first()).toContainText('Saved');
+  await expect(page.locator('.forward-receipts')).toContainText('Published forward record');
+  await expect(page.locator('#tool-panel')).toContainText('Historical replay');
+  const deviceLedger = await page.evaluate(() => localStorage.getItem('lz_research_forward_receipts_v1'));
+  expect(deviceLedger).toBeNull();
   await page.locator('#tool-year').selectOption('2025');
-  await expect(page.locator('.receipt-list').last().locator('.receipt-row').first()).toBeVisible();
   await expect(page.locator('#tool-panel')).toContainText('Historical replay');
 });
+
 
 test('Development Lab shows multiple seasons and same-stage comparisons without false projection', async ({ page }) => {
   await page.goto('/research/development?season=2025');

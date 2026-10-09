@@ -15,7 +15,7 @@ type ResearchPlayer = { id: string; n: string; team: string; pos: string; ryr: n
   u?: Array<{ week: number; team: string; att: number }> };
 type Season = { year: number; throughWeek: number; updated: string; schema: number; players: ResearchPlayer[] };
 type CatalogPlayer = { id: string; gsisId: string | null; name: string; position: string; team: string };
-type LeagueRosters = FantasyRostersData & { catalog: CatalogPlayer[] };
+type LeagueRosters = FantasyRostersData & { catalog: CatalogPlayer[]; viewerRosterId: number | null; leaguePpr: number | null };
 type Ownership = { player: ResearchPlayer; owner: FantasyRostersData['teams'][number] | null;
   providerId: string | null; match: 'catalog' | 'roster' | 'unmatched' };
 type OpportunityEngine = {
@@ -59,16 +59,40 @@ async function researchSeason(year: number): Promise<Season> {
 }
 
 async function attachPassAttempts(data: Season): Promise<void> {
+  // The base R2 snapshot is authoritative. Optional attempts must match its
+  // exact season, week and data version before being attached to a QB.
+  const qbs = data.players.filter((p) => p.pos === 'QB');
+  if (qbs.every((qb) => qb.w.every((row) => Number.isInteger(row[15]) && row[15] >= 0))) return;
   try {
-    const usage = await json<{schema: number; year: number; players: Record<string, Array<[number, string, number]>>}>(
-      `/research/data/usage/${data.year}.json`,
-    );
-    if (usage.schema !== 1 || usage.year !== data.year) return;
-    for (const player of data.players) {
-      if (player.pos !== 'QB') continue;
-      player.u = (usage.players[player.id] || []).map((row) => ({ week: row[0], team: row[1], att: row[2] }));
+    const config = await json<{publicBase?: string}>('/research/data-source.json');
+    const base = String(config.publicBase || '').replace(/\/+$/, '');
+    let advancedUrl: string | null = null;
+    if (/^https:\/\/[^/]+$/i.test(base)) {
+      const catalog = await json<{schema:number; files:Record<string,{throughWeek:number;updated:string}>;
+        datasets?:{usage?:{schema:number;files:Record<string,{key:string;throughWeek:number;baseUpdated:string}>}}}>(
+        base + '/research/v1/catalog.json',
+      );
+      const baseInfo = catalog.files?.[String(data.year)];
+      const info = catalog.datasets?.usage?.files?.[String(data.year)];
+      if (catalog.schema===1 && catalog.datasets?.usage?.schema===1 && baseInfo &&
+          baseInfo.throughWeek===data.throughWeek && baseInfo.updated===data.updated &&
+          info && info.throughWeek===data.throughWeek && info.baseUpdated===data.updated &&
+          /^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key)) {
+        advancedUrl = base + '/' + info.key;
+      }
     }
-  } catch { /* QB signals disappear; other positions remain valid. */ }
+    const local = '/research/data/usage/' + data.year + '.json';
+    let usage: {schema:number;year:number;throughWeek:number;baseUpdated:string;
+      players:Record<string,Array<[number,string,number]>>};
+    try {usage = await json<typeof usage>(advancedUrl || local);}
+    catch {usage = await json<typeof usage>(local);}
+    if (usage.schema!==1 || usage.year!==data.year || usage.throughWeek!==data.throughWeek ||
+        usage.baseUpdated!==data.updated) return;
+    for (const player of qbs) {
+      if (player.w.every((row) => Number.isInteger(row[15]) && row[15] >= 0)) continue;
+      player.u = (usage.players[player.id] || []).map((row) => ({week:row[0],team:row[1],att:row[2]}));
+    }
+  } catch { /* No reliable attempts: QB signals remain omitted, never guessed. */ }
 }
 
 export default function RosterOpportunitiesPage({ params }: { params: Promise<{leagueSlug: string}> }) {
@@ -99,6 +123,10 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
         await attachPassAttempts(data);
         if (!alive) return;
         setRosters(payload); setSeason(data);
+        if (payload.viewerRosterId != null) setTeamId(String(payload.viewerRosterId));
+        if (payload.leaguePpr === 0) setScoring('standard');
+        else if (payload.leaguePpr === 0.5) setScoring('half');
+        else if (payload.leaguePpr === 1) setScoring('ppr');
         setStale(response.headers.get('x-leaguezone-data-mode') === 'stale');
       } catch (cause) { if (alive) setError(cause instanceof Error ? cause.message : 'Opportunity data unavailable.'); }
     });
@@ -115,10 +143,11 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
   }, [season, rosters, scoring]);
   const visible = useMemo(() => report?.signals.filter(({signal, owner, match}) => {
     if (position !== 'ALL' && signal.pos !== position) return false;
-    if (category === 'trade') return Boolean(owner && String(owner.rosterId) !== teamId && match !== 'unmatched');
+    if (category === 'trade') return Boolean(teamId && owner && String(owner.rosterId) !== teamId && match !== 'unmatched');
     if (category === 'roster') return Boolean(owner && String(owner.rosterId) === teamId);
-    return !owner && match === 'catalog';
-  }).sort((a, b) => Math.abs(b.signal.change) - Math.abs(a.signal.change)) || [], [report, category, position, teamId]);
+    // Yahoo does not expose a complete authoritative free-agent player pool here.
+    return rosters.provider === 'sleeper' && !owner && match === 'catalog';
+  }).sort((a, b) => Math.abs(b.signal.change) - Math.abs(a.signal.change)) || [], [report, category, position, teamId, rosters]);
 
   return <main className="container mx-auto px-4 py-8 pb-28 text-[var(--text)]">
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -146,7 +175,7 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
       <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Opportunity category">
         {(['trade','waiver','roster'] as const).map((key) => <button type="button" key={key} onClick={() => setCategory(key)} aria-pressed={category===key}
           className={`rounded-lg border px-4 py-2 text-sm font-bold ${category===key?'border-[var(--accent)] bg-accent-soft text-accent':'border-[var(--border)] text-[var(--muted)]'}`}>
-          {({trade:'Trade targets',waiver:'Unrostered',roster:'My roster'})[key]}</button>)}
+          {({trade:'Other rosters',waiver:'Unrostered (Sleeper)',roster:'My roster'})[key]}</button>)}
       </div>
       <p className="mb-4 text-sm text-[var(--muted)]">{visible.length} matching signals. {report.unmatched} signals have unverified player identity and are excluded from ownership categories.
         {rosters.provider === 'yahoo' && ' Yahoo does not supply a full free-agent catalog here, so unrostered status cannot be verified.'}
@@ -159,10 +188,10 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
             <span className={signal.direction==='rising'?'text-sm font-bold text-emerald-400':'text-sm font-bold text-red-400'}>Volume {signal.direction}</span></div>
           <p className="mt-4 text-xl font-black">{signal.change>0?'+':''}{signal.change.toFixed(1)} <span className="text-xs font-medium text-[var(--muted)]">{signal.metric}/game</span></p>
           <p className="text-sm text-[var(--muted)]">{signal.baseline.toFixed(1)} to {signal.recent.toFixed(1)} opportunity · Fantasy points {signal.scoringBefore.toFixed(1)} to {signal.scoringRecent.toFixed(1)}/game</p>
-          <p className="mt-3 text-sm">{owner ? <>On <Link href={`/l/${encodeURIComponent(slug || '')}/teams/${owner.rosterId}`} className="font-semibold text-accent underline">{owner.teamName}</Link></> : 'Verified unrostered in this league'}</p>
+          <p className="mt-3 text-sm">{owner ? <>On <Link href={`/l/${encodeURIComponent(slug || '')}/teams/${owner.rosterId}`} className="font-semibold text-accent underline">{owner.teamName}</Link></> : 'Unrostered in current Sleeper roster snapshot; confirm waiver eligibility'}</p>
           {owner && rosters.provider === 'sleeper' && providerId && <Link href={`/l/${encodeURIComponent(slug || '')}/trades/analyzer?b=${encodeURIComponent(providerId)}`} className="mt-3 inline-block text-xs font-semibold text-accent underline">Review in Trade Analyzer</Link>}
         </article>)}</div> : <div className="rounded-xl border border-[var(--border)] p-5 text-sm text-[var(--muted)]">No verified {category === 'waiver'?'unrostered':'rostered'} players meet this filter.</div>}
-      <p className="mt-6 max-w-3xl text-xs leading-relaxed text-[var(--muted)]">Usage signals use the last two recorded games against the previous two, with a minimum change of 1.5 opportunities and 15%. This is a discovery list, not a trade-value model or waiver recommendation. Ownership is a current roster snapshot; review league settings, player news, and price before acting. Future draft prospects and traded picks are outside this NFL player dataset.</p>
+      <p className="mt-6 max-w-3xl text-xs leading-relaxed text-[var(--muted)]">Usage signals use the last two recorded games against the previous two, with a minimum change of 1.5 opportunities and 15%. These are ownership-filtered observations, not verified trade availability, league-specific valuations, or waiver eligibility. Ownership is a current roster snapshot; review league settings, player news, and price before acting. Future draft prospects and traded picks are outside this NFL player dataset.</p>
     </>}
   </main>;
 }

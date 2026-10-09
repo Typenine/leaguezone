@@ -3,12 +3,58 @@
   var O=window.LZOpportunities, panel=document.getElementById('tool-panel');
   var scoring='half', selectedPlayer='', search='', radarQuery='', radarPosition='ALL', radarLimit=36,
     receiptLimit=100, filter='all', request=0, context=null, lastTool=null;
-  var LEDGER_KEY='lz_research_forward_receipts_v1', ledger=[], ledgerStatus='';
-  try {var saved=JSON.parse(localStorage.getItem(LEDGER_KEY)||'[]');if (Array.isArray(saved)) ledger=saved.filter(function (r) {
-    return r && typeof r.key==='string' && Number.isInteger(r.year) && r.signal && typeof r.signal.id==='string' &&
-      Number.isInteger(r.signal.week) && ['rising','falling'].includes(r.signal.direction) &&
-      Number.isFinite(r.signal.baseline);
-  });} catch {ledgerStatus='Device storage is unavailable; new forward receipts cannot be saved.';}
+  // Only the offline R2 publisher can add forward observations. Browsers
+  // display immutable snapshots and never write their own prediction ledger.
+  var ledger=[], ledgerStatus='Loading published forward records…';
+  var remoteLoads=new Map(), forwardByYear=new Map(), forwardStatusByYear=new Map();
+  function loadForward(ctx) {
+    if (remoteLoads.has(ctx.year)) {
+      ledger=forwardByYear.get(ctx.year)||[];
+      ledgerStatus=forwardStatusByYear.get(ctx.year)||'';
+      return remoteLoads.get(ctx.year);
+    }
+    var index=ctx.remoteCatalog && ctx.remoteCatalog.forwardReceipts;
+    var entries=index && index.schema===1 && index.years && index.years[String(ctx.year)];
+    if (!Array.isArray(entries) || !ctx.remoteBase) {
+      ledger=[];
+      ledgerStatus='No system-wide forward observations have been published for this season.';
+      return Promise.resolve();
+    }
+    var loading=Promise.all(entries.map(function (info) {
+      if (!/^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key) ||
+          typeof info.week!=='number') return Promise.reject(Error('Invalid forward receipt index'));
+      return fetch(ctx.remoteBase+'/'+info.key,{cache:'default'}).then(function (response) {
+        if (!response.ok) throw Error('Forward receipt unavailable');
+        return response.json();
+      }).then(function (observation) {
+        if (observation.schema!==1 || observation.year!==ctx.year ||
+            observation.throughWeek!==info.week ||
+            observation.recordedAt!==info.recordedAt ||
+            observation.modelVersion!==info.modelVersion ||
+            !Array.isArray(observation.signals)) throw Error('Forward receipt metadata mismatch');
+        return observation.signals.map(function (signal) {
+          return {key:ctx.year+':'+info.week+':'+signal.id+':half',
+            year:ctx.year,format:'half',recordedAt:observation.recordedAt,signal:signal};
+        });
+      });
+    })).then(function (batches) {
+      forwardByYear.set(ctx.year,batches.flat());
+      forwardStatusByYear.set(ctx.year,forwardByYear.get(ctx.year).length ? '' :
+        'No qualifying forward observations have been published for this season.');
+    }).catch(function () {
+      forwardByYear.set(ctx.year,[]);
+      forwardStatusByYear.set(ctx.year,'Shared forward receipts could not be loaded. Historical replay remains available.');
+    }).then(function () {
+      if (context && ctx.year===context.year) {
+        ledger=forwardByYear.get(ctx.year)||[];
+        ledgerStatus=forwardStatusByYear.get(ctx.year)||'';
+      }
+      if (context && ctx.year===context.year && location.pathname.indexOf('/research/receipts')===0)
+        window.LZResearchApp.refresh();
+    });
+    remoteLoads.set(ctx.year,loading);
+    return loading;
+  }
   var esc=function (value) {return String(value==null?'':value).replace(/[&<>"']/g,function (c) {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
   });};
@@ -29,6 +75,13 @@
       '<div><b>'+signed(signal.scoringChange)+'</b><small>fantasy points/game</small></div></div>'+
       '<p class="subdued">Usage '+signal.baseline.toFixed(1)+' to '+signal.recent.toFixed(1)+' per game; fantasy points '+
       signal.scoringBefore.toFixed(1)+' to '+signal.scoringRecent.toFixed(1)+'.</p>'+
+      (signal.shareChange==null?'':'<p class="subdued">Team opportunity share: '+
+        signal.shareBefore.toFixed(1)+'% → '+signal.shareRecent.toFixed(1)+'% ('+signed(signal.shareChange)+' percentage points).</p>')+
+      (signal.airYardsRecent==null?'':'<p class="subdued">Air yards/game: '+
+        signal.airYardsBefore.toFixed(1)+' → '+signal.airYardsRecent.toFixed(1)+'.</p>')+
+      (signal.redzoneChange==null?'':'<p class="subdued">Red-zone opportunities/game: '+
+        signal.redzoneBefore.toFixed(1)+' → '+signal.redzoneRecent.toFixed(1)+'.</p>')+
+      (signal.teamChanged?'<p class="season-note">NFL team changed in this window; compare roles cautiously.</p>':'')+
       '<p class="subdued">Weeks '+signal.baselineWeeks.join(', ')+' vs. '+signal.recentWeeks.join(', ')+'</p></article>';
   }
   function radar(ctx) {
@@ -38,7 +91,8 @@
       (!radarQuery||s.name.toLowerCase().includes(radarQuery.toLowerCase())||s.team.toLowerCase().includes(radarQuery.toLowerCase()));});
     return controls(ctx)+'<p class="tool-explainer">A signal compares a player’s last two recorded games with the two before them. '+
       'The volume threshold is at least 1.5 opportunities per game and 15%. Byes and missed games are skipped. '+
-      'QB pass attempts come from the core game log or advanced usage data. Fantasy scoring is a separate column, not part of the volume signal.</p>'+
+      'QB pass attempts come from core game logs or matching advanced usage. Share, air yards and red-zone work '+
+      'are shown only when verified. Results rank relative role movement, not predicted future points.</p>'+
       '<div class="radar-search"><label>Find player or NFL team<input type="search" id="radar-query" value="'+esc(radarQuery)+'" placeholder="Search signals"></label>'+
       '<label>Position<select id="radar-position">'+['ALL','QB','RB','WR','TE'].map(function (p) {
         return '<option value="'+p+'"'+(p===radarPosition?' selected':'')+'>'+(p==='ALL'?'All positions':p)+'</option>';}).join('')+'</select></label></div>'+
@@ -53,8 +107,7 @@
       '<div class="tool-grid">'+(selected.length?selected.slice(0,radarLimit).map(function (s) {return card(s,ctx.year);}).join(''):
         '<p class="empty">No players meet these filters.</p>')+'</div>'+
       (selected.length>radarLimit?'<button class="btn outline" id="radar-more" type="button">Show more signals</button>':'')+
-      '<p class="subdued">'+esc(ledgerStatus || ledger.filter(function (r) {return r.year===ctx.year;}).length+
-        ' forward signals saved on this device for '+ctx.year+'. Open Receipts after later games to check outcomes.')+'</p>'+
+      '<p class="subdued">Forward signals are published centrally after validated weekly refreshes. Open Receipts to see dated records and outcomes.</p>'+
       '<a class="tool-cta" href="/app">Find opportunities in a league</a>';
   }
   function receiptRow(r,year) {
@@ -70,16 +123,18 @@
     var rows=O.receipts({players:ctx.players,throughWeek:ctx.throughWeek},scoring),stats=O.summary(rows);
     var matching=rows.filter(function (r) {return filter==='all'||r.status===filter;});
     var shown=matching.slice(0,receiptLimit);
-    var forward=O.resolveRecorded(ledger.filter(function (r) {return r.format===scoring;}),
+    var forward=O.resolveRecorded(ledger.filter(function (r) {return r.year===ctx.year && r.format==='half';}),
       {year:ctx.year,players:ctx.players,throughWeek:ctx.throughWeek});
     var forwardStats=O.summary(forward);
-    return controls(ctx)+'<section class="forward-receipts"><h2>Forward record on this device</h2>'+
-      '<p class="tool-explainer">When you open the current-season Radar, its signals are saved with the observation date and cannot be changed by later stats. '+
-      'This record lives in this browser and is lost if its storage is cleared; it is not yet a system-wide accuracy ledger.</p>'+
+    return controls(ctx)+'<section class="forward-receipts"><h2>Published forward record</h2>'+
+      '<p class="tool-explainer">Weekly signal snapshots are published to immutable R2 objects after validated research refreshes. '+
+      'Forward records are separate from historical replay and cannot be edited by visitors.</p>'+
+      (ledgerStatus?'<p role="status" class="season-note">'+esc(ledgerStatus)+'</p>':'')+
       '<div class="receipt-summary"><div><strong>'+forwardStats.total+'</strong><span>saved signals</span></div><div><strong>'+forwardStats.resolved+
       '</strong><span>resolved</span></div><div><strong>'+(forwardStats.rate==null?'—':forwardStats.rate+'%')+'</strong><span>confirmed among resolved</span></div></div>'+
       '<div class="receipt-list">'+(forward.length?forward.slice(0,20).map(function (r) {return receiptRow(r,ctx.year);}).join(''):
         '<p class="empty">No signals saved on this device for '+ctx.year+'.</p>')+'</div></section>'+
+      '<p class="subdued">Forward records use half-PPR fantasy scoring. The scoring selector affects historical replay only.</p>'+
       '<h2>Historical replay</h2><p class="tool-explainer">For each week, the signal uses only stats available through that week. '+
       'A receipt is confirmed when the next two recorded games within three calendar weeks remain at least 1.5 and 15% '+
       'above or below the original baseline. Repeated signals for one player are spaced at least three weeks apart. Unresolved means fewer than two eligible later games. '+
@@ -108,7 +163,9 @@
         '<p class="empty">Select a player to view career progression.</p>')+'</div>';
   }
   function labDetail(ctx, playerId, token) {
-    Promise.all(ctx.years.map(function (y) {return ctx.loadData(y).catch(function () {return null;});})).then(function (all) {
+    Promise.all(ctx.years.map(function (y) {return ctx.loadData(y).then(function (data) {
+      return ctx.ensureUsage(y).then(function () {return data;});
+    }).catch(function () {return null;});})).then(function (all) {
       if (token!==request || !document.getElementById('lab-detail')) return;
       var seasons=all.filter(Boolean),history=O.development(seasons,playerId,scoring),current=history.find(function (x) {return x.year===ctx.year;});
       var missing=ctx.years.filter(function (y) {return !seasons.some(function (d) {return d.year===y;});});
@@ -118,14 +175,16 @@
       detail.innerHTML='<h2>'+esc(history[history.length-1].name)+'</h2>'+
         (missing.length?'<p class="season-note">Season data unavailable for '+missing.join(', ')+'; comparisons may be incomplete.</p>':'')+
         '<div class="table-scroll"><table class="lab-table"><thead><tr><th>Season</th><th>Career year</th><th>Games</th>'+
-        '<th>FP/game</th><th>Change</th><th>Opportunities/game</th><th>Coverage</th></tr></thead><tbody>'+
+        '<th>FP/game</th><th>Change</th><th>Opportunities/game</th><th>Efficiency</th><th>Target share</th><th>Coverage</th></tr></thead><tbody>'+
         history.map(function (h) {var delta=prior?h.pointsPerGame-prior.pointsPerGame:null;prior=h;
           return '<tr><td>'+h.year+'</td><td>'+(h.careerYear==null?'Unverified':h.careerYear)+'</td><td>'+h.games+'</td>'+
             '<td>'+h.pointsPerGame.toFixed(1)+'</td><td>'+(delta==null?'—':signed(delta))+'</td><td>'+
-            (h.opportunityPerGame==null?'—':h.opportunityPerGame.toFixed(1))+'</td><td>'+
+            (h.opportunityPerGame==null?'—':h.opportunityPerGame.toFixed(1))+'</td><td title="'+esc(h.efficiencyMetric)+'">'+
+            (h.efficiency==null?'—':h.efficiency.toFixed(1))+'</td><td>'+
+            (h.targetShare==null?'—':h.targetShare.toFixed(1)+'%')+'</td><td>'+
             (h.complete?'Full season':'Through Week '+h.throughWeek)+'</td></tr>';}).join('')+'</tbody></table></div>'+
-        '<p class="subdued">Opportunities/game: RB carries + targets; WR/TE targets. QB attempts and snap counts are not inferred here. '+
-        'All averages use games with recorded statistics.</p><h3>Same-stage comparisons</h3>'+
+        '<p class="subdued">Opportunities/game: QB pass attempts (verified only), RB carries + targets, WR/TE targets. Efficiency is pass yards/attempt for QB, scrimmage yards/opportunity for RB and receiving yards/target for WR/TE. '+
+        'Target share requires matching team weekly totals. All averages use recorded games. Historical coverage starts in 2023.</p><h3>Same-stage comparisons</h3>'+
         (function () {var peers=O.comparisons(seasons,current,scoring);return peers.length?'<p class="subdued">'+
           'Closest FP/game among completed seasons at career year '+current.careerYear+', same position, at least 8 recorded games. '+
           'Similar scoring does not mean similar talent or a forecast.</p><div class="tool-grid">'+peers.map(function (p) {
@@ -143,14 +202,11 @@
       if (!ctx.usageStatus[ctx.year]) ctx.ensureUsage(ctx.year).then(function () {
         if (location.pathname.match(/^\/research\/(radar|receipts)\/?$/)) window.LZResearchApp.refresh();
       });
+      if (tool==='radar' && !ctx.rzStatus[ctx.year]) ctx.ensureRedzone(ctx.year).then(function () {
+        if (location.pathname.match(/^\/research\/radar\/?$/)) window.LZResearchApp.refresh();
+      });
     }
-    if (tool==='radar' && ctx.year===ctx.years[ctx.years.length-1] && ctx.throughWeek<18) {
-      var next=O.recordSignals(ledger,{year:ctx.year,throughWeek:ctx.throughWeek,players:ctx.players},scoring,new Date().toISOString());
-      if (next.length!==ledger.length) {
-        try {localStorage.setItem(LEDGER_KEY,JSON.stringify(next));ledger=next;ledgerStatus='';}
-        catch {ledgerStatus='Device storage is unavailable; new forward receipts cannot be saved.';}
-      }
-    }
+    if (tool==='receipts') loadForward(ctx);
     if (tool==='development') {
       var requested=new URLSearchParams(location.search).get('player');
       if (requested && requested!==selectedPlayer) selectedPlayer=requested;

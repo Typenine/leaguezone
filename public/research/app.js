@@ -763,6 +763,7 @@
     if (window.LZResearchTools) window.LZResearchTools.show(tool&&tool[1],{
       year:state.year,years:state.years,throughWeek:state.throughWeek,players:state.players,
       data:state.cache.get(state.year),loadData:loadData,ensureUsage:ensureUsage,usageStatus:state.usageStatus,
+      ensureRedzone:ensureRedzone,rzStatus:state.rzStatus,remoteBase:state.remoteBase,remoteCatalog:state.remoteCatalog,
       navigate:navigate
     });
     document.title=(tool?$('page-title').textContent+' | ':p?p.n+' Stats | ':'Fantasy Research | ')+'LeagueZone';

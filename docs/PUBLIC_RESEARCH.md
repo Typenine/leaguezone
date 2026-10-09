@@ -413,3 +413,37 @@ landing pages, while robots.txt continues excluding private league URLs.
   each weekly refresh; the separate advanced usage file remains a historical
   fallback and is not refreshed by the current R2 workflow.
 
+
+## Analytics tools stabilization (development branch; NOT deployed)
+
+- The opportunity foundation branch is based on the latest production R2 loader,
+  mobile Columns view, public home research navigation and weekly publication.
+- Radar scores short-term role change independently of fantasy points, and
+  supplements the original volume signal with weighted in-game team shares,
+  air yards and red-zone usage only when matching validated data is loaded.
+  Two-game windows remain exploratory, not forecasting or causal proof.
+- The forward-receipt publication path records the ongoing current NFL season
+  after a successful validated refresh. It captures the publisher's UTC
+  timestamp, model version, observation week, data version and eligible signals
+  in content-addressed R2 objects. The atomic catalog index is append-only by
+  (season,week); a re-run never rewrites the week's original signal snapshot.
+  No historical backfill is labeled a forward record.
+- Forward scoring uses a fixed half-PPR context. Later outcomes are computed
+  from post-observation game logs, while historical replay is separate and
+  not evidence of forward predictive accuracy. Incomplete follow-up stays
+  unresolved. Browser storage is not authoritative.
+- Development Lab adds verifiable opportunities/game, same-game target shares
+  when available, and position-specific production efficiency. Career-stage
+  peer comparisons remain descriptive, limited to 2023 onward.
+- Roster Finder is member-gated at the server, even for slugs that otherwise
+  have public league pages. Provider rosters and player identities must not
+  be cache-shared publicly. Scoring defaults use league settings when standard,
+  half-PPR or full-PPR; otherwise users can choose a supported view. Yahoo
+  unrostered status is not asserted, and Sleeper unrostered players are not
+  assumed waiver-eligible. Opposing roster membership is not trade availability.
+- The finder does not yet calculate trade feasibility, complete waiver rule
+  eligibility, or draft-pick values. Those remain out of scope until underlying
+  league provider data and authenticated end-to-end tests support them.
+- No new public Neon reads, schema migrations, or runtime provider integrations
+  were added to the public research pages. The authenticated Finder alone
+  requests the league's existing normalized provider roster cache.

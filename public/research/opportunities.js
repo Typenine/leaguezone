@@ -28,6 +28,34 @@
     return ppr - (format === 'ppr' ? 0 : format === 'standard' ? 1 : 0.5) * receptions;
   }
   function threshold(previous) { return Math.max(1.5, previous * 0.15); }
+  function metricWindow(player, games, kind) {
+    var field=kind==='share' ? player.pos==='QB'?'att':player.pos==='RB'?'car':'tgt':
+      kind==='air'?'ay':'rzOpp';
+    var items=kind==='redzone'?player.rz:player.u;
+    if (!items || !games.every(function (w) {
+      return items.some(function (r) { return r.week===w[0] && r.team===w[1]; });
+    })) return null;
+    var selected=games.map(function (w) {
+      return items.find(function (r) { return r.week===w[0] && r.team===w[1]; });
+    });
+    if (kind==='redzone') {
+      var rz=selected.map(function (r) {return r.rzCar==null||r.rzTgt==null?null:r.rzCar+r.rzTgt;});
+      return rz.every(function (v) {return v!=null;}) ? mean(rz,function (x) {return x;}) : null;
+    }
+    if (kind==='air') {
+      return selected.every(function (r) {return r.ay!=null;}) ?
+        mean(selected,function (r) {return r.ay;}) : null;
+    }
+    var numerator=0,denominator=0;
+    selected.forEach(function (r) {
+      var n=player.pos==='RB' ? (r.car==null||r.tgt==null?null:r.car+r.tgt) : r[field];
+      var d=player.pos==='QB'?r.teamAtt:player.pos==='RB'?
+        (r.teamCar==null||r.teamTgt==null?null:r.teamCar+r.teamTgt):r.teamTgt;
+      if (n==null || d==null || d<=0) denominator=-1;
+      else if (denominator>=0) {numerator+=n;denominator+=d;}
+    });
+    return denominator>0?numerator/denominator:null;
+  }
   function signal(player, asOf, format) {
     if (POSITIONS.indexOf(player.pos) < 0) return null;
     var games = weeks(player, asOf);
@@ -47,17 +75,31 @@
     var fpAfter = mean(recent, function (r) { return scoring(player, r, format); });
     var fpDiff = fpAfter - fpBefore;
     var scoringDirection = fpDiff > 2 ? 'up' : fpDiff < -2 ? 'down' : 'flat';
+    var beforeShare=metricWindow(player,prior,'share'),afterShare=metricWindow(player,recent,'share');
+    var beforeAir=player.pos==='WR'||player.pos==='TE'?metricWindow(player,prior,'air'):null;
+    var afterAir=player.pos==='WR'||player.pos==='TE'?metricWindow(player,recent,'air'):null;
+    var beforeRz=metricWindow(player,prior,'redzone'),afterRz=metricWindow(player,recent,'redzone');
+    var differentTeams=games.slice(-4).some(function (row) { return row[1]!==games[games.length-1][1]; });
     return {id:player.id,name:player.n,team:player.team,pos:player.pos,week:asOf,
       baselineWeeks:prior.map(function (r) { return r[0]; }),recentWeeks:recent.map(function (r) { return r[0]; }),
       baseline:round(before),recent:round(after),change:round(diff),direction:direction,metric:metric(player),
       scoringBefore:round(fpBefore),scoringRecent:round(fpAfter),scoringChange:round(fpDiff),scoringDirection:scoringDirection,
-      sample:4};
+      sample:4, relativeChange:round(Math.abs(diff)/Math.max(1,before)*100),
+      teamChanged:differentTeams,
+      shareBefore:beforeShare==null?null:round(beforeShare*100),
+      shareRecent:afterShare==null?null:round(afterShare*100),
+      shareChange:beforeShare==null||afterShare==null?null:round((afterShare-beforeShare)*100),
+      airYardsBefore:beforeAir==null?null:round(beforeAir),
+      airYardsRecent:afterAir==null?null:round(afterAir),
+      redzoneBefore:beforeRz==null?null:round(beforeRz),
+      redzoneRecent:afterRz==null?null:round(afterRz),
+      redzoneChange:beforeRz==null||afterRz==null?null:round(afterRz-beforeRz)};
   }
   function radar(data, format, asOf) {
     var week = asOf == null ? data.throughWeek : asOf;
     return (data.players || []).map(function (p) { return signal(p,week,format); })
       .filter(function (s) { return s && s.direction !== 'steady'; })
-      .sort(function (a,b) { return Math.abs(b.change)-Math.abs(a.change) || a.name.localeCompare(b.name); });
+      .sort(function (a,b) { return b.relativeChange-a.relativeChange || Math.abs(b.change)-Math.abs(a.change) || a.name.localeCompare(b.name); });
   }
   // An as-of-week historical replay. Signals cannot see a later game; a
   // resolved receipt compares the NEXT two recorded games against the two
@@ -126,10 +168,22 @@
       var p=(d.players||[]).find(function (x) { return x.id===playerId; });
       if (!p || !p.g) return null;
       var points=mean(p.w,function (w) {return scoring(p,w,format);});
-      var opportunities=p.pos==='QB' ? null : mean(p.w,function (w) {return gameVolume(p,w);});
+      var opportunities=p.pos==='QB' ? (p.w.every(function(w){return Number.isInteger(w[15]);}) ?
+        mean(p.w,function(w){return w[15];}):null) : mean(p.w,function (w) {return gameVolume(p,w);});
+      var efficiencyMetric=p.pos==='QB'?'Pass yards/attempt':p.pos==='RB'?'Scrimmage yards/opportunity':'Receiving yards/target';
+      var numerator=p.w.reduce(function(total,w){return total+(p.pos==='QB'?(Number(w[8])||0):
+        p.pos==='RB'?(Number(w[5])||0)+(Number(w[7])||0):(Number(w[5])||0));},0);
+      var denominator=opportunities==null?0:opportunities*p.w.length;
+      var efficiency=denominator>0?round(numerator/denominator):null;
+      var shares=(p.u||[]).filter(function(r){return r.teamTgt!=null&&r.tgt!=null;});
+      var share=shares.length===p.w.length&&shares.length?
+        shares.reduce(function(sum,r){return sum+r.tgt;},0)/
+        Math.max(1,shares.reduce(function(sum,r){return sum+r.teamTgt;},0)):null;
       return {year:d.year,throughWeek:d.throughWeek,id:p.id,name:p.n,pos:p.pos,team:p.team,
         careerYear:p.ryr!=null?d.year-p.ryr+1:null,games:p.g,pointsPerGame:round(points),
-        opportunityPerGame:opportunities==null?null:round(opportunities),complete:d.throughWeek>=18};
+        opportunityPerGame:opportunities==null?null:round(opportunities),
+        efficiency:efficiency,efficiencyMetric:efficiencyMetric,
+        targetShare:share==null?null:round(share*100),complete:d.throughWeek>=18};
     }).filter(Boolean).sort(function (a,b) {return a.year-b.year;});
   }
   function comparisons(seasons, target, format) {
@@ -138,9 +192,12 @@
       return (d.players||[]).filter(function (p) {
         return p.id!==target.id && p.pos===target.pos && p.ryr!=null && d.year-p.ryr+1===target.careerYear && p.g>=8 && d.throughWeek>=18;
       }).map(function (p) {
-        var fp=mean(p.w,function (w) {return scoring(p,w,format);});
-        return {year:d.year,id:p.id,name:p.n,pos:p.pos,games:p.g,pointsPerGame:round(fp),
-          difference:round(fp-target.pointsPerGame)};
+        var peer=development([d],p.id,format)[0];
+        return {year:d.year,id:p.id,name:p.n,pos:p.pos,games:p.g,pointsPerGame:peer.pointsPerGame,
+          opportunityPerGame:peer.opportunityPerGame,efficiency:peer.efficiency,
+          difference:round(peer.pointsPerGame-target.pointsPerGame),
+          opportunityDifference:target.opportunityPerGame==null||peer.opportunityPerGame==null?
+            null:round(peer.opportunityPerGame-target.opportunityPerGame)};
       });
     }).sort(function (a,b) {return Math.abs(a.difference)-Math.abs(b.difference) || a.name.localeCompare(b.name);}).slice(0,5);
   }

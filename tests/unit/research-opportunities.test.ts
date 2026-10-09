@@ -96,6 +96,48 @@ describe('Opportunity Radar and historical receipts', () => {
     expect(O.comparisons([{year:2025,throughWeek:4,players:[second]}],history[1],'half')).toEqual([]);
   });
 
+  it('measures independent opportunity share and red-zone movement from matching games only', () => {
+    const p={...player('share',[5,5,10,10]), u:[] as any[],rz:[] as any[]};
+    p.u=[1,2,3,4].map((week) => ({
+      week,team:'SEA',car:week<3?5:10,tgt:0,
+      teamCar:20,teamTgt:20,att:0,teamAtt:30,ay:0,
+    }));
+    p.rz=[1,2,3,4].map((week)=>({
+      week,team:'SEA',rzCar:week<3?1:3,rzTgt:0,
+    }));
+    const found=O.signal(p,4,'half');
+    expect(found.shareBefore).toBe(12.5);
+    expect(found.shareRecent).toBe(25);
+    expect(found.shareChange).toBe(12.5);
+    expect(found.redzoneChange).toBe(2);
+    expect(found.scoringChange).toBe(0);
+    expect(found.relativeChange).toBe(100);
+    const missing=O.signal({...p,u:[]},4,'half');
+    expect(missing.shareChange).toBeNull();
+  });
+
+  it('tracks efficiency and does not invent old QB attempt history', () => {
+    const rb=player('r',[6,6,6,6]);
+    rb.w=rb.w.map((row: (number|string)[])=> {
+      const next=[...row];next[4]=2;next[5]=20;next[7]=48;return next;
+    });
+    const d=O.development([{year:2025,throughWeek:18,players:[rb]}],'r','half');
+    expect(d[0].efficiencyMetric).toBe('Scrimmage yards/opportunity');
+    expect(d[0].efficiency).toBe(8.5);
+    expect(d[0].complete).toBe(true);
+    const qb={...rb,pos:'QB'};
+    expect(O.development([{year:2025,throughWeek:18,players:[qb]}],'r','half')[0].opportunityPerGame).toBeNull();
+  });
+
+  it('requires league membership in the protected opportunity endpoint', () => {
+    const fs=require('node:fs');
+    const source=fs.readFileSync('src/app/api/league-opportunities/[slug]/route.ts','utf8');
+    expect(source).toContain('getUserLeagues(claims.sub)');
+    expect(source).toContain('Sign in to view roster opportunities.');
+    expect(source).toContain('You are not a member of this league.');
+    expect(source).toContain('viewerRosterId: membership.rosterId');
+  });
+
   it('generates real signals from the archived research file', () => {
     const season=JSON.parse(readFileSync('public/research/data/2026.json','utf8'));
     const signals=O.radar(season,'half');
