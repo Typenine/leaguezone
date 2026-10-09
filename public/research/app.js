@@ -79,6 +79,19 @@
           .then(function (manifest) {return {years:manifest.years,remote:false};});
       });
   }
+  function columns(pos) {
+    return M.tableColumns(pos, state.week ? 'week' : 'season', state.view);
+  }
+  var M = window.LZResearchMetrics;
+  var DASH = '\u2014';
+  var SCORING_LABELS = {half:'Half PPR', ppr:'Full PPR', standard:'Standard'};
+  state.listUrl = ''; state.listScroll = 0; state.pendingWeek = 0;
+  state.rz = new Map(); state.rzStatus = {}; state.rzManifest = null;
+  var RZ_VIEWS = ['redzone','goalline'];
+  function opts(row) { return {scoring: state.score, row: row || null, throughWeek: state.throughWeek, usageStatus: state.usageStatus[state.year], rzStatus: state.rzStatus[state.year]}; }
+  var USAGE_POS = ['QB','RB','WR','TE'];
+  // Optional advanced usage: fetched only when a usage view, sort, profile or
+  // comparison needs it; cached per season; failures leave core stats intact.
   function ensureUsage(year) {
     if (state.usage.has(year)) return state.usage.get(year);
     state.usageStatus[year] = 'loading';
@@ -649,7 +662,17 @@
     state.query=$('search').value;state.position=$('position').value;
     state.score=$('scoring').value;state.games=Number($('games').value);
     state.week=Number($('week').value);state.rookieOnly=$('rookies').checked;
-    state.sort=$('sort').value||state.sort;state.view=$('view').value;sortOptions();state.limit=40;
+    var requestedView=$('view').value;
+    var viewChanged=requestedView!==state.view;
+    state.sort=$('sort').value||state.sort;
+    if (viewChanged) {
+      var priorSort=M.metric(state.sort);
+      if (priorSort && ((priorSort.usage && requestedView!=='usage') ||
+          (priorSort.rz && RZ_VIEWS.indexOf(requestedView)===-1))) {
+        state.sort='points';
+      }
+    }
+    state.view=requestedView;sortOptions();state.limit=40;
     syncFilterNotes();
     renderTable();renderCompare();
     if (/^\/research\/players\/[^/]+\/?$/.test(location.pathname)) renderRoute();

@@ -59,6 +59,19 @@ describe('public research database isolation', () => {
     expect(ui).not.toMatch(/fetch\s*\(\s*['"\`]\/l\//);
     expect(ui).not.toMatch(/DATABASE_URL|@neondatabase|sql\`|\/api\/players/);
   });
+  it('keeps the advanced column runtime initialized while using the R2 base loader', () => {
+    const ui = read('public/research/app.js');
+    // An earlier merge replaced the block between loadData and ensureUsage,
+    // leaving the new column selector uninitialized in production.
+    expect(ui).toContain('function columns(pos)');
+    expect(ui).toContain('return M.tableColumns(pos');
+    expect(ui).toContain('var M = window.LZResearchMetrics');
+    expect(ui).toContain("var RZ_VIEWS = ['redzone','goalline']");
+    expect(ui).toContain('state.rz = new Map()');
+    expect(ui).toContain('function opts(row)');
+    expect(ui).toContain('function loadAvailableSeasons()');
+    expect(ui).toContain("var localUrl='/research/data/'+year+'.json'");
+  });
   it('R2 publisher is isolated, versioned, and never commits weekly stats to Git', () => {
     const publisher = read('scripts/publish-public-research-r2.py');
     const workflow = read('.github/workflows/refresh-public-research.yml');

@@ -40,6 +40,29 @@ test.describe('red zone', () => {
     expect(calls).toEqual([]);
   });
 
+  test('changing Columns visibly changes WR headers and loads the correct data', async ({ page, isMobile }) => {
+    await page.goto('/research/stats?season=2025&pos=WR');
+    await expect(page.locator('#data-stamp')).toContainText('2025 Season');
+    await expect(page.locator('#sort-context')).toContainText('Sorted by');
+    const head = page.locator('#players-head');
+    await expect(head).toContainText('Catch %');
+    await page.selectOption('#view', 'usage');
+    await expect(page).toHaveURL(/view=usage/);
+    await expect(head).toContainText('aDOT');
+    await expect(page.locator('#usage-status')).toContainText('Shares = player total');
+    await page.selectOption('#view', 'redzone');
+    await expect(page).toHaveURL(/view=redzone/);
+    await expect(head).toContainText('RZ tgt');
+    await expect(page.locator('#usage-status')).toContainText('snapped at or inside');
+    await page.selectOption('#view', 'goalline');
+    await expect(page).toHaveURL(/view=goalline/);
+    await expect(head).toContainText('GL opp');
+    await page.selectOption('#view', 'core');
+    await expect(head).toContainText('Catch %');
+    await expect(page.locator('#usage-status')).toHaveText('');
+    if (!isMobile) await expect(page.locator('#players-body tr').first()).toBeVisible();
+  });
+
   test('RB goal-line carry sort matches independent totals', async ({ page }) => {
     const d = season(2025), z = redzone(2025);
     const top = d.players.filter(p => p.pos === 'RB').sort((a, b) => total(z, b.id, 'i5Car') - total(z, a.id, 'i5Car') || a.n.localeCompare(b.n))[0];
