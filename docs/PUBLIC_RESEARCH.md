@@ -60,6 +60,12 @@
   objects at research/v1/objects/{year}-{sha256}.json to R2 using the S3 API.
 - An atomic pointer research/v1/catalog.json advertises available seasons,
   object keys, update timestamps, and checksums. Publish pointer last.
+- An authenticated R2 GET re-reads and checks SHA-256 of every advertised
+  object before the catalog is changed. Some GitHub-runner public Worker GETs
+  receive a Cloudflare HTTP 403 even though incognito browser access works.
+  This specific edge denial can be explicitly allowed after private SHA-256
+  verification and manual public-browser confirmation. Other HTTP errors,
+  corrupt files, missing data, and CORS errors remain publication failures.
 - SHA-256 is calculated from canonical data EXCLUDING the run-specific
   'updated' stamp. Unchanged source statistics trigger zero writes.
 - The browser optionally fetches a public R2 catalog and stat files, then
