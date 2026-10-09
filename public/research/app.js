@@ -1,166 +1,391 @@
 'use strict';
 (function () {
-  var state = { year:2026, requestId:0, players:[], byId:new Map(), score:'half', query:'', position:'ALL', sort:'points', games:1, limit:60, compare:new Set(), throughWeek:0 };
-  var el = function(id){ return document.getElementById(id); };
-  var escape = function(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
-  var fmt = function(n,d){ return (Number(n)||0).toFixed(d==null?1:d); };
-  function score(p) { return (p.p||0) - (state.score==='half'?.5*(p.rec||0):state.score==='standard'?(p.rec||0):0); }
-  function ppg(p) { return p.g?score(p)/p.g:0; }
-  function statistic(p,sort) {
-    if(sort==='ppg')return ppg(p);
-    if(sort==='targets')return p.tgt||0;
-    if(sort==='touches')return (p.car||0)+(p.rec||0);
-    if(sort==='yards')return p.ry||0;
-    if(sort==='passing')return p.ppyd||0;
-    if(sort==='rushing')return p.ruy||0;
-    return score(p);
+  var state = {
+    year: null, latest: null, years: [], throughWeek: 0,
+    cache: new Map(), players: [], byId: new Map(), requestId: 0,
+    score: 'half', query: '', position: 'ALL', sort: 'points',
+    games: 1, week: 0, rookieOnly: false, limit: 40, compare: []
+  };
+  var $ = function (id) { return document.getElementById(id); };
+  var escape = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c];
+    });
+  };
+  var fmt = function (v, places) { return (Number(v) || 0).toFixed(places == null ? 1 : places); };
+  var responseError = function (r) { if (!r.ok) throw Error('Research data is temporarily unavailable ('+r.status+')'); return r.json(); };
+  var pointAdjustment = function () { return state.score === 'ppr' ? 0 : state.score === 'half' ? .5 : 1; };
+  var score = function (p, row) { return row ? row[2] - pointAdjustment() * row[3] : p.p - pointAdjustment() * p.rec; };
+  var link = function (id, year) { return '/research/players/'+encodeURIComponent(id)+'?season='+year; };
+  var selectedRow = function (p) { return state.week ? p.w.find(function (w) { return w[0] === state.week; }) : null; };
+  function loadData(year) {
+    if (state.cache.has(year)) return state.cache.get(year);
+    var promise = fetch('/research/data/'+year+'.json', {cache:'default'}).then(responseError).then(function (d) {
+      if (d.year !== year || !Array.isArray(d.players) || d.players.length < 100)
+        throw Error('Incomplete season file: '+year);
+      return d;
+    });
+    state.cache.set(year, promise);
+    promise.catch(function () { state.cache.delete(year); });
+    return promise;
   }
-  function profileUrl(id){return '/research/players/'+encodeURIComponent(id)+(state.year===2026?'':'?season='+state.year);}
-  function positionLeaders() {
-    var host=el('leaders');if(!host)return;
-    host.innerHTML=['QB','RB','WR','TE','K','DEF'].map(function(pos){
-      var list=state.players.filter(function(p){return p.pos===pos&&p.g>0}).sort(function(a,b){return score(b)-score(a)});
-      var p=list[0];return p?'<button class="leader-card" data-profile="'+escape(p.id)+'"><span class="pos">'+pos+' LEADER</span><span class="name">'+escape(p.n)+'</span><span class="team">'+escape(p.team)+'</span><span class="value">'+fmt(score(p))+' <span class="unit">FP</span></span></button>':'';
+  function columns(pos) {
+    var standard = [
+      ['GP','games'], ['FP','points'], ['PPG','ppg']
+    ];
+    var extra = pos === 'QB' ? [
+      ['Pass yds','passing'],['Pass TD','passTD'],['INT','passINT'],['Rush yds','rushing']
+    ] : pos === 'RB' ? [
+      ['Rush yds','rushing'],['Carries','carries'],['Targets','targets'],
+      ['Receptions','receptions'],['Rush TD','rushTD']
+    ] : pos === 'WR' || pos === 'TE' ? [
+      ['Targets','targets'],['Receptions','receptions'],['Rec yds','yards'],['Rec TD','recTD']
+    ] : pos === 'K' ? [
+      ['FG made','fgm'],['PAT made','xpm']
+    ] : pos === 'DEF' ? [
+      ['Sacks','sacks'],['INT','ints'],['FR','fr'],['Pts allowed','pa']
+    ] : [
+      ['Targets','targets'],['Receptions','receptions'],['Carries','carries'],
+      ['Rec yds','yards'],['Pass yds','passing']
+    ];
+    return standard.concat(extra);
+  }
+  function stat(p, key, row) {
+    if (key === 'games') return row ? 1 : p.g;
+    if (key === 'points') return score(p, row);
+    if (key === 'ppg') return row ? score(p, row) : (p.g ? score(p)/p.g : 0);
+    var season = {
+      targets:'tgt', receptions:'rec', carries:'car', yards:'ry', rushing:'ruy',
+      rushTD:'rut', recTD:'rt', passing:'ppyd', passTD:'pptd', passINT:'pint',
+      fgm:'fgm', xpm:'xpm', sacks:'sacks', ints:'ints', fr:'fr', pa:'pa'
+    };
+    var weekIndex = {
+      targets:4, receptions:3, carries:6, yards:5, rushing:7, passing:8,
+      passTD:9, passINT:10, fgm:11, xpm:12, sacks:13, ints:14, fr:15, pa:16,
+      rushTD:13, recTD:14
+    };
+    if (row && weekIndex[key] != null) return Number(row[weekIndex[key]]) || 0;
+    return Number(p[season[key]]) || 0;
+  }
+  function sortableKeys() {
+    return columns(state.position).filter(function (c) { return c[1] !== 'games'; }).concat([
+      ['Touches','touches']
+    ]);
+  }
+  function sortOptions() {
+    var select = $('sort');
+    var options = sortableKeys();
+    if (!options.some(function (x) {return x[1] === state.sort;})) state.sort = 'points';
+    select.innerHTML = options.map(function (x) {
+      return '<option value="'+x[1]+'">'+escape(x[0])+'</option>';
     }).join('');
+    select.value = state.sort;
   }
-  function filtered() {
-    var q=state.query.toLowerCase().trim();
-    return state.players.filter(function(p){return p.g>=state.games&&(state.position==='ALL'||p.pos===state.position)&&(!q||p.n.toLowerCase().includes(q)||p.team.toLowerCase().includes(q));})
-      .sort(function(a,b){return statistic(b,state.sort)-statistic(a,state.sort)||a.n.localeCompare(b.n);});
+  function ranked() {
+    var q = state.query.toLowerCase().trim();
+    var list = state.players.filter(function (p) {
+      return (!state.week || !!selectedRow(p)) &&
+        (state.week || p.g >= state.games) &&
+        (state.position === 'ALL' || p.pos === state.position) &&
+        (!state.rookieOnly || p.ryr === state.year) &&
+        (!q || p.n.toLowerCase().includes(q) || p.team.toLowerCase().includes(q));
+    });
+    return list.sort(function (a,b) {
+      var ar = state.week ? selectedRow(a) : null, br = state.week ? selectedRow(b) : null;
+      var av = state.sort === 'touches' ? stat(a,'carries',ar)+stat(a,'receptions',ar) : stat(a,state.sort,ar);
+      var bv = state.sort === 'touches' ? stat(b,'carries',br)+stat(b,'receptions',br) : stat(b,state.sort,br);
+      return bv-av || a.n.localeCompare(b.n);
+    });
+  }
+  function positionLeaders() {
+    if (!$('leaders')) return;
+    var cards = ['QB','RB','WR','TE','K','DEF'].map(function (pos) {
+      var rankedPos = state.players.filter(function (p) {
+        return p.pos === pos && (!state.week || !!selectedRow(p));
+      }).sort(function (a,b) {
+        return score(b,state.week?selectedRow(b):null)-score(a,state.week?selectedRow(a):null);
+      });
+      var p=rankedPos[0];
+      return p ? '<button type="button" class="leader-card" data-profile="'+escape(p.id)+'" data-year="'+state.year+'">'+
+        '<span class="pos">'+(pos==='DEF'?'DST':pos)+' LEADER</span><span class="name">'+escape(p.n)+'</span>'+
+        '<span class="team">'+escape(p.team)+'</span><span class="value">'+fmt(score(p,state.week?selectedRow(p):null))+
+        ' <span class="unit">FP</span></span></button>' : '';
+    });
+    $('leaders').innerHTML = cards.join('');
   }
   function renderTable() {
-    var list=filtered(); el('result-count').textContent=list.length+' players';
-    var subset=list.slice(0,state.limit);
-    el('players-body').innerHTML=subset.map(function(p){
-      return '<tr><td><button class="player-button" data-profile="'+escape(p.id)+'">'+escape(p.n)+'</button></td>'+
-      '<td><span class="position-chip">'+escape(p.pos)+'</span></td><td>'+escape(p.team)+'</td>'+
-      '<td class="num">'+p.g+'</td><td class="num">'+fmt(score(p))+'</td><td class="num">'+fmt(ppg(p))+'</td>'+
-      '<td class="num">'+p.tgt+'</td><td class="num">'+p.rec+'</td><td class="num">'+p.car+'</td><td class="num">'+p.ry+'</td>'+
-      '<td><input aria-label="Compare '+escape(p.n)+'" class="check" type="checkbox" data-compare="'+escape(p.id)+'" '+(state.compare.has(p.id)?'checked':'')+'></td></tr>';
-    }).join('')||'<tr><td colspan="11" class="empty">No players match these filters.</td></tr>';
-    el('shown-count').textContent='Showing '+subset.length+' of '+list.length+' players';
-    el('more').hidden=subset.length>=list.length;
+    var list = ranked(), cols = columns(state.position);
+    $('result-count').textContent = list.length+(state.week?' weekly performances':' players');
+    $('directory-title').textContent = state.year+' '+(state.week?'Week '+state.week:'Season')+' Fantasy Statistics';
+    $('players-head').innerHTML = '<tr><th scope="col" class="sticky-name">Player</th>'+
+      '<th scope="col">Pos</th><th scope="col">Team</th>'+
+      cols.map(function (col) { return '<th class="num" scope="col">'+col[0]+'</th>'; }).join('')+
+      '<th scope="col">Compare</th></tr>';
+    var selected = list.slice(0,state.limit);
+    $('players-body').innerHTML = selected.map(function (p) {
+      var row=state.week?selectedRow(p):null;
+      var checked=state.compare.some(function (x) {return x.id===p.id&&x.year===state.year;});
+      return '<tr><td class="sticky-name"><button type="button" class="player-button" data-profile="'+escape(p.id)+'" data-year="'+state.year+'">'+escape(p.n)+
+        '</button>'+(p.ryr===state.year?'<span class="rookie-mark">R</span>':'')+'</td>'+
+        '<td><span class="position-chip">'+(p.pos==='DEF'?'DST':escape(p.pos))+'</span></td><td>'+escape(row?row[1]:p.team)+'</td>'+
+        cols.map(function (col) {
+          var v=stat(p,col[1],row);
+          return '<td class="num">'+(col[1]==='points'||col[1]==='ppg'||col[1]==='sacks'?fmt(v):escape(v))+'</td>';
+        }).join('')+'<td><input class="check" type="checkbox" aria-label="Compare '+escape(p.n)+' '+state.year+
+        '" data-compare="'+escape(p.id)+'" '+(checked?'checked':'')+'></td></tr>';
+    }).join('') || '<tr><td class="empty" colspan="'+(cols.length+4)+'">No results match these filters.</td></tr>';
+    $('mobile-results').innerHTML = selected.map(function (p) {
+      var row=state.week?selectedRow(p):null;
+      return '<div class="mobile-result"><button type="button" class="mobile-name" data-profile="'+escape(p.id)+'" data-year="'+state.year+'">'+
+        escape(p.n)+' <span class="subdued">'+escape(p.pos==='DEF'?'DST':p.pos)+' · '+escape(row?row[1]:p.team)+'</span></button>'+
+        '<div class="mobile-stats"><span><b>'+fmt(stat(p,'points',row))+'</b> FP</span><span><b>'+
+        fmt(stat(p,'ppg',row))+'</b> PPG</span><span><b>'+escape(stat(p,'games',row))+'</b> GP</span></div>'+
+        '<label class="mobile-compare"><input type="checkbox" class="check" data-compare="'+escape(p.id)+'" '+
+        (state.compare.some(function (x) {return x.id===p.id&&x.year===state.year;})?'checked':'')+'> Compare</label></div>';
+    }).join('');
+    $('shown-count').textContent = 'Showing '+selected.length+' of '+list.length;
+    $('more').hidden = selected.length >= list.length;
     positionLeaders();
   }
-  function metric(label,value){return '<div class="metric"><span class="label">'+escape(label)+'</span><span class="value">'+escape(value)+'</span></div>';}
-  function renderProfile(p){
-    if(!p){el('profile').hidden=true;return;}
-    var history=[...p.w].sort(function(a,b){return b[0]-a[0];});
-    var adjustments=state.score==='half'?.5:state.score==='standard'?1:0;
-    var isQB=p.pos==='QB',isK=p.pos==='K',isDef=p.pos==='DEF';
-    var profileMetrics=isQB?[
-      ['Passing yards',p.ppyd||0],['Passing TDs',p.pptd||0],['Interceptions',p.pint||0],
-      ['Rushing yards',p.ruy||0],['Carries',p.car||0]
-    ]:isK?[
-      ['Field goals made',p.fgm||0],['Extra points made',p.xpm||0]
-    ]:isDef?[
-      ['Sacks',fmt(p.sacks||0)],['Interceptions',p.ints||0],
-      ['Fumble recoveries',p.fr||0],['Points allowed',p.pa||0]
-    ]:[
-      ['Targets',p.tgt||0],['Receptions',p.rec||0],['Receiving yards',p.ry||0],
-      ['Carries',p.car||0],['Rushing yards',p.ruy||0]
-    ];
-    var head=isQB?['Pass yds','Pass TD','INT','Carries','Rush yds']:
-      isK?['FG made','XP made']:
-      isDef?['Sacks','INT','FR','Pts allowed']:
-      ['Targets','Receptions','Rec yards','Carries','Rush yards'];
-    var idx=isQB?[8,9,10,6,7]:isK?[11,12]:isDef?[13,14,15,16]:[4,3,5,6,7];
-    var html='<button class="crumb" id="return-list">← Back to player directory</button><div class="section-head">'+
-      '<div><div class="eyebrow">'+escape(p.pos)+' · '+escape(p.team)+'</div><h2>'+escape(p.n)+'</h2></div>'+
-      '<button class="btn outline" data-add-profile="'+escape(p.id)+'">Add to comparison</button></div>'+
-      '<div class="profile-grid">'+metric('Fantasy points',fmt(score(p)))+metric('Points / game',fmt(ppg(p)))+
-      metric('Games played',p.g)+profileMetrics.map(function(m){return metric(m[0],m[1]);}).join('')+'</div>'+
-      '<h2>'+state.year+' game log</h2><div class="table-scroll"><table><thead><tr><th>Week</th><th>Team</th><th class="num">Fantasy points</th>'+
-      head.map(function(h){return '<th class="num">'+h+'</th>';}).join('')+'</tr></thead><tbody>';
-    html+=history.map(function(w){return '<tr><td>'+w[0]+'</td><td>'+escape(w[1])+'</td><td class="num">'+fmt(w[2]-adjustments*w[3])+'</td>'+
-      idx.map(function(i){return '<td class="num">'+escape(w[i]===undefined?'—':w[i])+'</td>';}).join('')+'</tr>';}).join('');
-    el('profile').innerHTML=html+'</tbody></table></div>';el('profile').hidden=false;
+  function metric(label,val) {
+    return '<div class="metric"><span class="label">'+escape(label)+'</span><span class="value">'+escape(val)+'</span></div>';
   }
-  function renderCompare(){
-    var ids=[...state.compare],panel=el('compare-panel');
-    panel.hidden=ids.length===0;if(!ids.length)return;
-    el('compare-grid').innerHTML=ids.map(function(id){var p=state.byId.get(id);if(!p)return '';
-      return '<div class="panel"><div class="eyebrow">'+escape(p.pos)+' · '+escape(p.team)+'</div><h2>'+escape(p.n)+'</h2>'+
-      metric('Fantasy points',fmt(score(p)))+metric('Points / game',fmt(ppg(p)))+
-      (p.pos==='QB'?metric('Passing yards',p.ppyd||0)+metric('Passing TDs',p.pptd||0):
-      p.pos==='K'?metric('Field goals made',p.fgm||0)+metric('Extra points made',p.xpm||0):
-      p.pos==='DEF'?metric('Sacks',fmt(p.sacks||0))+metric('INT',p.ints||0):
-      metric('Targets',p.tgt)+metric('Receptions',p.rec)+metric('Carries',p.car)+
-      metric('Receiving yards',p.ry))+'</div>';
+  function profileCols(p) {
+    return columns(p.pos).filter(function (x) {return x[1]!=='ppg'&&x[1]!=='games';});
+  }
+  function trendSvg(p) {
+    var values = p.w.map(function (w) { return {week:w[0],fp:score(p,w)}; });
+    var positiveMax = Math.max(1, ...values.map(function (v) {return v.fp;}));
+    var negativeMin = Math.min(0, ...values.map(function (v) {return v.fp;}));
+    var low=Math.min(0,negativeMin), range=positiveMax-low||1;
+    var width=720,height=220,l=36,r=15,t=16,b=30;
+    var x=function (week) { return l+(week-1)/17*(width-l-r); };
+    var y=function (value) { return t+(positiveMax-value)/range*(height-t-b); };
+    var coords = values.map(function (v) {return x(v.week).toFixed(1)+','+y(v.fp).toFixed(1);}).join(' ');
+    var circles=values.map(function (v) {
+      return '<circle cx="'+x(v.week)+'" cy="'+y(v.fp)+'" r="4" fill="#76d5bb"><title>Week '+
+      v.week+': '+fmt(v.fp)+' fantasy points</title></circle>';
     }).join('');
+    var lines=[0, .5, 1].map(function (pct) {
+      var value=low+range*pct, ypos=y(value);
+      return '<line x1="'+l+'" x2="'+(width-r)+'" y1="'+ypos+'" y2="'+ypos+'" stroke="#31445d"/>'+
+        '<text x="0" y="'+(ypos+3)+'" fill="#a2b1c5" font-size="11">'+fmt(value,0)+'</text>';
+    }).join('');
+    var ticks=[1,4,7,10,13,16,18].map(function (week) {
+      return '<text x="'+x(week)+'" y="'+(height-7)+'" fill="#a2b1c5" text-anchor="middle" font-size="11">'+week+'</text>';
+    }).join('');
+    return '<div class="trend-chart"><svg viewBox="0 0 '+width+' '+height+'" role="img" aria-label="'+escape(p.n)+
+      ' weekly fantasy points in '+state.year+'"><g>'+lines+'</g>'+
+      (values.length>1?'<polyline points="'+coords+'" stroke="#76d5bb" stroke-width="2.5" fill="none"/>':'')+
+      circles+ticks+'</svg></div>';
   }
-  function navigate(path){
-    history.pushState({},'',path.startsWith('/research')&&state.year!==2026&&!path.includes('?')?path+'?season='+state.year:path);renderRoute();window.scrollTo({top:0,behavior:'smooth'});
+  function renderProfile(p) {
+    var container=$('profile');
+    if (!p) {container.hidden=true; return;}
+    var head=profileCols(p);
+    var total=metric('Fantasy points',fmt(score(p)))+metric('Points/game',fmt(score(p)/p.g))+metric('Games played',p.g);
+    total+=head.map(function (c) {return metric(c[0],c[1]==='points'?fmt(stat(p,c[1])):stat(p,c[1]));}).join('');
+    var history=[...p.w].reverse();
+    var logHead='<th>Week</th><th>Team</th>'+head.map(function (c) {return '<th class="num">'+c[0]+'</th>';}).join('');
+    var logRows=history.map(function (w) {
+      return '<tr><td>'+w[0]+'</td><td>'+escape(w[1])+'</td>'+
+        head.map(function (c) {var v=stat(p,c[1],w);return '<td class="num">'+
+          (c[1]==='points'||c[1]==='sacks'?fmt(v):escape(v))+'</td>';}).join('')+'</tr>';
+    }).join('');
+    container.innerHTML='<button type="button" class="crumb" id="return-list">← Back to players</button>'+
+      '<div class="section-head"><div><div class="eyebrow">'+escape(p.pos==='DEF'?'DST':p.pos)+' · '+escape(p.team)+
+      (p.ryr===state.year?' · Rookie':'')+'</div><h2>'+escape(p.n)+'</h2></div>'+
+      '<button type="button" class="btn outline" data-add-profile="'+escape(p.id)+'" data-year="'+state.year+'">Compare this season</button></div>'+
+      '<div class="profile-grid">'+total+'</div>'+
+      '<section class="panel profile-section"><h2>Weekly performance</h2><p class="subdued">Fantasy points by regular-season week · '+escape(state.score.toUpperCase())+'</p>'+
+      trendSvg(p)+'</section>'+
+      '<section class="profile-section"><div class="section-head"><h2>Career history</h2><span class="subdued">Available LeagueZone seasons</span></div>'+
+      '<div id="career-history" aria-live="polite" class="subdued">Loading historical seasons…</div></section>'+
+      '<section class="profile-section"><h2>'+state.year+' game log</h2><div class="table-scroll game-log"><table><thead><tr>'+
+      logHead+'</tr></thead><tbody>'+logRows+'</tbody></table></div></section>';
+    container.hidden=false;
+    var request=state.requestId,year=state.year;
+    Promise.all(state.years.map(function (season) {
+      return loadData(season).then(function (d) {
+        return {year:season,player:d.players.find(function (x) {return x.id===p.id;})};
+      }).catch(function () {return {year:season,error:true};});
+    })).then(function (found) {
+      if (request!==state.requestId || year!==state.year || !$('career-history')) return;
+      var available=found.filter(function (f) {return f.player;});
+      var errors=found.filter(function (f) {return f.error;});
+      $('career-history').innerHTML=available.length?'<div class="table-scroll career-scroll"><table><thead><tr>'+
+        '<th>Season</th><th>Team</th><th>GP</th><th class="num">FP</th><th class="num">PPG</th><th>Actions</th></tr></thead><tbody>'+
+        available.map(function (f) {
+          return '<tr><td>'+f.year+'</td><td>'+escape(f.player.team)+'</td><td>'+f.player.g+'</td><td class="num">'+
+            fmt(f.player.p-pointAdjustment()*f.player.rec)+'</td><td class="num">'+
+            fmt((f.player.p-pointAdjustment()*f.player.rec)/f.player.g)+'</td><td>'+
+            '<a class="table-link" href="'+link(p.id,f.year)+'" data-career-nav="1">View</a> · '+
+            '<button class="mini-link" type="button" data-add-profile="'+escape(p.id)+'" data-year="'+f.year+'">Compare</button>'+
+            '</td></tr>';
+        }).join('')+'</tbody></table></div>':'<p>No other season data found.</p>';
+      if (errors.length) $('career-history').insertAdjacentHTML('beforeend','<p class="subdued">Some earlier seasons were unavailable.</p>');
+    });
+  }
+  function renderCompare() {
+    var panel=$('compare-panel');
+    panel.hidden=!state.compare.length;
+    if (!state.compare.length) return;
+    $('compare-grid').innerHTML=state.compare.map(function (item) {
+      var cached=state.cache.get(item.year);
+      return '<div class="panel"><div class="eyebrow">'+escape(item.year+' · '+item.pos)+'</div>'+
+        '<h2>'+escape(item.name)+'</h2>'+
+        metric('Fantasy points',fmt(item.points-pointAdjustment()*item.rec))+
+        metric('Points/game',fmt((item.points-pointAdjustment()*item.rec)/item.games))+
+        metric('Games played',item.games)+
+        metric('Team',item.team)+
+        '<button type="button" class="mini-link" data-remove-compare="'+item.year+':'+escape(item.id)+'">Remove</button></div>';
+    }).join('');
+    $('compare-notice').textContent=state.compare.length===1?'Select one more player or season to compare.':
+      'Comparing the selected seasons using '+state.score+' scoring.';
+  }
+  function addCompare(year,id) {
+    var key=String(year)+':'+id;
+    if (state.compare.some(function (x) {return x.year+':'+x.id===key;})) return;
+    if (state.compare.length>=2) {
+      $('compare-notice').textContent='Choose a maximum of two player-seasons. Clear a selection first.';
+      $('compare-panel').hidden=false;
+      return;
+    }
+    loadData(year).then(function (d) {
+      var p=d.players.find(function (x) {return x.id===id;});
+      if (!p || state.compare.some(function (x) {return x.year===year && x.id===id;})) return;
+      state.compare.push({year:year,id:id,name:p.n,pos:p.pos,team:p.team,points:p.p,rec:p.rec,games:p.g});
+      renderTable();renderCompare();
+      if ($('compare-panel')) $('compare-panel').scrollIntoView({behavior:'smooth',block:'nearest'});
+    }).catch(function (e) { $('error').hidden=false;$('error').textContent=e.message;});
+  }
+  function updateFilters() {
+    state.query=$('search').value;state.position=$('position').value;
+    state.score=$('scoring').value;state.games=Number($('games').value);
+    state.week=Number($('week').value);state.rookieOnly=$('rookies').checked;
+    sortOptions();state.sort=$('sort').value;state.limit=40;
+    $('games').disabled=!!state.week;
+    $('games-note').textContent=state.week?'Weekly rankings show players with a recorded game.':'';
+    renderTable();renderCompare();
+    if (/^\/research\/players\/[^/]+\/?$/.test(location.pathname)) renderRoute();
+  }
+  function populateWeeks() {
+    $('week').innerHTML='<option value="0">Season totals</option>'+
+      Array.from({length:state.throughWeek},function (_,i) {
+        return '<option value="'+(i+1)+'">Week '+(i+1)+'</option>';
+      }).join('');
+    $('week').value='0';state.week=0;
   }
   function renderRoute() {
-    var path=location.pathname,match=path.match(/^\/research\/players\/([^/]+)\/?$/);
+    var path=location.pathname, match=path.match(/^\/research\/players\/([^/]+)\/?$/);
     var p=match?state.byId.get(decodeURIComponent(match[1])):null;
-    el('overview').hidden=!!match||path.includes('/stats')||path.endsWith('/players');
-    el('directory').hidden=!!match;
-    renderProfile(p);
-    if(match&&!p){el('error').hidden=false;el('error').textContent='Player not found in this public snapshot.';}
-    else if(state.players.length){el('error').hidden=true;}
-    el('page-title').textContent=match?(p?p.n:'Player not found'):path.includes('/stats')?'Fantasy stat leaders':path.endsWith('/players')?'NFL player directory':'A clearer look at every player.';
-    el('page-desc').textContent=match?'Weekly game logs and season statistics. Data is presented independently of fantasy league ownership.':
-      'Search NFL players, compare season performance, and explore scoring under standard, half-PPR, or PPR formats.';
-    document.querySelectorAll('[data-nav]').forEach(function(a){var key=a.getAttribute('data-nav');a.setAttribute('aria-current',key==='research'&&path==='/research'||key==='players'&&path.endsWith('/players')||key==='stats'&&path.includes('/stats')?'page':'false');});
-    document.title=(p?p.n+' Stats | ': 'Fantasy Research | ')+'LeagueZone';
-  }
-  document.addEventListener('click',function(e){
-    var t=e.target.closest('[data-profile]');if(t){navigate(profileUrl(t.getAttribute('data-profile')));return;}
-    var add=e.target.closest('[data-add-profile]');if(add){var id=add.getAttribute('data-add-profile');if(state.compare.size<2||state.compare.has(id)){state.compare.add(id);renderTable();renderCompare();el('compare-panel').scrollIntoView({behavior:'smooth'});}return;}
-    var back=e.target.closest('#return-list');if(back){navigate('/research/players');return;}
-    var nav=e.target.closest('a[href^="/research"]');if(nav){e.preventDefault();navigate(nav.getAttribute('href'));}
-  });
-  el('players-body').addEventListener('change',function(e){
-    var t=e.target.closest('[data-compare]');if(!t)return;
-    var id=t.getAttribute('data-compare');
-    if(t.checked&&state.compare.size>=2&&!state.compare.has(id)){t.checked=false;return;}
-    if(t.checked)state.compare.add(id);else state.compare.delete(id);
-    renderCompare();
-  });
-  el('clear-compare').addEventListener('click',function(){state.compare.clear();renderTable();renderCompare();});
-  el('more').addEventListener('click',function(){state.limit+=60;renderTable();});
-  ['search','position','scoring','sort','games'].forEach(function(id){
-    el(id).addEventListener(id==='search'?'input':'change',function(e){
-      state.query=el('search').value;state.position=el('position').value;state.score=el('scoring').value;state.sort=el('sort').value;state.games=Number(el('games').value);
-      state.limit=60;renderTable();renderCompare();renderRoute();
+    $('overview').hidden=!!match || path.includes('/stats') || path.endsWith('/players');
+    $('directory').hidden=!!match;
+    if (match && !p) {
+      $('profile').hidden=true;$('error').hidden=false;
+      $('error').textContent='Player not found in this season. Choose another year or return to the directory.';
+    } else { $('error').hidden=true;renderProfile(p); }
+    $('page-title').textContent=match?(p?p.n:'Player not found'):
+      path.includes('/stats')?'NFL fantasy stat leaders':path.endsWith('/players')?'Player research':'A clearer look at every player.';
+    $('page-desc').textContent=match?'Historical performance, season comparisons and weekly game logs.':
+      'Filter by season, week, position or rookies. Compare historical fantasy production and individual player statistics.';
+    document.querySelectorAll('[data-nav]').forEach(function (a) {
+      var key=a.dataset.nav;
+      a.setAttribute('aria-current',
+        (key==='research'&&path==='/research' || key==='players'&&path.endsWith('/players') ||
+         key==='stats'&&path.includes('/stats'))?'page':'false');
     });
-  });
-  window.addEventListener('popstate',function(){ var incoming=Number(new URLSearchParams(location.search).get('season'))||2026; if(incoming!==state.year&&[2023,2024,2025,2026].includes(incoming))loadSeason(incoming);else renderRoute(); });
+    document.title=(p?p.n+' Stats | ':'Fantasy Research | ')+'LeagueZone';
+  }
+  function navigate(url,replace) {
+    var target=new URL(url,location.href);
+    var year=Number(target.searchParams.get('season'))||state.latest;
+    if (!state.years.includes(year)) year=state.latest;
+    if (replace) history.replaceState({},'',target.pathname+target.search);
+    else history.pushState({},'',target.pathname+target.search);
+    if (year!==state.year) loadSeason(year);
+    else {state.requestId++;renderRoute();}
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
   function loadSeason(year) {
-    if(![2023,2024,2025,2026].includes(year))year=2026;
-    state.year=year; state.compare.clear();state.players=[];state.byId=new Map();state.limit=60;
-    el('year').value=String(year);
-    el('data-stamp').textContent='Loading '+year+' statistics…';
-    el('players-body').innerHTML='<tr><td colspan="11" class="empty">Loading season…</td></tr>';
-    el('leaders').innerHTML='<div class="empty">Loading season…</div>';
-    el('profile').hidden=true; el('compare-panel').hidden=true;
-    el('error').hidden=true;
-    var requestId=++state.requestId;
-    fetch('/research/data/'+year+'.json',{cache:'default'}).then(function(r){
-      if(!r.ok)throw new Error('Statistics are temporarily unavailable');return r.json();
-    }).then(function(data){
-      if(requestId!==state.requestId)return;
-      if(!Array.isArray(data.players)||data.players.length<100||data.year!==year)throw new Error('Season data is incomplete or mismatched');
-      state.players=data.players;state.byId=new Map(data.players.map(function(p){return [p.id,p];}));state.throughWeek=data.throughWeek;
-      el('data-stamp').textContent=year+' Season · Through Week '+data.throughWeek+' · Snapshot '+data.updated;
-      el('directory-title').textContent=year+' Fantasy Statistics';
-      renderTable();renderCompare();renderRoute();
-    }).catch(function(error){
-      if(requestId!==state.requestId)return;
-      el('data-stamp').textContent=year+' statistics unavailable';
-      el('error').hidden=false;el('error').textContent=error.message||'Unable to load player data';
-      el('players-body').innerHTML='<tr><td colspan="11" class="empty">Unable to load statistics.</td></tr>';
+    if (!state.years.includes(year)) year=state.latest;
+    state.year=year;state.players=[];state.byId=new Map();state.limit=40;
+    $('year').value=String(year);
+    $('data-stamp').textContent='Loading '+year+' statistics…';
+    $('players-body').innerHTML='<tr><td class="empty">Loading season…</td></tr>';
+    $('mobile-results').innerHTML='';
+    $('leaders').innerHTML='<p class="empty">Loading season…</p>';
+    $('profile').hidden=true;$('compare-panel').hidden=!state.compare.length;
+    $('error').hidden=true;
+    var token=++state.requestId;
+    loadData(year).then(function (data) {
+      if (token!==state.requestId) return;
+      state.players=data.players;state.byId=new Map(data.players.map(function (p) {return [p.id,p];}));
+      state.throughWeek=data.throughWeek;
+      $('data-stamp').textContent=year+' Season · Through Week '+data.throughWeek+' · Updated '+data.updated;
+      populateWeeks();sortOptions();renderTable();renderCompare();renderRoute();
+      $('research-year-range').textContent=state.years[0]+'–'+state.latest;
+    }).catch(function (error) {
+      if (token!==state.requestId)return;
+      $('data-stamp').textContent=year+' statistics unavailable';
+      $('error').hidden=false;$('error').textContent=error.message||'Unable to load statistics';
+      $('players-body').innerHTML='<tr><td class="empty">Unable to load statistics.</td></tr>';
     });
   }
-  el('year').addEventListener('change',function(e){
-    var year=Number(e.target.value);
-    var u=new URL(location.href);
-    if(year===2026)u.searchParams.delete('season');else u.searchParams.set('season',String(year));
-    history.replaceState({},'',u.pathname+u.search);
-    loadSeason(year);
+  document.addEventListener('click',function (e) {
+    var profile=e.target.closest('[data-profile]');
+    if (profile) {navigate(link(profile.dataset.profile,Number(profile.dataset.year)));return;}
+    var add=e.target.closest('[data-add-profile]');
+    if (add) {addCompare(Number(add.dataset.year),add.dataset.addProfile);return;}
+    var remove=e.target.closest('[data-remove-compare]');
+    if (remove) {
+      var key=remove.dataset.removeCompare;
+      state.compare=state.compare.filter(function (x) {return x.year+':'+x.id!==key;});
+      renderTable();renderCompare();return;
+    }
+    var back=e.target.closest('#return-list');
+    if (back) {navigate('/research/players?season='+state.year);return;}
+    var anchor=e.target.closest('a[data-career-nav],a[href^="/research"]');
+    if (anchor) {e.preventDefault();navigate(anchor.getAttribute('href'));return;}
   });
-  var initialYear=Number(new URLSearchParams(location.search).get('season'))||2026;
-  loadSeason(initialYear);
+  function compareChanged(e) {
+    var target=e.target.closest('[data-compare]');if (!target)return;
+    var key=state.year+':'+target.dataset.compare;
+    if (target.checked) addCompare(state.year,target.dataset.compare);
+    else {state.compare=state.compare.filter(function (x) {return x.year+':'+x.id!==key;});renderTable();renderCompare();}
+  }
+  $('players-body').addEventListener('change',compareChanged);
+  $('mobile-results').addEventListener('change',compareChanged);
+  $('clear-compare').addEventListener('click',function () {state.compare=[];renderTable();renderCompare();});
+  $('more').addEventListener('click',function () {state.limit+=40;renderTable();});
+  ['search','position','scoring','games','week','rookies','sort'].forEach(function (id) {
+    $(id).addEventListener(id==='search'?'input':'change',function () {
+      if (id==='sort')state.sort=$('sort').value;
+      updateFilters();
+    });
+  });
+  $('year').addEventListener('change',function (e) {
+    var year=Number(e.target.value);
+    var path=location.pathname.match(/^\/research\/players\/[^/]+\/?$/)?'/research/players':location.pathname;
+    navigate(path+'?season='+year,true);
+  });
+  window.addEventListener('popstate',function () {
+    var year=Number(new URLSearchParams(location.search).get('season'))||state.latest;
+    if (year!==state.year) loadSeason(year);
+    else {state.requestId++;renderRoute();}
+  });
+  fetch('/research/data/seasons.json',{cache:'no-cache'}).then(responseError).then(function (manifest) {
+    var years=(manifest.years||[]).filter(function (x) {return Number.isInteger(x)&&x>=2000;})
+      .sort(function (a,b) {return a-b;});
+    if (!years.length || new Set(years).size!==years.length) throw Error('Season index unavailable');
+    state.years=years;state.latest=years[years.length-1];
+    $('year').innerHTML=years.slice().reverse().map(function (y) {
+      return '<option value="'+y+'">'+y+'</option>';
+    }).join('');
+    var preferred=Number(new URLSearchParams(location.search).get('season'));
+    loadSeason(years.includes(preferred)?preferred:state.latest);
+  }).catch(function (error) {
+    $('error').hidden=false;$('error').textContent='Unable to load research seasons: '+error.message;
+    $('data-stamp').textContent='Research unavailable';
+  });
 })();
