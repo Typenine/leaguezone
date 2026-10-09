@@ -75,7 +75,7 @@ describe('public research database isolation', () => {
   it('does not keep production R2 credentials hardcoded in the environment helper', () => {
     const setup = read('scripts/set-r2-envs.mjs');
     expect(setup).toContain('process.env');
-    expect(setup).not.toContain('3814f2f8664d'); // accidental historical secret prefix regression
+    expect(setup).not.toMatch(/R2_SECRET_ACCESS_KEY:\s*['\"][A-Za-z0-9/+]{20,}['\"]/);
   });
   it('data pipeline is not allowed to import LeagueZone server code', () => {
     const updater = read('scripts/build-nflverse-research.py');
