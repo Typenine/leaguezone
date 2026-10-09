@@ -111,7 +111,7 @@ test.describe('Research site navigation and branding', () => {
     await page.locator('.data-credit summary').click();
     await expect(page.locator('.data-credit')).toContainText('CC BY 4.0');
     await page.locator('.site-head .wordmark').click();
-    await expect(page).toHaveURL(new RegExp('/
+    await expect(page).toHaveURL(/\/$/);
   });
 });
 
