@@ -252,7 +252,9 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
         for week in range(1, through + 1)
     ):
         raise ValueError(f"Missing players/positions for {season}; refusing to overwrite snapshot")
-    if season < datetime.now(timezone.utc).year and through < 18:
+    today = datetime.now(timezone.utc)
+    is_previous_season_still_finishing = season == today.year - 1 and today.month <= 2
+    if season < today.year and through < 18 and not is_previous_season_still_finishing:
         raise ValueError(f"Historical season {season} is not complete")
     people.sort(key=lambda p: (-p["p"], p["n"], p["id"]))
     return {
