@@ -1,0 +1,37 @@
+name: Verify nflverse source schema
+on:
+  push:
+    branches: [feature/nflverse-research-rebuild]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install nflreadpy
+        run: pip install nflreadpy
+      - name: Inspect exact nflverse field shapes
+        run: |
+          python - <<'PY'
+          import nflreadpy as nfl
+          from collections import Counter
+          for year in [2023,2025,2026]:
+              stats=nfl.load_player_stats(year,summary_level="week")
+              print("YEAR",year, "COUNT",stats.height, "FIELDS",stats.columns,flush=True)
+              rows=stats.filter((stats["week"]==1)).to_dicts()
+              print("WEEK1 COUNTS",Counter(r.get("position") for r in rows),flush=True)
+              print("KICKER",next((r for r in rows if r.get("position")=="K"),None),flush=True)
+              print("CHASE",next((r for r in rows if "Chase" in str(r.get("player_display_name")) and year==2025),None),flush=True)
+              schedule=nfl.load_schedules(year)
+              print("SCHEDULE FIELDS",schedule.columns,flush=True)
+              print("SCHEDULE SAMPLE",schedule.filter(schedule["week"]==1).head(1).to_dicts(),flush=True)
+              team=nfl.load_team_stats(year,summary_level="week")
+              print("TEAM FIELDS",team.columns,flush=True)
+              print("TEAM SAMPLE",team.filter(team["week"]==1).head(1).to_dicts(),flush=True)
+          PY
