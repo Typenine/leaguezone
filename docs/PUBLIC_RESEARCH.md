@@ -1,53 +1,62 @@
-# Public research foundation
+# LeagueZone public NFL research: direct nflverse feed
 
-LeagueZone's beta research interface is served as **static public assets** at
-\`/research\`. It is intentionally independent of account sessions, Sleeper
-league pages, PostgreSQL, and the protected league APIs.
+## Architecture and cost boundary
+- Public research at /research uses only season JSON files in public/research/data.
+- No Neon query, Sleeper API call, authenticated endpoint, or Next.js server
+  operation is made when visitors browse research.
+- League management, historic drafts, trades, records, and administrative data
+  are untouched by this importer.
+- Source: https://github.com/nflverse/nflverse-data (CC BY 4.0;
+  check upstream rights before paid redistribution).
+- Python loader: nflreadpy. Data is downloaded and validated in GitHub Actions.
+- Do not use the old NityaGehlot intermediary; it mislabeled historical game
+  participation and teams, leading to missing player weeks and kickers.
 
-## Hard cost boundary
+## Publishing data
+- 'python scripts/build-nflverse-research.py --seasons 2023 2024 2025 2026'
+  builds separate compact season files.
+- 'python scripts/validate-nflverse-research.py' verifies all four seasons,
+  missing positions, duplicate weeks, score sums, and traded-player examples.
+- GitHub Actions workflow 'Refresh public research snapshot' runs the above,
+  typecheck, unit tests, and desktop/mobile Playwright checks on the migration
+  branch. On default branch it runs at most once per week on Thursday at
+  12:00 UTC, after NFL midweek stat corrections.
+- The workflow commits static files only when actual data changed. A commit
+  on main triggers the site's normal production build. No web traffic causes
+  refresh jobs or database load.
+- Fail closed: if source, matchup IDs, schedule coverage, kicker participation,
+  or historical season completeness fails, published files are preserved.
 
-- Public views load only \`/research/data/<year>.json\` through the CDN.
-- No user-facing request to public research is permitted to call Neon.
-- No API proxy, dynamic Next.js page, or server-only code is imported by the
-  public research bundle.
-- All searching, scoring-format changes, sorting, and comparisons run locally
-  in the browser.
-- Existing league pages, DB migrations, and crawler gates remain unchanged.
+## Statistics and known limitations
+- Players: QB, RB, WR, TE season totals, weekly game logs, PPR, half-PPR and
+  standard receiving adjustments; passing, rushing and receiving statistics.
+- Kicking: built explicitly from made field goals by distance band
+  (0–39 yards = 3, 40–49 = 4, 50+ = 5) and made PAT = 1.
+- Team defense/st: derived from nflverse weekly team stats and NFL game
+  scores, with the scoring formula spelled out in the code.
+- Defensive fantasy point totals are a **default estimate**. Total-score
+  points-allowed bands may differ from provider rules when opposing defensive
+  or return touchdowns occur; blocks, safeties and turnovers can have
+  provider-specific variations. They are not league-specific projections.
+- Direct nflverse player statistics do not include verified offensive snaps;
+  do not silently show zeros or sort by missing data.
+- Custom scoring rules, verified rookie-class filters, and live injury feeds
+  remain outside the initial public research scope.
+- Source data may change after NFL stat corrections; dates on files indicate
+  the last actual content revision, not the last time the updater ran.
 
-## Dataset
+## Important validation
+- 2025 Bengals players must retain Weeks 1–4 after the Joe Flacco trade.
+- 2024 Davante Adams must retain early Raiders games after joining the Jets.
+- 2023–2025 kickers must appear for all weeks, not only a single stray week.
+- Each season has 32 DST rows (one per NFL team), with bye-week checks.
+- No source rows with team/opponent/game ID discrepancies are accepted.
+- Player-season PPR totals equal the sum of included weekly PPR totals.
+- Public research pages and tests must continue to work on mobile and without
+  any database connection.
 
-Initial snapshot: 2026, through completed Week 4. Sourced from
-NityaGehlot/nfl-data weekly public JSON. The source is a community-maintained
-snapshot and is not an authoritative real-time score service. The generator
-filters obvious team/opponent inconsistencies to reduce misattributed player
-weeks. This does not resolve all possible upstream quality problems.
-
-\`node scripts/refresh-public-research.mjs\` refreshes a seasonal JSON file.
-There is a **manual** GitHub Actions workflow ("Refresh public research
-snapshot") to publish future updates; it is intentionally not scheduled yet,
-so we can establish actual build and traffic costs before adding recurring
-deployments. A successful workflow commit will trigger the existing
-production Git integration.
-
-The initial release includes QB, RB, WR, TE, K. DEF/DST are not present
-in this data source and must not be silently fabricated.
-
-## Verification
-
-1. All public research pages work with a missing or invalid DATABASE_URL.
-2. A page visit only requests same-origin assets under /research/.
-3. Public pages have no fetch calls to /api/, /l/, or /app.
-4. The app works with JavaScript enabled and makes its data timestamp clear.
-5. The existing league dashboards continue to work unchanged.
-
-Important: This is an initial static research foundation, not an advanced
-projection model, a live injury feed, or an exhaustive historical database.
-
-
-## Historical snapshots (added October 9, 2026)
-
-The public interface now serves **2023, 2024, 2025** full regular seasons and **2026** through Week 4. Each year lives in its own small static JSON file and is downloaded only when selected. All public player-history filters and comparisons are local to the visitor's browser.
-
-Seasonal files are generated from public weekly JSON, validated for unique player/week tuples and consistent game counts. Incorrect retrospective team labels are screened using contemporaneous quarterback matchups. This filters some bad upstream records; it does not establish perfect correctness, and league-scoring/bonuses can differ from the source's PPR scoring convention. Confirm independent sample totals and note missing defense/DST before broadening coverage.
-
-Public data refresh stays manual. The user should not enable scheduled refresh until transfer usage, build frequency, and source reliability are measured.
+## Season rollover
+The refresh code can generate new seasons without rewriting earlier snapshots.
+The static season selector currently enumerates 2023–2026; add a new season
+option and update its permitted years when the 2027 data is ready. Do not
+overwrite earlier season files.

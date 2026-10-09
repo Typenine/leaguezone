@@ -41,9 +41,9 @@
       <div class="toolbar">
         <label>Season <select id="year"><option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option></select></label>
         <label class="search-field">Search player <input type="search" id="search" placeholder="Name or NFL team" autocomplete="off"></label>
-        <label>Position <select id="position"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option></select></label>
+        <label>Position <select id="position"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option><option value="DEF">DEF/DST</option></select></label>
         <label>Scoring <select id="scoring"><option value="half">Half PPR</option><option value="ppr">Full PPR</option><option value="standard">Standard</option></select></label>
-        <label>Sort by <select id="sort"><option value="points">Total points</option><option value="ppg">Points/game</option><option value="targets">Targets</option><option value="touches">Carries + catches</option><option value="yards">Receiving yards</option><option value="snaps">Offensive snaps</option></select></label>
+        <label>Sort by <select id="sort"><option value="points">Total points</option><option value="ppg">Points/game</option><option value="targets">Targets</option><option value="touches">Carries + catches</option><option value="yards">Receiving yards</option><option value="passing">Passing yards</option><option value="rushing">Rushing yards</option></select></label>
         <label>Minimum games <select id="games"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
       </div>
       <div class="table-scroll">
@@ -56,7 +56,7 @@
       <div class="section-head"><div><div class="eyebrow">Head-to-head</div><h2>Player comparison</h2></div><button type="button" id="clear-compare" class="btn outline">Clear comparison</button></div>
       <div id="compare-grid" class="comparison"></div>
     </section>
-    <section class="source-note"><h2>About these statistics</h2><p>Historical seasons 2023–2025 and the 2026 season-to-date snapshot use weekly offensive player data from <a href="https://github.com/NityaGehlot/nfl-data" target="_blank" rel="noopener noreferrer">NityaGehlot/nfl-data</a>. Fantasy points are based on the source's PPR totals with receptions adjusted for half-PPR and standard scoring. This is a historical snapshot, not live play-by-play. DEF/DST, custom league scoring, and verified rookie-class filters are not yet supported. Statistics may be revised as sources are improved.</p></section>
+    <section class="source-note"><h2>About these statistics</h2><p>Player and team statistics come directly from <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noopener noreferrer">nflverse</a>, under CC BY 4.0, subject to underlying data rights. Fantasy points use nflverse PPR values; half-PPR and standard adjust receptions. Kicker scoring uses 3/4/5 points by field-goal distance and 1 per made PAT. Defense/ST points are calculated using sacks, turnovers, touchdowns, safeties, blocked kicks, and game scoreboard points allowed. DST scoring varies by provider, and opponent defensive scores may affect the points-allowed calculation. Custom league scoring, snap counts, and verified rookie filters are not currently available. Data is updated after completed NFL weeks and may change following stat corrections.</p></section>
   </main>
   <footer class="wrap footer"><span>LeagueZone · Independent fantasy research</span><a href="/">LeagueZone HQ</a></footer>
 </body>

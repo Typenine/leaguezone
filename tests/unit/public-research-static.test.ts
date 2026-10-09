@@ -22,6 +22,10 @@ describe('public research database isolation', () => {
       expect(historical.year).toBe(year);
       expect(historical.throughWeek).toBe(18);
       expect(historical.players.length).toBeGreaterThan(500);
+      expect(historical.source).toContain("nflverse/");
+      expect(historical.schema).toBe(2);
+      expect(historical.players.filter((p: {pos:string}) => p.pos === "DEF").length).toBe(32);
+      expect(historical.players.filter((p: {pos:string}) => p.pos === "K").length).toBeGreaterThan(25);
       for(const player of historical.players) {
         expect(player.g).toBe(player.w.length);
         expect(new Set(player.w.map((w: number[]) => w[0])).size).toBe(player.w.length);
@@ -30,6 +34,11 @@ describe('public research database isolation', () => {
     expect(data.throughWeek).toBeGreaterThan(0);
     expect(data.players.length).toBeGreaterThan(100);
     expect(data.players.some((p: { pos: string }) => p.pos === 'K')).toBe(true);
+    expect(data.players.filter((p: { pos: string }) => p.pos === "DEF").length).toBe(32);
+    const chase2025=JSON.parse(read("public/research/data/2025.json")).players.find((p:{n:string})=>p.n==="Ja\'Marr Chase");
+    expect(chase2025.w.map((w:number[])=>w[0])).toEqual(expect.arrayContaining([1,2,3,4]));
+    const adams2024=JSON.parse(read("public/research/data/2024.json")).players.find((p:{n:string})=>p.n==="Davante Adams");
+    expect(adams2024.w.some((w:number[])=>w[0]===1)).toBe(true);
   });
   it('is served via static rewrites, not Next dynamic page rendering', () => {
     const config = read('next.config.ts');
@@ -45,7 +54,10 @@ describe('public research database isolation', () => {
     expect(ui).not.toMatch(/DATABASE_URL|@neondatabase|sql\`|\/api\/players/);
   });
   it('data pipeline is not allowed to import LeagueZone server code', () => {
-    const updater = read('scripts/refresh-public-research.mjs');
+    const updater = read('scripts/build-nflverse-research.py');
+    expect(updater).toContain('nfl.load_player_stats');
+    expect(updater).toContain('nfl.load_team_stats');
     expect(updater).not.toMatch(/DATABASE_URL|@neondatabase|from ['"]@\/lib|from ['"]@\/server/);
+    expect(updater).not.toContain('NityaGehlot');
   });
 });
