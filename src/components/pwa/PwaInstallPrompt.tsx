@@ -54,8 +54,13 @@ export default function PwaInstallPrompt() {
       setVisible(false);
       return;
     }
-    if (isStandalone() || recentlyDismissed()) return;
-    if (!window.matchMedia('(max-width: 767px)').matches) return;
+    if (isStandalone()) {
+      setVisible(false);
+      return;
+    }
+    // The deferred browser offer is also useful on desktop and after dismissing
+    // the banner. Those users can still explicitly install from /install.
+    const showBanner = window.matchMedia('(max-width: 767px)').matches && !recentlyDismissed();
 
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIos = /iphone|ipad|ipod/.test(userAgent);
@@ -65,8 +70,10 @@ export default function PwaInstallPrompt() {
       event.preventDefault();
       (window as InstallWindow).__leaguezoneDeferredInstall = event as BeforeInstallPromptEvent;
       setInstallPrompt(event as BeforeInstallPromptEvent);
-      setMode('native');
-      setVisible(true);
+      if (showBanner) {
+        setMode('native');
+        setVisible(true);
+      }
     };
 
     const handleInstalled = () => {
@@ -79,7 +86,7 @@ export default function PwaInstallPrompt() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleInstalled);
 
-    if (isIos) {
+    if (isIos && showBanner) {
       iosTimer = window.setTimeout(() => {
         setMode('ios');
         setVisible(true);
