@@ -7,6 +7,7 @@
   <meta name="description" content="Explore NFL fantasy football player stats, leaders, game logs and comparisons on LeagueZone. No account required.">
   <title>Fantasy Football Player Research | LeagueZone</title>
   <link rel="stylesheet" href="/research/styles.css">
+  <script defer src="/research/metrics.js"></script>
   <script defer src="/research/app.js"></script>
 </head>
 <body>
@@ -48,19 +49,28 @@
         <label>Minimum games <select id="games" aria-label="Minimum games"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="8">8</option><option value="12">12</option></select></label>
         <label class="rookie-toggle"><input type="checkbox" id="rookies"> Rookies only <small>Verified NFL rookie season</small></label>
       </div>
+      <div class="filter-meta"><p class="sort-context" id="sort-context" aria-live="polite"></p><button type="button" id="reset-filters" class="mini-link">Reset filters</button></div>
       <p class="subdued filter-note" id="games-note" aria-live="polite"></p>
       <div class="table-scroll research-table" role="region" aria-label="Player statistics, scroll horizontally for more columns" tabindex="0">
         <table><thead id="players-head"><tr><th>Player</th><th>FP</th></tr></thead><tbody id="players-body"><tr><td colspan="2" class="empty">Loading…</td></tr></tbody></table>
       </div>
       <div id="mobile-results" class="mobile-results" aria-label="Research results"></div>
       <div class="table-foot"><span id="shown-count" class="subdued"></span><button id="more" class="btn outline" type="button">Show more players</button></div>
+      <details class="metric-guide"><summary>How these statistics are calculated</summary><dl>
+        <dt>Per game (FP/G, Tgt/G, Rec/G, Car/G, Touch/G)</dt><dd>Season total divided by recorded games. Bye weeks and missed games are not counted.</dd>
+        <dt>L3 / L5 avg</dt><dd>Average fantasy points over the player&rsquo;s last 3 or 5 recorded games. Shown as missing until the player has that many games.</dd>
+        <dt>Wk SD and volatility</dt><dd>Standard deviation of weekly fantasy points across recorded games (minimum 3). Volatility is that deviation divided by the average. Lower is steadier.</dd>
+        <dt>High / Low</dt><dd>Best and worst single recorded game this season.</dd>
+        <dt>Efficiency</dt><dd>Yards per carry = rushing yards &divide; carries. Yards per target = receiving yards &divide; targets. Yards per reception = receiving yards &divide; receptions. Catch % = receptions &divide; targets. Touches = carries + receptions. A zero denominator is shown as missing (&mdash;), not zero.</dd>
+        <dt>Qualifying volume</dt><dd>When sorting by an efficiency rate, players below the qualifying volume shown above the table are listed after qualified players.</dd>
+      </dl></details>
     </section>
     <section id="profile" hidden aria-live="polite"></section>
     <section id="compare-panel" class="compare-panel" hidden aria-live="polite">
       <div class="section-head"><div><div class="eyebrow">Head-to-head</div><h2>Player comparison</h2></div><button type="button" id="clear-compare" class="btn outline">Clear comparison</button></div>
-      <div id="compare-grid" class="comparison"></div><p id="compare-notice" class="subdued" role="status"></p>
+      <div id="compare-grid" class="comparison"></div><div id="compare-detail"></div><p id="compare-notice" class="subdued" role="status"></p>
     </section>
-    <section class="source-note"><h2>About these statistics</h2><p>Player and team statistics come directly from <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noopener noreferrer">nflverse</a>, under CC BY 4.0, subject to underlying data rights. Fantasy points use nflverse PPR values; half-PPR and standard adjust receptions. Kicker scoring uses 3/4/5 points by field-goal distance and 1 per made PAT. Defense/ST points are calculated using sacks, turnovers, touchdowns, safeties, blocked kicks, and game scoreboard points allowed. DST scoring varies by provider, and opponent defensive scores may affect the points-allowed calculation. Rookie seasons are sourced from historical nflverse player metadata when available, excluding unverifiable records from rookie-only results. Custom league scoring and snaps are not supported. Data may change following stat corrections. DST point totals are estimates, not official Sleeper or ESPN scoring.</p></section>
+    <section class="source-note"><h2>About these statistics</h2><p>Player and team statistics come directly from <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noopener noreferrer">nflverse</a>, under CC BY 4.0, subject to underlying data rights. Fantasy points use nflverse PPR values; half-PPR and standard adjust receptions. Kicker scoring uses 3/4/5 points by field-goal distance and 1 per made PAT. Defense/ST points are calculated using sacks, turnovers, touchdowns, safeties, blocked kicks, and game scoreboard points allowed. DST scoring varies by provider, and opponent defensive scores may affect the points-allowed calculation. Rookie seasons are sourced from historical nflverse player metadata when available, excluding unverifiable records from rookie-only results. Custom league scoring, snap counts, snap share, routes, target share, air yards and expected fantasy points are not available in this data and are not shown. Data may change following stat corrections. DST point totals are estimates, not official Sleeper or ESPN scoring.</p></section>
   </main>
   <footer class="wrap footer"><span>LeagueZone · Independent fantasy research</span><a href="/">LeagueZone HQ</a></footer>
 </body>

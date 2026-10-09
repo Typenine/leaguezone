@@ -30,72 +30,66 @@
     return promise;
   }
   function columns(pos) {
-    var standard = [
-      ['GP','games'], ['FP','points'], ['PPG','ppg']
-    ];
-    var extra = pos === 'QB' ? [
-      ['Pass yds','passing'],['Pass TD','passTD'],['INT','passINT'],['Rush yds','rushing']
-    ] : pos === 'RB' ? [
-      ['Rush yds','rushing'],['Carries','carries'],['Targets','targets'],
-      ['Receptions','receptions'],['Rush TD','rushTD']
-    ] : pos === 'WR' || pos === 'TE' ? [
-      ['Targets','targets'],['Receptions','receptions'],['Rec yds','yards'],['Rec TD','recTD']
-    ] : pos === 'K' ? [
-      ['FG made','fgm'],['PAT made','xpm']
-    ] : pos === 'DEF' ? [
-      ['Sacks','sacks'],['INT','ints'],['FR','fr'],['Pts allowed','pa']
-    ] : [
-      ['Targets','targets'],['Receptions','receptions'],['Carries','carries'],
-      ['Rec yds','yards'],['Pass yds','passing']
-    ];
-    return standard.concat(extra);
+    return M.tableColumns(pos, state.week ? 'week' : 'season');
   }
-  function stat(p, key, row) {
-    if (key === 'games') return row ? 1 : p.g;
-    if (key === 'points') return score(p, row);
-    if (key === 'ppg') return row ? score(p, row) : (p.g ? score(p)/p.g : 0);
-    var season = {
-      targets:'tgt', receptions:'rec', carries:'car', yards:'ry', rushing:'ruy',
-      rushTD:'rut', recTD:'rt', passing:'ppyd', passTD:'pptd', passINT:'pint',
-      fgm:'fgm', xpm:'xpm', sacks:'sacks', ints:'ints', fr:'fr', pa:'pa'
-    };
-    var weekIndex = {
-      targets:4, receptions:3, carries:6, yards:5, rushing:7, passing:8,
-      passTD:9, passINT:10, fgm:11, xpm:12, sacks:13, ints:14, fr:15, pa:16,
-      rushTD:13, recTD:14
-    };
-    if (row && weekIndex[key] != null) return Number(row[weekIndex[key]]) || 0;
-    return Number(p[season[key]]) || 0;
+  var M = window.LZResearchMetrics;
+  var DASH = '\u2014';
+  var SCORING_LABELS = {half:'Half PPR', ppr:'Full PPR', standard:'Standard'};
+  state.listUrl = ''; state.listScroll = 0; state.pendingWeek = 0;
+  function opts(row) { return {scoring: state.score, row: row || null, throughWeek: state.throughWeek}; }
+  function evaluate(p, key, row) { return M.evaluate(key, p, opts(row)); }
+  function stat(p, key, row) { return M.compute(key, p, opts(row)); }
+  function shortPos(pos) { return pos === 'DEF' ? 'DST' : pos; }
+  function missingMark(reason) {
+    return '<span class="missing" title="'+escape(reason)+'"><span aria-hidden="true">'+DASH+'</span><span class="sr-only">'+escape(reason)+'</span></span>';
   }
-  function sortableKeys() {
-    return columns(state.position).filter(function (c) { return c[1] !== 'games'; }).concat([
-      ['Touches','touches']
-    ]);
+  function display(p, key, row) {
+    var r = evaluate(p, key, row);
+    return r.value == null ? missingMark(r.missing) : escape(M.format(key, r.value));
+  }
+  function cell(p, key, row) {
+    var qualified = M.isQualified(key, p, opts(row));
+    var cls = 'num'+(key === state.sort ? ' sorted' : '')+(qualified ? '' : ' unqualified');
+    return '<td class="'+cls+'"'+(qualified ? '' : ' title="Below qualifying volume for this ranking"')+'>'+display(p, key, row)+'</td>';
   }
   function sortOptions() {
-    var select = $('sort');
-    var options = sortableKeys();
-    if (!options.some(function (x) {return x[1] === state.sort;})) state.sort = 'points';
-    select.innerHTML = options.map(function (x) {
-      return '<option value="'+x[1]+'">'+escape(x[0])+'</option>';
+    var defs = M.sortableMetrics(state.position, state.week ? 'week' : 'season');
+    if (!defs.some(function (d) { return d.key === state.sort; })) state.sort = 'points';
+    $('sort').innerHTML = M.SORT_GROUPS.map(function (group) {
+      var items = defs.filter(function (d) { return d.group === group[0]; });
+      return items.length ? '<optgroup label="'+escape(group[1])+'">'+items.map(function (d) {
+        return '<option value="'+d.key+'">'+escape(d.label)+'</option>';
+      }).join('')+'</optgroup>' : '';
     }).join('');
-    select.value = state.sort;
+    $('sort').value = state.sort;
   }
   function ranked() {
-    var q = state.query.toLowerCase().trim();
-    var list = state.players.filter(function (p) {
+    var q = state.query.toLowerCase().trim(), def = M.metric(state.sort) || M.metric('points');
+    return state.players.filter(function (p) {
       return (!state.week || !!selectedRow(p)) &&
         (state.week || p.g >= state.games) &&
         (state.position === 'ALL' || p.pos === state.position) &&
         (!state.rookieOnly || p.ryr === state.year) &&
         (!q || p.n.toLowerCase().includes(q) || p.team.toLowerCase().includes(q));
-    });
-    return list.sort(function (a,b) {
-      var ar = state.week ? selectedRow(a) : null, br = state.week ? selectedRow(b) : null;
-      var av = state.sort === 'touches' ? stat(a,'carries',ar)+stat(a,'receptions',ar) : stat(a,state.sort,ar);
-      var bv = state.sort === 'touches' ? stat(b,'carries',br)+stat(b,'receptions',br) : stat(b,state.sort,br);
-      return bv-av || a.n.localeCompare(b.n);
-    });
+    }).map(function (p) {
+      var row = state.week ? selectedRow(p) : null;
+      return {p: p, value: stat(p, def.key, row), qualified: M.isQualified(def.key, p, opts(row))};
+    }).sort(function (a, b) {
+      if ((a.value == null) !== (b.value == null)) return a.value == null ? 1 : -1;
+      if (a.qualified !== b.qualified) return a.qualified ? -1 : 1;
+      return M.compareValues(a.value, b.value, def.dir) || a.p.n.localeCompare(b.p.n);
+    }).map(function (x) { return x.p; });
+  }
+  function sortContext() {
+    var def = M.metric(state.sort);
+    var parts = ['Sorted by '+def.label+(def.dir === 'asc' ? ', lowest first' : ', highest first'),
+      SCORING_LABELS[state.score] || state.score,
+      state.week ? 'Week '+state.week+' single-game stats' : 'Season stats; per-game values use recorded games only'];
+    if (!state.week && state.games > 1) parts.push('Minimum '+state.games+' games');
+    if (state.rookieOnly) parts.push('Verified rookies only');
+    if (def.qualifier) parts.push('Under '+M.qualifierThreshold({row: state.week ? true : null, throughWeek: state.throughWeek})+
+      ' '+def.qualifier.label+' listed after qualified players');
+    $('sort-context').textContent = parts.join(' \u00b7 ');
   }
   function positionLeaders() {
     if (!$('leaders')) return;
@@ -114,12 +108,19 @@
     $('leaders').innerHTML = cards.join('');
   }
   function renderTable() {
-    var list = ranked(), cols = columns(state.position);
+    var list = ranked(), cols = columns(state.position), sortDef = M.metric(state.sort);
     $('result-count').textContent = list.length+(state.week?' weekly performances':' players');
     $('directory-title').textContent = state.year+' '+(state.week?'Week '+state.week:'Season')+' Fantasy Statistics';
     $('players-head').innerHTML = '<tr><th scope="col" class="sticky-name">Player</th>'+
       '<th scope="col">Pos</th><th scope="col">Team</th>'+
-      cols.map(function (col) { return '<th class="num" scope="col">'+col[0]+'</th>'; }).join('')+
+      cols.map(function (key) {
+        var def = M.metric(key), active = key === state.sort;
+        var sortable = key !== 'games';
+        return '<th class="num'+(active?' sorted':'')+'" scope="col" title="'+escape(def.label)+'"'+
+          (active?' aria-sort="'+(def.dir==='asc'?'ascending':'descending')+'"':'')+'>'+
+          (sortable?'<button type="button" class="sort-head" data-sort-key="'+key+'">'+escape(def.short)+
+            (active?(def.dir==='asc'?' \u25b2':' \u25bc'):'')+'</button>':escape(def.short))+'</th>';
+      }).join('')+
       '<th scope="col">Compare</th></tr>';
     var selected = list.slice(0,state.limit);
     $('players-body').innerHTML = selected.map(function (p) {
@@ -127,39 +128,50 @@
       var checked=state.compare.some(function (x) {return x.id===p.id&&x.year===state.year;});
       return '<tr><td class="sticky-name"><button type="button" class="player-button" data-profile="'+escape(p.id)+'" data-year="'+state.year+'">'+escape(p.n)+
         '</button>'+(p.ryr===state.year?'<span class="rookie-mark">R</span>':'')+'</td>'+
-        '<td><span class="position-chip">'+(p.pos==='DEF'?'DST':escape(p.pos))+'</span></td><td>'+escape(row?row[1]:p.team)+'</td>'+
-        cols.map(function (col) {
-          var v=stat(p,col[1],row);
-          return '<td class="num">'+(col[1]==='points'||col[1]==='ppg'||col[1]==='sacks'?fmt(v):escape(v))+'</td>';
-        }).join('')+'<td><input class="check" type="checkbox" aria-label="Compare '+escape(p.n)+' '+state.year+
+        '<td><span class="position-chip">'+escape(shortPos(p.pos))+'</span></td><td>'+escape(row?row[1]:p.team)+'</td>'+
+        cols.map(function (key) { return cell(p, key, row); }).join('')+
+        '<td><input class="check" type="checkbox" aria-label="Compare '+escape(p.n)+' '+state.year+
         '" data-compare="'+escape(p.id)+'" '+(checked?'checked':'')+'></td></tr>';
     }).join('') || '<tr><td class="empty" colspan="'+(cols.length+4)+'">No results match these filters.</td></tr>';
+    var extraKey = ['points','ppg','games'].indexOf(state.sort) === -1 ? state.sort : null;
     $('mobile-results').innerHTML = selected.map(function (p) {
       var row=state.week?selectedRow(p):null;
+      var stats='<span><b>'+fmt(stat(p,'points',row))+'</b> FP</span>'+
+        (row?'<span><b>'+escape(row[0])+'</b> Week</span>':
+          '<span><b>'+display(p,'ppg')+'</b> FP/G</span><span><b>'+escape(p.g)+'</b> GP</span>')+
+        (extraKey?'<span class="sorted-stat"><b>'+display(p,extraKey,row)+'</b> '+escape(sortDef.short)+'</span>':'');
       return '<div class="mobile-result"><button type="button" class="mobile-name" data-profile="'+escape(p.id)+'" data-year="'+state.year+'">'+
-        escape(p.n)+' <span class="subdued">'+escape(p.pos==='DEF'?'DST':p.pos)+' · '+escape(row?row[1]:p.team)+'</span></button>'+
-        '<div class="mobile-stats"><span><b>'+fmt(stat(p,'points',row))+'</b> FP</span><span><b>'+
-        fmt(stat(p,'ppg',row))+'</b> PPG</span><span><b>'+escape(stat(p,'games',row))+'</b> GP</span></div>'+
+        escape(p.n)+(p.ryr===state.year?' <span class="rookie-mark">R</span>':'')+' <span class="subdued">'+escape(shortPos(p.pos))+' \u00b7 '+escape(row?row[1]:p.team)+'</span></button>'+
+        '<div class="mobile-stats">'+stats+'</div>'+
         '<label class="mobile-compare"><input type="checkbox" class="check" data-compare="'+escape(p.id)+'" '+
         (state.compare.some(function (x) {return x.id===p.id&&x.year===state.year;})?'checked':'')+'> Compare</label></div>';
-    }).join('');
+    }).join('') || (state.players.length ? '<p class="empty">No results match these filters.</p>' : '');
     $('shown-count').textContent = 'Showing '+selected.length+' of '+list.length;
     $('more').hidden = selected.length >= list.length;
+    sortContext();
     positionLeaders();
+    syncUrl();
   }
-  function metric(label,val) {
-    return '<div class="metric"><span class="label">'+escape(label)+'</span><span class="value">'+escape(val)+'</span></div>';
+  function metric(label,val,note,missing) {
+    return '<div class="metric"><span class="label">'+escape(label)+'</span><span class="value">'+
+      (missing?missingMark(missing):escape(val))+'</span>'+(note?'<span class="note">'+escape(note)+'</span>':'')+'</div>';
   }
-  function profileCols(p) {
-    return columns(p.pos).filter(function (x) {return x[1]!=='ppg'&&x[1]!=='games';});
+  function metricFor(p,key,label) {
+    var r=evaluate(p,key);
+    return metric(label||M.metric(key).label,M.format(key,r.value),null,r.value==null?r.missing:null);
+  }
+  function coverageNote(year,throughWeek) {
+    return M.isSeasonComplete(year,throughWeek)?'Full regular season':'Through Week '+throughWeek+' (season in progress)';
   }
   function trendSvg(p) {
-    var values = p.w.map(function (w) { return {week:w[0],fp:score(p,w)}; });
+    var values = M.weeklyPoints(p, state.score).map(function (w) { return {week:w.week,fp:w.points}; });
+    var avg = M.mean(values.map(function (v) {return v.fp;}));
     var positiveMax = Math.max(1, ...values.map(function (v) {return v.fp;}));
     var negativeMin = Math.min(0, ...values.map(function (v) {return v.fp;}));
     var low=Math.min(0,negativeMin), range=positiveMax-low||1;
+    var lastWeek=Math.max(M.regularSeasonWeeks(state.year), ...values.map(function (v) {return v.week;}));
     var width=720,height=220,l=36,r=15,t=16,b=30;
-    var x=function (week) { return l+(week-1)/17*(width-l-r); };
+    var x=function (week) { return l+(week-1)/(lastWeek-1)*(width-l-r); };
     var y=function (value) { return t+(positiveMax-value)/range*(height-t-b); };
     var coords = values.map(function (v) {return x(v.week).toFixed(1)+','+y(v.fp).toFixed(1);}).join(' ');
     var circles=values.map(function (v) {
@@ -171,77 +183,168 @@
       return '<line x1="'+l+'" x2="'+(width-r)+'" y1="'+ypos+'" y2="'+ypos+'" stroke="#31445d"/>'+
         '<text x="0" y="'+(ypos+3)+'" fill="#a2b1c5" font-size="11">'+fmt(value,0)+'</text>';
     }).join('');
-    var ticks=[1,4,7,10,13,16,18].map(function (week) {
+    var ticks=[1,4,7,10,13,16,lastWeek].map(function (week) {
       return '<text x="'+x(week)+'" y="'+(height-7)+'" fill="#a2b1c5" text-anchor="middle" font-size="11">'+week+'</text>';
     }).join('');
+    var avgLine=avg==null?'':'<line class="avg-line" x1="'+l+'" x2="'+(width-r)+'" y1="'+y(avg)+'" y2="'+y(avg)+
+      '" stroke="#e2bc71" stroke-dasharray="5 5"><title>Season average: '+fmt(avg)+' FP per recorded game</title></line>';
     return '<div class="trend-chart"><svg viewBox="0 0 '+width+' '+height+'" role="img" aria-label="'+escape(p.n)+
-      ' weekly fantasy points in '+state.year+'"><g>'+lines+'</g>'+
+      ' weekly fantasy points in '+state.year+'"><g>'+lines+'</g>'+avgLine+
       (values.length>1?'<polyline points="'+coords+'" stroke="#76d5bb" stroke-width="2.5" fill="none"/>':'')+
-      circles+ticks+'</svg></div>';
+      circles+ticks+'</svg></div>'+
+      '<p class="subdued chart-key"><span class="key-dot"></span> Recorded games only (byes and missed games are skipped, not zero)'+
+      (avg==null?'':' \u00b7 <span class="key-dash"></span> Season average '+fmt(avg)+' FP/G')+'</p>';
+  }
+  function recentForm(p) {
+    var trend=M.usageTrend(p,state.score);
+    if (!trend) return '<p class="subdued">Recent-versus-earlier usage needs at least '+(M.RECENT_WINDOW+2)+
+      ' recorded games; '+escape(p.n)+' has '+p.g+' in '+state.year+'.</p>';
+    var head='<thead><tr><th>Per game</th><th class="num">Last '+M.RECENT_WINDOW+' (Wk '+trend.recentWeeks.join(', ')+')</th>'+
+      '<th class="num">Earlier '+trend.priorWeeks.length+' games</th><th class="num">Change</th></tr></thead>';
+    var rows=trend.metrics.map(function (row) {
+      var def=M.metric(row.key);
+      var fmtVal=function (v) {return v==null?missingMark('Not recorded'):escape(M.format(row.key,v));};
+      var change=M.formatDiff(row.key,row.change);
+      var better=row.change==null||change==='Even'?'':((def.dir==='asc'?row.change<0:row.change>0)?' up':' down');
+      return '<tr><td title="'+escape(def.label)+'">'+escape(def.short)+'</td><td class="num">'+fmtVal(row.recent)+'</td><td class="num">'+
+        fmtVal(row.prior)+'</td><td class="num change'+better+'">'+(change==null?missingMark('Not comparable'):escape(change))+'</td></tr>';
+    }).join('');
+    return '<div class="table-scroll compact-table"><table class="recent-form">'+head+'<tbody>'+rows+'</tbody></table></div>'+
+      '<p class="subdued">Compares the last '+M.RECENT_WINDOW+' recorded games with every earlier recorded game this season. '+
+      'Bye weeks and missed games are excluded rather than counted as zero.</p>';
+  }
+  function careerUsageKeys(pos) {
+    return {QB:['ppydPg','ruyPg'],RB:['touchPg','tgtPg'],WR:['tgtPg','ryPg'],TE:['tgtPg','ryPg'],K:['fgmPg'],DEF:['paPg']}[pos]||[];
   }
   function renderProfile(p) {
     var container=$('profile');
     if (!p) {container.hidden=true; return;}
-    var head=profileCols(p);
-    var total=metric('Fantasy points',fmt(score(p)))+metric('Points/game',fmt(score(p)/p.g))+metric('Games played',p.g);
-    total+=head.map(function (c) {return metric(c[0],c[1]==='points'?fmt(stat(p,c[1])):stat(p,c[1]));}).join('');
-    var history=[...p.w].reverse();
-    var logHead='<th>Week</th><th>Team</th>'+head.map(function (c) {return '<th class="num">'+c[0]+'</th>';}).join('');
+    var ext=M.extremes(p,state.score), cons=M.consistency(p,state.score);
+    var lowNote=ext?'Week '+ext.low.week:null, highNote=ext?'Week '+ext.high.week:null;
+    var summary=metric('Fantasy points',fmt(score(p)),SCORING_LABELS[state.score])+
+      metricFor(p,'ppg','Full-season average')+metric('Games played',p.g,'Recorded games')+
+      metricFor(p,'last3','Last 3 games avg')+metricFor(p,'last5','Last 5 games avg')+
+      metric('Season high',ext?fmt(ext.high.points):null,highNote,ext?null:'No recorded games')+
+      metric('Season low',ext?fmt(ext.low.points):null,lowNote,ext?null:'No recorded games')+
+      metric('Weekly std. dev.',cons?fmt(cons.sd):null,cons?'Lower is steadier':null,
+        cons?null:'Needs '+M.MIN_CONSISTENCY_GAMES+'+ recorded games')+
+      metricFor(p,'volatility','Volatility (SD / avg)');
+    var positional=(M.PROFILE_KEYS[p.pos]||[]).map(function (key) {return metricFor(p,key);}).join('');
+    var weekKeys=columns(p.pos).filter(function (k) {return k!=='games';});
+    var history=[...p.w].sort(function (a,b) {return b[0]-a[0];});
+    var logHead='<th>Week</th><th>Team</th>'+weekKeys.map(function (k) {
+      return '<th class="num" title="'+escape(M.metric(k).label)+'">'+escape(M.metric(k).short)+'</th>';}).join('');
     var logRows=history.map(function (w) {
       return '<tr><td>'+w[0]+'</td><td>'+escape(w[1])+'</td>'+
-        head.map(function (c) {var v=stat(p,c[1],w);return '<td class="num">'+
-          (c[1]==='points'||c[1]==='sacks'?fmt(v):escape(v))+'</td>';}).join('')+'</tr>';
+        weekKeys.map(function (k) {return '<td class="num">'+display(p,k,w)+'</td>';}).join('')+'</tr>';
     }).join('');
-    container.innerHTML='<button type="button" class="crumb" id="return-list">← Back to players</button>'+
-      '<div class="section-head"><div><div class="eyebrow">'+escape(p.pos==='DEF'?'DST':p.pos)+' · '+escape(p.team)+
-      (p.ryr===state.year?' · Rookie':'')+'</div><h2>'+escape(p.n)+'</h2></div>'+
+    var complete=M.isSeasonComplete(state.year,state.throughWeek);
+    var rookie=p.ryr===state.year?' \u00b7 Rookie':(p.ryr==null&&p.pos!=='DEF'?' \u00b7 Rookie status unverified':'');
+    container.innerHTML='<button type="button" class="crumb" id="return-list">\u2190 Back to results</button>'+
+      '<div class="section-head"><div><div class="eyebrow">'+escape(shortPos(p.pos))+' \u00b7 '+escape(p.team)+
+      escape(rookie)+'</div><h2>'+escape(p.n)+'</h2></div>'+
       '<button type="button" class="btn outline" data-add-profile="'+escape(p.id)+'" data-year="'+state.year+'">Compare this season</button></div>'+
-      '<div class="profile-grid">'+total+'</div>'+
-      '<section class="panel profile-section"><h2>Weekly performance</h2><p class="subdued">Fantasy points by regular-season week · '+escape(state.score.toUpperCase())+'</p>'+
-      trendSvg(p)+'</section>'+
+      (complete?'':'<p class="season-note" id="season-note">'+state.year+' season in progress: data through Week '+state.throughWeek+
+        '. Totals are partial; use per-game and recent averages when comparing with completed seasons.</p>')+
+      '<section class="profile-section" id="profile-summary"><h2>Fantasy production</h2>'+
+      '<p class="subdued">'+escape(SCORING_LABELS[state.score])+' \u00b7 averages use recorded games only; bye weeks and missed games are not counted as zero.</p>'+
+      '<div class="profile-grid">'+summary+'</div></section>'+
+      '<section class="panel profile-section" id="recent-form"><h2>Recent usage vs. earlier games</h2>'+recentForm(p)+'</section>'+
+      '<section class="profile-section" id="position-stats"><h2>'+escape(shortPos(p.pos))+' production and efficiency</h2>'+
+      '<div class="profile-grid">'+positional+'</div>'+
+      (p.pos==='DEF'?'<p class="subdued">DST points allowed are estimated from scoring by the opposing offense.</p>':'')+'</section>'+
+      '<section class="panel profile-section"><h2>Weekly performance</h2><p class="subdued">Fantasy points by regular-season week \u00b7 '+
+      escape(SCORING_LABELS[state.score])+'</p>'+trendSvg(p)+'</section>'+
       '<section class="profile-section"><div class="section-head"><h2>Career history</h2><span class="subdued">Available LeagueZone seasons</span></div>'+
-      '<div id="career-history" aria-live="polite" class="subdued">Loading historical seasons…</div></section>'+
+      '<div id="career-history" aria-live="polite" class="subdued">Loading historical seasons\u2026</div></section>'+
       '<section class="profile-section"><h2>'+state.year+' game log</h2><div class="table-scroll game-log"><table><thead><tr>'+
       logHead+'</tr></thead><tbody>'+logRows+'</tbody></table></div></section>';
     container.hidden=false;
-    var request=state.requestId,year=state.year;
+    renderCareer(p);
+  }
+  function renderCareer(p) {
+    var request=state.requestId,year=state.year,usage=careerUsageKeys(p.pos);
     Promise.all(state.years.map(function (season) {
       return loadData(season).then(function (d) {
-        return {year:season,player:d.players.find(function (x) {return x.id===p.id;})};
+        return {year:season,throughWeek:d.throughWeek,player:d.players.find(function (x) {return x.id===p.id;})};
       }).catch(function () {return {year:season,error:true};});
     })).then(function (found) {
       if (request!==state.requestId || year!==state.year || !$('career-history')) return;
       var available=found.filter(function (f) {return f.player;});
       var errors=found.filter(function (f) {return f.error;});
       $('career-history').innerHTML=available.length?'<div class="table-scroll career-scroll"><table><thead><tr>'+
-        '<th>Season</th><th>Team</th><th>GP</th><th class="num">FP</th><th class="num">PPG</th><th>Actions</th></tr></thead><tbody>'+
+        '<th>Season</th><th>Actions</th><th>Team</th><th>GP</th><th class="num">FP</th><th class="num">PPG</th>'+
+        usage.map(function (k) {return '<th class="num" title="'+escape(M.metric(k).label)+'">'+escape(M.metric(k).short)+'</th>';}).join('')+
+        '<th>Coverage</th></tr></thead><tbody>'+
         available.map(function (f) {
-          return '<tr><td>'+f.year+'</td><td>'+escape(f.player.team)+'</td><td>'+f.player.g+'</td><td class="num">'+
-            fmt(f.player.p-pointAdjustment()*f.player.rec)+'</td><td class="num">'+
-            fmt((f.player.p-pointAdjustment()*f.player.rec)/f.player.g)+'</td><td>'+
-            '<a class="table-link" href="'+link(p.id,f.year)+'" data-career-nav="1">View</a> · '+
+          var o={scoring:state.score,throughWeek:f.throughWeek};
+          var val=function (k) {var r=M.evaluate(k,f.player,o);return r.value==null?missingMark(r.missing):escape(M.format(k,r.value));};
+          return '<tr'+(f.year===year?' class="current-row"':'')+'><td>'+f.year+'</td><td class="career-actions">'+
+            '<a class="table-link" href="'+link(p.id,f.year)+'" data-career-nav="1">View</a> &middot; '+
             '<button class="mini-link" type="button" data-add-profile="'+escape(p.id)+'" data-year="'+f.year+'">Compare</button>'+
-            '</td></tr>';
-        }).join('')+'</tbody></table></div>':'<p>No other season data found.</p>';
+            '</td><td>'+escape(f.player.team)+'</td><td>'+f.player.g+'</td><td class="num">'+
+            val('points')+'</td><td class="num">'+val('ppg')+'</td>'+
+            usage.map(function (k) {return '<td class="num">'+val(k)+'</td>';}).join('')+
+            '<td class="subdued">'+escape(coverageNote(f.year,f.throughWeek))+'</td></tr>';
+        }).join('')+'</tbody></table></div>'+
+        '<p class="subdued">Compare seasons by per-game values; totals for an in-progress season are partial.</p>':'<p>No other season data found.</p>';
       if (errors.length) $('career-history').insertAdjacentHTML('beforeend','<p class="subdued">Some earlier seasons were unavailable.</p>');
     });
   }
+  function cmpOpts(item) { return {scoring:state.score,throughWeek:item.throughWeek}; }
+  function cmpVal(key,item) {
+    var r=M.evaluate(key,item.player,cmpOpts(item));
+    return {value:r.value,html:r.value==null?missingMark(r.missing):escape(M.format(key,r.value))};
+  }
+  function cmpRow(key,a,b) {
+    var def=M.metric(key), va=cmpVal(key,a), vb=cmpVal(key,b);
+    var diff=va.value!=null&&vb.value!=null?va.value-vb.value:null, text=M.formatDiff(key,diff);
+    var lead=diff==null||text==='Even'?0:((def.dir==='asc'?diff<0:diff>0)?1:2);
+    return '<div class="cmp-row" role="row" data-metric="'+key+'"><div class="cmp-label" role="rowheader">'+escape(def.label)+'</div>'+
+      '<div class="cmp-val'+(lead===1?' lead':'')+'" role="cell"><span class="cmp-tag">A</span>'+va.html+'</div>'+
+      '<div class="cmp-val'+(lead===2?' lead':'')+'" role="cell"><span class="cmp-tag">B</span>'+vb.html+'</div>'+
+      '<div class="cmp-diff" role="cell"><span class="cmp-tag">A\u2212B</span>'+(text==null?missingMark('Not comparable: a value is missing'):escape(text))+'</div></div>';
+  }
+  function cmpSection(title,keys,a,b) {
+    return keys.length?'<div class="cmp-section" role="rowgroup"><h3>'+escape(title)+'</h3>'+
+      keys.map(function (k) {return cmpRow(k,a,b);}).join('')+'</div>':'';
+  }
   function renderCompare() {
-    var panel=$('compare-panel');
+    var panel=$('compare-panel'), detail=$('compare-detail');
     panel.hidden=!state.compare.length;
-    if (!state.compare.length) return;
-    $('compare-grid').innerHTML=state.compare.map(function (item) {
-      var cached=state.cache.get(item.year);
-      return '<div class="panel"><div class="eyebrow">'+escape(item.year+' · '+item.pos)+'</div>'+
+    if (!state.compare.length) {detail.innerHTML='';return;}
+    $('compare-grid').innerHTML=state.compare.map(function (item,i) {
+      return '<div class="panel compare-card"><div class="eyebrow">'+(i?'B':'A')+' \u00b7 '+escape(item.year+' \u00b7 '+shortPos(item.pos))+'</div>'+
         '<h2>'+escape(item.name)+'</h2>'+
-        metric('Fantasy points',fmt(item.points-pointAdjustment()*item.rec))+
-        metric('Points/game',fmt((item.points-pointAdjustment()*item.rec)/item.games))+
-        metric('Games played',item.games)+
+        metric('Fantasy points',fmt(M.compute('points',item.player,cmpOpts(item))),'Season total')+
+        metric('Games played',item.player.g,coverageNote(item.year,item.throughWeek))+
         metric('Team',item.team)+
         '<button type="button" class="mini-link" data-remove-compare="'+item.year+':'+escape(item.id)+'">Remove</button></div>';
     }).join('');
-    $('compare-notice').textContent=state.compare.length===1?'Select one more player or season to compare.':
-      'Comparing the selected seasons using '+state.score+' scoring.';
+    var label=SCORING_LABELS[state.score]||state.score;
+    if (state.compare.length===1) {
+      detail.innerHTML='';
+      $('compare-notice').textContent='Select one more player or season to compare.';
+      return;
+    }
+    var a=state.compare[0], b=state.compare[1], plan=M.comparisonPlan(a.pos,b.pos), notes=[];
+    if (!plan.related) notes.push('Different position groups ('+shortPos(a.pos)+' vs '+shortPos(b.pos)+
+      '): only fantasy scoring is compared. Position statistics are not comparable.');
+    else if (!plan.same) notes.push('Different skill positions: only statistics recorded for both positions are compared.');
+    var partial=[a,b].filter(function (x) {return !M.isSeasonComplete(x.year,x.throughWeek);});
+    if (partial.length) notes.push(partial.map(function (x) {return x.year+' runs through Week '+x.throughWeek;})
+      .filter(function (v,i,arr) {return arr.indexOf(v)===i;}).join('; ')+
+      ' (season in progress). Rows use per-game and recent averages so partial and completed seasons compare fairly.');
+    detail.innerHTML='<div class="cmp-notes">'+notes.map(function (n) {return '<p class="season-note">'+escape(n)+'</p>';}).join('')+'</div>'+
+      '<div class="cmp-table" role="table" aria-label="Player comparison">'+
+      '<div class="cmp-row cmp-head" role="row"><div role="columnheader">Statistic</div>'+
+      '<div role="columnheader">A: '+escape(a.name+' '+a.year)+'</div><div role="columnheader">B: '+escape(b.name+' '+b.year)+'</div>'+
+      '<div role="columnheader">Difference (A \u2212 B)</div></div>'+
+      cmpSection('Fantasy production and consistency',plan.fantasy,a,b)+
+      cmpSection('Per-game usage and efficiency',plan.positional,a,b)+'</div>'+
+      '<p class="subdued">Highlighted values are better. Lower is better for standard deviation, volatility and points allowed. '+
+      'Recent averages use the last recorded games of each season.</p>';
+    $('compare-notice').textContent='Comparing the selected seasons using '+label+' scoring.';
   }
   function addCompare(year,id) {
     var key=String(year)+':'+id;
@@ -254,18 +357,60 @@
     loadData(year).then(function (d) {
       var p=d.players.find(function (x) {return x.id===id;});
       if (!p || state.compare.some(function (x) {return x.year===year && x.id===id;})) return;
-      state.compare.push({year:year,id:id,name:p.n,pos:p.pos,team:p.team,points:p.p,rec:p.rec,games:p.g});
+      state.compare.push({year:year,id:id,name:p.n,pos:p.pos,team:p.team,player:p,throughWeek:d.throughWeek});
       renderTable();renderCompare();
       if ($('compare-panel')) $('compare-panel').scrollIntoView({behavior:'smooth',block:'nearest'});
     }).catch(function (e) { $('error').hidden=false;$('error').textContent=e.message;});
+  }
+  function isListPath(path) { return /^\/research(\/players|\/stats)?\/?$/.test(path); }
+  function filterSearch(year) {
+    var s=new URLSearchParams();
+    s.set('season',year||state.year);
+    if (state.position!=='ALL') s.set('pos',state.position);
+    if (state.score!=='half') s.set('scoring',state.score);
+    if (state.sort!=='points') s.set('sort',state.sort);
+    if (state.week) s.set('week',state.week);
+    if (state.games!==1) s.set('min',state.games);
+    if (state.rookieOnly) s.set('rookies','1');
+    if (state.query.trim()) s.set('q',state.query.trim());
+    return '?'+s.toString();
+  }
+  function syncUrl() {
+    if (!isListPath(location.pathname) || !state.year) return;
+    var next=location.pathname+filterSearch();
+    if (next!==location.pathname+location.search) history.replaceState(history.state,'',next);
+  }
+  function setSelect(id,value,fallback) {
+    var el=$(id), ok=Array.from(el.options).some(function (o) {return o.value===value;});
+    el.value=ok?value:fallback;
+    return el.value;
+  }
+  function readUrlFilters() {
+    var s=new URLSearchParams(location.search);
+    state.position=setSelect('position',s.get('pos')||'ALL','ALL');
+    state.score=setSelect('scoring',s.get('scoring')||'half','half');
+    state.games=Number(setSelect('games',s.get('min')||'1','1'));
+    state.rookieOnly=$('rookies').checked=s.get('rookies')==='1';
+    state.query=$('search').value=s.get('q')||'';
+    state.sort=s.get('sort')||'points';
+    state.pendingWeek=Math.max(0,parseInt(s.get('week'),10)||0);
+    state.limit=40;
+  }
+  function syncFilterNotes() {
+    $('games').disabled=!!state.week;
+    $('games-note').textContent=state.week?'Weekly rankings show players with a recorded game in Week '+state.week+'.':'';
+  }
+  function applyListState() {
+    var wk=state.pendingWeek>=1&&state.pendingWeek<=state.throughWeek?state.pendingWeek:0;
+    state.pendingWeek=0;$('week').value=String(wk);state.week=wk;
+    sortOptions();syncFilterNotes();renderTable();renderCompare();
   }
   function updateFilters() {
     state.query=$('search').value;state.position=$('position').value;
     state.score=$('scoring').value;state.games=Number($('games').value);
     state.week=Number($('week').value);state.rookieOnly=$('rookies').checked;
-    sortOptions();state.sort=$('sort').value;state.limit=40;
-    $('games').disabled=!!state.week;
-    $('games-note').textContent=state.week?'Weekly rankings show players with a recorded game.':'';
+    state.sort=$('sort').value||state.sort;sortOptions();state.limit=40;
+    syncFilterNotes();
     renderTable();renderCompare();
     if (/^\/research\/players\/[^/]+\/?$/.test(location.pathname)) renderRoute();
   }
@@ -274,7 +419,9 @@
       Array.from({length:state.throughWeek},function (_,i) {
         return '<option value="'+(i+1)+'">Week '+(i+1)+'</option>';
       }).join('');
-    $('week').value='0';state.week=0;
+    var wk=state.pendingWeek>=1&&state.pendingWeek<=state.throughWeek?state.pendingWeek:0;
+    state.pendingWeek=0;$('week').value=String(wk);state.week=wk;
+    syncFilterNotes();
   }
   function renderRoute() {
     var path=location.pathname, match=path.match(/^\/research\/players\/([^/]+)\/?$/);
@@ -287,8 +434,8 @@
     } else { $('error').hidden=true;renderProfile(p); }
     $('page-title').textContent=match?(p?p.n:'Player not found'):
       path.includes('/stats')?'NFL fantasy stat leaders':path.endsWith('/players')?'Player research':'A clearer look at every player.';
-    $('page-desc').textContent=match?'Historical performance, season comparisons and weekly game logs.':
-      'Filter by season, week, position or rookies. Compare historical fantasy production and individual player statistics.';
+    $('page-desc').textContent=match?'Recent form, efficiency, season comparisons and weekly game logs.':
+      'Filter by season, week, position or rookies. Sort by per-game usage, efficiency, recent form and consistency.';
     document.querySelectorAll('[data-nav]').forEach(function (a) {
       var key=a.dataset.nav;
       a.setAttribute('aria-current',
@@ -297,15 +444,21 @@
     });
     document.title=(p?p.n+' Stats | ':'Fantasy Research | ')+'LeagueZone';
   }
-  function navigate(url,replace) {
+  function navigate(url,replace,scrollY) {
     var target=new URL(url,location.href);
+    if (isListPath(location.pathname) && !isListPath(target.pathname)) {
+      state.listPath=location.pathname;state.listScroll=window.scrollY;
+    }
     var year=Number(target.searchParams.get('season'))||state.latest;
     if (!state.years.includes(year)) year=state.latest;
     if (replace) history.replaceState({},'',target.pathname+target.search);
     else history.pushState({},'',target.pathname+target.search);
+    var list=isListPath(target.pathname);
+    if (list) readUrlFilters();
     if (year!==state.year) loadSeason(year);
-    else {state.requestId++;renderRoute();}
-    window.scrollTo({top:0,behavior:'smooth'});
+    else {state.requestId++;if (list) applyListState();renderRoute();}
+    if (scrollY!=null && year===state.year) window.scrollTo(0,scrollY);
+    else window.scrollTo({top:0,behavior:'smooth'});
   }
   function loadSeason(year) {
     if (!state.years.includes(year)) year=state.latest;
@@ -333,6 +486,8 @@
     });
   }
   document.addEventListener('click',function (e) {
+    var sortHead=e.target.closest('[data-sort-key]');
+    if (sortHead) {state.sort=sortHead.dataset.sortKey;$('sort').value=state.sort;updateFilters();return;}
     var profile=e.target.closest('[data-profile]');
     if (profile) {navigate(link(profile.dataset.profile,Number(profile.dataset.year)));return;}
     var add=e.target.closest('[data-add-profile]');
@@ -344,7 +499,7 @@
       renderTable();renderCompare();return;
     }
     var back=e.target.closest('#return-list');
-    if (back) {navigate('/research/players?season='+state.year);return;}
+    if (back) {navigate((state.listPath||'/research/players')+filterSearch(),false,state.listScroll);return;}
     var anchor=e.target.closest('a[data-career-nav],a[href^="/research"]');
     if (anchor) {e.preventDefault();navigate(anchor.getAttribute('href'));return;}
   });
@@ -358,6 +513,11 @@
   $('mobile-results').addEventListener('change',compareChanged);
   $('clear-compare').addEventListener('click',function () {state.compare=[];renderTable();renderCompare();});
   $('more').addEventListener('click',function () {state.limit+=40;renderTable();});
+  $('reset-filters').addEventListener('click',function () {
+    $('search').value='';$('position').value='ALL';$('scoring').value='half';$('games').value='1';
+    $('week').value='0';$('rookies').checked=false;$('sort').value='points';state.sort='points';
+    updateFilters();
+  });
   ['search','position','scoring','games','week','rookies','sort'].forEach(function (id) {
     $(id).addEventListener(id==='search'?'input':'change',function () {
       if (id==='sort')state.sort=$('sort').value;
@@ -367,7 +527,15 @@
   $('year').addEventListener('change',function (e) {
     var year=Number(e.target.value);
     var path=location.pathname.match(/^\/research\/players\/[^/]+\/?$/)?'/research/players':location.pathname;
-    navigate(path+'?season='+year,true);
+    if (state.week) state.pendingWeek=state.week;
+    navigate(path+filterSearch(year),true);
+  });
+  if (isListPath(location.pathname)) readUrlFilters();
+  window.addEventListener('popstate',function () {
+    if (!isListPath(location.pathname)) return;
+    readUrlFilters();
+    var year=Number(new URLSearchParams(location.search).get('season'))||state.latest;
+    if (year===state.year) applyListState();
   });
   window.addEventListener('popstate',function () {
     var year=Number(new URLSearchParams(location.search).get('season'))||state.latest;
