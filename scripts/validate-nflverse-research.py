@@ -48,6 +48,8 @@ def verify(year):
         for w in p["w"]:
             assert len(w) >= (17 if p["pos"]=="DEF" else 15), (year,p["n"],w)
             assert math.isfinite(w[2])
+            if p["pos"]=="QB" and len(w)>15:
+                assert isinstance(w[15],int) and w[15]>=0, (year,p["n"],w)
             weeks.setdefault(w[0],Counter())[p["pos"]]+=1
     for week in range(1,d["throughWeek"]+1):
         counts=weeks.get(week,Counter())

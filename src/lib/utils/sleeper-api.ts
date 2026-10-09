@@ -1455,6 +1455,7 @@ export interface SleeperMatchup {
 
 export interface SleeperPlayer {
   player_id: string;
+  gsis_id?: string | null;
   first_name: string;
   last_name: string;
   position: string;

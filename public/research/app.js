@@ -689,28 +689,39 @@
   function renderRoute() {
     var path=location.pathname, match=path.match(/^\/research\/players\/([^/]+)\/?$/);
     var p=match?state.byId.get(decodeURIComponent(match[1])):null;
-    $('overview').hidden=!!match || path.includes('/stats') || path.endsWith('/players');
-    $('directory').hidden=!!match;
+    var tool=/^\/research\/(radar|receipts|development)\/?$/.exec(path);
+    $('overview').hidden=!!match || !!tool || path.includes('/stats') || path.endsWith('/players');
+    $('directory').hidden=!!match || !!tool;
     if (match && !p) {
       $('profile').hidden=true;$('error').hidden=false;
       $('error').textContent='Player not found in this season. Choose another year or return to the directory.';
     } else { $('error').hidden=true;renderProfile(p); }
-    $('page-title').textContent=match?(p?p.n:'Player not found'):
-      path.includes('/stats')?'NFL fantasy stat leaders':path.endsWith('/players')?'Player research':'A clearer look at every player.';
-    $('page-desc').textContent=match?'Recent form, efficiency, season comparisons and weekly game logs.':
+    $('page-title').textContent=tool?({radar:'Opportunity Radar',receipts:'Prediction Receipts',development:'Development Lab'})[tool[1]]:
+      match?(p?p.n:'Player not found'):path.includes('/stats')?'NFL fantasy stat leaders':path.endsWith('/players')?'Player research':'A clearer look at every player.';
+    $('page-desc').textContent=tool?({radar:'See which roles are changing, with fantasy points shown separately.',
+      receipts:'Check whether past opportunity signals were followed by another change.',
+      development:'Compare season by season production and players at the same career stage.'})[tool[1]]:
+      match?'Recent form, efficiency, season comparisons and weekly game logs.':
       'Filter by season, week, position or rookies. Sort by per-game usage, efficiency, recent form and consistency.';
     document.querySelectorAll('[data-nav]').forEach(function (a) {
       var key=a.dataset.nav;
       a.setAttribute('aria-current',
         (key==='research'&&path==='/research' || key==='players'&&path.endsWith('/players') ||
-         key==='stats'&&path.includes('/stats'))?'page':'false');
+         key==='stats'&&path.includes('/stats') || key===tool?.[1])?'page':'false');
     });
-    document.title=(p?p.n+' Stats | ':'Fantasy Research | ')+'LeagueZone';
+    if (window.LZResearchTools) window.LZResearchTools.show(tool&&tool[1],{
+      year:state.year,years:state.years,throughWeek:state.throughWeek,players:state.players,
+      data:state.cache.get(state.year),loadData:loadData,ensureUsage:ensureUsage,usageStatus:state.usageStatus,
+      navigate:navigate
+    });
+    document.title=(tool?$('page-title').textContent+' | ':p?p.n+' Stats | ':'Fantasy Research | ')+'LeagueZone';
   }
   function navigate(url,replace,scrollY) {
     var target=new URL(url,location.href);
-    if (isListPath(location.pathname) && !isListPath(target.pathname)) {
-      state.listPath=location.pathname;state.listScroll=window.scrollY;
+    if ((isListPath(location.pathname) || /^\/research\/(radar|receipts|development)\/?$/.test(location.pathname)) &&
+        /^\/research\/players\/[^/]+\/?$/.test(target.pathname)) {
+      state.listPath=location.pathname+(/^\/research\/(radar|receipts|development)\/?$/.test(location.pathname)?location.search:'');
+      state.listScroll=window.scrollY;
     }
     var year=Number(target.searchParams.get('season'))||state.latest;
     if (!state.years.includes(year)) year=state.latest;
@@ -762,7 +773,7 @@
       renderTable();renderCompare();return;
     }
     var back=e.target.closest('#return-list');
-    if (back) {navigate((state.listPath||'/research/players')+filterSearch(),false,state.listScroll);return;}
+    if (back) {var prior=state.listPath||'/research/players';navigate(prior+(prior.includes('?')?'':filterSearch()),false,state.listScroll);return;}
     var anchor=e.target.closest('a[data-career-nav],a[href^="/research"]');
     if (anchor) {e.preventDefault();navigate(anchor.getAttribute('href'));return;}
   });
@@ -820,4 +831,5 @@
     $('error').hidden=false;$('error').textContent='Unable to load research seasons: '+error.message;
     $('data-stamp').textContent='Research unavailable';
   });
+  window.LZResearchApp={refresh:renderRoute};
 })();

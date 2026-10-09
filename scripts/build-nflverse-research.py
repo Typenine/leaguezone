@@ -118,7 +118,7 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
     weekly_positions: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     mandatory = {"player_id", "player_display_name", "position", "team",
                  "season", "week", "season_type", "fantasy_points_ppr",
-                 "receptions", "targets", "carries", "passing_yards",
+                 "receptions", "targets", "carries", "attempts", "passing_yards",
                  "rushing_yards", "receiving_yards", "fg_made", "pat_made"}
     if not stats or not mandatory.issubset(stats[0]):
         raise ValueError(f"Unexpected nflverse player stats schema: {sorted(mandatory - set(stats[0] if stats else {}))}")
@@ -169,14 +169,19 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
         ):
             item[dest] += integer(row, src)
         # First eight entries preserve the deployed research UI's game-log contract.
-        item["w"].append([
+        game_row = [
             week, team, points, integer(row, "receptions"), integer(row, "targets"),
             integer(row, "receiving_yards"), integer(row, "carries"),
             integer(row, "rushing_yards"), integer(row, "passing_yards"),
             integer(row, "passing_tds"), integer(row, "passing_interceptions"),
             integer(row, "fg_made"), integer(row, "pat_made"),
             integer(row, "rushing_tds"), integer(row, "receiving_tds"),
-        ])
+        ]
+        # Index 15 is optional in older snapshots. Publish QB attempts in the
+        # weekly core snapshot so Radar does not depend on a static usage file.
+        if pos == "QB":
+            game_row.append(integer(row, "attempts"))
+        item["w"].append(game_row)
     matchups = {}
     for game in schedule:
         if int(game.get("season") or 0) != season or game.get("game_type") != "REG":
