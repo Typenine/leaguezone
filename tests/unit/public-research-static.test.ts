@@ -1,0 +1,30 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+
+describe('public research database isolation', () => {
+  const read = (path: string) => readFileSync(path, 'utf8');
+  it('has a static dataset with real season metadata', () => {
+    const data = JSON.parse(read('public/research/data/2026.json'));
+    expect(data.year).toBe(2026);
+    expect(data.throughWeek).toBeGreaterThan(0);
+    expect(data.players.length).toBeGreaterThan(100);
+    expect(data.players.some((p: { pos: string }) => p.pos === 'K')).toBe(true);
+  });
+  it('is served via static rewrites, not Next dynamic page rendering', () => {
+    const config = read('next.config.ts');
+    expect(config).toContain("source: '/research'");
+    expect(config).toContain("destination: '/research/index.html'");
+    expect(read('public/research/index.html')).toContain('/research/app.js');
+  });
+  it('client application cannot call authenticated or database APIs', () => {
+    const ui = read('public/research/app.js');
+    expect(ui).toContain("fetch('/research/data/2026.json'");
+    expect(ui).not.toMatch(/fetch\s*\(\s*['"\`]\/api\//);
+    expect(ui).not.toMatch(/fetch\s*\(\s*['"\`]\/l\//);
+    expect(ui).not.toMatch(/DATABASE_URL|@neondatabase|sql\`|\/api\/players/);
+  });
+  it('data pipeline is not allowed to import LeagueZone server code', () => {
+    const updater = read('scripts/refresh-public-research.mjs');
+    expect(updater).not.toMatch(/DATABASE_URL|@neondatabase|from ['"]@\/lib|from ['"]@\/server/);
+  });
+});

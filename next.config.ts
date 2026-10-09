@@ -231,6 +231,16 @@ applyPreviousDraftBoardPatch();
 applyPreviousDraftBoardPlayerLinkPatch();
 
 const nextConfig: NextConfig = {
+  // All research routes rewrite directly to public static assets. No Next.js
+  // rendering, cookies(), database access, or function invocation per visitor.
+  async rewrites() {
+    return [
+      { source: '/research', destination: '/research/index.html' },
+      { source: '/research/players', destination: '/research/index.html' },
+      { source: '/research/stats', destination: '/research/index.html' },
+      { source: '/research/players/:playerId', destination: '/research/index.html' },
+    ];
+  },
   outputFileTracingIncludes: {
     '/api/team-prospect-draftboard/scouting': ['./public/scouting-reports.json'],
   },

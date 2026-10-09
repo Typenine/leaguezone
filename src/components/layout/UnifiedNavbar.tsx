@@ -124,6 +124,7 @@ export default function UnifiedNavbar() {
 
   const platformLinks = [
     { href: '/', label: 'Home' },
+    { href: '/research', label: 'Research' },
     { href: '/features', label: 'Features' },
     { href: '/pricing', label: 'Pricing' },
     { href: '/demo', label: 'Demo' },
