@@ -53,21 +53,78 @@
 - Source records are verified against scheduled game IDs and opponent teams.
   There are no custom commissioner-scoring adjustments in the public UI.
 
-## Updates, budgets and build control
-- .github/workflows/refresh-public-research.yml runs Thursday at 12:00 UTC
-  during NFL season months (September–January) for an already completed week
-  after the midweek corrections. Additional manual workflow runs are optional.
-- Only changed, validated static data files get committed, so identical source
-  snapshots do not trigger a production deployment.
-- A changed weekly snapshot committed to main WILL trigger one regular Vercel
-  production build. This is a conscious trade-off to retain cheap static
-  delivery; it is not zero build usage. Expected cadence is <= once weekly
-  in-season if updates are available.
-- Vercel preview deployments are disabled; GitHub Actions runs all QA for
-  feature branches. No new Neon tables, cron jobs, or migrations.
-- If future Vercel build counts become a constraint, move only the static
-  research datasets and manifest to a CDN/R2 bucket, rather than moving
-  research queries into the database.
+## New R2 delivery architecture (opt-in, with safe fallback)
+- The site remains hosted on Vercel, including research HTML/JS/CSS. Only
+  season JSON files and a catalog are independently published to R2.
+- GitHub Actions generates and verifies stats, then uploads changed immutable
+  objects at research/v1/objects/{year}-{sha256}.json to R2 using the S3 API.
+- An atomic pointer research/v1/catalog.json advertises available seasons,
+  object keys, update timestamps, and checksums. Publish pointer last.
+- An authenticated R2 GET re-reads and checks SHA-256 of every advertised
+  object before the catalog is changed. Some GitHub-runner public Worker GETs
+  receive a Cloudflare HTTP 403 even though incognito browser access works.
+  This specific edge denial can be explicitly allowed after private SHA-256
+  verification and manual public-browser confirmation. Other HTTP errors,
+  corrupt files, missing data, and CORS errors remain publication failures.
+- SHA-256 is calculated from canonical data EXCLUDING the run-specific
+  'updated' stamp. Unchanged source statistics trigger zero writes.
+- The browser optionally fetches a public R2 catalog and stat files, then
+  falls back to the already-deployed Vercel static files if unavailable. On
+  fallback, the UI explicitly says "Last validated backup". The fallback
+  only reflects the latest website deployment, not the newest R2 update.
+- A new 2027 season becomes available through the R2 catalog without any
+  Vercel build or Git commit; older archived snapshots remain accessible.
+- No Neon dependency, app API proxy, or Vercel function per research request.
+- The weekly GitHub Action runs at 12:00 UTC Thursday in Sep-Jan, loads the
+  correct NFL season, validates snapshots, and uploads directly to R2.
+  Unlike the previous implementation, it NEVER commits updated data on main.
+- A website code change still requires a normal Vercel production deployment.
+  R2 publication by itself does not.
+
+### Production activation checklist (external Cloudflare setup required)
+1. Create a DEDICATED public-data R2 bucket, separate from the existing private
+   team/media bucket. Use a private scoped R2 API token for GitHub Actions with
+   write/read permissions only to this research bucket.
+2. Cloudflare DNS for leaguezonehq.com is managed elsewhere. Use a small
+   public Cloudflare Worker at https://leaguezone-research-data.patrickmmcnulty62.workers.dev
+   with an R2 binding called RESEARCH_BUCKET pointing to leaguezone-research.
+   Do not change the main site's DNS or use the R2 development URL.
+3. The Worker (not a public R2 bucket URL) serves only research/v1/catalog.json
+   and immutable research/v1/objects/*.json. It must allow CORS GET/HEAD from
+   https://www.leaguezonehq.com and https://leaguezonehq.com.
+   The bucket remains private; read access comes through RESEARCH_BUCKET.
+4. The Worker sends immutable cache headers for object keys and a 60-second
+   header for the catalog. Worker subrequests still count toward Workers
+   limits; optional cache optimization can be considered after launch.
+5. In GitHub repo Settings > Secrets and variables > Actions, define secrets:
+   RESEARCH_R2_ACCOUNT_ID, RESEARCH_R2_ACCESS_KEY_ID,
+   RESEARCH_R2_SECRET_ACCESS_KEY. Define public variables:
+   RESEARCH_R2_BUCKET=leaguezone-research, and RESEARCH_R2_PUBLIC_BASE=
+   https://leaguezone-research-data.patrickmmcnulty62.workers.dev.
+   Do NOT copy credentials into source files or workflows.
+6. Run GitHub Actions > Refresh public research in R2 > Run workflow on
+   feature/research-r2-uploads BEFORE the production merge.
+   Publishing verifies data against all research validators, checks R2 object
+   sizes and public browser CORS, and updates the catalog only after uploads
+   succeed. Inspect job logs to confirm success.
+7. Verify remote /research/v1/catalog.json is reachable from both site origins
+   and every advertised versioned season object returns valid JSON.
+8. The initial 2023–2026 upload and public catalog were confirmed on October 9,
+   2026. public/research/data-source.json now points at the verified HTTPS
+   Worker origin. Merge once to main for the ONE production cutover deployment.
+   Prior to this step the existing static delivery stays fully operational.
+9. Rotate any previously committed R2 keys. Old Git history may still contain
+   hard-coded credentials even after removing them from main; revocation is
+   essential and requires Cloudflare account access.
+
+### Safety and rollback
+- Missing R2 credentials/domain => publication fails before changing catalog.
+- Missing or malformed remote catalog => browser uses local static backup.
+- Missing remote season object => browser attempts the archived Vercel copy.
+- Historical seasons never deleted; old versioned objects are not purged.
+- Reverting data-source.json publicBase to "" makes the browser use its
+  Vercel static files again at the next code deployment.
+- No additional Neon load, no automated Vercel uploads for weekly refreshes.
 
 ## Tests
 - scripts/validate-nflverse-research.py detects incomplete weeks, missing
@@ -84,7 +141,7 @@
   this feed. The research UI does not show guessed snap shares.
 - Default DST scoring does not exactly reproduce every fantasy provider's
   treatment of return touchdowns, blocked kicks, and other rare events.
-- The publicly available 2023–2026 snapshots do not cover every prior NFL
-  season, and current NFL injuries are not a live feed.
+- Historical R2 snapshots are only as current as the last successful uploader;
+  2023–2026 are the current archived seasons, and injuries are not live.
 - Custom league scoring, proprietary fantasy projections, comprehensive
   snap/route charts, and verified historical playoff stats are not included.
