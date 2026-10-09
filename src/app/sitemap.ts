@@ -13,5 +13,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: base + '/research/development', changeFrequency: 'weekly', priority: 0.7 },
     { url: base + '/features', changeFrequency: 'monthly', priority: 0.7 },
     { url: base + '/demo', changeFrequency: 'monthly', priority: 0.6 },
+    { url: base + '/install', changeFrequency: 'monthly', priority: 0.5 },
   ];
 }

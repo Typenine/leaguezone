@@ -36,6 +36,7 @@ test.describe('LeagueZone app install', () => {
 
   test('installation uses the browser event only when actually offered', async ({ page }) => {
     await page.goto('/install');
+    await expect(page.getByText(/browser menu/i)).toBeVisible();
     await page.evaluate(() => {
       const offered = new Event('beforeinstallprompt');
       Object.defineProperties(offered, {
