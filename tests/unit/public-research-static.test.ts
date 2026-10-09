@@ -70,7 +70,7 @@ describe('public research database isolation', () => {
     expect(workflow).toContain('python scripts/publish-public-research-r2.py');
     expect(workflow).not.toContain('git push');
     expect(workflow).not.toContain('git commit');
-    expect(config.publicBase).toBe('');
+    expect(config.publicBase).toBe('https://leaguezone-research-data.patrickmmcnulty62.workers.dev');
     expect(read('public/research/app.js')).toContain('Last validated backup');
     expect(read('public/research/app.js')).toContain('R2 live data');
   });
