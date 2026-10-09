@@ -3,6 +3,7 @@
   var state = {
     year: null, latest: null, years: [], throughWeek: 0,
     cache: new Map(), players: [], byId: new Map(), requestId: 0,
+    remoteBase: '', remoteCatalog: null, sourceMode: 'backup',
     score: 'half', query: '', position: 'ALL', sort: 'points',
     games: 1, week: 0, rookieOnly: false, limit: 40, compare: []
   };
@@ -18,16 +19,64 @@
   var score = function (p, row) { return row ? row[2] - pointAdjustment() * row[3] : p.p - pointAdjustment() * p.rec; };
   var link = function (id, year) { return '/research/players/'+encodeURIComponent(id)+'?season='+year; };
   var selectedRow = function (p) { return state.week ? p.w.find(function (w) { return w[0] === state.week; }) : null; };
+  function validateData(d, year) {
+    if (d.year !== year || !Array.isArray(d.players) || d.players.length < 100) {
+      throw Error('Incomplete season file: '+year);
+    }
+    return d;
+  }
+  function remotePath(year) {
+    var info=state.remoteCatalog&&state.remoteCatalog.files[String(year)];
+    if (!info || !/^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key)) return null;
+    return state.remoteBase+'/'+info.key;
+  }
   function loadData(year) {
     if (state.cache.has(year)) return state.cache.get(year);
-    var promise = fetch('/research/data/'+year+'.json', {cache:'default'}).then(responseError).then(function (d) {
-      if (d.year !== year || !Array.isArray(d.players) || d.players.length < 100)
-        throw Error('Incomplete season file: '+year);
-      return d;
-    });
-    state.cache.set(year, promise);
-    promise.catch(function () { state.cache.delete(year); });
+    var url=remotePath(year);
+    var localUrl='/research/data/'+year+'.json';
+    var promise=url ?
+      fetch(url, {cache:'default'}).then(responseError).then(function (d) {
+        return validateData(d,year);
+      }).then(function (d) {d._researchSource='r2';return d;})
+      .catch(function () {
+        // Last published, tested Vercel copy remains available during an R2 outage.
+        return fetch(localUrl, {cache:'default'}).then(responseError).then(function (d) {
+          d=validateData(d,year);d._researchSource='backup';return d;
+        });
+      }) :
+      fetch(localUrl, {cache:'default'}).then(responseError).then(function (d) {
+        d=validateData(d,year);d._researchSource='backup';return d;
+      });
+    state.cache.set(year,promise);
+    promise.catch(function () {state.cache.delete(year);});
     return promise;
+  }
+  function catalogLooksValid(catalog) {
+    if (!catalog || catalog.schema!==1 || !Array.isArray(catalog.years) ||
+        !catalog.years.length || !catalog.files || typeof catalog.files!=='object') return false;
+    return catalog.years.every(function (year) {
+      var info=catalog.files[String(year)];
+      return Number.isInteger(year) && year>=2000 &&
+        info && /^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key);
+    });
+  }
+  function loadAvailableSeasons() {
+    return fetch('/research/data-source.json', {cache:'no-store'}).then(responseError)
+      .then(function (config) {
+        var base=String(config.publicBase||'').replace(/\/+$/,'');
+        if (!/^https:\/\/[^/]+$/i.test(base) || /\.r2\.dev$/i.test(new URL(base).hostname)) return null;
+        return fetch(base+'/research/v1/catalog.json',{cache:'no-cache'}).then(responseError)
+          .then(function (catalog) {
+            if (!catalogLooksValid(catalog)) throw Error('Invalid research catalog');
+            state.remoteBase=base;state.remoteCatalog=catalog;
+            return {years:catalog.years,remote:true};
+          }).catch(function () {return null;});
+      }).catch(function () {return null;})
+      .then(function (remote) {
+        if (remote) return remote;
+        return fetch('/research/data/seasons.json',{cache:'no-cache'}).then(responseError)
+          .then(function (manifest) {return {years:manifest.years,remote:false};});
+      });
   }
   function columns(pos) {
     var standard = [
@@ -322,7 +371,8 @@
       if (token!==state.requestId) return;
       state.players=data.players;state.byId=new Map(data.players.map(function (p) {return [p.id,p];}));
       state.throughWeek=data.throughWeek;
-      $('data-stamp').textContent=year+' Season · Through Week '+data.throughWeek+' · Updated '+data.updated;
+      $('data-stamp').textContent=year+' Season · Through Week '+data.throughWeek+' · Updated '+data.updated+
+        (data._researchSource==='r2'?' · R2 live data':' · Last validated backup');
       populateWeeks();sortOptions();renderTable();renderCompare();renderRoute();
       $('research-year-range').textContent=state.years[0]+'–'+state.latest;
     }).catch(function (error) {
@@ -374,7 +424,7 @@
     if (year!==state.year) loadSeason(year);
     else {state.requestId++;renderRoute();}
   });
-  fetch('/research/data/seasons.json',{cache:'no-cache'}).then(responseError).then(function (manifest) {
+  loadAvailableSeasons().then(function (manifest) {
     var years=(manifest.years||[]).filter(function (x) {return Number.isInteger(x)&&x>=2000;})
       .sort(function (a,b) {return a-b;});
     if (!years.length || new Set(years).size!==years.length) throw Error('Season index unavailable');
