@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   description: 'Research NFL players, compare fantasy football stats and opportunity trends, and manage your league with custom websites, draft tools, trades, and history.',
   applicationName: 'LeagueZone HQ',
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'LeagueZone', statusBarStyle: 'black-translucent' },
+  appleWebApp: { capable: true, title: 'LeagueZone', statusBarStyle: 'default' },
   formatDetection: { telephone: false },
   icons: {
     icon: [
