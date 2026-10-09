@@ -42,3 +42,12 @@ in this data source and must not be silently fabricated.
 
 Important: This is an initial static research foundation, not an advanced
 projection model, a live injury feed, or an exhaustive historical database.
+
+
+## Historical snapshots (added October 9, 2026)
+
+The public interface now serves **2023, 2024, 2025** full regular seasons and **2026** through Week 4. Each year lives in its own small static JSON file and is downloaded only when selected. All public player-history filters and comparisons are local to the visitor's browser.
+
+Seasonal files are generated from public weekly JSON, validated for unique player/week tuples and consistent game counts. Incorrect retrospective team labels are screened using contemporaneous quarterback matchups. This filters some bad upstream records; it does not establish perfect correctness, and league-scoring/bonuses can differ from the source's PPR scoring convention. Confirm independent sample totals and note missing defense/DST before broadening coverage.
+
+Public data refresh stays manual. The user should not enable scheduled refresh until transfer usage, build frequency, and source reliability are measured.

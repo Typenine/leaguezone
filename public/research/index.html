@@ -22,7 +22,7 @@
     </div>
   </header>
   <main class="wrap">
-    <div class="eyebrow">NFL Fantasy Research · 2026</div>
+    <div class="eyebrow">NFL Fantasy Research · 2023–2026</div>
     <section class="intro">
       <h1 id="page-title">A clearer look at every player.</h1>
       <p id="page-desc">Explore current-season fantasy production, discover statistical leaders, compare players, and review weekly game logs. No account or league connection required.</p>
@@ -37,8 +37,9 @@
       <div id="leaders" class="leader-grid"><div class="empty">Loading statistics…</div></div>
     </section>
     <section id="directory" class="directory" aria-labelledby="directory-title">
-      <div class="section-head"><div><div class="eyebrow">Player explorer</div><h2 id="directory-title">2026 Fantasy Statistics</h2></div><span id="result-count" class="subdued"></span></div>
+      <div class="section-head"><div><div class="eyebrow">Player explorer</div><h2 id="directory-title">Season Fantasy Statistics</h2></div><span id="result-count" class="subdued"></span></div>
       <div class="toolbar">
+        <label>Season <select id="year"><option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option></select></label>
         <label class="search-field">Search player <input type="search" id="search" placeholder="Name or NFL team" autocomplete="off"></label>
         <label>Position <select id="position"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option></select></label>
         <label>Scoring <select id="scoring"><option value="half">Half PPR</option><option value="ppr">Full PPR</option><option value="standard">Standard</option></select></label>
@@ -55,7 +56,7 @@
       <div class="section-head"><div><div class="eyebrow">Head-to-head</div><h2>Player comparison</h2></div><button type="button" id="clear-compare" class="btn outline">Clear comparison</button></div>
       <div id="compare-grid" class="comparison"></div>
     </section>
-    <section class="source-note"><h2>About these statistics</h2><p>Initial public beta uses weekly offensive player data from <a href="https://github.com/NityaGehlot/nfl-data" target="_blank" rel="noopener noreferrer">NityaGehlot/nfl-data</a>. Fantasy points are based on the source's PPR totals with receptions adjusted for half-PPR and standard scoring. This is a historical snapshot, not live play-by-play. DEF/DST, custom league scoring, and verified rookie-class filters are not yet supported. Statistics may be revised as sources are improved.</p></section>
+    <section class="source-note"><h2>About these statistics</h2><p>Historical seasons 2023–2025 and the 2026 season-to-date snapshot use weekly offensive player data from <a href="https://github.com/NityaGehlot/nfl-data" target="_blank" rel="noopener noreferrer">NityaGehlot/nfl-data</a>. Fantasy points are based on the source's PPR totals with receptions adjusted for half-PPR and standard scoring. This is a historical snapshot, not live play-by-play. DEF/DST, custom league scoring, and verified rookie-class filters are not yet supported. Statistics may be revised as sources are improved.</p></section>
   </main>
   <footer class="wrap footer"><span>LeagueZone · Independent fantasy research</span><a href="/">LeagueZone HQ</a></footer>
 </body>
