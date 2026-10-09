@@ -151,6 +151,9 @@ export default async function LeagueLayout({
   const leagueChildren = visibleNavItems
     .filter((item) => LEAGUE_SECTION_SEGMENTS.has(item.segment))
     .map(toNavLink);
+  if (visibleNavItems.some((item) => item.segment === 'rosters')) {
+    leagueChildren.push({ id: 'opportunities', href: leagueUrl(league.slug, 'opportunities'), label: 'Roster Opportunities' });
+  }
 
   const historyEnabled = visibleNavItems.some((item) => item.segment === 'history');
   const draftEnabled = visibleNavItems.some((item) => item.segment === 'draft');

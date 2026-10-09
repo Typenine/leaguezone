@@ -10,7 +10,9 @@
   <link rel="apple-touch-icon" href="/assets/LeagueZone%20HQ%20Logo.png">
   <link rel="stylesheet" href="/research/styles.css">
   <script defer src="/research/metrics.js"></script>
+  <script defer src="/research/opportunities.js"></script>
   <script defer src="/research/app.js"></script>
+  <script defer src="/research/tools.js"></script>
 </head>
 <body>
   <header class="site-head">
@@ -21,6 +23,9 @@
         <a href="/research" data-nav="research">Overview</a>
         <a href="/research/players" data-nav="players">Players</a>
         <a href="/research/stats" data-nav="stats">Stat Leaders</a>
+        <a href="/research/radar" data-nav="radar">Opportunity Radar</a>
+        <a href="/research/receipts" data-nav="receipts">Receipts</a>
+        <a href="/research/development" data-nav="development">Development Lab</a>
         <a href="/app" class="my-leagues">My Leagues ↗</a>
       </nav>
     </div>
@@ -35,6 +40,7 @@
       </div>
     </section>
     <div id="error" role="alert" hidden></div>
+    <section id="tool-panel" hidden aria-live="polite"></section>
     <section id="overview" aria-label="Season leaders">
       <div class="research-pathways" aria-labelledby="pathways-title">
         <div class="pathways-heading"><div class="eyebrow">Start with a question</div><h2 id="pathways-title">What would you like to research?</h2><p>Choose a starting point, then adjust the filters and compare players.</p></div>
@@ -47,6 +53,14 @@
       </div>
       <div class="section-head"><div><div class="eyebrow">Season snapshot</div><h2>Top performers by position</h2></div><a href="/research/stats">Full leaderboard →</a></div>
       <div id="leaders" class="leader-grid"><div class="empty">Loading statistics…</div></div>
+      <div class="section-head"><div><div class="eyebrow">Explore the research</div><h2>From statistics to decisions</h2></div></div>
+      <div class="tool-discovery">
+        <a href="/research/radar"><strong>Opportunity Radar</strong><span>Spot changes in usage and compare them with fantasy scoring.</span></a>
+        <a href="/research/receipts"><strong>Prediction Receipts</strong><span>Inspect the later outcomes of historical usage signals.</span></a>
+        <a href="/research/development"><strong>Development Lab</strong><span>Follow season trajectories and compare career stages.</span></a>
+        <a href="/app"><strong>Roster Opportunity Finder</strong><span>Open a league to check ownership and find possible targets.</span></a>
+      </div>
+
     </section>
     <section id="directory" class="directory" aria-labelledby="directory-title">
       <div class="section-head"><div><div class="eyebrow">Player explorer</div><h2 id="directory-title">Season Fantasy Statistics</h2></div><span id="result-count" class="subdued"></span></div>

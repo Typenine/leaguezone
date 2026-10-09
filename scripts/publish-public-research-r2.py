@@ -9,6 +9,8 @@ no-op refreshes, with versioned immutable objects and an atomic catalog.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
+import subprocess
 import hashlib
 import json
 import os
@@ -46,7 +48,7 @@ def digest(payload: dict) -> str:
     return hashlib.sha256(canonical_stats(payload)).hexdigest()
 
 
-def build_catalog(data_dir: Path, old_catalog: dict | None = None):
+def build_catalog(data_dir: Path, old_catalog: dict | None = None, observation: str | None = None):
     """Keep archived remote years even after ephemeral build jobs roll over.
 
     The workflow never commits new season JSON back to Git, so historical
@@ -148,6 +150,50 @@ def build_catalog(data_dir: Path, old_catalog: dict | None = None):
             raise ValueError(f"Incomplete archived {kind} catalog")
         datasets[kind] = {"schema": 1, "years": kind_years, "files": kind_files}
     catalog = {"schema": 1, "years": years, "files": files, "datasets": datasets}
+    # Only a new, validated current-season observation can enter the forward
+    # cohort. Backtesting and archived seasons can NEVER generate receipts.
+    existing_receipts = prior.get("forwardReceipts")
+    receipts = json.loads(json.dumps(existing_receipts)) if existing_receipts else {
+        "schema": 1, "years": {}
+    }
+    if receipts.get("schema") != 1 or not isinstance(receipts.get("years"), dict):
+        raise ValueError("Invalid immutable forward-receipt index")
+    if observation is not None:
+        observed = datetime.fromisoformat(observation.replace("Z", "+00:00"))
+        if observed.tzinfo is None or observed.utcoffset() is None:
+            raise ValueError("Forward receipt timestamp must include UTC offset")
+        # Only the ongoing real NFL regular season can produce new forward
+        # signals. Jan belongs to the previous NFL season; Feb-Aug is offseason.
+        season = observed.year if observed.month >= 9 else observed.year-1 if observed.month == 1 else None
+        if season in local_years:
+            snapshot = json.loads((data_dir / f"{season}.json").read_text())
+            week = snapshot.get("throughWeek", 0)
+            existing = receipts["years"].get(str(season), [])
+            if 4 <= week < 18 and not any(x.get("week") == week for x in existing):
+                script = Path(__file__).with_name("build-forward-research-receipts.cjs")
+                output = subprocess.run(
+                    ["node", str(script), str(data_dir / f"{season}.json"), observation],
+                    check=True, text=True, capture_output=True, timeout=60,
+                )
+                payload = json.loads(output.stdout)
+                if (payload.get("schema") != 1 or payload.get("year") != season or
+                        payload.get("throughWeek") != week or
+                        payload.get("recordedAt") != observation or
+                        payload.get("modelVersion") != "radar-v1" or
+                        not isinstance(payload.get("signals"), list)):
+                    raise ValueError("Malformed forward signal observation")
+                checksum = digest(payload)
+                key = f"{PREFIX}/objects/{season}-{checksum}.json"
+                raw = (json.dumps(payload, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
+                uploads.append((key, raw))
+                receipts["years"].setdefault(str(season), []).append({
+                    "week": week, "key": key, "sha256": checksum,
+                    "recordedAt": observation, "modelVersion": payload["modelVersion"],
+                    "signalCount": len(payload["signals"]),
+                })
+                receipts["years"][str(season)].sort(key=lambda item: item["week"])
+    if existing_receipts or any(receipts["years"].values()):
+        catalog["forwardReceipts"] = receipts
     return catalog, uploads
 
 
@@ -263,6 +309,23 @@ def verify_r2_objects(client, bucket: str, catalog: dict):
             if digest(payload) != info["sha256"]:
                 raise RuntimeError(f"{kind} R2 SHA-256 verification failed: {year}")
             verified += 1
+    for year, entries in (catalog.get("forwardReceipts") or {}).get("years", {}).items():
+        seen = set()
+        for info in entries:
+            key, week = info["key"], info["week"]
+            if week in seen or key != f"{PREFIX}/objects/{year}-{info['sha256']}.json":
+                raise RuntimeError("Invalid or duplicate forward receipt entry")
+            seen.add(week)
+            raw = client.get_object(Bucket=bucket, Key=key)["Body"].read()
+            payload = json.loads(raw)
+            if (payload.get("schema") != 1 or payload.get("year") != int(year) or
+                    payload.get("throughWeek") != week or
+                    payload.get("recordedAt") != info["recordedAt"] or
+                    payload.get("modelVersion") != info["modelVersion"] or
+                    len(payload.get("signals", [])) != info["signalCount"] or
+                    digest(payload) != info["sha256"]):
+                raise RuntimeError(f"Forward receipt R2 verification failed: {year} week {week}")
+            verified += 1
     print(f"Verified {verified} R2 research objects using authenticated GET and SHA-256.", flush=True)
 
 
@@ -290,7 +353,8 @@ def publish(client, bucket: str, base: str, catalog: dict, uploads: list, old: d
             public_check(base, key, next(
                 info["sha256"] for info in
                 list(catalog["files"].values()) +
-                [v for d in catalog["datasets"].values() for v in d["files"].values()]
+                [v for d in catalog["datasets"].values() for v in d["files"].values()] +
+                [v for rows in (catalog.get("forwardReceipts") or {}).get("years", {}).values() for v in rows]
                 if info["key"] == key
             ))
         except PublicWorkerBlocked as error:
@@ -356,7 +420,8 @@ def main():
         raise RuntimeError("RESEARCH_R2_PUBLIC_BASE must be a secure HTTPS Worker or custom domain, not r2.dev")
     client = create_client()
     existing = read_remote_catalog(client, bucket)
-    catalog, uploads = build_catalog(SOURCE, existing)
+    observed_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    catalog, uploads = build_catalog(SOURCE, existing, observation=observed_at)
     publish(client, bucket, base, catalog, uploads, existing)
 
 
