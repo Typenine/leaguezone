@@ -1,0 +1,37 @@
+name: Research Explorer QA
+on:
+  push:
+    branches: [feature/research-explorer-v2]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Inspect nflverse player and roster metadata
+        run: |
+          pip install 'nflreadpy>=0.1.2,<0.3'
+          python - <<'PY'
+          import nflreadpy as nfl
+          for title, data in [('players', nfl.load_players()), ('roster2025', nfl.load_rosters(2025))]:
+              print("META_COLUMNS", title, data.columns, flush=True)
+              print("META_SAMPLE", title, data.head(1).to_dicts(), flush=True)
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: |
+          npm ci
+          node --check public/research/app.js
+          npm run typecheck
+          npx vitest run tests/unit/public-research-static.test.ts
+      - run: |
+          npx playwright install --with-deps chromium
+          npx playwright test tests/e2e/public-research-history.spec.ts
