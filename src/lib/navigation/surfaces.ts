@@ -5,6 +5,7 @@ const PLATFORM_PREFIXES = [
   '/demo',
   '/features',
   '/forgot-password',
+  '/install',
   '/join',
   '/login',
   '/newsletter',

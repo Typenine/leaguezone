@@ -125,6 +125,9 @@ export default async function RootPage() {
             <p className="mt-5 text-xs font-semibold tracking-wide text-white/45">
               Public player research. League websites. One destination.
             </p>
+            <Link href="/install" className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-white/75 underline decoration-[var(--brand-gold)] underline-offset-4 hover:text-white">
+              Get the LeagueZone app for your phone <span aria-hidden="true">↗</span>
+            </Link>
           </div>
           <ProductPreview />
         </div>

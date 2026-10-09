@@ -1,7 +1,7 @@
-const CACHE_VERSION = 'leaguezone-pwa-v1';
+const CACHE_VERSION = 'leaguezone-pwa-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = '/offline';
-const PRECACHE_URLS = [OFFLINE_URL, '/manifest.webmanifest', '/assets/LeagueZone%20HQ%20Logo.png'];
+const PRECACHE_URLS = [OFFLINE_URL, '/manifest.webmanifest', '/pwa/icon-192.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -58,17 +58,25 @@ self.addEventListener('fetch', (event) => {
   if (!isCacheableStaticAsset(url)) return;
 
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request).then((response) => {
+    (async () => {
+      const cache = await caches.open(STATIC_CACHE);
+      const cached = await cache.match(request);
+      const load = async () => {
+        const response = await fetch(request);
         const cacheControl = response.headers.get('cache-control') || '';
         if (response.ok && response.type === 'basic' && !cacheControl.includes('no-store')) {
-          const copy = response.clone();
-          void caches.open(STATIC_CACHE).then((cache) => cache.put(request, copy));
+          await cache.put(request, response.clone());
         }
         return response;
-      });
+      };
 
-      return cached || network;
-    }),
+      // Research CSS and JS evolve while public data refreshes. Prefer current
+      // code when online, with cached assets as a network-failure fallback.
+      if (url.pathname.startsWith('/research/')) {
+        try { return await load(); } catch { return cached || Response.error(); }
+      }
+      if (cached) return cached;
+      try { return await load(); } catch { return Response.error(); }
+    })(),
   );
 });

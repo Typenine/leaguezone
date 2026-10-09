@@ -38,6 +38,7 @@ export default async function Footer() {
           </div>
           <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-bold uppercase tracking-wider text-white/40">
             <Link href="/research" className="hover:text-[var(--brand-gold)] transition-colors">Research</Link>
+            <Link href="/install" className="hover:text-[var(--brand-gold)] transition-colors">Get the App</Link>
             <Link href="/features" className="hover:text-[var(--brand-gold)] transition-colors">League Websites</Link>
             <Link href="/demo" className="hover:text-[var(--brand-gold)] transition-colors">Demo</Link>
             <Link href="/app" className="hover:text-[var(--brand-gold)] transition-colors">Dashboard</Link>

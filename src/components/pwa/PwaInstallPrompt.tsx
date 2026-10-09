@@ -120,7 +120,7 @@ export default function PwaInstallPrompt() {
           <p className="mt-0.5 text-xs leading-5 text-[var(--muted)]">
             {mode === 'ios'
               ? 'Tap the Share button, then choose Add to Home Screen.'
-              : 'Add the league to your home screen for a full-screen app experience.'}
+              : 'Add LeagueZone to your home screen for research and league tools in a standalone app.'}
           </p>
           <div className="mt-3 flex items-center gap-2">
             {mode === 'native' ? (

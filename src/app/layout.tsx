@@ -27,12 +27,15 @@ export const metadata: Metadata = {
   description: 'Research NFL players, compare fantasy football stats and opportunity trends, and manage your league with custom websites, draft tools, trades, and history.',
   applicationName: 'LeagueZone HQ',
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'LeagueZone HQ', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: 'LeagueZone', statusBarStyle: 'black-translucent' },
   formatDetection: { telephone: false },
   icons: {
-    icon: [{ url: '/assets/LeagueZone HQ Logo.png', sizes: '512x512', type: 'image/png' }],
-    shortcut: '/assets/LeagueZone HQ Logo.png',
-    apple: [{ url: '/assets/LeagueZone HQ Logo.png', sizes: '512x512' }],
+    icon: [
+      { url: '/pwa/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/pwa/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    shortcut: '/pwa/icon-192.png',
+    apple: [{ url: '/pwa/icon-192.png', sizes: '192x192', type: 'image/png' }],
   },
 };
 

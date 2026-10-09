@@ -106,6 +106,7 @@ export default async function AppDashboardPage({
                 <Link href="/setup?new=1" className="text-[var(--brand-gold)] hover:underline">Create League</Link>
                 <a href="#join-league" className="text-white/60 hover:text-white">Join League</a>
                 <Link href="/research" className="text-white/60 hover:text-white">Player Research</Link>
+                <Link href="/install" className="text-white/60 hover:text-white">Get the App</Link>
                 <Link href="/?view=public" className="text-white/40 hover:text-white">LeagueZone Home</Link>
               </div>
             </div>
