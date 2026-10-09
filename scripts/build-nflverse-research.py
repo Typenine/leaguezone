@@ -99,9 +99,10 @@ def dst_points(row: dict, allowed: int) -> float:
         + pa_bonus, 2)
 
 
-def build_season(season: int, stats: list[dict], teams: list[dict], schedule: list[dict], stamp: str) -> dict:
+def build_season(season: int, stats: list[dict], teams: list[dict], schedule: list[dict], stamp: str, player_meta: dict | None = None) -> dict:
     through = completed_weeks(schedule, season)
     by_id: dict[str, dict] = {}
+    player_meta = player_meta or {}
     valid_games = {}
     for game in schedule:
         if int(game.get("season") or 0) != season or game.get("game_type") != "REG":
@@ -145,11 +146,13 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
         weekly_positions[week][pos] += 1
         points = kicker_points(row) if pos == "K" else round(number(row, "fantasy_points_ppr"), 2)
         if pid not in by_id:
+            rookie_year = player_meta.get(pid)
             by_id[pid] = {
                 "id": pid, "n": name, "pos": pos, "team": team, "g": 0,
                 "p": 0.0, "rec": 0, "tgt": 0, "ry": 0, "rt": 0, "car": 0,
                 "ruy": 0, "rut": 0, "snap": None, "ppyd": 0, "pptd": 0,
-                "pint": 0, "fgm": 0, "xpm": 0, "w": [],
+                "pint": 0, "fgm": 0, "xpm": 0, "ryr": rookie_year,
+                "w": [],
             }
         item = by_id[pid]
         if item["pos"] != pos:
@@ -172,6 +175,7 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
             integer(row, "rushing_yards"), integer(row, "passing_yards"),
             integer(row, "passing_tds"), integer(row, "passing_interceptions"),
             integer(row, "fg_made"), integer(row, "pat_made"),
+            integer(row, "rushing_tds"), integer(row, "receiving_tds"),
         ])
     matchups = {}
     for game in schedule:
@@ -186,6 +190,13 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
         ):
             if team and opponent and points_against is not None:
                 matchups[(week, str(team))] = (str(opponent), int(points_against))
+    # Exclude opponent defensive touchdowns from points allowed. Opponent PATs
+    # still count. Sleeper documents this distinction explicitly.
+    defense_tds_by_week = {
+        (int(r["week"]), str(r["team"])): int(number(r, "def_tds"))
+        for r in teams if int(r.get("season") or 0) == season
+        and r.get("season_type") == "REG" and r.get("team")
+    }
     seen_def = set()
     for row in teams:
         if int(row.get("season") or 0) != season or row.get("season_type") != "REG":
@@ -193,7 +204,13 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
         week, team = int(row.get("week") or 0), str(row.get("team") or "")
         if not 1 <= week <= through or (week, team) not in matchups:
             continue
-        opponent, allowed = matchups[(week, team)]
+        opponent, final_score = matchups[(week, team)]
+        opposing_def_tds = defense_tds_by_week.get((week, opponent))
+        if opposing_def_tds is None:
+            raise ValueError(f"Missing opposing defense for {season} week {week} {team}")
+        allowed = final_score - 6 * opposing_def_tds
+        if allowed < 0:
+            raise ValueError(f"Impossible points allowed: {season} week {week} {team}")
         if row.get("opponent_team") != opponent or (week, team) in seen_def:
             raise ValueError(f"Invalid defense matchup: {season} week {week} {team}")
         seen_def.add((week, team))
@@ -201,7 +218,7 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
         if pid not in by_id:
             by_id[pid] = {
                 "id": pid, "n": team + " Defense", "pos": "DEF", "team": team,
-                "g": 0, "p": 0.0, "rec": 0, "tgt": 0, "ry": 0, "rt": 0,
+                "g": 0, "p": 0.0, "rec": 0, "tgt": 0, "ry": 0, "rt": 0, "ryr": None,
                 "car": 0, "ruy": 0, "rut": 0, "snap": None,
                 "ppyd": 0, "pptd": 0, "pint": 0, "fgm": 0, "xpm": 0,
                 "sacks": 0.0, "ints": 0, "fr": 0, "pa": 0, "w": [],
@@ -244,7 +261,7 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
         "sourceUrl": "https://github.com/nflverse/nflverse-data/releases",
         "license": "CC BY 4.0 (subject to underlying source rights)",
         "scoring": "NFL fantasy PPR; K: 3/4/5 by distance and PAT=1; DEF: default formula, total game points allowed",
-        "schema": 2, "players": people,
+        "schema": 3, "players": people,
     }
 
 
@@ -260,10 +277,22 @@ def guard_previous(old: dict | None, new: dict) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seasons", nargs="+", type=int, default=[2023, 2024, 2025, 2026])
+    parser.add_argument("--seasons", nargs="+", type=int, default=None)
     args = parser.parse_args()
-    # A single external provider, called in a bounded weekly batch. Never from web requests.
+    # Bounded offline GitHub Actions processing; no Neon or visitor requests.
+    if args.seasons is None:
+        now = datetime.now(timezone.utc)
+        args.seasons = [now.year if now.month >= 9 else now.year - 1]
     import nflreadpy as nfl
+    metadata = nfl.load_players().select(["gsis_id", "rookie_season"]).to_dicts()
+    player_meta = {}
+    for entry in metadata:
+        raw_year = entry.get("rookie_season")
+        if not entry.get("gsis_id") or raw_year is None:
+            continue
+        rookie_year = int(raw_year)
+        if 1920 <= rookie_year <= datetime.now(timezone.utc).year:
+            player_meta[str(entry["gsis_id"])] = rookie_year
 
     stamp = datetime.now(timezone.utc).date().isoformat()
     pending: list[tuple[Path, dict]] = []
@@ -272,7 +301,7 @@ def main() -> None:
         stats = nfl.load_player_stats(season, summary_level="week").to_dicts()
         schedule = nfl.load_schedules(season).to_dicts()
         teams = nfl.load_team_stats(season, summary_level="week").to_dicts()
-        snapshot = build_season(season, stats, teams, schedule, stamp)
+        snapshot = build_season(season, stats, teams, schedule, stamp, player_meta)
         path = DEST / f"{season}.json"
         old = json.loads(path.read_text()) if path.exists() else None
         guard_previous(old, snapshot)
@@ -282,8 +311,12 @@ def main() -> None:
         print(f"Validated {season}: {len(snapshot['players'])} players through week {snapshot['throughWeek']}; "
               f"kickers={sum(p['pos']=='K' for p in snapshot['players'])}, "
               f"defenses={sum(p['pos']=='DEF' for p in snapshot['players'])}", flush=True)
-    # Only write when every requested season passed its validations.
+    # Only write after every requested season passed; manifest enables rollover.
     DEST.mkdir(parents=True, exist_ok=True)
+    years = sorted({int(p.stem) for p in DEST.glob("20[0-9][0-9].json")} |
+                   {int(p.stem) for p, _ in pending})
+    manifest = {"years": years}
+    manifest_path = DEST / "seasons.json"
     for path, data in pending:
         text = json.dumps(data, separators=(",", ":"), ensure_ascii=False) + "\n"
         if path.exists() and path.read_text() == text:
@@ -292,6 +325,12 @@ def main() -> None:
         temp = path.with_suffix(".tmp")
         temp.write_text(text)
         os.replace(temp, path)
+    manifest_text = json.dumps(manifest, separators=(",", ":")) + "\n"
+    if not manifest_path.exists() or manifest_path.read_text() != manifest_text:
+        tmp = manifest_path.with_suffix(".tmp")
+        tmp.write_text(manifest_text)
+        os.replace(tmp, manifest_path)
+        print(f"Published season manifest: {years}", flush=True)
 
 
 if __name__ == "__main__":
