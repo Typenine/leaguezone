@@ -1,6 +1,7 @@
 import importlib.util
 import io
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -76,6 +77,52 @@ class ResearchPublisherTests(unittest.TestCase):
                                               "https://data.example.com",
                                               catalog,[],catalog))
         self.assertEqual(len(fake.ops),len(uploads)+1)
+
+    def test_worker_403_bypass_requires_explicit_setting_and_s3_verification(self):
+        catalog, uploads = publisher.build_catalog(self.data)
+        fake = FakeR2()
+        with patch.object(publisher, "public_check",
+                          side_effect=publisher.PublicWorkerBlocked("Cloudflare 403")):
+            with self.assertRaises(publisher.PublicWorkerBlocked):
+                publisher.publish(fake, "research-public",
+                                  "https://example.workers.dev", catalog, uploads, None)
+        self.assertNotIn(publisher.CATALOG_KEY, fake.files)
+        with patch.dict(os.environ, {"RESEARCH_R2_ALLOW_CLOUDFLARE_403": "true"}):
+            with patch.object(publisher, "public_check",
+                              side_effect=publisher.PublicWorkerBlocked("Cloudflare 403")):
+                self.assertTrue(publisher.publish(fake, "research-public",
+                                "https://example.workers.dev", catalog, uploads, None))
+        self.assertIn(publisher.CATALOG_KEY, fake.files)
+
+    def test_corrupt_r2_readback_always_aborts_even_when_worker_403_allowed(self):
+        catalog, uploads = publisher.build_catalog(self.data)
+        class CorruptR2(FakeR2):
+            def get_object(self, *, Bucket, Key):
+                response = super().get_object(Bucket=Bucket, Key=Key)
+                if Key.endswith(".json") and Key != publisher.CATALOG_KEY:
+                    payload = json.loads(response["Body"].read())
+                    payload["players"][0]["p"] = -9999
+                    return {"Body": io.BytesIO(json.dumps(payload).encode())}
+                return response
+        fake = CorruptR2()
+        with patch.dict(os.environ, {"RESEARCH_R2_ALLOW_CLOUDFLARE_403": "true"}):
+            with patch.object(publisher, "public_check",
+                              side_effect=publisher.PublicWorkerBlocked("Cloudflare 403")):
+                with self.assertRaisesRegex(RuntimeError, "SHA-256"):
+                    publisher.publish(fake, "research-public",
+                                      "https://example.workers.dev", catalog, uploads, None)
+        self.assertNotIn(publisher.CATALOG_KEY, fake.files)
+
+    def test_non_bot_public_error_is_never_ignored(self):
+        catalog, uploads = publisher.build_catalog(self.data)
+        fake = FakeR2()
+        with patch.dict(os.environ, {"RESEARCH_R2_ALLOW_CLOUDFLARE_403": "true"}):
+            with patch.object(publisher, "public_check",
+                              side_effect=RuntimeError("Public read 404")):
+                with self.assertRaisesRegex(RuntimeError, "404"):
+                    publisher.publish(fake, "research-public",
+                                      "https://example.workers.dev", catalog, uploads, None)
+        self.assertNotIn(publisher.CATALOG_KEY, fake.files)
 
     def test_first_file_upload_failure_does_not_publish_pointer(self):
         catalog,uploads=publisher.build_catalog(self.data)
