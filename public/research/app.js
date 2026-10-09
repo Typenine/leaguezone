@@ -92,56 +92,91 @@
   var USAGE_POS = ['QB','RB','WR','TE'];
   // Optional advanced usage: fetched only when a usage view, sort, profile or
   // comparison needs it; cached per season; failures leave core stats intact.
+  // The same R2 catalog advertises base and advanced snapshots atomically.
+  // Existing Vercel archives remain a fallback, but NEVER mix different weeks
+  // or build versions. The fallback fails closed if the base has moved ahead.
+  function advancedRemotePath(kind, year) {
+    var group=state.remoteCatalog && state.remoteCatalog.datasets && state.remoteCatalog.datasets[kind];
+    var info=group && group.schema===1 && group.files && group.files[String(year)];
+    var base=state.remoteCatalog && state.remoteCatalog.files[String(year)];
+    if (!info || !base || info.throughWeek!==base.throughWeek || info.baseUpdated!==base.updated ||
+        !/^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key)) return null;
+    return state.remoteBase+'/'+info.key;
+  }
+  function advancedAvailability(kind, year) {
+    var group=state.remoteCatalog && state.remoteCatalog.datasets && state.remoteCatalog.datasets[kind];
+    if (group && group.schema===1 && group.years && group.years.indexOf(year)!==-1) return Promise.resolve(true);
+    var name=kind==='usage'?'usageManifest':'rzManifest';
+    if (!state[name]) state[name]=fetch('/research/data/'+kind+'/seasons.json',{cache:'no-cache'}).then(responseError);
+    return state[name].then(function (manifest) {
+      return !!(manifest && manifest.schema===1 && (manifest.years||[]).indexOf(year)!==-1);
+    });
+  }
+  function fetchAdvanced(kind, year, base) {
+    var remote=advancedRemotePath(kind, year);
+    function valid(snapshot) {
+      if (!snapshot || snapshot.schema!==1 || snapshot.year!==year) throw {unavailable:true};
+      if (snapshot.throughWeek!==base.throughWeek || snapshot.baseUpdated!==base.updated) {
+        throw {stale:true};
+      }
+      return snapshot;
+    }
+    function local() {
+      return fetch('/research/data/'+kind+'/'+year+'.json',{cache:'default'}).then(responseError).then(valid);
+    }
+    // Prefer the matching immutable R2 object; only fall back to a matching
+    // archived local copy if the remote object is temporarily inaccessible.
+    return remote ? fetch(remote,{cache:'default'}).then(responseError).then(valid).catch(local) : local();
+  }
   function ensureUsage(year) {
     if (state.usage.has(year)) return state.usage.get(year);
-    state.usageStatus[year] = 'loading';
-    if (!state.usageManifest) state.usageManifest = fetch('/research/data/usage/seasons.json', {cache:'no-cache'}).then(responseError);
-    var promise = state.usageManifest.then(function (manifest) {
-      if (!manifest || manifest.schema !== 1 || (manifest.years || []).indexOf(year) === -1) throw {unavailable: true};
-      return Promise.all([loadData(year), fetch('/research/data/usage/'+year+'.json', {cache:'default'}).then(responseError)]);
-    }).then(function (r) {
-      if (!r[1] || r[1].schema !== 1 || r[1].year !== year) throw {unavailable: true};
-      M.attachUsage(r[0].players, r[1]);
-      state.usageStatus[year] = 'ready';
-    }).catch(function (e) {
-      state.usageStatus[year] = e && e.unavailable ? 'unavailable' : 'error';
+    state.usageStatus[year]='loading';
+    var promise=advancedAvailability('usage',year).then(function (available) {
+      if (!available) throw {unavailable:true};
+      return loadData(year).then(function (base) {
+        return fetchAdvanced('usage',year,base).then(function (snapshot) {
+          M.attachUsage(base.players,snapshot);
+        });
+      });
+    }).then(function () {state.usageStatus[year]='ready';}).catch(function (error) {
+      state.usageStatus[year]=error && error.stale?'stale':error && error.unavailable?'unavailable':'error';
     }).then(function () {
-      renderTable(); renderCompare();
+      renderTable();renderCompare();
       if (/^\/research\/players\/[^/]+\/?$/.test(location.pathname)) renderRoute();
     });
-    state.usage.set(year, promise);
+    state.usage.set(year,promise);
     return promise;
   }
-  // Optional red-zone data: same contract as usage, separate cache and files.
   function ensureRedzone(year) {
     if (state.rz.has(year)) return state.rz.get(year);
-    state.rzStatus[year] = 'loading';
-    if (!state.rzManifest) state.rzManifest = fetch('/research/data/redzone/seasons.json', {cache:'no-cache'}).then(responseError);
-    var promise = state.rzManifest.then(function (manifest) {
-      if (!manifest || manifest.schema !== 1 || (manifest.years || []).indexOf(year) === -1) throw {unavailable: true};
-      return Promise.all([loadData(year), fetch('/research/data/redzone/'+year+'.json', {cache:'default'}).then(responseError)]);
-    }).then(function (r) {
-      if (!r[1] || r[1].schema !== 1 || r[1].year !== year) throw {unavailable: true};
-      M.attachRedzone(r[0].players, r[1]);
-      state.rzStatus[year] = 'ready';
-    }).catch(function (e) {
-      state.rzStatus[year] = e && e.unavailable ? 'unavailable' : 'error';
+    state.rzStatus[year]='loading';
+    var promise=advancedAvailability('redzone',year).then(function (available) {
+      if (!available) throw {unavailable:true};
+      return loadData(year).then(function (base) {
+        return fetchAdvanced('redzone',year,base).then(function (snapshot) {
+          M.attachRedzone(base.players,snapshot);
+        });
+      });
+    }).then(function () {state.rzStatus[year]='ready';}).catch(function (error) {
+      state.rzStatus[year]=error && error.stale?'stale':error && error.unavailable?'unavailable':'error';
     }).then(function () {
-      renderTable(); renderCompare();
+      renderTable();renderCompare();
       if (/^\/research\/players\/[^/]+\/?$/.test(location.pathname)) renderRoute();
     });
-    state.rz.set(year, promise);
+    state.rz.set(year,promise);
     return promise;
   }
   function rzNote(year) {
     var st = state.rzStatus[year || state.year];
     return st === 'ready' ? 'Red zone = plays snapped at or inside the opponent 20 (goal line: inside the 5), from nflverse play-by-play. Opportunities = carries + targets; a target counts whether or not it was caught. Two-point tries, kneel-downs and plays wiped out by penalties are excluded. Shares use the team he played for each week.' :
+      st === 'stale' ? 'Red-zone figures are being updated to match the latest season statistics. Core and other available metrics remain usable.' :
       st === 'unavailable' ? 'Red-zone data is not available for '+(year || state.year)+'. Core statistics and advanced usage are unaffected.' :
       st === 'error' ? 'Red-zone data failed to load. Core statistics and advanced usage are unaffected.' : 'Loading red-zone data…';
   }
   function usageNote() {
     var st = state.usageStatus[state.year];
     return st === 'ready' ? 'Advanced usage from nflverse weekly player and team stats. Shares = player total ÷ team total in the same games (the team he played for that week).' :
+      st === 'stale' ? 'Advanced usage is being updated to match the latest season statistics. Core statistics remain usable.' :
       st === 'unavailable' ? 'Advanced usage is not available for '+state.year+'. Core statistics are unaffected.' :
       st === 'error' ? 'Advanced usage failed to load. Core statistics are unaffected.' : 'Loading advanced usage…';
   }
@@ -222,6 +257,8 @@
     if (sortIsRz && RZ_VIEWS.indexOf(state.view) === -1) { state.view = 'redzone'; $('view').value = 'redzone'; }
     if (state.view === 'usage' && state.year) ensureUsage(state.year);
     if (RZ_VIEWS.indexOf(state.view) !== -1 && state.year) ensureRedzone(state.year);
+    $('column-hint').textContent = {core:'Core production and efficiency',usage:'Passing, rushing and receiving opportunity',redzone:'Scoring opportunities inside the 20',goalline:'Scoring opportunities inside the 5'}[state.view]+
+      (['K','DEF'].indexOf(state.position)!==-1 && state.view!=='core' ? ' · Advanced metrics focus on QB, RB, WR and TE' : '');
     $('usage-status').textContent = state.view === 'usage' ? usageNote() : RZ_VIEWS.indexOf(state.view) !== -1 ? rzNote() +
       (state.view === 'goalline' ? ' Conversion rates on fewer than 5 goal-line opportunities are listed after qualified players and are not predictive.' : '') : '';
     var list = ranked(), cols = columns(state.position), sortDef = M.metric(state.sort);
@@ -254,11 +291,25 @@
       var row=state.week?selectedRow(p):null;
       var stats='<span><b>'+fmt(stat(p,'points',row))+'</b> FP</span>'+
         (row?'<span><b>'+escape(row[0])+'</b> Week</span>':
-          '<span><b>'+display(p,'ppg')+'</b> FP/G</span><span><b>'+escape(p.g)+'</b> GP</span>')+
+          '<span><b>'+display(p,'ppg')+'</b> FP/G</span><span><b>'+escape(p.g)+'</b> Games</span>')+
         (extraKey?'<span class="sorted-stat"><b>'+display(p,extraKey,row)+'</b> '+escape(sortDef.short)+'</span>':'');
+      var viewStats='';
+      if (state.view!=='core' && ['QB','RB','WR','TE'].indexOf(p.pos)!==-1) {
+        // The desktop table is hidden on phones, so render the selected
+        // column view directly in each result card rather than only FP.
+        var viewKeys=columns(p.pos).filter(function (key) {
+          return ['games','points','ppg',extraKey].indexOf(key)===-1;
+        }).slice(0,4);
+        viewStats='<div class="mobile-view-stats" data-view="'+state.view+'">'+
+          viewKeys.map(function (key) {
+            var def=M.metric(key);
+            return '<span class="mobile-view-metric" title="'+escape(def.label)+'"><b>'+display(p,key,row)+
+              '</b><small>'+escape(def.short)+'</small></span>';
+          }).join('')+'</div>';
+      }
       return '<div class="mobile-result"><button type="button" class="mobile-name" data-profile="'+escape(p.id)+'" data-year="'+state.year+'">'+
         escape(p.n)+(p.ryr===state.year?' <span class="rookie-mark">R</span>':'')+' <span class="subdued">'+escape(shortPos(p.pos))+' \u00b7 '+escape(row?row[1]:p.team)+'</span></button>'+
-        '<div class="mobile-stats">'+stats+'</div>'+
+        '<div class="mobile-stats">'+stats+'</div>'+viewStats+
         '<label class="mobile-compare"><input type="checkbox" class="check" data-compare="'+escape(p.id)+'" '+
         (state.compare.some(function (x) {return x.id===p.id&&x.year===state.year;})?'checked':'')+'> Compare</label></div>';
     }).join('') || (state.players.length ? '<p class="empty">No results match these filters.</p>' : '');
@@ -734,6 +785,7 @@
     if (scrollY!=null && year===state.year) window.scrollTo(0,scrollY);
     else window.scrollTo({top:0,behavior:'smooth'});
   }
+  window.LZResearchApp={refresh:renderRoute};
   function loadSeason(year) {
     if (!state.years.includes(year)) year=state.latest;
     state.year=year;state.players=[];state.byId=new Map();state.limit=40;
@@ -773,7 +825,7 @@
       renderTable();renderCompare();return;
     }
     var back=e.target.closest('#return-list');
-    if (back) {var prior=state.listPath||'/research/players';navigate(prior+(prior.includes('?')?'':filterSearch()),false,state.listScroll);return;}
+    if (back) {navigate((state.listPath||'/research/players')+filterSearch(),false,state.listScroll);return;}
     var anchor=e.target.closest('a[data-career-nav],a[href^="/research"]');
     if (anchor) {e.preventDefault();navigate(anchor.getAttribute('href'));return;}
   });
@@ -831,5 +883,4 @@
     $('error').hidden=false;$('error').textContent='Unable to load research seasons: '+error.message;
     $('data-stamp').textContent='Research unavailable';
   });
-  window.LZResearchApp={refresh:renderRoute};
 })();

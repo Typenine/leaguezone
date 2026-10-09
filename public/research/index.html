@@ -42,6 +42,15 @@
     <div id="error" role="alert" hidden></div>
     <section id="tool-panel" hidden aria-live="polite"></section>
     <section id="overview" aria-label="Season leaders">
+      <div class="research-pathways" aria-labelledby="pathways-title">
+        <div class="pathways-heading"><div class="eyebrow">Start with a question</div><h2 id="pathways-title">What would you like to research?</h2><p>Choose a starting point, then adjust the filters and compare players.</p></div>
+        <div class="pathway-grid">
+          <a href="/research/stats?pos=WR&amp;view=usage&amp;sort=tgtShare"><strong>Who is earning targets?</strong><span>WR target share and opportunity</span><span class="pathway-cta">Explore receiving →</span></a>
+          <a href="/research/stats?pos=RB&amp;view=goalline&amp;sort=i5Opp"><strong>Who gets goal-line work?</strong><span>RB opportunities inside the 5</span><span class="pathway-cta">Explore goal line →</span></a>
+          <a href="/research/stats?pos=QB&amp;view=usage&amp;sort=attPg"><strong>Who throws the most?</strong><span>Quarterback passing volume</span><span class="pathway-cta">Explore QBs →</span></a>
+          <a href="/research/stats?rookies=1&amp;sort=ppg"><strong>Which rookies produce?</strong><span>Rookie fantasy points per game</span><span class="pathway-cta">Explore rookies →</span></a>
+        </div>
+      </div>
       <div class="section-head"><div><div class="eyebrow">Season snapshot</div><h2>Top performers by position</h2></div><a href="/research/stats">Full leaderboard →</a></div>
       <div id="leaders" class="leader-grid"><div class="empty">Loading statistics…</div></div>
       <div class="section-head"><div><div class="eyebrow">Explore the research</div><h2>From statistics to decisions</h2></div></div>
@@ -51,6 +60,7 @@
         <a href="/research/development"><strong>Development Lab</strong><span>Follow season trajectories and compare career stages.</span></a>
         <a href="/app"><strong>Roster Opportunity Finder</strong><span>Open a league to check ownership and find possible targets.</span></a>
       </div>
+
     </section>
     <section id="directory" class="directory" aria-labelledby="directory-title">
       <div class="section-head"><div><div class="eyebrow">Player explorer</div><h2 id="directory-title">Season Fantasy Statistics</h2></div><span id="result-count" class="subdued"></span></div>
@@ -66,6 +76,7 @@
         <label class="rookie-toggle"><input type="checkbox" id="rookies"> Rookies only <small>Verified NFL rookie season</small></label>
       </div>
       <div class="filter-meta"><p class="sort-context" id="sort-context" aria-live="polite"></p><button type="button" id="reset-filters" class="mini-link">Reset filters</button></div>
+      <p class="subdued column-hint" id="column-hint" aria-live="polite"></p>
       <p class="subdued usage-status" id="usage-status" aria-live="polite"></p>
       <p class="subdued filter-note" id="games-note" aria-live="polite"></p>
       <div class="table-scroll research-table" role="region" aria-label="Player statistics, scroll horizontally for more columns" tabindex="0">
@@ -80,7 +91,11 @@
         <dt>High / Low</dt><dd>Best and worst single recorded game this season.</dd>
         <dt>Efficiency</dt><dd>Yards per carry = rushing yards &divide; carries. Yards per target = receiving yards &divide; targets. Yards per reception = receiving yards &divide; receptions. Catch % = receptions &divide; targets. Touches = carries + receptions. A zero denominator is shown as missing (&mdash;), not zero.</dd>
         <dt>Qualifying volume</dt><dd>When sorting by an efficiency rate, players below the qualifying volume shown above the table are listed after qualified players.</dd>
-      </dl></details>
+        <dt>Target share and carry share</dt><dd>The player's opportunities divided by their NFL team's opportunities in games where they recorded statistics. Season shares use weighted totals, including team changes.</dd>
+        <dt>Air yards and aDOT</dt><dd>Air yards measure downfield distance on targets. aDOT is air yards divided by targets. Both can be negative and measure opportunity, not guaranteed production.</dd>
+        <dt>Red zone and goal line</dt><dd>Red zone means plays snapped at or inside the opponent's 20; goal line means inside the 5. Carries and targets are recorded whether or not a touchdown occurs. Small-sample conversion rates are descriptive, not projections.</dd>
+        <dt>Data freshness</dt><dd>Advanced statistics update from the same validated week as the core stats. If an advanced file has not caught up, values are shown unavailable rather than mixing seasons or weeks.</dd>
+            </dl></details>
     </section>
     <section id="profile" hidden aria-live="polite"></section>
     <section id="compare-panel" class="compare-panel" hidden aria-live="polite">

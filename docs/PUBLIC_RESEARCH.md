@@ -22,50 +22,6 @@
 - Responsive filters, mobile player result cards, scrollable position-specific
   game logs, accessible profile navigation.
 
-## Opportunity tools (development branch)
-- Opportunity Radar is calculated in the browser from the same season rows as
-  player profiles. It compares the last two recorded games with the previous
-  two. RB: carries + targets. WR/TE: targets. QB: pass attempts from the
-  weekly core game log, with older snapshots using the optional usage file.
-  A volume signal requires both a 1.5
-  opportunity-per-game and 15% difference, plus a game in the last two weeks.
-  QB volume must reach 15 attempts/game in either window, RB volume 5,
-  and WR/TE targets 3. These eligibility cutoffs keep tiny roles out.
-  Fantasy scoring is displayed separately; scoring never decides a volume signal.
-  Volume can change because team plays change even if player share is flat.
-- Prediction Receipts has two distinct cohorts. Historical replay uses each
-  week's available games and evaluates two later games within three weeks.
-  Signals for the same player are spaced three weeks apart. Confirmation means
-  the future opportunity average remains above/below the pre-signal baseline
-  by the same thresholds. The replay is descriptive, reconstructed after the
-  fact, and must not be called forward predictive accuracy.
-- A separate device-local forward ledger locks current-season Radar signals,
-  their observation date, format and baseline, then scores them after two
-  eligible games arrive. It is idempotent and survives refreshes in that
-  browser. Clearing browser storage deletes it. It is not a durable,
-  system-wide ledger; do not advertise a global accuracy rate until an
-  append-only shared publication path has been designed and validated.
-- Development Lab loads available season snapshots lazily, shows per-game
-  trajectories and verified career year, and finds same-position completed
-  historical seasons at the same career year by proximity of FP/game. With
-  only 2023 onward in the archive, these are illustrative comparisons, not
-  projections or a full career comp model. Missing rookie metadata is shown
-  as unverified. Gaps and partial years are visible.
-- Roster Opportunity Finder lives under each league's League navigation.
-  A slug-scoped, rate-limited read endpoint reuses the league's normalized
-  provider roster cache. It sends a slim Sleeper identity catalog when
-  available. GSIS ID or unique name + position + NFL team matches are required
-  before reporting an owner or an unrostered player. Yahoo can establish
-  rostered players but not free agency with the current provider roster feed.
-  Ambiguous matches are excluded. The finder links rostered Sleeper players
-  to the trade analyzer and the existing prospect board for draft work; it
-  does not invent prices, waiver eligibility, or rookie-draft recommendations.
-- Public research pages still make no league API, Neon or Sleeper requests.
-  Only the user-opened league finder loads provider roster data. No new tables
-  or migrations are needed. The core snapshot builder includes QB attempts on
-  each weekly refresh; the separate advanced usage file remains a historical
-  fallback and is not refreshed by the current R2 workflow.
-
 ## Season rollover
 - scripts/build-nflverse-research.py uses the current NFL season by default
   (the previous calendar year during January–August) or accepts explicit
@@ -379,3 +335,81 @@ Same contract as advanced usage: publish `/research/data/redzone/{season}.json` 
 - The advanced usage and red-zone datasets currently ship as Vercel static files at `/research/data/usage/` and `/research/data/redzone/`. They are not yet included in the base R2 catalog or automated uploader.
 - Do not claim usage/red-zone advanced statistics remain current after the R2 base dataset moves beyond the matching advanced snapshot. The UI fails closed to core stats if snapshot weeks or base version disagree.
 - Follow-up integration must extend the validated refresh/publishing workflow for both advanced datasets, upload immutable objects before their manifests, and preserve both history and fallback behavior. This must be tested before a full season of operation.
+
+## Unified weekly research publication
+
+The scheduled GitHub Action rebuilds the current NFL season's three datasets
+(core, advanced usage and red zone) from nflverse, validates each against the
+same base season and publishes one atomic R2 catalog. It does not update Neon
+or commit weekly files to GitHub, so routine weekly publication creates no
+Vercel build.
+
+The catalog retains its existing "files" dictionary for base season files and
+adds "datasets" for the two advanced datasets. Each group has a schema, years
+and files indexed by year. Advanced object metadata includes baseUpdated to
+confirm exact week/version alignment.
+
+All three kinds use the existing Worker path:
+research/v1/objects/{year}-{sha256}.json. No new Worker routing is required.
+The publish job uploads all changed immutable objects, verifies their bytes
+by authenticated R2 GET and only then moves research/v1/catalog.json.
+Failure preserves the prior valid catalog; historical archives are retained.
+
+Client downloads are lazy. The browser matches throughWeek and baseUpdated
+against its selected core snapshot. Archived local files are used as fallback
+only when both match. Otherwise, advanced values are unavailable with a
+visible explanation rather than silently mixing older usage with newer points.
+
+### Research entry points
+
+LeagueZone's homepage links directly to public research. The research
+overview provides working one-click starts for target share, goal-line
+opportunities, quarterback passing volume and rookie production. Mobile
+result cards now display position-specific selected Columns metrics.
+The public sitemap includes the three main research URLs and core public
+landing pages, while robots.txt continues excluding private league URLs.
+
+## Opportunity tools prototypes (unreleased)
+- Opportunity Radar is calculated in the browser from the same season rows as
+  player profiles. It compares the last two recorded games with the previous
+  two. RB: carries + targets. WR/TE: targets. QB: pass attempts from the
+  weekly core game log, with older snapshots using the optional usage file.
+  A volume signal requires both a 1.5
+  opportunity-per-game and 15% difference, plus a game in the last two weeks.
+  QB volume must reach 15 attempts/game in either window, RB volume 5,
+  and WR/TE targets 3. These eligibility cutoffs keep tiny roles out.
+  Fantasy scoring is displayed separately; scoring never decides a volume signal.
+  Volume can change because team plays change even if player share is flat.
+- Prediction Receipts has two distinct cohorts. Historical replay uses each
+  week's available games and evaluates two later games within three weeks.
+  Signals for the same player are spaced three weeks apart. Confirmation means
+  the future opportunity average remains above/below the pre-signal baseline
+  by the same thresholds. The replay is descriptive, reconstructed after the
+  fact, and must not be called forward predictive accuracy.
+- A separate device-local forward ledger locks current-season Radar signals,
+  their observation date, format and baseline, then scores them after two
+  eligible games arrive. It is idempotent and survives refreshes in that
+  browser. Clearing browser storage deletes it. It is not a durable,
+  system-wide ledger; do not advertise a global accuracy rate until an
+  append-only shared publication path has been designed and validated.
+- Development Lab loads available season snapshots lazily, shows per-game
+  trajectories and verified career year, and finds same-position completed
+  historical seasons at the same career year by proximity of FP/game. With
+  only 2023 onward in the archive, these are illustrative comparisons, not
+  projections or a full career comp model. Missing rookie metadata is shown
+  as unverified. Gaps and partial years are visible.
+- Roster Opportunity Finder lives under each league's League navigation.
+  A slug-scoped, rate-limited read endpoint reuses the league's normalized
+  provider roster cache. It sends a slim Sleeper identity catalog when
+  available. GSIS ID or unique name + position + NFL team matches are required
+  before reporting an owner or an unrostered player. Yahoo can establish
+  rostered players but not free agency with the current provider roster feed.
+  Ambiguous matches are excluded. The finder links rostered Sleeper players
+  to the trade analyzer and the existing prospect board for draft work; it
+  does not invent prices, waiver eligibility, or rookie-draft recommendations.
+- Public research pages still make no league API, Neon or Sleeper requests.
+  Only the user-opened league finder loads provider roster data. No new tables
+  or migrations are needed. The core snapshot builder includes QB attempts on
+  each weekly refresh; the separate advanced usage file remains a historical
+  fallback and is not refreshed by the current R2 workflow.
+

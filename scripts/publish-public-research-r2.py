@@ -19,6 +19,7 @@ from urllib.request import Request, urlopen
 SOURCE = Path(__file__).resolve().parents[1] / "public" / "research" / "data"
 PREFIX = "research/v1"
 CATALOG_KEY = PREFIX + "/catalog.json"
+DATASETS = ("usage", "redzone")
 
 
 class PublicWorkerBlocked(RuntimeError):
@@ -76,6 +77,10 @@ def build_catalog(data_dir: Path, old_catalog: dict | None = None):
         key = f"{PREFIX}/objects/{year}-{hexdigest}.json"
         prior_file = prior.get("files", {}).get(str(year), {})
         if int(prior_file.get("throughWeek", 0)) > int(d.get("throughWeek", 0)):
+            # Git never stores weekly refreshes. Once a later season is built,
+            # the checked-in fallback of an old year may lag the R2 archive.
+            if year < max(local_years):
+                continue
             raise ValueError(f"Refusing to regress archived {year} from week "
                              f"{prior_file['throughWeek']} to week {d['throughWeek']}")
         if (prior_file.get("sha256") == hexdigest and
@@ -93,7 +98,56 @@ def build_catalog(data_dir: Path, old_catalog: dict | None = None):
         }
     if set(files) != {str(year) for year in years}:
         raise ValueError("Incomplete remote season catalog")
-    catalog = {"schema": 1, "years": years, "files": files}
+    # Advanced datasets share the same immutable Worker-visible object namespace.
+    # The one catalog is the atomic pointer for base, usage and red-zone records.
+    # A base season must never advance without matching usage and red-zone data.
+    datasets = {}
+    for kind in DATASETS:
+        folder = data_dir / kind
+        manifest_path = folder / "seasons.json"
+        if not manifest_path.exists():
+            raise ValueError(f"Missing {kind} season manifest; refusing an incomplete refresh")
+        manifest = json.loads(manifest_path.read_text())
+        local = sorted(int(p.stem) for p in folder.glob("20[0-9][0-9].json"))
+        if manifest != {"schema": 1, "years": local} or set(local) != set(local_years):
+            raise ValueError(f"{kind} seasons do not match base seasons")
+        previous = (prior.get("datasets") or {}).get(kind, {})
+        if previous and (previous.get("schema") != 1 or
+                         not isinstance(previous.get("files"), dict) or
+                         not isinstance(previous.get("years"), list)):
+            raise ValueError(f"Unrecognized {kind} remote catalog")
+        old_kind_years = previous.get("years", [])
+        if len(set(old_kind_years)) != len(old_kind_years):
+            raise ValueError(f"Duplicate {kind} remote seasons")
+        kind_files = dict(previous.get("files", {}))
+        for year in local:
+            base = json.loads((data_dir / f"{year}.json").read_text())
+            snapshot = json.loads((folder / f"{year}.json").read_text())
+            if (snapshot.get("schema") != 1 or snapshot.get("year") != year or
+                    snapshot.get("throughWeek") != base["throughWeek"] or
+                    snapshot.get("baseUpdated") != base["updated"]):
+                raise ValueError(f"{kind} {year} does not match base season/version")
+            checksum = digest(snapshot)
+            key = f"{PREFIX}/objects/{year}-{checksum}.json"
+            previous_info = previous.get("files", {}).get(str(year), {})
+            if int(previous_info.get("throughWeek", 0)) > snapshot["throughWeek"]:
+                if year < max(local_years):
+                    continue  # Retain the newer immutable historical R2 object.
+                raise ValueError(f"Refusing to regress {kind} {year}")
+            if previous_info.get("sha256") == checksum and previous_info.get("key") == key:
+                kind_files[str(year)] = previous_info
+                continue
+            raw = (json.dumps(snapshot, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
+            uploads.append((key, raw))
+            kind_files[str(year)] = {
+                "key": key, "sha256": checksum, "throughWeek": snapshot["throughWeek"],
+                "updated": snapshot["updated"], "baseUpdated": snapshot["baseUpdated"],
+            }
+        kind_years = sorted(set(local) | set(old_kind_years))
+        if set(kind_files) != {str(y) for y in kind_years}:
+            raise ValueError(f"Incomplete archived {kind} catalog")
+        datasets[kind] = {"schema": 1, "years": kind_years, "files": kind_files}
+    catalog = {"schema": 1, "years": years, "files": files, "datasets": datasets}
     return catalog, uploads
 
 
@@ -187,7 +241,29 @@ def verify_r2_objects(client, bucket: str, catalog: dict):
         expected_key = f"{PREFIX}/objects/{year}-{info['sha256']}.json"
         if key != expected_key:
             raise RuntimeError(f"R2 object key verification failed: {year}")
-    print(f"Verified {len(catalog['years'])} R2 season objects using authenticated GET and SHA-256.", flush=True)
+    verified = len(catalog["years"])
+    for kind, group in (catalog.get("datasets") or {}).items():
+        if kind not in DATASETS or group.get("schema") != 1:
+            raise RuntimeError(f"Unknown published dataset {kind}")
+        for year in group["years"]:
+            info = group["files"][str(year)]
+            key = info["key"]
+            expected = f"{PREFIX}/objects/{year}-{info['sha256']}.json"
+            if key != expected:
+                raise RuntimeError(f"Invalid {kind} R2 object key: {year}")
+            raw = client.get_object(Bucket=bucket, Key=key)["Body"].read()
+            payload = json.loads(raw)
+            base = catalog["files"].get(str(year), {})
+            if (payload.get("year") != year or payload.get("schema") != 1 or
+                    payload.get("throughWeek") != info["throughWeek"] or
+                    payload.get("baseUpdated") != info.get("baseUpdated") or
+                    payload.get("throughWeek") != base.get("throughWeek") or
+                    payload.get("baseUpdated") != base.get("updated")):
+                raise RuntimeError(f"{kind} R2 snapshot not aligned with base: {year}")
+            if digest(payload) != info["sha256"]:
+                raise RuntimeError(f"{kind} R2 SHA-256 verification failed: {year}")
+            verified += 1
+    print(f"Verified {verified} R2 research objects using authenticated GET and SHA-256.", flush=True)
 
 
 def publish(client, bucket: str, base: str, catalog: dict, uploads: list, old: dict | None):
@@ -209,21 +285,21 @@ def publish(client, bucket: str, base: str, catalog: dict, uploads: list, old: d
     # permit ONLY a Cloudflare 403 after source bytes pass the independent S3
     # check; other failures remain fatal. Public browser/CORS checks are required.
     allow_edge_403 = os.environ.get("RESEARCH_R2_ALLOW_CLOUDFLARE_403") == "true"
-    for year in catalog["years"]:
-        info = catalog["files"][str(year)]
-        if not any(key == info["key"] for key, _ in uploads):
-            continue
+    for key, _ in uploads:
         try:
-            public_check(base, info["key"], info["sha256"])
+            public_check(base, key, next(
+                info["sha256"] for info in
+                list(catalog["files"].values()) +
+                [v for d in catalog["datasets"].values() for v in d["files"].values()]
+                if info["key"] == key
+            ))
         except PublicWorkerBlocked as error:
             if not allow_edge_403:
                 raise
             print(
-                f"WARNING: Cloudflare denied GitHub runner public verification "
-                f"for {year} (403). Authenticated R2 SHA-256 verified. "
-                "The Worker was independently confirmed via incognito browser; "
-                "production browser/CORS checks are still required. "
-                f"Cloudflare response: {error}", flush=True
+                f"WARNING: Cloudflare denied runner public verification for {key} (403); "
+                f"authenticated R2 SHA-256 verified. Browser CORS checks remain required. {error}",
+                flush=True,
             )
 
     if catalog == old:
@@ -254,8 +330,22 @@ def main():
     spec = spec_from_file_location("research_validator", validator_path)
     module = module_from_spec(spec)
     spec.loader.exec_module(module)
-    for year in sorted(int(p.stem) for p in SOURCE.glob("20[0-9][0-9].json")):
+    from importlib.util import module_from_spec, spec_from_file_location
+    local_years = sorted(int(p.stem) for p in SOURCE.glob("20[0-9][0-9].json"))
+    for year in local_years:
         module.verify(year)
+    for kind in DATASETS:
+        path = Path(__file__).with_name(f"validate-research-{kind}.py")
+        spec = spec_from_file_location(f"{kind}_validator", path)
+        validator = module_from_spec(spec)
+        spec.loader.exec_module(validator)
+        check = getattr(validator, f"validate_{kind}")
+        for year in local_years:
+            base = json.loads((SOURCE / f"{year}.json").read_text())
+            snapshot = json.loads((SOURCE / kind / f"{year}.json").read_text())
+            issues = check(snapshot, base)
+            if issues:
+                raise ValueError(f"{kind} {year} invalid: " + "; ".join(issues[:4]))
     if args.dry_run:
         catalog, uploads = build_catalog(SOURCE)
         print(f"Validated upload plan: {len(catalog['years'])} seasons, {len(uploads)} immutable files")
