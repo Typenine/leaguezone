@@ -46,22 +46,29 @@ def digest(payload: dict) -> str:
 
 
 def build_catalog(data_dir: Path, old_catalog: dict | None = None):
-    years = sorted(int(p.stem) for p in data_dir.glob("20[0-9][0-9].json"))
+    """Keep archived remote years even after ephemeral build jobs roll over.
+
+    The workflow never commits new season JSON back to Git, so historical
+    2027.json won't exist in the 2028 checkout. Treat the remote R2 catalog as
+    an immutable-history index and update only locally generated seasons.
+    """
+    local_years = sorted(int(p.stem) for p in data_dir.glob("20[0-9][0-9].json"))
     manifest = json.loads((data_dir / "seasons.json").read_text())
-    if manifest != {"years": years} or not years:
-        raise ValueError("Invalid season index: publication aborted")
+    if manifest != {"years": local_years} or not local_years:
+        raise ValueError("Invalid local season index: publication aborted")
     prior = old_catalog or {}
     if prior and (prior.get("schema") != 1 or
-                  not isinstance(prior.get("files"), dict)):
+                  not isinstance(prior.get("files"), dict) or
+                  not isinstance(prior.get("years"), list)):
         raise ValueError("Unrecognized remote catalog; cannot safely overwrite")
-    # Never drop a historical season from the remote catalog.
-    prior_years = prior.get("years", [])
-    if not set(prior_years).issubset(years):
-        raise ValueError("Season history regression; refusing to drop older years")
 
+    old_years = prior.get("years", [])
+    if len(set(old_years)) != len(old_years):
+        raise ValueError("Duplicate seasons in remote catalog")
+    years = sorted(set(local_years) | set(old_years))
     uploads = []
-    files = {}
-    for year in years:
+    files = dict(prior.get("files", {}))
+    for year in local_years:
         d = json.loads((data_dir / f"{year}.json").read_text())
         if d.get("year") != year or d.get("schema") != 3 or len(d.get("players", [])) < 100:
             raise ValueError(f"Invalid research snapshot for {year}")
@@ -71,16 +78,21 @@ def build_catalog(data_dir: Path, old_catalog: dict | None = None):
         if (prior_file.get("sha256") == hexdigest and
                 prior_file.get("key") == key):
             files[str(year)] = prior_file
-        else:
-            raw = (json.dumps(d, separators=(",", ":"), ensure_ascii=False)
-                   + "\n").encode("utf-8")
-            uploads.append((key, raw))
-            files[str(year)] = {
-                "key": key,
-                "sha256": hexdigest,
-                "throughWeek": d["throughWeek"],
-                "updated": d["updated"],
-            }
+            continue
+        if int(prior_file.get("throughWeek", 0)) > int(d.get("throughWeek", 0)):
+            raise ValueError(f"Refusing to regress archived {year} from week "
+                             f"{prior_file['throughWeek']} to week {d['throughWeek']}")
+        raw = (json.dumps(d, separators=(",", ":"), ensure_ascii=False)
+               + "\n").encode("utf-8")
+        uploads.append((key, raw))
+        files[str(year)] = {
+            "key": key,
+            "sha256": hexdigest,
+            "throughWeek": d["throughWeek"],
+            "updated": d["updated"],
+        }
+    if set(files) != {str(year) for year in years}:
+        raise ValueError("Incomplete remote season catalog")
     catalog = {"schema": 1, "years": years, "files": files}
     return catalog, uploads
 
