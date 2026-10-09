@@ -115,7 +115,12 @@ def public_check(base: str, key: str, expected_sha: str | None = None):
     """Verify public GET and browser CORS, never reveal credentials."""
     url = base.rstrip("/") + "/" + key
     origin = os.getenv("RESEARCH_R2_SITE_ORIGIN", "https://www.leaguezonehq.com").strip()
-    request = Request(url, headers={"Origin": origin, "Cache-Control": "no-cache"})
+    request = Request(url, headers={
+        "Origin": origin,
+        "Cache-Control": "no-cache",
+        "User-Agent": "LeagueZoneResearchVerifier/1.0 (+https://www.leaguezonehq.com)",
+        "Accept": "application/json",
+    })
     try:
         with urlopen(request, timeout=15) as response:
             headers = response.headers
@@ -124,7 +129,19 @@ def public_check(base: str, key: str, expected_sha: str | None = None):
                 raise RuntimeError(f"R2 CORS does not allow {origin} for {key}")
             body = response.read()
     except HTTPError as error:
-        raise RuntimeError(f"Public R2 URL returned HTTP {error.code}: {key}") from error
+        # Diagnostic details of a public read only. Avoid logging credentials
+        # or query parameters. Cloudflare may block automated requests before
+        # they reach the Worker.
+        body = error.read(350).decode("utf-8", "replace")
+        cf_ray = error.headers.get("cf-ray", "none")
+        server = error.headers.get("server", "unknown")
+        mitigation = error.headers.get("cf-mitigated", "none")
+        raise RuntimeError(
+            f"Public Worker returned HTTP {error.code} for {key}; "
+            f"server={server}, cf-ray={cf_ray}, cf-mitigated={mitigation}; "
+            f"response-prefix={body!r}. Inspect Worker/Cloudflare access "
+            "rules and confirm this URL works in a private browser session."
+        ) from error
     except URLError as error:
         raise RuntimeError(f"Public R2 URL not reachable: {key}") from error
     if expected_sha:
