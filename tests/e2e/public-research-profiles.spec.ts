@@ -119,4 +119,15 @@ test.describe('research profiles and comparisons', () => {
     expect(overflow).toBeLessThanOrEqual(0);
     await page.locator('#compare-panel').screenshot({ path: test.info().outputPath('research-compare-360.png') });
   });
+
+  test('players with fewer than 3 games show missing consistency, not 0.0', async ({ page }) => {
+    const p = season(2025).players.find(x => x.pos === 'WR' && x.g === 2)!;
+    await page.goto(`/research/players/${p.id}?season=2025`);
+    const summary = page.locator('#profile-summary');
+    await expect(summary).toContainText('Games with stats');
+    const sd = summary.locator('.metric', { hasText: 'Weekly std. dev.' });
+    await expect(sd.locator('.missing')).toHaveCount(1);
+    await expect(sd).toContainText('Needs 3+ recorded games');
+    await expect(sd.locator('.value')).not.toContainText('0.0');
+  });
 });

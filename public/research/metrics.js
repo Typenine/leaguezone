@@ -108,7 +108,7 @@
     return def;
   }
   var METRICS = [
-    m('games','GP','Games played','fantasy','all',{week:false, value:function (l) { return l.games; }}),
+    m('games','GP','Games with a recorded stat (nflverse lists no row for games without one)','fantasy','all',{week:false, value:function (l) { return l.games; }}),
     m('points','FP','Fantasy points','fantasy','all',{decimals:1, value:fp}),
     m('ppg','FP/G','Fantasy points per game','fantasy','all',{week:false, decimals:1,
       value:function (l,c) { return ratio(fp(l,c), l.games); }}),

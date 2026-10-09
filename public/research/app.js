@@ -220,14 +220,14 @@
     var container=$('profile');
     if (!p) {container.hidden=true; return;}
     var ext=M.extremes(p,state.score), cons=M.consistency(p,state.score);
-    var lowNote=ext?'Week '+ext.low.week:null, highNote=ext?'Week '+ext.high.week:null;
+    var lowNote=ext.low?'Week '+ext.low.week:null, highNote=ext.high?'Week '+ext.high.week:null;
     var summary=metric('Fantasy points',fmt(score(p)),SCORING_LABELS[state.score])+
-      metricFor(p,'ppg','Full-season average')+metric('Games played',p.g,'Recorded games')+
+      metricFor(p,'ppg','Full-season average')+metric('Games with stats',p.g,'Games with a recorded stat')+
       metricFor(p,'last3','Last 3 games avg')+metricFor(p,'last5','Last 5 games avg')+
-      metric('Season high',ext?fmt(ext.high.points):null,highNote,ext?null:'No recorded games')+
-      metric('Season low',ext?fmt(ext.low.points):null,lowNote,ext?null:'No recorded games')+
-      metric('Weekly std. dev.',cons?fmt(cons.sd):null,cons?'Lower is steadier':null,
-        cons?null:'Needs '+M.MIN_CONSISTENCY_GAMES+'+ recorded games')+
+      metric('Season high',ext.high?fmt(ext.high.points):null,highNote,ext.high?null:'No recorded games')+
+      metric('Season low',ext.low?fmt(ext.low.points):null,lowNote,ext.low?null:'No recorded games')+
+      metric('Weekly std. dev.',cons.sd!=null?fmt(cons.sd):null,cons.sd!=null?'Lower is steadier':null,
+        cons.sd!=null?null:'Needs '+M.MIN_CONSISTENCY_GAMES+'+ recorded games')+
       metricFor(p,'volatility','Volatility (SD / avg)');
     var positional=(M.PROFILE_KEYS[p.pos]||[]).map(function (key) {return metricFor(p,key);}).join('');
     var weekKeys=columns(p.pos).filter(function (k) {return k!=='games';});
@@ -317,7 +317,7 @@
       return '<div class="panel compare-card"><div class="eyebrow">'+(i?'B':'A')+' \u00b7 '+escape(item.year+' \u00b7 '+shortPos(item.pos))+'</div>'+
         '<h2>'+escape(item.name)+'</h2>'+
         metric('Fantasy points',fmt(M.compute('points',item.player,cmpOpts(item))),'Season total')+
-        metric('Games played',item.player.g,coverageNote(item.year,item.throughWeek))+
+        metric('Games with stats',item.player.g,coverageNote(item.year,item.throughWeek))+
         metric('Team',item.team)+
         '<button type="button" class="mini-link" data-remove-compare="'+item.year+':'+escape(item.id)+'">Remove</button></div>';
     }).join('');
