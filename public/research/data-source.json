@@ -1,5 +1,5 @@
 {
   "schema": 1,
   "publicBase": "",
-  "note": "R2 delivery is inactive until a verified production custom domain is configured. Static validated datasets remain the fallback."
+  "note": "R2 delivery stays inactive until the Cloudflare Worker origin and initial upload are verified. Static validated datasets remain the fallback."
 }
