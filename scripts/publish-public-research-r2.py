@@ -139,7 +139,7 @@ def publish(client, bucket: str, base: str, catalog: dict, uploads: list, old: d
         if int(head.get("ContentLength", -1)) != len(raw):
             raise RuntimeError(f"R2 object incomplete: {key}")
         print(f"Published immutable research object: {key}")
-    # The bucket public custom domain and CORS should be provisioned first.
+    # A verified HTTPS Cloudflare Worker (workers.dev or custom domain) must serve the bucket with CORS.
     # Verify at least the newly written version before changing the pointer.
     for year in catalog["years"]:
         info = catalog["files"][str(year)]
@@ -183,7 +183,7 @@ def main():
     bucket = required("RESEARCH_R2_BUCKET")
     base = required("RESEARCH_R2_PUBLIC_BASE")
     if not base.startswith("https://") or "r2.dev" in base.lower():
-        raise RuntimeError("RESEARCH_R2_PUBLIC_BASE must be a production HTTPS custom domain")
+        raise RuntimeError("RESEARCH_R2_PUBLIC_BASE must be a secure HTTPS Worker or custom domain, not r2.dev")
     client = create_client()
     existing = read_remote_catalog(client, bucket)
     catalog, uploads = build_catalog(SOURCE, existing)
