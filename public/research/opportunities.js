@@ -228,7 +228,9 @@
     (teams||[]).forEach(function (team) { (team.players||[]).forEach(function (id) {teamById.set(id,team);}); });
     return players.map(function (p) {
       var gsis=byGsis.get(p.id)||[];
-      var ids=gsis.length===1?gsis:lookup.get(key(p))||[];
+      // Conflicting explicit GSIS mappings override weaker name matches:
+      // uncertainty cannot be cured by guessing from a display name.
+      var ids=gsis.length>1?[]:gsis.length===1?gsis:lookup.get(key(p))||[];
       // NFL team labels for recently traded players may lag. Never assign an
       // owner based on name alone when the identity is not exact.
       var id=ids.length===1?ids[0]:null;

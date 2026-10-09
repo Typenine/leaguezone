@@ -72,6 +72,15 @@ describe('Opportunity Radar and historical receipts', () => {
     expect(O.ownership(players,teams,providers,[])[1].match).toBe('unmatched');
   });
 
+  it('rejects conflicting explicit GSIS mappings even if a name match is unique', () => {
+    const record=[{id:'00-1',n:'Player Alpha',pos:'WR',team:'SEA'}];
+    const catalog=[
+      {id:'s1',gsisId:'00-1',name:'Player Alpha',position:'WR',team:'SEA'},
+      {id:'s2',gsisId:'00-1',name:'Wrong Player',position:'WR',team:'MIN'},
+    ];
+    expect(O.ownership(record,[],{},catalog)[0].match).toBe('unmatched');
+  });
+
   it('handles padded GSIS IDs, team aliases and missing name suffixes without guessing ambiguous identities', () => {
     const players=[{id:'00-0035057',n:'Ellis Richardson',pos:'RB',team:'SEA'},
       {id:'00-2',n:'Marvin Harrison Jr.',pos:'WR',team:'ARI'},

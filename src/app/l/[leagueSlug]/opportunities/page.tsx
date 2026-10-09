@@ -8,7 +8,7 @@ import opportunityEngine from '../../../../../public/research/opportunities.js';
 type Signal = {
   id: string; name: string; team: string; pos: string; week: number;
   baseline: number; recent: number; change: number; direction: 'rising' | 'falling'; metric: string;
-  scoringBefore: number; scoringRecent: number; scoringChange: number;
+  scoringBefore: number; scoringRecent: number; scoringChange: number; relativeChange?: number;
 };
 type ResearchPlayer = { id: string; n: string; team: string; pos: string; ryr: number | null;
   w: Array<[number, string, number, number, number, number, number, ...number[]]>;
@@ -141,13 +141,33 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
     return { signals: signals.map((signal, i) => ({signal, ...owners[i]})),
       unmatched: owners.filter((o) => o.match === 'unmatched').length };
   }, [season, rosters, scoring]);
-  const visible = useMemo(() => report?.signals.filter(({signal, owner, match}) => {
+  const visible = useMemo(() => {
+    const sleeperRoster = rosters?.provider === 'sleeper';
+    return report?.signals.filter(({signal, owner, match}) => {
     if (position !== 'ALL' && signal.pos !== position) return false;
     if (category === 'trade') return Boolean(teamId && owner && String(owner.rosterId) !== teamId && match !== 'unmatched');
     if (category === 'roster') return Boolean(owner && String(owner.rosterId) === teamId);
     // Yahoo does not expose a complete authoritative free-agent player pool here.
-    return rosters.provider === 'sleeper' && !owner && match === 'catalog';
-  }).sort((a, b) => Math.abs(b.signal.change) - Math.abs(a.signal.change)) || [], [report, category, position, teamId, rosters]);
+    return sleeperRoster && !owner && match === 'catalog';
+  }).sort((a, b) => (b.signal.relativeChange || 0) - (a.signal.relativeChange || 0)
+    || Math.abs(b.signal.change) - Math.abs(a.signal.change)) || [];
+  }, [report, category, position, teamId, rosters]);
+
+  const rosterContext = useMemo(() => {
+    const snapshot=rosters;
+    if (!snapshot || !teamId) return null;
+    const positions=['QB','RB','WR','TE'];
+    const count=(team: FantasyRostersData['teams'][number],pos:string) =>
+      team.players.filter((id)=>snapshot.players[id]?.position===pos).length;
+    const selected=snapshot.teams.find((team)=>String(team.rosterId)===teamId);
+    if (!selected) return null;
+    return positions.map((pos)=>{
+      const sorted=snapshot.teams.map((team)=>count(team,pos)).sort((a,b)=>a-b);
+      const mid=Math.floor(sorted.length/2);
+      const median=sorted.length ? sorted.length%2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2 : 0;
+      return {pos,mine:count(selected,pos),median};
+    });
+  },[rosters,teamId]);
 
   return <main className="container mx-auto px-4 py-8 pb-28 text-[var(--text)]">
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -172,6 +192,18 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
         </select></label>
         <div className="text-xs text-[var(--muted)]"><span className="font-bold text-[var(--text)]">{rosters.season} season</span><br/>Research through Week {season.throughWeek}<br/>Updated {season.updated}</div>
       </div>
+      {rosterContext && <section className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-label="Roster construction">
+        <h2 className="mb-2 text-sm font-bold">Your roster construction</h2>
+        <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+          {rosterContext.map(({pos,mine,median})=><div key={pos} className="rounded border border-[var(--border)] p-2">
+            <span className="font-bold">{pos}</span> <span className="text-[var(--muted)]">{mine} players</span>
+            <p className="text-xs text-[var(--muted)]">League median: {median}</p>
+          </div>)}
+        </div>
+        <p className="mt-2 text-xs text-[var(--muted)]">Roster counts provide context only. They do not measure player quality, lineup requirements, injury risk or trade feasibility.</p>
+      </section>}
+      {rosters.leaguePpr != null && ![0,0.5,1].includes(rosters.leaguePpr) &&
+        <p className="mb-4 text-xs text-[var(--muted)]">This league has custom PPR ({rosters.leaguePpr}); the selected standard research scoring view is an approximation, not exact league scoring.</p>}
       <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Opportunity category">
         {(['trade','waiver','roster'] as const).map((key) => <button type="button" key={key} onClick={() => setCategory(key)} aria-pressed={category===key}
           className={`rounded-lg border px-4 py-2 text-sm font-bold ${category===key?'border-[var(--accent)] bg-accent-soft text-accent':'border-[var(--border)] text-[var(--muted)]'}`}>
