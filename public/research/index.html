@@ -22,7 +22,7 @@
     </div>
   </header>
   <main class="wrap">
-    <div class="eyebrow">NFL Fantasy Research · 2023–2026</div>
+    <div class="eyebrow">NFL Fantasy Research · <span id="research-year-range">Historical seasons</span></div>
     <section class="intro">
       <h1 id="page-title">A clearer look at every player.</h1>
       <p id="page-desc">Explore current-season fantasy production, discover statistical leaders, compare players, and review weekly game logs. No account or league connection required.</p>
@@ -38,25 +38,29 @@
     </section>
     <section id="directory" class="directory" aria-labelledby="directory-title">
       <div class="section-head"><div><div class="eyebrow">Player explorer</div><h2 id="directory-title">Season Fantasy Statistics</h2></div><span id="result-count" class="subdued"></span></div>
-      <div class="toolbar">
-        <label>Season <select id="year"><option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option></select></label>
+      <div class="toolbar" role="group" aria-label="Research filters">
+        <label>Season <select id="year" aria-label="Season"><option value="">Loading seasons…</option></select></label>
+        <label>Leaderboard <select id="week" aria-label="Week"><option value="0">Season totals</option></select></label>
         <label class="search-field">Search player <input type="search" id="search" placeholder="Name or NFL team" autocomplete="off"></label>
         <label>Position <select id="position"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option><option value="DEF">DEF/DST</option></select></label>
         <label>Scoring <select id="scoring"><option value="half">Half PPR</option><option value="ppr">Full PPR</option><option value="standard">Standard</option></select></label>
-        <label>Sort by <select id="sort"><option value="points">Total points</option><option value="ppg">Points/game</option><option value="targets">Targets</option><option value="touches">Carries + catches</option><option value="yards">Receiving yards</option><option value="passing">Passing yards</option><option value="rushing">Rushing yards</option></select></label>
-        <label>Minimum games <select id="games"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+        <label>Sort by <select id="sort" aria-label="Sort by"><option value="points">FP</option></select></label>
+        <label>Minimum games <select id="games" aria-label="Minimum games"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="8">8</option><option value="12">12</option></select></label>
+        <label class="rookie-toggle"><input type="checkbox" id="rookies"> Rookies only <small>Verified NFL rookie season</small></label>
       </div>
-      <div class="table-scroll">
-        <table><thead><tr><th>Player</th><th>Pos</th><th>Team</th><th class="num">GP</th><th class="num">FP</th><th class="num">PPG</th><th class="num">Targets</th><th class="num">Receptions</th><th class="num">Carries</th><th class="num">Rec yds</th><th>Compare</th></tr></thead><tbody id="players-body"><tr><td colspan="11" class="empty">Loading…</td></tr></tbody></table>
+      <p class="subdued filter-note" id="games-note" aria-live="polite"></p>
+      <div class="table-scroll research-table" role="region" aria-label="Player statistics, scroll horizontally for more columns" tabindex="0">
+        <table><thead id="players-head"><tr><th>Player</th><th>FP</th></tr></thead><tbody id="players-body"><tr><td colspan="2" class="empty">Loading…</td></tr></tbody></table>
       </div>
+      <div id="mobile-results" class="mobile-results" aria-label="Research results"></div>
       <div class="table-foot"><span id="shown-count" class="subdued"></span><button id="more" class="btn outline" type="button">Show more players</button></div>
     </section>
     <section id="profile" hidden aria-live="polite"></section>
     <section id="compare-panel" class="compare-panel" hidden aria-live="polite">
       <div class="section-head"><div><div class="eyebrow">Head-to-head</div><h2>Player comparison</h2></div><button type="button" id="clear-compare" class="btn outline">Clear comparison</button></div>
-      <div id="compare-grid" class="comparison"></div>
+      <div id="compare-grid" class="comparison"></div><p id="compare-notice" class="subdued" role="status"></p>
     </section>
-    <section class="source-note"><h2>About these statistics</h2><p>Player and team statistics come directly from <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noopener noreferrer">nflverse</a>, under CC BY 4.0, subject to underlying data rights. Fantasy points use nflverse PPR values; half-PPR and standard adjust receptions. Kicker scoring uses 3/4/5 points by field-goal distance and 1 per made PAT. Defense/ST points are calculated using sacks, turnovers, touchdowns, safeties, blocked kicks, and game scoreboard points allowed. DST scoring varies by provider, and opponent defensive scores may affect the points-allowed calculation. Custom league scoring, snap counts, and verified rookie filters are not currently available. Data is updated after completed NFL weeks and may change following stat corrections.</p></section>
+    <section class="source-note"><h2>About these statistics</h2><p>Player and team statistics come directly from <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noopener noreferrer">nflverse</a>, under CC BY 4.0, subject to underlying data rights. Fantasy points use nflverse PPR values; half-PPR and standard adjust receptions. Kicker scoring uses 3/4/5 points by field-goal distance and 1 per made PAT. Defense/ST points are calculated using sacks, turnovers, touchdowns, safeties, blocked kicks, and game scoreboard points allowed. DST scoring varies by provider, and opponent defensive scores may affect the points-allowed calculation. Rookie seasons are sourced from historical nflverse player metadata when available, excluding unverifiable records from rookie-only results. Custom league scoring and snaps are not supported. Data may change following stat corrections. DST point totals are estimates, not official Sleeper or ESPN scoring.</p></section>
   </main>
   <footer class="wrap footer"><span>LeagueZone · Independent fantasy research</span><a href="/">LeagueZone HQ</a></footer>
 </body>
