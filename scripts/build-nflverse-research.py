@@ -93,8 +93,7 @@ def dst_points(row: dict, allowed: int) -> float:
     ] if allowed <= limit), -4)
     return round(number(row, "def_sacks") + 2 * number(row, "def_interceptions")
         + 2 * number(row, "fumble_recovery_opp")
-        + 6 * (number(row, "def_tds") + number(row, "fumble_recovery_tds")
-               + number(row, "special_teams_tds"))
+        + 6 * (number(row, "def_tds") + number(row, "special_teams_tds"))
         + 2 * (number(row, "def_safeties") + number(row, "def_punt_blocks")
                + number(row, "def_fg_blocks"))
         + pa_bonus, 2)
@@ -103,6 +102,17 @@ def dst_points(row: dict, allowed: int) -> float:
 def build_season(season: int, stats: list[dict], teams: list[dict], schedule: list[dict], stamp: str) -> dict:
     through = completed_weeks(schedule, season)
     by_id: dict[str, dict] = {}
+    valid_games = {}
+    for game in schedule:
+        if int(game.get("season") or 0) != season or game.get("game_type") != "REG":
+            continue
+        week = int(game.get("week") or 0)
+        if not 1 <= week <= through:
+            continue
+        for team, opponent in ((game.get("home_team"), game.get("away_team")),
+                               (game.get("away_team"), game.get("home_team"))):
+            if team and opponent:
+                valid_games[(week, str(team))] = (str(opponent), str(game["game_id"]))
     weekly_seen: set[tuple[str, int]] = set()
     weekly_positions: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     mandatory = {"player_id", "player_display_name", "position", "team",
@@ -129,6 +139,9 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
         if not name:
             raise ValueError(f"Missing player name for {pid}")
         team = str(row["team"]).strip().upper()
+        expected_game = valid_games.get((week, team))
+        if not expected_game or expected_game != (str(row.get("opponent_team")), str(row.get("game_id"))):
+            raise ValueError(f"nflverse player game/team mismatch: {season} {name} week {week} {team}")
         weekly_positions[week][pos] += 1
         points = kicker_points(row) if pos == "K" else round(number(row, "fantasy_points_ppr"), 2)
         if pid not in by_id:
@@ -240,6 +253,9 @@ def guard_previous(old: dict | None, new: dict) -> None:
         return
     if old.get("throughWeek", 0) > new["throughWeek"]:
         raise ValueError("New data covers fewer completed weeks; retaining previous snapshot")
+    if old.get("schema") == new["schema"] and old.get("throughWeek") == new["throughWeek"]:
+        if len(new["players"]) < int(len(old["players"]) * 0.95):
+            raise ValueError("New source lost more than 5% of historical players")
 
 
 def main() -> None:
@@ -260,6 +276,8 @@ def main() -> None:
         path = DEST / f"{season}.json"
         old = json.loads(path.read_text()) if path.exists() else None
         guard_previous(old, snapshot)
+        if old and {k:v for k,v in old.items() if k != "updated"} == {k:v for k,v in snapshot.items() if k != "updated"}:
+            snapshot["updated"] = old["updated"]
         pending.append((path, snapshot))
         print(f"Validated {season}: {len(snapshot['players'])} players through week {snapshot['throughWeek']}; "
               f"kickers={sum(p['pos']=='K' for p in snapshot['players'])}, "
@@ -268,6 +286,9 @@ def main() -> None:
     DEST.mkdir(parents=True, exist_ok=True)
     for path, data in pending:
         text = json.dumps(data, separators=(",", ":"), ensure_ascii=False) + "\n"
+        if path.exists() and path.read_text() == text:
+            print(f"Unchanged: {path}", flush=True)
+            continue
         temp = path.with_suffix(".tmp")
         temp.write_text(text)
         os.replace(temp, path)
