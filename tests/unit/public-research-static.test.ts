@@ -93,7 +93,9 @@ describe('public research database isolation', () => {
   it('preserves primary LeagueZone navigation, favicon and discreet attribution', () => {
     const html = read('public/research/index.html');
     const app = read('public/research/app.js');
-    expect(html).toContain('href="/assets/LeagueZone%20HQ%20Logo.png"');
+    expect(html).toContain('href="/pwa/icon-192.png"');
+    expect(html).toContain('rel="manifest" href="/manifest.webmanifest"');
+    expect(html).toContain('src="/research/pwa.js"');
     expect(html).toContain('class="wordmark" href="/"');
     expect(html).toContain('<a href="/">Home</a>');
     expect(html).toContain('<details class="data-credit">');
@@ -116,7 +118,9 @@ describe('public research database isolation', () => {
     expect(ui).toContain("state.rzStatus[year]=error && error.stale?");
     expect(shell).toContain('id="column-hint"');
     expect(shell).toContain('class="pathway-grid"');
-    expect(home).toContain('id="public-research-title"');
+    expect(home).toContain('id="research-title"');
+    expect(home).toContain('href="/research/radar"');
+    expect(home).toContain('href="/install"');
     expect(sitemap).toContain("base + '/research/stats'");
     expect(workflow).toContain('python scripts/build-research-usage.py');
     expect(workflow).toContain('python scripts/build-research-redzone.py');
