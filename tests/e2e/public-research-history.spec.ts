@@ -93,6 +93,28 @@ test.describe('LeagueZone research, static data only', () => {
 });
 
 
+test.describe('Research site navigation and branding', () => {
+  test('retains the LeagueZone favicon, home link and compact attribution', async ({ page, request }) => {
+    const response = await request.get('/assets/LeagueZone%20HQ%20Logo.png');
+    expect(response.ok()).toBeTruthy();
+    expect(response.headers()['content-type']).toContain('image/png');
+
+    await page.goto('/research/players?season=2025');
+    await expect(page.locator('#data-stamp')).toContainText('2025 Season');
+    await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/assets/LeagueZone%20HQ%20Logo.png');
+    await expect(page.locator('.site-head .wordmark')).toHaveAttribute('href', '/');
+    await expect(page.locator('.site-head a[href="/"]')).toHaveCount(2);
+    await expect(page.locator('.meta-note')).toHaveCount(0);
+    await expect(page.locator('.source-note')).toHaveCount(0);
+    await expect(page.locator('.data-credit summary')).toBeVisible();
+    await expect(page.locator('.data-credit p')).toBeHidden();
+    await page.locator('.data-credit summary').click();
+    await expect(page.locator('.data-credit')).toContainText('CC BY 4.0');
+    await page.locator('.site-head .wordmark').click();
+    await expect(page).toHaveURL(/\/$/);
+  });
+});
+
 test.describe('R2 data delivery without Vercel deployments', () => {
   test('discovers a newly published season through the remote catalog', async ({ page }) => {
     const { readFileSync } = await import('node:fs');
@@ -115,7 +137,7 @@ test.describe('R2 data delivery without Vercel deployments', () => {
     }));
     await page.goto('/research/stats');
     await expect(page.locator('#year')).toHaveValue('2027');
-    await expect(page.locator('#data-stamp')).toContainText('R2 live data');
+    await expect(page.locator('#data-stamp')).not.toContainText('R2 live data');
     await expect(page.locator('#data-stamp')).toContainText('2027 Season');
     await expect(page.locator('#players-body')).toContainText('CeeDee Lamb');
   });
@@ -132,7 +154,8 @@ test.describe('R2 data delivery without Vercel deployments', () => {
     }));
     await page.route('https://data.example.test/'+key,route=>route.fulfill({status:503,body:'Unavailable'}));
     await page.goto('/research/stats?season=2025');
-    await expect(page.locator('#data-stamp')).toContainText('Last validated backup');
+    await expect(page.locator('#data-stamp')).toContainText('2025 Season');
+    await expect(page.locator('#data-stamp')).not.toContainText('Last validated backup');
     await expect(page.locator('#players-body')).toContainText('Christian McCaffrey');
   });
 });

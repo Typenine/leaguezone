@@ -84,8 +84,24 @@ describe('public research database isolation', () => {
     expect(workflow).not.toContain('git push');
     expect(workflow).not.toContain('git commit');
     expect(config.publicBase).toBe('https://leaguezone-research-data.patrickmmcnulty62.workers.dev');
-    expect(read('public/research/app.js')).toContain('Last validated backup');
-    expect(read('public/research/app.js')).toContain('R2 live data');
+    const ui = read('public/research/app.js');
+    expect(ui).toContain("d._researchSource='r2'");
+    expect(ui).toContain("d._researchSource='backup'");
+    expect(ui).not.toContain('R2 live data');
+    expect(ui).not.toContain('Last validated backup');
+  });
+  it('preserves primary LeagueZone navigation, favicon and discreet attribution', () => {
+    const html = read('public/research/index.html');
+    const app = read('public/research/app.js');
+    expect(html).toContain('href="/assets/LeagueZone%20HQ%20Logo.png"');
+    expect(html).toContain('class="wordmark" href="/"');
+    expect(html).toContain('<a href="/">Home</a>');
+    expect(html).toContain('<details class="data-credit">');
+    expect(html).toContain('https://creativecommons.org/licenses/by/4.0/');
+    expect(html).not.toContain('Public data · CDN delivered');
+    expect(html).not.toContain('class="source-note"');
+    expect(app).not.toContain('R2 live data');
+    expect(app).not.toContain('Last validated backup');
   });
   it('does not keep production R2 credentials hardcoded in the environment helper', () => {
     const setup = read('scripts/set-r2-envs.mjs');
