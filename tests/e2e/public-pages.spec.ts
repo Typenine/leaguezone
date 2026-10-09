@@ -13,11 +13,42 @@ test.describe('Public product pages', () => {
     // (It may appear in a "demo league" section, but not as the primary identity)
   });
 
-  test('homepage calls to action navigate instead of being masked by setup state', async ({ page }) => {
+  test('homepage has working entry points for research and league websites', async ({ page }) => {
     await page.goto(BASE_URL + '/');
-    await page.getByRole('link', { name: 'Launch Your League' }).click();
+    await expect(page.getByRole('heading', { name: /research the game/i })).toBeVisible();
+    await page.getByRole('link', { name: /explore player research/i }).click();
+    await expect(page).toHaveURL(/\/research$/);
+    await expect(page.locator('header.site-head')).toBeVisible();
+
+    await page.goto(BASE_URL + '/');
+    await page.getByRole('link', { name: 'Explore League Tools' }).click();
+    await expect(page).toHaveURL(/\/features$/);
+    await page.getByRole('link', { name: 'Create Your League' }).click();
     await expect(page).toHaveURL(/\/register$/);
     await expect(page.locator('input[type="email"]')).toBeVisible();
+  });
+
+  test('research tools are discoverable, pricing is absent, and old pricing bookmarks redirect', async ({ page }) => {
+    await page.goto(BASE_URL + '/');
+    for (const path of ['/research/stats', '/research/radar', '/research/receipts', '/research/development']) {
+      await expect(page.locator('a[href="' + path + '"]').first()).toBeVisible();
+    }
+    await expect(page.getByRole('navigation').first().getByRole('link', { name: 'Pricing' })).toHaveCount(0);
+    await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Pricing' })).toHaveCount(0);
+    await page.goto(BASE_URL + '/pricing');
+    await expect(page).toHaveURL(/\/features$/);
+  });
+
+  test('mobile homepage keeps both entry points visible without horizontal overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(BASE_URL + '/');
+    await expect(page.getByRole('link', { name: /explore player research/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Explore League Tools' })).toBeVisible();
+    const dimensions = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
   });
 
   test('/features page loads with product metadata', async ({ page }) => {
