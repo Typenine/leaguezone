@@ -119,7 +119,7 @@ describe('public research database isolation', () => {
     expect(shell).toContain('id="column-hint"');
     expect(shell).toContain('class="pathway-grid"');
     expect(home).toContain('id="research-title"');
-    expect(home).toContain('href="/research/radar"');
+    expect(home).toContain("href: '/research/radar'");
     expect(home).toContain('href="/install"');
     expect(sitemap).toContain("base + '/research/stats'");
     expect(workflow).toContain('python scripts/build-research-usage.py');
