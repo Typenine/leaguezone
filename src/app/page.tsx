@@ -1,97 +1,92 @@
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { verifySession } from '@/lib/server/auth';
-import { getUserLeagues, type UserLeague } from '@/lib/server/user-auth';
-import LeagueWebsiteSearch from '@/components/LeagueWebsiteSearch';
-import LeagueIcon from '@/components/ui/LeagueIcon';
-import type { LeagueIconName } from '@/components/ui/LeagueIcon';
-import { PLATFORM, PRODUCT_FEATURES, HOW_IT_WORKS, PRICING_TIERS, leagueUrl } from '@/lib/config/platform';
+import { PLATFORM, PRODUCT_FEATURES } from '@/lib/config/platform';
 
 export const dynamic = 'force-dynamic';
 
-function MyLeagueCard({ league }: { league: UserLeague }) {
-  return (
-    <Link
-      href={leagueUrl(league.leagueSlug)}
-      className="group block border border-white/10 bg-white/[0.03] p-5 hover:border-[var(--brand-gold)]/50 hover:bg-white/[0.06] transition-all"
-    >
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <span className="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--brand-gold)]">My League</span>
-        {league.isCommissioner && (
-          <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">
-            <span className="text-[var(--brand-gold)]">★</span> Commissioner
-          </span>
-        )}
-      </div>
-      <h3 className="text-xl font-black text-white uppercase tracking-tight group-hover:text-[var(--brand-gold)] transition-colors">
-        {league.leagueName}
-      </h3>
-      <p className="mt-1 text-sm text-white/50">{league.teamName}</p>
-      <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-[var(--brand-gold)] uppercase tracking-wider">
-        Open league site →
-      </span>
-    </Link>
-  );
-}
+const RESEARCH_TOOLS = [
+  {
+    number: '01',
+    label: 'Player Statistics',
+    title: 'Find the players behind the numbers.',
+    description: 'Compare fantasy production, usage, scoring formats, weekly game logs, and league-wide stat leaders.',
+    href: '/research/stats',
+    action: 'Explore stats',
+  },
+  {
+    number: '02',
+    label: 'Opportunity Radar',
+    title: 'See roles change before the box score tells you.',
+    description: 'Separate targets, touches, and passing opportunity from fantasy production to spot changing roles.',
+    href: '/research/radar',
+    action: 'Open Radar',
+  },
+  {
+    number: '03',
+    label: 'Prediction Receipts',
+    title: 'Measure the signals, not the hype.',
+    description: 'Review historical signals alongside subsequent results and inspect the developing forward record.',
+    href: '/research/receipts',
+    action: 'Check receipts',
+  },
+  {
+    number: '04',
+    label: 'Development Lab',
+    title: 'Study how players grow over time.',
+    description: 'Follow season-by-season careers and compare players at similar stages of development.',
+    href: '/research/development',
+    action: 'Explore development',
+  },
+] as const;
 
 function ProductPreview() {
   return (
-    <div className="relative mx-auto max-w-xl">
-      <div className="relative overflow-hidden border border-[var(--brand-gold)]/30 bg-[#040c1a] p-4 shadow-2xl shadow-black/60">
-        <div className="border border-white/10 bg-[#071020] p-4">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Week 12</p>
-              <h2 className="text-2xl font-black text-white uppercase">League HQ</h2>
-            </div>
-            <div className="border border-[var(--brand-gold)]/40 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[var(--brand-gold)]">
-              Live Board
-            </div>
+    <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
+      <div className="pointer-events-none absolute -inset-5 rounded-full bg-[var(--brand-blue)]/15 blur-3xl" aria-hidden="true" />
+      <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-[#081525] p-4 shadow-2xl shadow-black/40 sm:p-5">
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand-gold)]" />
+            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">LeagueZone</span>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              ['Standings', '8-3', 'First place', 'command'],
-              ['Matchups', '6', 'Live games', 'managers'],
-              ['Trades', '14', 'Tracked trees', 'trade'],
-              ['History', '9', 'Seasons', 'trophy'],
-            ].map(([label, value, caption, icon]) => (
-              <div key={label} className="border-t-2 border-[var(--brand-gold)]/60 bg-[#040c1a] p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">{label}</p>
-                  <LeagueIcon name={icon as LeagueIconName} className="h-3.5 w-3.5 text-[var(--brand-gold)]/60" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Your football hub</span>
+        </div>
+        <div className="grid gap-3 pt-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-[var(--brand-gold)]/30 bg-[var(--brand-gold)]/[0.07] p-5">
+            <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--brand-gold)]">01 / Research</span>
+            <h3 className="mt-4 text-xl font-black uppercase tracking-tight text-white">Understand the players.</h3>
+            <p className="mt-3 text-sm leading-6 text-white/60">Production, opportunity, history and development.</p>
+            <div className="mt-5 space-y-2" aria-label="Research topics">
+              {['Player comparisons', 'Usage trends', 'Season trajectories'].map((item) => (
+                <div key={item} className="flex items-center gap-2 rounded-md border border-white/10 bg-[#091a2d] px-3 py-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--brand-gold)]" />
+                  <span className="text-xs font-semibold text-white/80">{item}</span>
                 </div>
-                <p className="text-3xl font-black text-white">{value}</p>
-                <p className="text-xs text-white/40 mt-0.5">{caption}</p>
-              </div>
-            ))}
+              ))}
+            </div>
+            <Link href="/research" className="mt-5 inline-flex text-xs font-black uppercase tracking-wider text-[var(--brand-gold)] hover:underline">
+              Open Research <span aria-hidden="true" className="ml-1">↗</span>
+            </Link>
           </div>
-          <div className="mt-2 border border-white/10 bg-[#040c1a] p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="font-black text-white text-sm uppercase tracking-wide">Featured Matchup</p>
-              <p className="text-sm font-bold text-[var(--brand-gold)]">52%</p>
+          <div className="rounded-xl border border-white/15 bg-white/[0.035] p-5">
+            <span className="text-[10px] font-black uppercase tracking-[0.22em] text-sky-300">02 / Leagues</span>
+            <h3 className="mt-4 text-xl font-black uppercase tracking-tight text-white">Build your league&apos;s home.</h3>
+            <p className="mt-3 text-sm leading-6 text-white/60">Teams, drafts, trades, records and league identity.</p>
+            <div className="mt-5 space-y-2" aria-label="League website features">
+              {['Team & league pages', 'Draft & trade tools', 'History & records'].map((item) => (
+                <div key={item} className="flex items-center gap-2 rounded-md border border-white/10 bg-[#091a2d] px-3 py-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+                  <span className="text-xs font-semibold text-white/80">{item}</span>
+                </div>
+              ))}
             </div>
-            <div className="space-y-3">
-              <div>
-                <div className="mb-1 flex justify-between text-xs">
-                  <span className="text-white/60 uppercase tracking-wide">North Division</span>
-                  <span className="font-black text-white">128.4</span>
-                </div>
-                <div className="h-1.5 bg-white/10">
-                  <div className="h-1.5 w-[72%] bg-[var(--brand-gold)]" />
-                </div>
-              </div>
-              <div>
-                <div className="mb-1 flex justify-between text-xs">
-                  <span className="text-white/60 uppercase tracking-wide">South Division</span>
-                  <span className="font-black text-white">121.8</span>
-                </div>
-                <div className="h-1.5 bg-white/10">
-                  <div className="h-1.5 w-[64%] bg-[var(--brand-blue)]" />
-                </div>
-              </div>
-            </div>
+            <Link href="/demo" className="mt-5 inline-flex text-xs font-black uppercase tracking-wider text-sky-300 hover:underline">
+              See a League <span aria-hidden="true" className="ml-1">↗</span>
+            </Link>
           </div>
         </div>
+        <p className="mt-4 text-center text-[11px] text-white/35">Two connected parts of one fantasy football platform.</p>
       </div>
     </div>
   );
@@ -101,268 +96,159 @@ export default async function RootPage() {
   const cookieJar = await cookies();
   const sessionToken = cookieJar.get('evw_session')?.value || '';
   const claims = sessionToken ? verifySession(sessionToken) : null;
-  const userId = claims?.type === 'user' && typeof claims.sub === 'string' ? claims.sub : null;
-  const userLeagues = userId ? await getUserLeagues(userId) : [];
+  const signedIn = claims?.type === 'user' && typeof claims.sub === 'string';
 
   return (
-    <div style={{ background: 'var(--brand-ink)' }} className="overflow-hidden">
-
-      {/* ── Hero ─────────────────────────────────────────────── */}
-      <section style={{ background: 'linear-gradient(160deg, var(--brand-navy) 0%, var(--brand-ink) 65%)' }} className="relative border-b border-white/10">
-        <div className="container mx-auto px-4 py-20 sm:py-28 lg:grid lg:grid-cols-[1fr_0.9fr] lg:items-center lg:gap-16">
+    <div className="overflow-hidden bg-[var(--brand-ink)] text-white">
+      <section className="relative isolate border-b border-white/10" style={{ background: 'radial-gradient(ellipse at 78% 30%, rgba(28, 87, 127, .28), transparent 46%), linear-gradient(155deg, var(--brand-navy), var(--brand-ink) 78%)' }}>
+        <div className="container mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:py-24 lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:gap-14 lg:py-28">
           <div className="max-w-2xl">
-            <div className="flex items-center gap-3 mb-6">
-              <span className="block w-8 h-px bg-[var(--brand-gold)]" />
-              <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Dynasty League Headquarters</span>
-            </div>
-            <h1 className="text-5xl sm:text-6xl font-black leading-none tracking-tighter text-white uppercase">
-              {PLATFORM.name}
+            <p className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.24em] text-[var(--brand-gold)]">
+              <span className="h-px w-7 bg-[var(--brand-gold)]" />
+              The home for fantasy football
+            </p>
+            <h1 className="mt-6 text-5xl font-black uppercase leading-[0.99] tracking-tighter sm:text-6xl xl:text-7xl">
+              Research the game.<br />
+              <span className="text-[var(--brand-gold)]">Run your league.</span>
             </h1>
-            <p className="mt-5 text-lg text-white/65 leading-relaxed max-w-xl">
-              {PLATFORM.description}
+            <p className="mt-6 max-w-xl text-base leading-8 text-white/65 sm:text-lg">
+              {PLATFORM.name} brings fantasy football research and league management together. Understand players, explore the trends, and give your league a home that lasts beyond a single season.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/demo"
-                className="inline-flex items-center justify-center gap-2 bg-[var(--brand-gold)] text-[var(--brand-ink)] font-black uppercase tracking-widest px-8 py-3.5 text-sm transition hover:brightness-110"
-              >
-                View Demo League
+              <Link href="/research" className="inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--brand-gold)] px-6 py-3 text-sm font-black uppercase tracking-wider text-[var(--brand-ink)] transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                Explore Player Research <span className="ml-2" aria-hidden="true">↗</span>
               </Link>
-              {userId ? (
-                <Link
-                  href="/app"
-                  className="inline-flex items-center justify-center border border-white/25 text-white font-bold uppercase tracking-wider px-8 py-3.5 text-sm transition hover:border-white/50 hover:bg-white/5"
-                >
-                  Open My Dashboard
-                </Link>
-              ) : (
-                <Link
-                  href="/register"
-                  className="inline-flex items-center justify-center border border-white/25 text-white font-bold uppercase tracking-wider px-8 py-3.5 text-sm transition hover:border-white/50 hover:bg-white/5"
-                >
-                  Launch Your League
-                </Link>
-              )}
+              <Link href="/features" className="inline-flex min-h-12 items-center justify-center rounded-md border border-white/30 px-6 py-3 text-sm font-bold uppercase tracking-wider text-white transition hover:border-white/70 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                Explore League Tools
+              </Link>
             </div>
-            <div className="mt-12 grid grid-cols-3 gap-3 max-w-sm">
-              {[['24/7', 'League Access'], ['Live', 'Data Sync'], ['All-Time', 'History']].map(([val, lbl]) => (
-                <div key={lbl} className="border border-white/10 bg-white/5 p-3 text-center">
-                  <p className="text-xl font-black text-white">{val}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-white/45 mt-0.5">{lbl}</p>
-                </div>
-              ))}
-            </div>
+            <p className="mt-5 text-xs font-semibold tracking-wide text-white/45">
+              Public player research. League websites. One destination.
+            </p>
           </div>
-          <div className="mt-12 lg:mt-0">
-            <ProductPreview />
-          </div>
+          <ProductPreview />
         </div>
       </section>
 
-      {/* Public NFL research: direct, account-free entry point */}
-      <section aria-labelledby="public-research-title" className="border-b border-white/10 bg-[#0b1729]">
-        <div className="container mx-auto grid gap-6 px-4 py-10 md:grid-cols-[1fr_auto] md:items-center">
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">Free NFL research · No account required</p>
-            <h2 id="public-research-title" className="mt-2 text-2xl font-black uppercase tracking-tight text-white sm:text-3xl">Find what the box score misses.</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/65 sm:text-base">Compare fantasy production, target share, passing volume, red-zone touches and historical trends. Start with a player or see who leads your favorite metric.</p>
-          </div>
-          <div className="flex flex-wrap gap-3 md:flex-col">
-            <Link href="/research" className="inline-flex items-center justify-center bg-[var(--brand-gold)] px-5 py-3 text-sm font-black uppercase tracking-wide text-[var(--brand-ink)] hover:brightness-110">Explore free research →</Link>
-            <Link href="/research/stats" className="inline-flex items-center justify-center border border-white/30 px-5 py-3 text-sm font-bold text-white hover:bg-white/10">NFL stat leaders</Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Features ─────────────────────────────────────────── */}
-      <section className="container mx-auto px-4 py-16 sm:py-20">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="block w-6 h-px bg-[var(--brand-gold)]" />
-          <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Platform Features</span>
-        </div>
-        <div className="mb-10 grid gap-4 lg:grid-cols-[0.8fr_1fr] lg:items-end">
-          <h2 className="text-4xl sm:text-5xl font-black text-white uppercase leading-none tracking-tighter">
-            The features your fantasy platform doesn&apos;t do.
-          </h2>
-          <p className="text-white/60 text-lg max-w-2xl">
-            Your fantasy provider handles the underlying league. {PLATFORM.name} adds identity, history, rules, commissioner tools, and league culture — the things that make a dynasty league feel permanent.
-          </p>
-        </div>
-        <div className="grid gap-px md:grid-cols-2 lg:grid-cols-4 bg-white/10">
-          {PRODUCT_FEATURES.map((feature) => (
-            <div key={feature.title} className="bg-[var(--brand-ink)] border-t-2 border-[var(--brand-gold)]/70 p-5 flex flex-col gap-2">
-              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">{feature.eyebrow}</span>
-              <h3 className="font-black text-white text-base leading-tight">{feature.title}</h3>
-              <p className="text-sm text-white/50 leading-relaxed">{feature.description}</p>
+      <section id="explore" aria-labelledby="explore-title" className="container mx-auto max-w-7xl px-4 py-16 sm:py-20">
+        <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">Pick your starting point</p>
+        <h2 id="explore-title" className="mt-3 max-w-3xl text-3xl font-black uppercase tracking-tight sm:text-5xl">Everything you need, wherever you play.</h2>
+        <p className="mt-4 max-w-2xl text-base leading-7 text-white/55">
+          You do not need to run a LeagueZone league to use its research. And you do not need to leave your existing fantasy provider to build a better league experience.
+        </p>
+        <div className="mt-9 grid gap-4 md:grid-cols-2">
+          <Link href="/research" className="group relative flex min-h-72 flex-col justify-between overflow-hidden rounded-xl border border-[var(--brand-gold)]/35 p-6 transition hover:border-[var(--brand-gold)] sm:p-8" style={{ background: 'linear-gradient(135deg, #153653, #0a1b30 78%)' }}>
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-[0.23em] text-[var(--brand-gold)]">Fantasy Research</span>
+              <h3 className="mt-5 text-3xl font-black uppercase tracking-tight sm:text-4xl">Know more.<br />Guess less.</h3>
+              <p className="mt-4 max-w-md text-sm leading-7 text-white/65">Player profiles, sortable stats, advanced usage, opportunity signals and career development.</p>
             </div>
-          ))}
-        </div>
-        <div className="mt-6 text-right">
-          <Link href="/features" className="text-sm font-bold text-[var(--brand-gold)] hover:underline uppercase tracking-wider">
-            All Features →
+            <span className="mt-6 inline-flex items-center gap-2 text-sm font-black uppercase tracking-wider text-[var(--brand-gold)] group-hover:underline">Explore Research <span aria-hidden="true">↗</span></span>
+          </Link>
+          <Link href="/features" className="group relative flex min-h-72 flex-col justify-between overflow-hidden rounded-xl border border-white/15 p-6 transition hover:border-white/40 sm:p-8" style={{ background: 'linear-gradient(135deg, #16283a, #09121f 78%)' }}>
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-[0.23em] text-sky-300">League Management</span>
+              <h3 className="mt-5 text-3xl font-black uppercase tracking-tight sm:text-4xl">More than<br />a scoreboard.</h3>
+              <p className="mt-4 max-w-md text-sm leading-7 text-white/65">A branded league website with team pages, draft tools, trade history, records and commissioner features.</p>
+            </div>
+            <span className="mt-6 inline-flex items-center gap-2 text-sm font-black uppercase tracking-wider text-sky-300 group-hover:underline">Explore League Websites <span aria-hidden="true">↗</span></span>
           </Link>
         </div>
       </section>
 
-      {/* ── Demo preview ─────────────────────────────────────── */}
-      <section style={{ background: 'linear-gradient(160deg, var(--brand-navy) 0%, var(--brand-ink) 70%)' }} className="border-y border-white/10">
-        <div className="container mx-auto px-4 py-16 sm:py-20 lg:grid lg:grid-cols-[0.72fr_1fr] lg:items-center lg:gap-16">
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="block w-6 h-px bg-[var(--brand-gold)]" />
-              <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">See It Live</span>
+      <section id="research" aria-labelledby="research-title" className="border-y border-white/10 bg-[#091728]">
+        <div className="container mx-auto max-w-7xl px-4 py-16 sm:py-20">
+          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">Fantasy Research</p>
+              <h2 id="research-title" className="mt-3 text-3xl font-black uppercase tracking-tight sm:text-5xl">Go beyond the box score.</h2>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-white/60">Explore the underlying opportunity, not just last week&apos;s fantasy points. Start with open player data and dig deeper from there.</p>
             </div>
-            <h2 className="text-4xl sm:text-5xl font-black text-white uppercase leading-none tracking-tighter">
-              Tour a real<br />league site.
-            </h2>
-            <p className="mt-5 text-white/60 text-lg leading-relaxed">
-              The demo league is a live, working league headquarters — branded homepage, team pages, draft hub, trade block, and a decade of league history.
-            </p>
-            <Link
-              href="/demo"
-              className="mt-8 inline-flex items-center gap-2 bg-[var(--brand-gold)] text-[var(--brand-ink)] font-black uppercase tracking-widest px-8 py-3.5 text-sm transition hover:brightness-110"
-            >
-              Open the Demo League
+            <Link href="/research/players" className="inline-flex shrink-0 items-center gap-2 text-sm font-black uppercase tracking-wider text-[var(--brand-gold)] hover:underline">
+              Browse Players <span aria-hidden="true">↗</span>
             </Link>
           </div>
-          <div className="mt-12 lg:mt-0">
-            <ProductPreview />
-          </div>
-        </div>
-      </section>
-
-      {/* ── How it works ─────────────────────────────────────── */}
-      <section className="container mx-auto px-4 py-16 sm:py-20">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="block w-6 h-px bg-[var(--brand-gold)]" />
-          <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">How It Works</span>
-        </div>
-        <h2 className="text-4xl sm:text-5xl font-black text-white uppercase leading-none tracking-tighter mb-10">
-          Launch in an afternoon.
-        </h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 border border-white/10">
-          {HOW_IT_WORKS.map((item, i) => (
-            <div key={item.step} className={`p-6 ${i < HOW_IT_WORKS.length - 1 ? 'border-b sm:border-b-0 sm:border-r border-white/10' : ''}`}>
-              <p className="text-4xl font-black text-[var(--brand-gold)] opacity-40 mb-3 leading-none">{item.step}</p>
-              <h3 className="text-sm font-black text-white uppercase tracking-wide mb-2">{item.title}</h3>
-              <p className="text-sm text-white/50 leading-relaxed">{item.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Pricing ──────────────────────────────────────────── */}
-      <section style={{ background: 'linear-gradient(160deg, var(--brand-navy) 0%, var(--brand-ink) 70%)' }} className="border-y border-white/10">
-        <div className="container mx-auto px-4 py-16 sm:py-20">
-          <div className="text-center mb-10">
-            <div className="flex items-center justify-center gap-3 mb-3">
-              <span className="block w-6 h-px bg-[var(--brand-gold)]" />
-              <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">Pricing</span>
-              <span className="block w-6 h-px bg-[var(--brand-gold)]" />
-            </div>
-            <h2 className="text-4xl sm:text-5xl font-black text-white uppercase leading-none tracking-tighter">
-              Simple plans, league-first.
-            </h2>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-3">
-            {PRICING_TIERS.map((tier) => (
-              <div
-                key={tier.name}
-                className={`p-6 border ${tier.highlighted ? 'border-[var(--brand-gold)] bg-[var(--brand-gold)]/5' : 'border-white/10 bg-white/[0.03]'}`}
-              >
-                {tier.highlighted && (
-                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)] block mb-3">Most Popular</span>
-                )}
-                <h3 className="text-sm font-black uppercase tracking-wide text-white">{tier.name}</h3>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-4xl font-black text-white">{tier.price}</span>
-                  <span className="text-sm text-white/45">{tier.period}</span>
+          <div className="mt-10 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {RESEARCH_TOOLS.map((tool) => (
+              <Link key={tool.href} href={tool.href} className="group flex h-full flex-col rounded-xl border border-white/10 bg-white/[0.035] p-5 transition hover:border-[var(--brand-gold)]/50 hover:bg-white/[0.065] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-gold)]">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-[var(--brand-gold)]">{tool.label}</span>
+                  <span className="text-xs font-black text-white/20">{tool.number}</span>
                 </div>
-                <p className="mt-3 text-sm text-white/50 leading-relaxed">{tier.description}</p>
-                <ul className="mt-4 space-y-1.5">
-                  {tier.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-white/65">
-                      <span className="text-[var(--brand-gold)] mt-0.5 shrink-0">✓</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href={tier.href}
-                  className={`mt-5 w-full inline-flex items-center justify-center py-2.5 text-sm font-black uppercase tracking-wider transition ${
-                    tier.highlighted
-                      ? 'bg-[var(--brand-gold)] text-[var(--brand-ink)] hover:brightness-110'
-                      : 'border border-white/20 text-white hover:bg-white/5'
-                  }`}
-                >
-                  {tier.cta}
-                </Link>
+                <h3 className="mt-6 text-xl font-black uppercase leading-tight tracking-tight text-white">{tool.title}</h3>
+                <p className="mt-3 flex-1 text-sm leading-6 text-white/55">{tool.description}</p>
+                <span className="mt-6 text-xs font-black uppercase tracking-wider text-[var(--brand-gold)] group-hover:underline">{tool.action} <span aria-hidden="true">↗</span></span>
+              </Link>
+            ))}
+          </div>
+          <div className="mt-5 flex flex-col gap-4 rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div>
+              <h3 className="font-black uppercase tracking-wide">Roster Opportunity Finder</h3>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-white/55">The next step is bringing player research into your own league to explore who is rostered and which moves might be realistic. League-connected tools are still being refined.</p>
+            </div>
+            <Link href={signedIn ? '/app' : '/login?next=%2Fapp'} className="inline-flex shrink-0 items-center justify-center rounded-md border border-white/25 px-5 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-white/10">
+              {signedIn ? 'My Leagues' : 'Sign In to My Leagues'} <span aria-hidden="true" className="ml-2">↗</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section id="leagues" aria-labelledby="leagues-title" className="container mx-auto max-w-7xl px-4 py-16 sm:py-20">
+        <div className="grid gap-7 lg:grid-cols-[0.85fr_1.15fr] lg:gap-12">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-sky-300">League Management</p>
+            <h2 id="leagues-title" className="mt-3 text-3xl font-black uppercase tracking-tight sm:text-5xl">Your league deserves its own home.</h2>
+            <p className="mt-5 max-w-xl text-base leading-7 text-white/60">Scores and rosters are only part of the story. Keep your league&apos;s identity, decisions, draft nights and history in one place alongside your fantasy provider.</p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <Link href="/demo" className="inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--brand-gold)] px-6 py-3 text-sm font-black uppercase tracking-wider text-[var(--brand-ink)] transition hover:brightness-110">Tour the Demo League</Link>
+              <Link href={signedIn ? '/app' : '/register'} className="inline-flex min-h-12 items-center justify-center rounded-md border border-white/25 px-6 py-3 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-white/10">{signedIn ? 'My Leagues' : 'Create a League Site'}</Link>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {PRODUCT_FEATURES.slice(0, 6).map((feature) => (
+              <div key={feature.title} className="rounded-xl border border-white/10 bg-white/[0.035] p-5">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-300">{feature.eyebrow}</span>
+                <h3 className="mt-3 font-black uppercase tracking-wide text-white">{feature.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-white/50">{feature.description}</p>
               </div>
             ))}
           </div>
-          <div className="mt-8 text-center">
-            <Link href="/pricing" className="text-sm font-bold text-[var(--brand-gold)] hover:underline uppercase tracking-wider">
-              Full pricing details →
-            </Link>
+        </div>
+      </section>
+
+      <section aria-labelledby="connection-title" className="border-y border-white/10" style={{ background: 'linear-gradient(145deg, var(--brand-navy), #08121f)' }}>
+        <div className="container mx-auto grid max-w-7xl gap-9 px-4 py-14 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">One Platform</p>
+            <h2 id="connection-title" className="mt-3 text-3xl font-black uppercase tracking-tight sm:text-5xl">From insight to league decisions.</h2>
+            <p className="mt-4 text-base leading-7 text-white/60">The long-term goal is simple: less jumping between sites to understand players, evaluate your options, and run your league. Research and league tools are being developed together.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              { step: '01', title: 'Research', detail: 'Explore real player production and opportunity.' },
+              { step: '02', title: 'Evaluate', detail: 'Compare roles, trends and career progression.' },
+              { step: '03', title: 'Act', detail: 'Bring that context to your fantasy league.' },
+            ].map((item) => (
+              <div key={item.step} className="rounded-xl border border-white/10 bg-white/[0.035] p-5">
+                <span className="text-2xl font-black text-[var(--brand-gold)]">{item.step}</span>
+                <h3 className="mt-4 text-lg font-black uppercase text-white">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-white/55">{item.detail}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── My leagues / sign in ─────────────────────────────── */}
-      <section className="container mx-auto px-4 py-16 sm:py-20">
-        <div className="mb-12">
-          <LeagueWebsiteSearch />
+      <section className="container mx-auto max-w-7xl px-4 py-16 sm:py-20">
+        <div className="rounded-2xl border border-[var(--brand-gold)]/30 bg-[var(--brand-gold)]/[0.06] px-6 py-10 text-center sm:px-10 sm:py-14">
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--brand-gold)]">The next chapter of fantasy football</p>
+          <h2 className="mx-auto mt-4 max-w-3xl text-3xl font-black uppercase tracking-tight sm:text-4xl">Start with a player. Or start with your league.</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/60">LeagueZone is building a single destination for the research you use and the leagues you care about.</p>
+          <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link href="/research" className="inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--brand-gold)] px-6 py-3 text-sm font-black uppercase tracking-wider text-[var(--brand-ink)] transition hover:brightness-110">Open Research</Link>
+            <Link href="/demo" className="inline-flex min-h-12 items-center justify-center rounded-md border border-white/30 px-6 py-3 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-white/10">Explore a League Site</Link>
+          </div>
         </div>
-
-        {userId ? (
-          <div id="my-leagues">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="block w-6 h-px bg-[var(--brand-gold)]" />
-              <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">My Leagues</span>
-            </div>
-            <div className="flex items-end justify-between mb-6">
-              <h2 className="text-3xl font-black text-white uppercase leading-none">Pick up where you left off.</h2>
-              <Link href="/app" className="text-sm font-bold text-[var(--brand-gold)] hover:underline uppercase tracking-wider shrink-0">
-                Dashboard →
-              </Link>
-            </div>
-            {userLeagues.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {userLeagues.map((league) => (
-                  <MyLeagueCard key={league.leagueId} league={league} />
-                ))}
-              </div>
-            ) : (
-              <div className="border border-dashed border-white/20 p-8 text-center">
-                <h3 className="text-xl font-black text-white uppercase">No leagues yet</h3>
-                <p className="mt-2 text-white/50">Ask your commissioner for an invite link, or create a new league site.</p>
-                <Link href="/setup" className="mt-5 inline-flex bg-[var(--brand-gold)] text-[var(--brand-ink)] font-black uppercase tracking-wider px-6 py-3 text-sm transition hover:brightness-110">
-                  Set up a league
-                </Link>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="border border-white/10 bg-white/[0.03] p-8 sm:p-12 text-center">
-            <div className="flex items-center justify-center gap-3 mb-3">
-              <span className="block w-6 h-px bg-[var(--brand-gold)]" />
-              <span className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--brand-gold)]">For Managers</span>
-              <span className="block w-6 h-px bg-[var(--brand-gold)]" />
-            </div>
-            <h2 className="text-3xl font-black text-white uppercase">Already in a league?</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-white/50">
-              Sign in to see your leagues, open your league sites, and jump straight to the pages your league uses most.
-            </p>
-            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link href="/login" className="inline-flex justify-center bg-[var(--brand-gold)] text-[var(--brand-ink)] font-black uppercase tracking-wider px-6 py-3 text-sm transition hover:brightness-110">
-                Sign In
-              </Link>
-              <Link href="/register" className="inline-flex justify-center border border-white/20 text-white font-bold uppercase tracking-wider px-6 py-3 text-sm hover:bg-white/5 transition">
-                Create Account
-              </Link>
-            </div>
-          </div>
-        )}
       </section>
     </div>
   );
