@@ -335,3 +335,36 @@ Same contract as advanced usage: publish `/research/data/redzone/{season}.json` 
 - The advanced usage and red-zone datasets currently ship as Vercel static files at `/research/data/usage/` and `/research/data/redzone/`. They are not yet included in the base R2 catalog or automated uploader.
 - Do not claim usage/red-zone advanced statistics remain current after the R2 base dataset moves beyond the matching advanced snapshot. The UI fails closed to core stats if snapshot weeks or base version disagree.
 - Follow-up integration must extend the validated refresh/publishing workflow for both advanced datasets, upload immutable objects before their manifests, and preserve both history and fallback behavior. This must be tested before a full season of operation.
+
+## Unified weekly research publication
+
+The scheduled GitHub Action rebuilds the current NFL season's three datasets
+(core, advanced usage and red zone) from nflverse, validates each against the
+same base season and publishes one atomic R2 catalog. It does not update Neon
+or commit weekly files to GitHub, so routine weekly publication creates no
+Vercel build.
+
+The catalog retains its existing "files" dictionary for base season files and
+adds "datasets" for the two advanced datasets. Each group has a schema, years
+and files indexed by year. Advanced object metadata includes baseUpdated to
+confirm exact week/version alignment.
+
+All three kinds use the existing Worker path:
+research/v1/objects/{year}-{sha256}.json. No new Worker routing is required.
+The publish job uploads all changed immutable objects, verifies their bytes
+by authenticated R2 GET and only then moves research/v1/catalog.json.
+Failure preserves the prior valid catalog; historical archives are retained.
+
+Client downloads are lazy. The browser matches throughWeek and baseUpdated
+against its selected core snapshot. Archived local files are used as fallback
+only when both match. Otherwise, advanced values are unavailable with a
+visible explanation rather than silently mixing older usage with newer points.
+
+### Research entry points
+
+LeagueZone's homepage links directly to public research. The research
+overview provides working one-click starts for target share, goal-line
+opportunities, quarterback passing volume and rookie production. Mobile
+result cards now display position-specific selected Columns metrics.
+The public sitemap includes the three main research URLs and core public
+landing pages, while robots.txt continues excluding private league URLs.

@@ -103,6 +103,26 @@ describe('public research database isolation', () => {
     expect(app).not.toContain('R2 live data');
     expect(app).not.toContain('Last validated backup');
   });
+  it('keeps mobile column views, research discovery and freshness guards live', () => {
+    const ui=read('public/research/app.js');
+    const shell=read('public/research/index.html');
+    const home=read('src/app/page.tsx');
+    const workflow=read('.github/workflows/refresh-public-research.yml');
+    const sitemap=read('src/app/sitemap.ts');
+    expect(ui).toContain('mobile-view-stats');
+    expect(ui).toContain("function advancedRemotePath(kind, year)");
+    expect(ui).toContain('snapshot.baseUpdated!==base.updated');
+    expect(ui).toContain("state.usageStatus[year]=error && error.stale?");
+    expect(ui).toContain("state.rzStatus[year]=error && error.stale?");
+    expect(shell).toContain('id="column-hint"');
+    expect(shell).toContain('class="pathway-grid"');
+    expect(home).toContain('id="public-research-title"');
+    expect(sitemap).toContain("base + '/research/stats'");
+    expect(workflow).toContain('python scripts/build-research-usage.py');
+    expect(workflow).toContain('python scripts/build-research-redzone.py');
+    expect(workflow).not.toContain('git push');
+    expect(workflow).not.toContain('git commit');
+  });
   it('does not keep production R2 credentials hardcoded in the environment helper', () => {
     const setup = read('scripts/set-r2-envs.mjs');
     expect(setup).toContain('process.env');

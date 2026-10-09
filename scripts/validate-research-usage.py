@@ -35,6 +35,8 @@ def validate_usage(usage: dict, base: dict) -> list[str]:
         err("year does not match base season")
     if usage.get("throughWeek") != base.get("throughWeek"):
         err("throughWeek does not match base season")
+    if usage.get("baseUpdated") != base.get("updated"):
+        err("baseUpdated does not match base season version")
     if usage.get("fields") != {"player": PLAYER_FIELDS, "team": TEAM_FIELDS}:
         err("field contract changed")
     for key in ("source", "sourceUrl", "license", "updated"):
