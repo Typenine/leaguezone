@@ -41,11 +41,57 @@ class ResearchPublisherTests(unittest.TestCase):
         catalog, uploads=publisher.build_catalog(self.data)
         self.assertEqual(catalog["schema"],1)
         self.assertEqual(catalog["years"],[2023,2024,2025,2026])
-        self.assertEqual(len(uploads),4)
+        self.assertEqual(len(uploads),12)
+        self.assertEqual(set(catalog['datasets']), {'usage', 'redzone'})
+        for kind in ('usage','redzone'):
+            self.assertEqual(catalog['datasets'][kind]['years'],[2023,2024,2025,2026])
         for year in catalog["years"]:
             info=catalog["files"][str(year)]
             self.assertTrue(info["key"].startswith("research/v1/objects/"+str(year)+"-"))
             self.assertEqual(len(info["sha256"]),64)
+
+    def test_mismatched_advanced_week_rejects_the_whole_refresh(self):
+        with tempfile.TemporaryDirectory() as temp:
+            from shutil import copytree
+            # Only the index and current snapshots need to be reconstructed.
+            root=Path(temp)
+            for p in self.data.glob("20[0-9][0-9].json"):
+                (root / p.name).write_bytes(p.read_bytes())
+            (root / "seasons.json").write_bytes((self.data / "seasons.json").read_bytes())
+            for kind in ("usage","redzone"):
+                copytree(self.data / kind, root / kind)
+            path=root / "usage" / "2026.json"
+            broken=json.loads(path.read_text())
+            broken["throughWeek"]=broken["throughWeek"]-1
+            path.write_text(json.dumps(broken))
+            with self.assertRaisesRegex(ValueError,"usage 2026 does not match"):
+                publisher.build_catalog(root)
+
+    def test_archived_advanced_data_is_preserved_for_future_seasons(self):
+        old,_=publisher.build_catalog(self.data)
+        year=2027
+        info={"key":"research/v1/objects/2027-"+"a"*64,"sha256":"a"*64,
+              "throughWeek":18,"updated":"2028-01-01","baseUpdated":"2028-01-01"}
+        old["years"].append(year)
+        old["files"][str(year)]=dict(info)
+        for kind in ("usage","redzone"):
+            old["datasets"][kind]["years"].append(year)
+            old["datasets"][kind]["files"][str(year)]=dict(info)
+        new, uploads=publisher.build_catalog(self.data,old)
+        self.assertEqual(uploads,[])
+        self.assertEqual(new,old)
+
+    def test_advanced_metadata_is_part_of_atomic_catalog(self):
+        catalog,uploads=publisher.build_catalog(self.data)
+        self.assertEqual(len(uploads),12)
+        base=catalog["files"]
+        for kind in ("usage","redzone"):
+            group=catalog["datasets"][kind]
+            for year in group["years"]:
+                info=group["files"][str(year)]
+                self.assertEqual(info["throughWeek"],base[str(year)]["throughWeek"])
+                self.assertEqual(info["baseUpdated"],base[str(year)]["updated"])
+                self.assertRegex(info["key"],r"^research/v1/objects/20\d\d-[a-f0-9]{64}\.json$")
 
     def test_no_upload_for_identical_rebuilt_data(self):
         old, _ = publisher.build_catalog(self.data)

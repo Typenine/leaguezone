@@ -159,6 +159,21 @@ export default async function RootPage() {
         </div>
       </section>
 
+      {/* Public NFL research: direct, account-free entry point */}
+      <section aria-labelledby="public-research-title" className="border-b border-white/10 bg-[#0b1729]">
+        <div className="container mx-auto grid gap-6 px-4 py-10 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">Free NFL research · No account required</p>
+            <h2 id="public-research-title" className="mt-2 text-2xl font-black uppercase tracking-tight text-white sm:text-3xl">Find what the box score misses.</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/65 sm:text-base">Compare fantasy production, target share, passing volume, red-zone touches and historical trends. Start with a player or see who leads your favorite metric.</p>
+          </div>
+          <div className="flex flex-wrap gap-3 md:flex-col">
+            <Link href="/research" className="inline-flex items-center justify-center bg-[var(--brand-gold)] px-5 py-3 text-sm font-black uppercase tracking-wide text-[var(--brand-ink)] hover:brightness-110">Explore free research →</Link>
+            <Link href="/research/stats" className="inline-flex items-center justify-center border border-white/30 px-5 py-3 text-sm font-bold text-white hover:bg-white/10">NFL stat leaders</Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── Features ─────────────────────────────────────────── */}
       <section className="container mx-auto px-4 py-16 sm:py-20">
         <div className="flex items-center gap-3 mb-3">

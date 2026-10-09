@@ -63,6 +63,55 @@ test.describe('red zone', () => {
     if (!isMobile) await expect(page.locator('#players-body tr').first()).toBeVisible();
   });
 
+  test('mobile column views show their actual opportunity metrics', async ({ page }) => {
+    await page.setViewportSize({width: 360,height: 780});
+    await page.goto('/research/stats?season=2025&pos=WR');
+    await expect(page.locator('#data-stamp')).toContainText('2025 Season');
+    await page.selectOption('#view','usage');
+    const card=page.locator('#mobile-results .mobile-view-stats').first();
+    await expect(card).toHaveAttribute('data-view','usage');
+    await expect(card).toContainText('Tgt share');
+    await expect(page.locator('#usage-status')).toContainText('Shares = player total');
+    await page.selectOption('#view','redzone');
+    await expect(card).toHaveAttribute('data-view','redzone');
+    await expect(card).toContainText('RZ tgt');
+    await page.selectOption('#view','goalline');
+    await expect(card).toHaveAttribute('data-view','goalline');
+    await expect(card).toContainText('GL opp');
+    await page.selectOption('#view','core');
+    await expect(page.locator('#mobile-results .mobile-view-stats')).toHaveCount(0);
+    await noOverflow(page);
+  });
+
+  test('research overview shortcuts lead to usable, filtered leaderboards', async ({ page }) => {
+    await page.goto('/research?season=2025');
+    await expect(page.locator('#pathways-title')).toContainText('What would you like');
+    await page.locator('.pathway-grid a[href*="sort=tgtShare"]').click();
+    await expect(page).toHaveURL(/\/research\/stats\?/);
+    await expect(page.locator('#position')).toHaveValue('WR');
+    await expect(page.locator('#view')).toHaveValue('usage');
+    await expect(page.locator('#sort')).toHaveValue('tgtShare');
+    await expect(page.locator('#players-body [data-profile]').first()).toBeVisible();
+  });
+
+  test('advanced data never mixes older static weeks with newer remote base', async ({ page }) => {
+    const base=season(2025) as unknown as {year:number;updated:string;throughWeek:number;players:P[]};
+    const updatedBase={...base,updated:'2030-02-01'};
+    const key='research/v1/objects/2025-'+'a'.repeat(64)+'.json';
+    await page.route('**/research/data-source.json',r=>r.fulfill({json:{
+      schema:1,publicBase:'https://mock-research.example.com'
+    }}));
+    await page.route('https://mock-research.example.com/research/v1/catalog.json',r=>r.fulfill({json:{
+      schema:1,years:[2025],files:{'2025':{key,updated:updatedBase.updated,throughWeek:18}}
+    }}));
+    await page.route('https://mock-research.example.com/'+key,r=>r.fulfill({json:updatedBase}));
+    await page.goto('/research/stats?season=2025&pos=WR&view=usage');
+    await expect(page.locator('#data-stamp')).toContainText('2025 Season');
+    await expect(page.locator('#usage-status')).toContainText('being updated to match');
+    await expect(page.locator('#players-body [data-profile]').first()).toBeVisible();
+    await expect(page.locator('#players-body .missing').first()).toBeVisible();
+  });
+
   test('RB goal-line carry sort matches independent totals', async ({ page }) => {
     const d = season(2025), z = redzone(2025);
     const top = d.players.filter(p => p.pos === 'RB').sort((a, b) => total(z, b.id, 'i5Car') - total(z, a.id, 'i5Car') || a.n.localeCompare(b.n))[0];

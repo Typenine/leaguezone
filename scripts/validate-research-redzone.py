@@ -44,6 +44,8 @@ def validate_redzone(rz: dict, base: dict) -> list[str]:
         err("year does not match base season")
     if rz.get("throughWeek") != base.get("throughWeek"):
         err("throughWeek does not match base season")
+    if rz.get("baseUpdated") != base.get("updated"):
+        err("baseUpdated does not match base season version")
     if rz.get("fields") != {"player": PLAYER_FIELDS, "team": TEAM_FIELDS}:
         err("field contract changed")
     for key in ("source", "sourceUrl", "license", "updated", "rules"):

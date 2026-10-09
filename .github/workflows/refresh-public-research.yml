@@ -1,17 +1,6 @@
 name: Refresh public research in R2
 on:
   workflow_dispatch:
-  push:
-    branches: [feature/research-r2-uploads]
-    paths:
-      - 'scripts/build-nflverse-research.py'
-      - 'scripts/publish-public-research-r2.py'
-      - 'scripts/validate-nflverse-research.py'
-      - 'public/research/**'
-      - '.github/workflows/refresh-public-research.yml'
-      - 'tests/research_r2/**'
-      - 'tests/unit/public-research-static.test.ts'
-      - 'tests/e2e/public-research-history.spec.ts'
   schedule:
     - cron: '0 12 * 1,9-12 4'
 
@@ -25,11 +14,11 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: true
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -38,17 +27,17 @@ jobs:
           node-version: '22'
           cache: npm
       - name: Install data loaders and R2 S3 client
-        run: pip install 'nflreadpy>=0.1.2,<0.3' 'boto3>=1.34,<2'
+        run: pip install 'nflreadpy>=0.1.2,<0.3' 'boto3>=1.34,<2' 'polars>=1,<2'
       - name: Rebuild and validate research data offline
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            mapfile -t years < <(find public/research/data -maxdepth 1 -name '20??.json' -printf '%f\n' | sed 's/\.json$//' | sort -n)
-            python scripts/build-nflverse-research.py --seasons "${years[@]}"
-          else
-            python scripts/build-nflverse-research.py
-          fi
+          season="$(python -c 'from datetime import datetime,timezone; now=datetime.now(timezone.utc); print(now.year if now.month >= 9 else now.year - 1)')"
+          python scripts/build-nflverse-research.py --seasons "$season"
+          python scripts/build-research-usage.py --seasons "$season"
+          python scripts/build-research-redzone.py --seasons "$season"
           python scripts/validate-nflverse-research.py
+          python scripts/validate-research-usage.py
+          python scripts/validate-research-redzone.py
           python -m unittest discover -s tests/research_r2 -p 'test_*.py' -v
           python scripts/publish-public-research-r2.py --dry-run
       - name: Typecheck, source isolation and unit tests
@@ -57,15 +46,8 @@ jobs:
           node --check public/research/app.js
           npm run typecheck
           npx vitest run tests/unit/public-research-static.test.ts
-      - name: Desktop and mobile research browser tests
-        if: github.event_name == 'push'
-        run: |
-          npx playwright install --with-deps chromium
-          npx playwright test tests/e2e/public-research-history.spec.ts
       - name: Publish validated snapshots to R2 without Git commits
-        # Allow the initial verified upload from the feature branch BEFORE the
-        # single production merge; production refreshes run from main.
-        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/research-r2-uploads'))
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         env:
           RESEARCH_R2_ACCOUNT_ID: ${{ secrets.RESEARCH_R2_ACCOUNT_ID }}
           RESEARCH_R2_ACCESS_KEY_ID: ${{ secrets.RESEARCH_R2_ACCESS_KEY_ID }}
