@@ -93,7 +93,7 @@ def dst_points(row: dict, allowed: int) -> float:
     ] if allowed <= limit), -4)
     return round(number(row, "def_sacks") + 2 * number(row, "def_interceptions")
         + 2 * number(row, "fumble_recovery_opp")
-        + 6 * (number(row, "def_tds") + number(row, "special_teams_tds"))
+        + 6 * (number(row, "def_tds") + number(row, "fumble_recovery_tds") + number(row, "special_teams_tds"))
         + 2 * (number(row, "def_safeties") + number(row, "def_punt_blocks")
                + number(row, "def_fg_blocks"))
         + pa_bonus, 2)
@@ -193,7 +193,7 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
     # Exclude opponent defensive touchdowns from points allowed. Opponent PATs
     # still count. Sleeper documents this distinction explicitly.
     defense_tds_by_week = {
-        (int(r["week"]), str(r["team"])): int(number(r, "def_tds"))
+        (int(r["week"]), str(r["team"])): int(number(r, "def_tds") + number(r, "fumble_recovery_tds"))
         for r in teams if int(r.get("season") or 0) == season
         and r.get("season_type") == "REG" and r.get("team")
     }
