@@ -37,7 +37,9 @@
   var DASH = '\u2014';
   var SCORING_LABELS = {half:'Half PPR', ppr:'Full PPR', standard:'Standard'};
   state.listUrl = ''; state.listScroll = 0; state.pendingWeek = 0;
-  function opts(row) { return {scoring: state.score, row: row || null, throughWeek: state.throughWeek, usageStatus: state.usageStatus[state.year]}; }
+  state.rz = new Map(); state.rzStatus = {}; state.rzManifest = null;
+  var RZ_VIEWS = ['redzone','goalline'];
+  function opts(row) { return {scoring: state.score, row: row || null, throughWeek: state.throughWeek, usageStatus: state.usageStatus[state.year], rzStatus: state.rzStatus[state.year]}; }
   var USAGE_POS = ['QB','RB','WR','TE'];
   // Optional advanced usage: fetched only when a usage view, sort, profile or
   // comparison needs it; cached per season; failures leave core stats intact.
@@ -60,6 +62,33 @@
     });
     state.usage.set(year, promise);
     return promise;
+  }
+  // Optional red-zone data: same contract as usage, separate cache and files.
+  function ensureRedzone(year) {
+    if (state.rz.has(year)) return state.rz.get(year);
+    state.rzStatus[year] = 'loading';
+    if (!state.rzManifest) state.rzManifest = fetch('/research/data/redzone/seasons.json', {cache:'no-cache'}).then(responseError);
+    var promise = state.rzManifest.then(function (manifest) {
+      if (!manifest || manifest.schema !== 1 || (manifest.years || []).indexOf(year) === -1) throw {unavailable: true};
+      return Promise.all([loadData(year), fetch('/research/data/redzone/'+year+'.json', {cache:'default'}).then(responseError)]);
+    }).then(function (r) {
+      if (!r[1] || r[1].schema !== 1 || r[1].year !== year) throw {unavailable: true};
+      M.attachRedzone(r[0].players, r[1]);
+      state.rzStatus[year] = 'ready';
+    }).catch(function (e) {
+      state.rzStatus[year] = e && e.unavailable ? 'unavailable' : 'error';
+    }).then(function () {
+      renderTable(); renderCompare();
+      if (/^\/research\/players\/[^/]+\/?$/.test(location.pathname)) renderRoute();
+    });
+    state.rz.set(year, promise);
+    return promise;
+  }
+  function rzNote(year) {
+    var st = state.rzStatus[year || state.year];
+    return st === 'ready' ? 'Red zone = plays snapped at or inside the opponent 20 (goal line: inside the 5), from nflverse play-by-play. Opportunities = carries + targets; a target counts whether or not it was caught. Two-point tries, kneel-downs and plays wiped out by penalties are excluded. Shares use the team he played for each week.' :
+      st === 'unavailable' ? 'Red-zone data is not available for '+(year || state.year)+'. Core statistics and advanced usage are unaffected.' :
+      st === 'error' ? 'Red-zone data failed to load. Core statistics and advanced usage are unaffected.' : 'Loading red-zone data…';
   }
   function usageNote() {
     var st = state.usageStatus[state.year];
@@ -117,7 +146,7 @@
       state.week ? 'Week '+state.week+' single-game stats' : 'Season stats; per-game values use recorded games only'];
     if (!state.week && state.games > 1) parts.push('Minimum '+state.games+' games');
     if (state.rookieOnly) parts.push('Verified rookies only');
-    if (def.qualifier) parts.push('Under '+M.qualifierThreshold({row: state.week ? true : null, throughWeek: state.throughWeek})+
+    if (def.qualifier) parts.push('Under '+(def.rz ? (state.week ? def.qualifier.minWeek : def.qualifier.min) : M.qualifierThreshold({row: state.week ? true : null, throughWeek: state.throughWeek}))+
       ' '+def.qualifier.label+' listed after qualified players');
     $('sort-context').textContent = parts.join(' \u00b7 ');
   }
@@ -140,8 +169,12 @@
   function renderTable() {
     var sortIsUsage = !!(M.metric(state.sort) && M.metric(state.sort).usage);
     if (sortIsUsage && state.view !== 'usage') { state.view = 'usage'; $('view').value = 'usage'; }
+    var sortIsRz = !!(M.metric(state.sort) && M.metric(state.sort).rz);
+    if (sortIsRz && RZ_VIEWS.indexOf(state.view) === -1) { state.view = 'redzone'; $('view').value = 'redzone'; }
     if (state.view === 'usage' && state.year) ensureUsage(state.year);
-    $('usage-status').textContent = state.view === 'usage' ? usageNote() : '';
+    if (RZ_VIEWS.indexOf(state.view) !== -1 && state.year) ensureRedzone(state.year);
+    $('usage-status').textContent = state.view === 'usage' ? usageNote() : RZ_VIEWS.indexOf(state.view) !== -1 ? rzNote() +
+      (state.view === 'goalline' ? ' Conversion rates on fewer than 5 goal-line opportunities are listed after qualified players and are not predictive.' : '') : '';
     var list = ranked(), cols = columns(state.position), sortDef = M.metric(state.sort);
     $('result-count').textContent = list.length+(state.week?' weekly performances':' players');
     $('directory-title').textContent = state.year+' '+(state.week?'Week '+state.week:'Season')+' Fantasy Statistics';
@@ -301,6 +334,80 @@
     return head+'<div class="profile-grid">'+grid+'</div><h3>Recent opportunity vs. earlier games</h3>'+trend+
       '<h3>Weekly opportunity</h3>'+usageChart(p,share)+table+'</section>';
   }
+  function rzMetric(p,key,o) {
+    var r=M.evaluate(key,p,o||opts()), def=M.metric(key), n=M.sampleSize(key,p,o||opts());
+    var note=r.value!=null&&n!=null&&n<M.SMALL_SAMPLE[def.sample]?'Small sample ('+n+'): not predictive':null;
+    return metric(def.label.split(' (')[0],M.format(key,r.value),note,r.value==null?r.missing:null);
+  }
+  function rzChart(p) {
+    var rows=p.rz, h=150, pad=26, weeks=Math.max(state.throughWeek,1), w=Math.max(320,weeks*24+pad*2);
+    var max=Math.max(1,...rows.map(function (r) {return (r.rzCar||0)+(r.rzTgt||0);}));
+    var bw=Math.max(6,(w-pad*2)/weeks-6), y=function (v) {return h-pad-(v/max)*(h-pad*2);};
+    var bars=rows.map(function (r) {
+      var x=pad+(r.week-1)*(w-pad*2)/weeks+3, c=r.rzCar||0, t=r.rzTgt||0;
+      return '<g data-rz-week="'+r.week+'"><title>Week '+r.week+' ('+escape(r.team)+'): '+c+' red-zone carries, '+t+' red-zone targets, '+
+        ((r.i5Car||0)+(r.i5Tgt||0))+' inside the 5</title>'+
+        '<rect class="rz-car" x="'+x+'" y="'+y(c)+'" width="'+bw+'" height="'+(h-pad-y(c))+'"></rect>'+
+        '<rect class="rz-tgt" x="'+x+'" y="'+y(c+t)+'" width="'+bw+'" height="'+(y(c)-y(c+t))+'"></rect>'+
+        '<text x="'+(x+bw/2)+'" y="'+(h-8)+'" text-anchor="middle">'+r.week+'</text></g>';
+    }).join('');
+    return '<div class="rz-chart"><svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="'+escape(p.n+' weekly red-zone carries and targets in '+state.year)+'">'+
+      '<text x="4" y="14">'+max+'</text><line x1="'+pad+'" x2="'+(w-pad)+'" y1="'+(h-pad)+'" y2="'+(h-pad)+'"></line>'+bars+'</svg>'+
+      '<p class="subdued"><span class="rz-key rz-car"></span> Carries <span class="rz-key rz-tgt"></span> Targets (stacked, per week). '+
+      'Missing weeks are weeks without stats (byes, inactive), not zero opportunity.</p></div>';
+  }
+  function rzSection(p) {
+    var groups=M.RZ_PROFILE_KEYS[p.pos];
+    if (!groups) return '';
+    ensureRedzone(state.year);
+    var st=state.rzStatus[state.year];
+    var head='<section class="panel profile-section" id="redzone-profile"><h2>Red-Zone and Goal-Line Usage</h2>'+
+      '<p class="subdued">Scoring opportunity near the end zone, measured at the snap. '+(p.pos==='QB'?
+        'Passing and rushing roles are shown separately; a passing touchdown is not counted as a QB carry or target.':
+        'Rushing and receiving opportunities are shown separately; a target counts whether or not it was caught.')+'</p>';
+    if (st!=='ready'||!p.rz) return head+'<p class="subdued" id="redzone-state">'+escape(rzNote())+'</p></section>';
+    var t=M.rzTotals(p.rz), qb=p.pos==='QB';
+    var zones=[['rz','Inside the 20'],['i10','Inside the 10'],['i5','Inside the 5']];
+    var cnt=function (v) {return v==null?missingMark('Team totals missing for a week'):String(v);};
+    var zoneTable='<div class="table-scroll"><table class="rz-zones" id="rz-zones"><thead><tr><th>Area</th><th class="num">Carries</th><th class="num">Rush TD</th>'+
+      (qb?'':'<th class="num">Targets</th><th class="num">Rec TD</th>')+'<th class="num">Team share</th></tr></thead><tbody>'+
+      zones.map(function (z) {
+        var Z=z[0].charAt(0).toUpperCase()+z[0].slice(1), mine=qb?t[z[0]+'Car']:(t[z[0]+'Car']==null||t[z[0]+'Tgt']==null?null:t[z[0]+'Car']+t[z[0]+'Tgt']);
+        var team=qb?t['team'+Z+'Car']:(t['team'+Z+'Car']==null||t['team'+Z+'Tgt']==null?null:t['team'+Z+'Car']+t['team'+Z+'Tgt']);
+        var share=mine==null||!team?null:mine/team;
+        return '<tr data-zone="'+z[0]+'"><td>'+z[1]+'</td><td class="num">'+cnt(t[z[0]+'Car'])+'</td><td class="num">'+cnt(t[z[0]+'RuTd'])+'</td>'+
+          (qb?'':'<td class="num">'+cnt(t[z[0]+'Tgt'])+'</td><td class="num">'+cnt(t[z[0]+'ReTd'])+'</td>')+
+          '<td class="num">'+(share==null?missingMark(team===0?'Team had no opportunities here':'Not recorded'):escape(M.format('rzOppShare',share)))+'</td></tr>';
+      }).join('')+'</tbody></table></div><p class="subdued">Team share = '+(qb?'his carries \u00f7 team carries':'his carries + targets \u00f7 team carries + targets')+
+      ' in the same area and games.</p>';
+    var grid=Object.keys(groups).map(function (g) {
+      return '<h3>'+escape(g)+'</h3><div class="profile-grid" data-rz-group="'+escape(g)+'">'+groups[g].map(function (k) {return rzMetric(p,k);}).join('')+'</div>';
+    }).join('');
+    var recent=[3,5].map(function (n) {
+      return ['rzOppPg','rzOppShare'].map(function (k) {
+        var v=M.rzWindow(p,k,n,opts());
+        return metric(M.metric(k).short+', last '+n,M.format(k,v),'Last '+n+' games with stats',v==null?'Needs '+n+'+ games with stats':null);
+      }).join('');
+    }).join('');
+    var tr=M.rzTrend(p,opts());
+    var trend=tr?'<div class="table-scroll"><table class="rz-trend-table" id="rz-trend"><thead><tr><th>Opportunity</th><th class="num">Last 3</th><th class="num">Earlier</th><th class="num">Change</th></tr></thead><tbody>'+
+      tr.metrics.map(function (m) {
+        return '<tr data-rz-trend="'+m.key+'"><td>'+escape(M.metric(m.key).label.split(' (')[0])+'</td><td class="num">'+usageVal(m.key,m.recent)+
+          '</td><td class="num">'+usageVal(m.key,m.prior)+'</td><td class="num">'+(M.formatDiff(m.key,m.change)?escape(M.formatDiff(m.key,m.change)):missingMark('Not comparable'))+'</td></tr>';
+      }).join('')+'</tbody></table></div><p class="subdued">Weeks '+tr.recentWeeks.join(', ')+' vs. weeks '+tr.priorWeeks.join(', ')+'. Share changes are percentage points.</p>':
+      '<p class="subdued">Red-zone trends need at least '+(M.RECENT_WINDOW+2)+' games with stats.</p>';
+    var wk=qb?['rzAtt','rzPaTd','rzCar','i5Car','rzRuTd']:p.pos==='RB'?['rzCar','i5Car','rzRuTd','rzTgt','i5Tgt','rzReTd','rzOppShare']:['rzTgt','i10Tgt','i5Tgt','rzRec','rzReTd','rzTgtShare','rzOppShare'];
+    var rows=[...p.w].sort(function (a,b) {return b[0]-a[0];});
+    var table='<div class="table-scroll game-log"><table id="rz-weekly"><thead><tr><th>Week</th><th>Team</th>'+wk.map(function (k) {
+      return '<th class="num" title="'+escape(M.metric(k).label)+'">'+escape(M.metric(k).short)+'</th>';}).join('')+'</tr></thead><tbody>'+
+      rows.map(function (w) {return '<tr><td>'+w[0]+'</td><td>'+escape(w[1])+'</td>'+wk.map(function (k) {return '<td class="num">'+display(p,k,w)+'</td>';}).join('')+'</tr>';}).join('')+
+      '</tbody></table></div>';
+    return head+'<h3>Inside the 20, 10 and 5</h3>'+zoneTable+grid+
+      '<p class="subdued">Opportunity volume and touchdown conversion are separate: 3 touchdowns on 12 goal-line carries is a different role from 3 on 3. '+
+      'Rates on fewer than 10 opportunities (5 inside the 5, 20 pass attempts) are marked small sample and are not predictive.</p>'+
+      '<h3>Recent red-zone opportunity</h3><div class="profile-grid">'+recent+'</div>'+trend+
+      '<h3>Weekly red-zone opportunity</h3>'+(qb?'':rzChart(p))+table+'</section>';
+  }
   function renderProfile(p) {
     var container=$('profile');
     if (!p) {container.hidden=true; return;}
@@ -338,7 +445,7 @@
       '<section class="profile-section" id="position-stats"><h2>'+escape(shortPos(p.pos))+' production and efficiency</h2>'+
       '<div class="profile-grid">'+positional+'</div>'+
       (p.pos==='DEF'?'<p class="subdued">DST points allowed are estimated from scoring by the opposing offense.</p>':'')+'</section>'+
-      usageSection(p)+
+      usageSection(p)+rzSection(p)+
       '<section class="panel profile-section"><h2>Weekly performance</h2><p class="subdued">Fantasy points by regular-season week \u00b7 '+
       escape(SCORING_LABELS[state.score])+'</p>'+trendSvg(p)+'</section>'+
       '<section class="profile-section"><div class="section-head"><h2>Career history</h2><span class="subdued">Available LeagueZone seasons</span></div>'+
@@ -377,10 +484,13 @@
       if (errors.length) $('career-history').insertAdjacentHTML('beforeend','<p class="subdued">Some earlier seasons were unavailable.</p>');
     });
   }
-  function cmpOpts(item) { return {scoring:state.score,throughWeek:item.throughWeek,usageStatus:state.usageStatus[item.year]}; }
+  function cmpOpts(item) { return {scoring:state.score,throughWeek:item.throughWeek,usageStatus:state.usageStatus[item.year],rzStatus:state.rzStatus[item.year]}; }
   function cmpVal(key,item) {
     var r=M.evaluate(key,item.player,cmpOpts(item));
-    return {value:r.value,html:r.value==null?missingMark(r.missing):escape(M.format(key,r.value))};
+    var n=M.sampleSize(key,item.player,cmpOpts(item)), def=M.metric(key);
+    var small=r.value!=null&&n!=null&&n<M.SMALL_SAMPLE[def.sample];
+    return {value:r.value,html:r.value==null?missingMark(r.missing):escape(M.format(key,r.value))+
+      (small?' <span class="small-sample" title="Small sample: '+n+' opportunities">small sample ('+n+')</span>':'')};
   }
   function cmpRow(key,a,b) {
     var def=M.metric(key), va=cmpVal(key,a), vb=cmpVal(key,b);
@@ -415,6 +525,7 @@
     }
     var a=state.compare[0], b=state.compare[1], plan=M.comparisonPlan(a.pos,b.pos), notes=[];
     if (plan.usage.length) [a,b].forEach(function (x) { ensureUsage(x.year); });
+    if (plan.redzone.length) [a,b].forEach(function (x) { ensureRedzone(x.year); });
     if (!plan.related) notes.push('Different position groups ('+shortPos(a.pos)+' vs '+shortPos(b.pos)+
       '): only fantasy scoring is compared. Position statistics are not comparable.');
     else if (!plan.same) notes.push('Different skill positions: only statistics recorded for both positions are compared.');
@@ -429,7 +540,10 @@
       '<div role="columnheader">Difference (A \u2212 B)</div></div>'+
       cmpSection('Fantasy production and consistency',plan.fantasy,a,b)+
       cmpSection('Per-game usage and efficiency',plan.positional,a,b)+
-      (plan.usage.length?cmpSection('Opportunity shares and passing rates (per game or rate, never season totals)',plan.usage,a,b):'')+'</div>'+
+      (plan.usage.length?cmpSection('Opportunity shares and passing rates (per game or rate, never season totals)',plan.usage,a,b):'')+
+      (plan.redzone.length?cmpSection('Red-zone and goal-line opportunity (per game, shares and conversion)',plan.redzone,a,b)+
+        cmpSection('Red-zone season totals (context only; '+(a.player.g===b.player.g&&a.throughWeek===b.throughWeek?'same':'different')+' recorded games: '+a.player.g+' vs '+b.player.g+')',plan.redzoneTotals,a,b):'')+'</div>'+
+      (plan.redzone.length?'<p class="subdued" id="rz-compare-note">'+escape(rzNote(a.year))+' Conversion rates marked small sample are descriptive only.</p>':'')+
       '<p class="subdued">Highlighted values are better. Lower is better for standard deviation, volatility and points allowed. '+
       'Recent averages use the last recorded games of each season.</p>';
     $('compare-notice').textContent='Comparing the selected seasons using '+label+' scoring.';

@@ -200,3 +200,91 @@ Not wired into the scheduled refresh yet. To integrate: run the builder after th
 ### Not included
 
 Snap counts, routes, targets per route, red-zone usage, EPA/CPOE, expected fantasy points and true games played need additional sources or licensing review and are not shown.
+
+## Red-zone and goal-line usage (optional dataset)
+
+A third, separate, lazily loaded dataset adds scoring-area opportunity for QB, RB, WR and TE. It never changes the base season files or the Phase 2 usage files, and the research site works without it.
+
+### Source and play eligibility
+
+Source: nflverse play-by-play (`nflreadpy.load_pbp`), regular season only (`season_type == "REG"`), weeks 1 through the base season file's `throughWeek` (the base boundary stays authoritative; later source weeks are ignored). Each `(game_id, play_id)` is processed once; a duplicate rejects the season.
+
+| Rule | nflverse fields | Treatment |
+| --- | --- | --- |
+| Zone | `yardline_100` | Yards from the opponent end zone **at the snap** (line of scrimmage before the play). Red zone `<= 20`, inside the 10 `<= 10`, inside the 5 (goal line) `<= 5`. Where the ball was caught or the play ended is not used. A scrimmage play with a missing or invalid value rejects the season. |
+| Carry | `rush_attempt`, `rusher_player_id` | `rush_attempt == 1` with a rusher. Includes designed runs, **QB scrambles** (`qb_scramble`, scored as runs) and aborted snaps the NFL scores as runs. |
+| Kneel-down | `play_type == "qb_kneel"` / `qb_kneel` | **Excluded** from red-zone carries and team denominators (not a scoring attempt). Kneels still count as carries in the full-game cross-check, as they do in official stats. |
+| Target | `pass_attempt`, `sack`, `receiver_player_id`, `complete_pass` | Non-sack pass attempt with an intended receiver, **complete or incomplete**. Sacks, spikes and throwaways (no intended receiver) are not targets. Reception = `complete_pass == 1`. |
+| QB pass attempt | `pass_attempt`, `sack`, `passer_player_id` | Non-sack pass attempt, including spikes (as in official attempts). Shown only as the QB passing role; a passing TD is never a QB carry, target or red-zone opportunity. |
+| Two-point try | `two_point_attempt` | **Excluded** everywhere. |
+| Penalties / no-plays | `play_type == "no_play"`, `rush_attempt`, `pass_attempt` | A play erased by an accepted penalty has both attempt flags 0 and is excluded. A small number of rows are labelled `no_play` while still scoring the attempt (a post-play penalty where the run or pass stands); these count, matching official carries and targets. Penalty yards never create an opportunity. |
+| Aborted plays | `aborted_play` | Counted only when the NFL scores them as a rush or pass attempt (the flags above). |
+| Rushing TD | `rush_touchdown`, `td_player_id` | Rusher scored on a carry snapped in the zone. |
+| Receiving TD | `pass_touchdown`, `td_player_id` | Targeted receiver scored on a target snapped in the zone. |
+| Passing TD | `pass_touchdown` | Credited to the passer on a red-zone attempt (QB passing role only). |
+| Outside TDs | | A TD on a play snapped outside a zone is not a TD for that zone (a 30-yard TD is not a red-zone TD). TDs scored by a lateral recipient are not red-zone TDs for anyone (he had no carry or target). |
+
+**Safety check:** the builder applies the same rules over the whole field and requires them to reproduce the base season's carries, targets, receptions, rushing, receiving and passing TDs for every published player-week. Any disagreement rejects the season and nothing is written. Every published 2023–2026 player-week passes.
+
+### Schema (`/research/data/redzone/{season}.json`, schema 1)
+
+`{year, schema, throughWeek, baseUpdated, updated, source, sourceUrl, license, rules, fields, teams, players}`
+
+- `fields.player`: `week, team, rzCar, i10Car, i5Car, rzRuTd, i10RuTd, i5RuTd, rzTgt, i10Tgt, i5Tgt, rzRec, rzReTd, i10ReTd, i5ReTd, rzAtt, i5Att, rzPaTd`.
+- `fields.team`: `week, rzCar, i10Car, i5Car, rzTgt, i10Tgt, i5Tgt` (team denominators for every team-week with a play).
+- `players[gsis_id]` holds only weeks with at least one red-zone event, with the team he played for that week. No names or other metadata are repeated (they come from the base file).
+- **Missing-data rule:** a base player-week with no red-zone row is a real zero *if* its team-week row exists. If the team-week row is missing, the week's values are unavailable (shown as "—"), never zero.
+- Manifest: `/research/data/redzone/seasons.json` = `{"schema":1,"years":[...]}`.
+
+### Statistics
+
+Season values sum numerators over his recorded weeks and divide by the sum of **the team he played for in each of those weeks** (byes and weeks he has no stats are skipped; weekly percentages are never averaged; final team is never used for the season).
+
+| Statistic | Formula | Applies to |
+| --- | --- | --- |
+| Red-zone / inside-10 / goal-line carries | count of carries snapped `<= 20 / 10 / 5` | QB, RB, WR, TE |
+| Red-zone rushing TDs | rushing TDs on red-zone carries | QB, RB, WR, TE |
+| Red-zone carry share | rzCar ÷ team rzCar | QB, RB, WR, TE |
+| Goal-line carry share | i5Car ÷ team i5Car | QB, RB, WR, TE |
+| Red-zone rushing TD rate | rzRuTd ÷ rzCar | QB, RB, WR, TE |
+| Red-zone / inside-10 / goal-line targets, red-zone receptions, receiving TDs | counts as above | RB, WR, TE |
+| Red-zone target share | rzTgt ÷ team rzTgt | RB, WR, TE |
+| Red-zone target TD rate | rzReTd ÷ rzTgt | RB, WR, TE |
+| Red-zone / inside-10 / goal-line opportunities | carries + targets | QB, RB, WR, TE |
+| Red-zone opportunities per game | rzOpp ÷ games with stats | QB, RB, WR, TE |
+| Red-zone opportunity share | (rzCar + rzTgt) ÷ (team rzCar + team rzTgt) | QB, RB, WR, TE |
+| Goal-line opportunity share | (i5Car + i5Tgt) ÷ (team i5Car + team i5Tgt) | QB, RB, WR, TE |
+| Red-zone TDs / TD per opportunity | (rzRuTd + rzReTd); ÷ rzOpp | QB, RB, WR, TE |
+| Goal-line TDs / conversion | (i5RuTd + i5ReTd); ÷ i5Opp | QB, RB, WR, TE |
+| Red-zone pass attempts, attempts inside 5, passing TDs, passing TD rate | rzPaTd ÷ rzAtt | QB |
+
+A zero denominator (for example, a team with no goal-line carries) gives "—" with a reason, not 0%. Conversion rates are labelled **small sample** below 10 carries / targets / opportunities, 5 goal-line opportunities or 20 pass attempts; in rankings those players are listed after qualified players (weekly threshold 2). Small-sample rates are descriptive, not predictive.
+
+### Interface
+
+- **Columns: Red zone** and **Columns: Goal line (inside 5)** join Core stats and Advanced usage. Columns are position-specific; every column sorts. Choosing a red-zone sort switches to the Red zone view. The view is kept in the URL (`view=redzone|goalline`).
+- **Profiles (QB/RB/WR/TE):** "Red-Zone and Goal-Line Usage" with an inside-20/10/5 table (rushing and receiving separate, plus team share), position groups (QB passing vs rushing; RB goal line, rushing, receiving; WR/TE receiving and goal line), last-3/last-5 opportunity per game and share, a last-3 vs earlier table (percentage-point changes), a weekly stacked carries/targets chart (non-QB) and a weekly table.
+- **Comparisons:** per-game opportunity, shares and conversion with differences, plus season totals labelled "context only" with each side's recorded games. Unrelated position groups show none.
+- **Loading:** the red-zone file is fetched only for the Red zone / Goal line views, a red-zone sort, a QB/RB/WR/TE profile or a comparison that needs it; cached per season. Kicker and defense profiles and ordinary visits never request it. If it fails or the season is not in the manifest, the view explains it, values show "—", and core statistics and advanced usage keep working.
+
+### Generate, validate and test
+
+```bash
+python scripts/build-research-redzone.py --seasons 2023 2024 2025 2026
+python scripts/validate-research-redzone.py
+python scripts/test-research-redzone.py   # hand-built play fixtures (also run by npm run test)
+```
+
+The builder validates every requested season before writing any file, writes each file atomically (temp file + rename), refuses to replace a file with a lower `throughWeek`, keeps the previous `updated` stamp when content is unchanged, and writes the manifest last. Requires `nflreadpy` and Polars. Rebuild a season's red-zone file whenever its base file changes.
+
+### Publication contract (for the R2/refresh owner)
+
+Same contract as advanced usage: publish `/research/data/redzone/{season}.json` before `seasons.json`; short/revalidated cache for the manifest, normal cache for season files; never publish a file that failed `validate-research-redzone.py`; keep prior seasons; rollback = restore the previous season files and manifest; a breaking field change bumps `schema` (the site then treats the dataset as unavailable). The existing refresh workflow is unchanged; it will later need a step running the builder and validator after the base build.
+
+### Limitations
+
+- Coverage is the base seasons, 2023–2026. nflverse play-by-play goes back to 1999; older seasons need validation before publishing.
+- Opportunities are carries and targets only: no snaps, routes or red-zone snap share (no licensed source), and per-game values divide by games with stats.
+- Penalties that move the ball into the red zone create no opportunity until the next snap; penalty-only plays are not counted.
+- nflverse's CC BY 4.0 licence does not by itself settle the NFL's rights in play-by-play data.
+- No expected-touchdown or expected-fantasy-point models are included.

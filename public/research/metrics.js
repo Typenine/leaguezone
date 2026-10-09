@@ -153,6 +153,54 @@
     return c.usageStatus === 'unavailable' ? 'Advanced usage not available for this season' :
       c.usageStatus === 'error' ? 'Advanced usage failed to load' : 'Advanced usage loading';
   }
+  // Optional red-zone data (scripts/build-research-redzone.py, schema 1).
+  // One line per base weekly row: player counts plus the denominators of the
+  // team he played for that week. A missing player row with a present team row
+  // is a real zero; a missing team row makes the whole week unavailable.
+  var RZ_FIELDS = ['rzCar','i10Car','i5Car','rzRuTd','i10RuTd','i5RuTd','rzTgt','i10Tgt','i5Tgt','rzRec','rzReTd','i10ReTd','i5ReTd','rzAtt','i5Att','rzPaTd'];
+  var RZ_TEAM_FIELDS = ['rzCar','i10Car','i5Car','rzTgt','i10Tgt','i5Tgt'];
+  var RZ_POS = ['QB','RB','WR','TE'];
+  function attachRedzone(players, data) {
+    var teams = {}, pf = (data.fields || {}).player || [], tf = (data.fields || {}).team || [], attached = 0;
+    Object.keys(data.teams || {}).forEach(function (team) {
+      data.teams[team].forEach(function (r) { teams[team + ':' + r[0]] = r; });
+    });
+    players.forEach(function (p) {
+      if (RZ_POS.indexOf(p.pos) === -1) return;
+      var own = {};
+      ((data.players || {})[p.id] || []).forEach(function (r) { own[r[0]] = r; });
+      p.rz = sortedRows(p).map(function (w) {
+        var t = teams[w[1] + ':' + w[0]], r = own[w[0]], line = {week: w[0], team: w[1]};
+        RZ_FIELDS.forEach(function (f) {
+          var i = pf.indexOf(f);
+          line[f] = !t ? null : r && r[1] === w[1] ? nullable(r[i]) : 0;
+        });
+        RZ_TEAM_FIELDS.forEach(function (f) { line['team' + f.charAt(0).toUpperCase() + f.slice(1)] = t ? nullable(t[tf.indexOf(f)]) : null; });
+        return line;
+      });
+      attached++;
+    });
+    return attached;
+  }
+  var RZ_TEAM_KEYS = RZ_TEAM_FIELDS.map(function (f) { return 'team' + f.charAt(0).toUpperCase() + f.slice(1); });
+  function rzTotals(rows) {
+    var t = {games: rows.length};
+    RZ_FIELDS.concat(RZ_TEAM_KEYS).forEach(function (f) {
+      t[f] = rows.reduce(function (s, r) { return s == null || r[f] == null ? null : s + r[f]; }, 0);
+    });
+    return t;
+  }
+  function rzRows(player, c) {
+    if (!player.rz) return null;
+    if (c.rzRows) return c.rzRows;
+    if (!c.row) return player.rz;
+    return player.rz.filter(function (r) { return r.week === c.row[0]; });
+  }
+  function rzMissing(c) {
+    return c.rzStatus === 'unavailable' ? 'Red-zone data not available for this season' :
+      c.rzStatus === 'error' ? 'Red-zone data failed to load' : 'Red-zone data loading';
+  }
+  function add(a, b) { return a == null || b == null ? null : a + b; }
   var METRICS = [
     m('games','GP','Games with a recorded stat (nflverse lists no row for games without one)','fantasy','all',{week:false, value:function (l) { return l.games; }}),
     m('points','FP','Fantasy points','fantasy','all',{decimals:1, value:fp}),
@@ -248,6 +296,57 @@
     u('carShare','Car share','Carry share (player carries' + DIVIDE + 'team carries in the same games; team carries include QB scrambles and kneel-downs)','rushing',{format:'pct', decimals:1,
       value:function (l) { return uratio(l.car,l.teamCar); }, missing:function () { return 'No team carries recorded'; }})
   ]);
+  function r(key, short, label, applies, options) { options.rz = true; return m(key, short, label, 'redzone', applies, options); }
+  APPLIES.offense = RZ_POS;
+  function rzv(f) { return function (l) { return l[f]; }; }
+  function rzr(a, b) { return function (l) { return a(l) == null || b(l) == null ? null : ratio(a(l), b(l)); }; }
+  function opp(z) { return function (l) { return add(l[z + 'Car'], l[z + 'Tgt']); }; }
+  function teamOpp(z) { return function (l) { var Z = z.charAt(0).toUpperCase() + z.slice(1); return add(l['team' + Z + 'Car'], l['team' + Z + 'Tgt']); }; }
+  function tds(z) { return function (l) { return add(l[z + 'RuTd'], l[z + 'ReTd']); }; }
+  function none(label) { return function () { return 'No ' + label; }; }
+  var RZQ = function (field, min, label) { return {field: field, min: min, minWeek: 2, label: label}; };
+  METRICS = METRICS.concat([
+    r('rzCar','RZ car','Red-zone carries (snapped at or inside the opponent 20; kneel-downs excluded)','rushing',{value:rzv('rzCar')}),
+    r('i10Car','Car in 10','Carries snapped inside the opponent 10','rushing',{value:rzv('i10Car')}),
+    r('i5Car','Car in 5','Goal-line carries (snapped inside the opponent 5)','rushing',{value:rzv('i5Car')}),
+    r('rzRuTd','RZ rush TD','Rushing touchdowns on red-zone carries','rushing',{value:rzv('rzRuTd')}),
+    r('rzCarShare','RZ car share','Red-zone carry share (player red-zone carries' + DIVIDE + 'team red-zone carries in the same games)','rushing',{format:'pct', decimals:1,
+      value:rzr(rzv('rzCar'), rzv('teamRzCar')), missing:none('team red-zone carries')}),
+    r('glCarShare','GL car share','Goal-line carry share (carries inside the 5' + DIVIDE + 'team carries inside the 5)','rushing',{format:'pct', decimals:1,
+      value:rzr(rzv('i5Car'), rzv('teamI5Car')), missing:none('team goal-line carries')}),
+    r('rzRuTdRate','RZ rush TD %','Red-zone rushing TD rate (red-zone rushing TDs' + DIVIDE + 'red-zone carries)','rushing',{format:'pct', decimals:1,
+      value:rzr(rzv('rzRuTd'), rzv('rzCar')), missing:none('red-zone carries'), qualifier:RZQ('rzCar', 10, 'red-zone carries'), sample:'rzCar'}),
+    r('rzTgt','RZ tgt','Red-zone targets (caught or not, snapped at or inside the opponent 20)','receiving',{value:rzv('rzTgt')}),
+    r('i10Tgt','Tgt in 10','Targets snapped inside the opponent 10','receiving',{value:rzv('i10Tgt')}),
+    r('i5Tgt','Tgt in 5','Goal-line targets (snapped inside the opponent 5)','receiving',{value:rzv('i5Tgt')}),
+    r('rzRec','RZ rec','Red-zone receptions','receiving',{value:rzv('rzRec')}),
+    r('rzReTd','RZ rec TD','Receiving touchdowns on red-zone targets','receiving',{value:rzv('rzReTd')}),
+    r('rzTgtShare','RZ tgt share','Red-zone target share (player red-zone targets' + DIVIDE + 'team red-zone targets in the same games)','receiving',{format:'pct', decimals:1,
+      value:rzr(rzv('rzTgt'), rzv('teamRzTgt')), missing:none('team red-zone targets')}),
+    r('rzTgtTdRate','RZ tgt TD %','Red-zone target TD rate (red-zone receiving TDs' + DIVIDE + 'red-zone targets)','receiving',{format:'pct', decimals:1,
+      value:rzr(rzv('rzReTd'), rzv('rzTgt')), missing:none('red-zone targets'), qualifier:RZQ('rzTgt', 10, 'red-zone targets'), sample:'rzTgt'}),
+    r('rzOpp','RZ opp','Red-zone opportunities (carries + targets)','offense',{value:opp('rz')}),
+    r('i10Opp','Opp in 10','Opportunities inside the 10 (carries + targets)','offense',{value:opp('i10')}),
+    r('i5Opp','GL opp','Goal-line opportunities (carries + targets inside the 5)','offense',{value:opp('i5')}),
+    r('rzOppPg','RZ opp/G','Red-zone opportunities per game with stats','offense',{week:false, decimals:1, value:function (l) { return opp('rz')(l) == null ? null : ratio(opp('rz')(l), l.games); }}),
+    r('i5OppPg','GL opp/G','Goal-line opportunities per game with stats','offense',{week:false, decimals:2, value:function (l) { return opp('i5')(l) == null ? null : ratio(opp('i5')(l), l.games); }}),
+    r('rzOppShare','RZ opp share','Red-zone opportunity share (player carries + targets' + DIVIDE + 'team carries + targets in the red zone, same games)','offense',{format:'pct', decimals:1,
+      value:rzr(opp('rz'), teamOpp('rz')), missing:none('team red-zone opportunities')}),
+    r('glOppShare','GL opp share','Goal-line opportunity share (player carries + targets' + DIVIDE + 'team carries + targets inside the 5)','offense',{format:'pct', decimals:1,
+      value:rzr(opp('i5'), teamOpp('i5')), missing:none('team goal-line opportunities')}),
+    r('rzTd','RZ TD','Red-zone rushing + receiving touchdowns (passing TDs excluded)','offense',{value:tds('rz')}),
+    r('i5Td','GL TD','Rushing + receiving touchdowns on goal-line opportunities','offense',{value:tds('i5')}),
+    r('rzTdPerOpp','RZ TD/opp','Red-zone touchdowns per opportunity (red-zone TDs' + DIVIDE + 'red-zone opportunities)','offense',{format:'pct', decimals:1,
+      value:rzr(tds('rz'), opp('rz')), missing:none('red-zone opportunities'), qualifier:RZQ('rzOpp', 10, 'red-zone opportunities'), sample:'rzOpp'}),
+    r('i5TdRate','GL TD %','Goal-line conversion (goal-line TDs' + DIVIDE + 'goal-line opportunities)','offense',{format:'pct', decimals:1,
+      value:rzr(tds('i5'), opp('i5')), missing:none('goal-line opportunities'), qualifier:RZQ('i5Opp', 5, 'goal-line opportunities'), sample:'i5Opp'}),
+    r('rzAtt','RZ pass att','Red-zone pass attempts (sacks excluded)','passing',{value:rzv('rzAtt')}),
+    r('i5Att','Pass att in 5','Pass attempts inside the opponent 5','passing',{value:rzv('i5Att')}),
+    r('rzPaTd','RZ pass TD','Passing touchdowns thrown from the red zone','passing',{value:rzv('rzPaTd')}),
+    r('rzPaTdRate','RZ pass TD %','Red-zone passing TD rate (red-zone passing TDs' + DIVIDE + 'red-zone pass attempts)','passing',{format:'pct', decimals:1,
+      value:rzr(rzv('rzPaTd'), rzv('rzAtt')), missing:none('red-zone pass attempts'), qualifier:RZQ('rzAtt', 20, 'red-zone pass attempts'), sample:'rzAtt'})
+  ]);
+  function rzVolume(field, l) { return field === 'rzOpp' ? opp('rz')(l) : field === 'i5Opp' ? opp('i5')(l) : l[field]; }
   var BY_KEY = {};
   METRICS.forEach(function (def) { BY_KEY[def.key] = def; });
 
@@ -306,6 +405,40 @@
     WR: ['tgtShare','ayShare','adot','yacPerRec']
   };
   COMPARE_USAGE_KEYS.TE = COMPARE_USAGE_KEYS.WR;
+  var RZ_COLUMNS = {
+    season: {
+      ALL: ['games','points','ppg','rzOpp','rzOppPg','rzOppShare','i5Opp','rzTd','rzTdPerOpp'],
+      QB: ['games','points','ppg','rzAtt','rzPaTd','rzPaTdRate','rzCar','i5Car','rzRuTd','rzCarShare'],
+      RB: ['games','points','ppg','rzCar','i10Car','i5Car','rzCarShare','glCarShare','rzRuTd','rzRuTdRate','rzTgt','rzOppPg','rzOppShare'],
+      WR: ['games','points','ppg','rzTgt','i10Tgt','i5Tgt','rzTgtShare','rzRec','rzReTd','rzTgtTdRate','rzOppPg']
+    },
+    week: {
+      ALL: ['points','rzOpp','rzOppShare','i5Opp','rzTd'],
+      QB: ['points','rzAtt','rzPaTd','rzCar','i5Car','rzRuTd'],
+      RB: ['points','rzCar','i10Car','i5Car','rzCarShare','rzRuTd','rzTgt'],
+      WR: ['points','rzTgt','i10Tgt','i5Tgt','rzTgtShare','rzRec','rzReTd']
+    }
+  };
+  RZ_COLUMNS.season.TE = RZ_COLUMNS.season.WR; RZ_COLUMNS.week.TE = RZ_COLUMNS.week.WR;
+  var GL_SEASON = ['games','points','i5Car','i5Tgt','i5Opp','i5OppPg','glOppShare','i5Td','i5TdRate'];
+  var GL_COLUMNS = {season: {ALL: GL_SEASON, QB: GL_SEASON, RB: GL_SEASON, WR: GL_SEASON, TE: GL_SEASON},
+    week: {ALL: ['points','i5Car','i5Tgt','i5Opp','glOppShare','i5Td']}};
+  ['QB','RB','WR','TE'].forEach(function (pos) { GL_COLUMNS.week[pos] = GL_COLUMNS.week.ALL; });
+  var VIEW_COLUMNS = {usage: USAGE_COLUMNS, redzone: RZ_COLUMNS, goalline: GL_COLUMNS};
+  var RZ_PROFILE_KEYS = {
+    QB: {Passing: ['rzAtt','i5Att','rzPaTd','rzPaTdRate'], Rushing: ['rzCar','i5Car','rzRuTd','rzCarShare']},
+    RB: {'Goal line': ['i5Car','glCarShare','i5Opp','i5TdRate'], Rushing: ['rzCar','i10Car','rzCarShare','rzRuTd','rzRuTdRate'], Receiving: ['rzTgt','rzTgtShare','rzReTd']},
+    WR: {Receiving: ['rzTgt','i10Tgt','i5Tgt','rzTgtShare','rzRec','rzReTd','rzTgtTdRate'], 'Goal line': ['i5Opp','glOppShare','i5TdRate']}
+  };
+  RZ_PROFILE_KEYS.TE = RZ_PROFILE_KEYS.WR;
+  var RZ_TREND_KEYS = ['rzOppPg','rzOppShare','i5OppPg','glOppShare'];
+  var COMPARE_RZ_KEYS = {
+    QB: ['rzOppPg','rzCarShare','rzPaTdRate','rzTdPerOpp'],
+    RB: ['rzOppPg','rzOppShare','rzCarShare','i5OppPg','glOppShare','rzTdPerOpp','i5TdRate'],
+    WR: ['rzOppPg','rzOppShare','rzTgtShare','i5OppPg','glOppShare','rzTdPerOpp']
+  };
+  COMPARE_RZ_KEYS.TE = COMPARE_RZ_KEYS.WR;
+  var COMPARE_RZ_TOTALS = ['rzOpp','i5Opp','rzTd'];
   TABLE_COLUMNS.season.TE = TABLE_COLUMNS.season.WR;
   TABLE_COLUMNS.week.TE = TABLE_COLUMNS.week.WR;
   var PROFILE_KEYS = {
@@ -334,7 +467,7 @@
   COMPARE_KEYS.TE = COMPARE_KEYS.WR;
   var COMPARE_FANTASY = ['ppg','last3','last5','high','low','sd','volatility'];
   var SORT_GROUPS = [['fantasy','Fantasy'],['trend','Trends & consistency'],['usage','Per-game usage'],
-    ['efficiency','Efficiency'],['advanced','Advanced usage'],['totals','Totals']];
+    ['efficiency','Efficiency'],['advanced','Advanced usage'],['redzone','Red zone'],['totals','Totals']];
 
   function metric(key) { return BY_KEY[key] || null; }
   function applies(def, pos) { return !!def && def.applies.indexOf(pos) !== -1; }
@@ -342,7 +475,8 @@
     options = options || {};
     return {player: player, scoring: options.scoring || 'half', row: options.row || null,
       throughWeek: options.throughWeek || 0, mode: options.row ? 'week' : 'season',
-      usageStatus: options.usageStatus || null, usageRows: options.usageRows || null};
+      usageStatus: options.usageStatus || null, usageRows: options.usageRows || null,
+      rzStatus: options.rzStatus || null, rzRows: options.rzRows || null};
   }
   function lineFor(player, row) { return row ? weekLine(player, row) : seasonLine(player); }
   // Returns {value, missing}. value is null when the statistic is unavailable;
@@ -358,6 +492,11 @@
       if (!rows) return {value: null, missing: usageMissing(c)};
       if (!rows.length) return {value: null, missing: c.row ? 'No advanced usage row for this week' : 'No advanced usage rows'};
       line = usageTotals(rows);
+    } else if (def.rz) {
+      var zr = rzRows(player, c);
+      if (!zr) return {value: null, missing: rzMissing(c)};
+      if (!zr.length) return {value: null, missing: c.row ? 'No red-zone row for this week' : 'No games with stats'};
+      line = rzTotals(zr);
     } else line = options && options.line ? options.line : lineFor(player, c.row);
     var value = def.value(line, c);
     if (value == null || !isFinite(value)) return {value: null, missing: def.missing ? def.missing(line, c) : 'Not recorded'};
@@ -376,6 +515,11 @@
       var vol = usageTotals(rows)[def.qualifier.field] || 0;
       var q = def.qualifier;
       return vol >= (q.perWeek ? (c.row ? q.single : q.perWeek * Math.max(1, num(c.throughWeek))) : qualifierThreshold(options));
+    }
+    if (def.rz) {
+      var rc = context(player, options), zrows = rzRows(player, rc);
+      if (!zrows) return true;
+      return (rzVolume(def.qualifier.field, rzTotals(zrows)) || 0) >= (rc.row ? def.qualifier.minWeek : def.qualifier.min);
     }
     var line = lineFor(player, options && options.row);
     var volume = def.qualifier.field === 'touches' ? line.car + line.rec : line[def.qualifier.field];
@@ -403,11 +547,12 @@
     return dir === 'asc' ? a - b : b - a;
   }
   function tableColumns(pos, mode, view) {
-    var set = (view === 'usage' && (USAGE_COLUMNS.season[pos] || pos === 'ALL') ? USAGE_COLUMNS : TABLE_COLUMNS)[mode === 'week' ? 'week' : 'season'];
+    var extra = VIEW_COLUMNS[view];
+    var set = (extra && (extra.season[pos] || pos === 'ALL') ? extra : TABLE_COLUMNS)[mode === 'week' ? 'week' : 'season'];
     return (set[pos] || set.ALL).slice();
   }
   function sortableMetrics(pos, mode, view) {
-    var visible = tableColumns(pos, mode).concat(tableColumns(pos, mode, 'usage'));
+    var visible = tableColumns(pos, mode).concat(tableColumns(pos, mode, 'usage'), tableColumns(pos, mode, 'redzone'), tableColumns(pos, mode, 'goalline'));
     return METRICS.filter(function (def) {
       if (def.key === 'games') return false;
       if (mode === 'week' ? !def.week : !def.season) return false;
@@ -448,7 +593,14 @@
         if (usage.indexOf(key) === -1 && applies(BY_KEY[key], posA) && applies(BY_KEY[key], posB)) usage.push(key);
       });
     }
-    return {same: same, related: related, fantasy: COMPARE_FANTASY.slice(), positional: positional, usage: usage};
+    var redzone = [], redzoneTotals = [];
+    if (related) {
+      (COMPARE_RZ_KEYS[posA] || []).concat(COMPARE_RZ_KEYS[posB] || []).forEach(function (key) {
+        if (redzone.indexOf(key) === -1 && applies(BY_KEY[key], posA) && applies(BY_KEY[key], posB)) redzone.push(key);
+      });
+      redzoneTotals = COMPARE_RZ_TOTALS.filter(function (key) { return applies(BY_KEY[key], posA) && applies(BY_KEY[key], posB); });
+    }
+    return {same: same, related: related, fantasy: COMPARE_FANTASY.slice(), positional: positional, usage: usage, redzone: redzone, redzoneTotals: redzoneTotals};
   }
   // Opportunity windows from recorded usage rows only (byes have no row).
   // window(n) = last n rows; trend = last n rows vs every earlier row. Changes
@@ -485,7 +637,33 @@
       })};
   }
 
+  // Red-zone windows and trends over recorded games only (byes have no row).
+  function rzCopy(options, rows) { var o = {}; Object.keys(options || {}).forEach(function (k) { o[k] = options[k]; }); o.rzRows = rows; o.row = null; return o; }
+  function rzWindow(player, key, n, options) {
+    if (!player.rz || player.rz.length < n) return null;
+    return compute(key, player, rzCopy(options, player.rz.slice(-n)));
+  }
+  function rzTrend(player, options, windowSize) {
+    var size = windowSize || RECENT_WINDOW, rows = player.rz;
+    if (!rows || rows.length < size + 2) return null;
+    var recentRows = rows.slice(-size), priorRows = rows.slice(0, -size);
+    return {recentWeeks: recentRows.map(function (r) { return r.week; }), priorWeeks: priorRows.map(function (r) { return r.week; }),
+      metrics: RZ_TREND_KEYS.filter(function (k) { return applies(BY_KEY[k], player.pos); }).map(function (key) {
+        var a = compute(key, player, rzCopy(options, recentRows)), b = compute(key, player, rzCopy(options, priorRows));
+        return {key: key, recent: a, prior: b, change: a == null || b == null ? null : a - b};
+      })};
+  }
+  // Denominator behind a rate, for small-sample labels.
+  function sampleSize(key, player, options) {
+    var def = metric(key);
+    if (!def || !def.sample || !def.rz) return null;
+    var c = context(player, options), rows = rzRows(player, c);
+    return rows ? rzVolume(def.sample, rzTotals(rows)) : null;
+  }
+  var SMALL_SAMPLE = {rzCar: 10, rzTgt: 10, rzOpp: 10, i5Opp: 5, rzAtt: 20};
   return {
+    attachRedzone: attachRedzone, rzTotals: rzTotals, rzWindow: rzWindow, rzTrend: rzTrend, sampleSize: sampleSize, SMALL_SAMPLE: SMALL_SAMPLE,
+    RZ_PROFILE_KEYS: RZ_PROFILE_KEYS, RZ_COLUMNS: RZ_COLUMNS, GL_COLUMNS: GL_COLUMNS, RZ_POS: RZ_POS,
     attachUsage: attachUsage, usageTotals: usageTotals, usageWindow: usageWindow, opportunityTrend: opportunityTrend,
     USAGE_PROFILE_KEYS: USAGE_PROFILE_KEYS, USAGE_TREND_KEYS: USAGE_TREND_KEYS, USAGE_COLUMNS: USAGE_COLUMNS,
     METRICS: METRICS, SORT_GROUPS: SORT_GROUPS, PROFILE_KEYS: PROFILE_KEYS, QUALIFIER: QUALIFIER,
