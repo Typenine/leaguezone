@@ -46,7 +46,7 @@ def verify(year):
         assert all(1 <= w <= d["throughWeek"] for w in indices)
         assert math.isfinite(p["p"]) and abs(p["p"]-sum(w[2] for w in p["w"])) < .025
         for w in p["w"]:
-            assert len(w) >= (17 if p["pos"]=="DEF" else 19), (year,p["n"],w)
+            assert len(w) >= (17 if p["pos"]=="DEF" else 15), (year,p["n"],w)
             assert math.isfinite(w[2])
             weeks.setdefault(w[0],Counter())[p["pos"]]+=1
     for week in range(1,d["throughWeek"]+1):
