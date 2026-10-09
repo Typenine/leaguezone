@@ -109,9 +109,9 @@
    succeed. Inspect job logs to confirm success.
 7. Verify remote /research/v1/catalog.json is reachable from both site origins
    and every advertised versioned season object returns valid JSON.
-8. Only after successful publication and checks, set public/research/data-source.json
-   publicBase to the verified HTTPS Worker origin and merge once to
-   main. This is the ONE required production deployment for the cutover.
+8. The initial 2023–2026 upload and public catalog were confirmed on October 9,
+   2026. public/research/data-source.json now points at the verified HTTPS
+   Worker origin. Merge once to main for the ONE production cutover deployment.
    Prior to this step the existing static delivery stays fully operational.
 9. Rotate any previously committed R2 keys. Old Git history may still contain
    hard-coded credentials even after removing them from main; revocation is
