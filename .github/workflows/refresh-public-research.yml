@@ -62,7 +62,9 @@ jobs:
           npx playwright install --with-deps chromium
           npx playwright test tests/e2e/public-research-history.spec.ts
       - name: Publish validated snapshots to R2 without Git commits
-        if: github.ref == 'refs/heads/main' && github.event_name != 'push'
+        # Allow the initial verified upload from the feature branch BEFORE the
+        # single production merge; production refreshes run from main.
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/research-r2-uploads'))
         env:
           RESEARCH_R2_ACCOUNT_ID: ${{ secrets.RESEARCH_R2_ACCOUNT_ID }}
           RESEARCH_R2_ACCESS_KEY_ID: ${{ secrets.RESEARCH_R2_ACCESS_KEY_ID }}
