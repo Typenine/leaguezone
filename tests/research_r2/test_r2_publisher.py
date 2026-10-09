@@ -60,8 +60,23 @@ class ResearchPublisherTests(unittest.TestCase):
 
     def test_historical_files_never_disappear_from_catalog(self):
         old,_=publisher.build_catalog(self.data)
+        # In September 2028, a 2027 snapshot exists only in R2 because
+        # GitHub Action datasets are not committed to the repository.
+        archived_key="research/v1/objects/2027-"+"a"*64+".json"
         old["years"].append(2027)
-        with self.assertRaisesRegex(ValueError,"Season history regression"):
+        old["files"]["2027"]={
+            "key":archived_key,"sha256":"a"*64,
+            "throughWeek":18,"updated":"2028-01-15"
+        }
+        new, uploads=publisher.build_catalog(self.data,old)
+        self.assertIn(2027,new["years"])
+        self.assertEqual(new["files"]["2027"],old["files"]["2027"])
+        self.assertEqual(uploads,[])
+
+    def test_prevents_archived_season_week_regression(self):
+        old,_=publisher.build_catalog(self.data)
+        old["files"]["2026"]["throughWeek"]=10
+        with self.assertRaisesRegex(ValueError,"Refusing to regress archived 2026"):
             publisher.build_catalog(self.data,old)
 
     def test_publish_atomic_pointer_last_and_noop_idempotent(self):
