@@ -107,6 +107,52 @@
     Object.keys(options).forEach(function (k) { def[k] = options[k]; });
     return def;
   }
+
+  // Optional advanced usage (scripts/build-research-usage.py, usage schema 1).
+  // Rows keep raw numerators plus the denominators of the team the player
+  // actually played for that week; shares are sum(player) / sum(team).
+  var USAGE_INDEX = {att:2, cmp:3, pyd:4, car:5, tgt:6, rec:7, ay:8, yac:9};
+  var USAGE_FIELDS = ['att','cmp','pyd','car','tgt','rec','ay','yac'];
+  var TEAM_INDEX = {teamAtt:1, teamCar:2, teamTgt:3, teamAy:4};
+  var TEAM_FIELDS = ['teamAtt','teamCar','teamTgt','teamAy'];
+  function nullable(v) { return v == null || !isFinite(Number(v)) ? null : Number(v); }
+  function uratio(a, b) { return a == null || b == null ? null : ratio(a, b); }
+  function attachUsage(players, usage) {
+    var teams = {}, attached = 0;
+    Object.keys(usage.teams || {}).forEach(function (team) {
+      usage.teams[team].forEach(function (r) { teams[team + ':' + r[0]] = r; });
+    });
+    players.forEach(function (p) {
+      var rows = (usage.players || {})[p.id] || [];
+      p.u = rows.map(function (r) {
+        var t = teams[r[1] + ':' + r[0]], line = {week: r[0], team: r[1]};
+        USAGE_FIELDS.forEach(function (f) { line[f] = nullable(r[USAGE_INDEX[f]]); });
+        TEAM_FIELDS.forEach(function (f) { line[f] = t ? nullable(t[TEAM_INDEX[f]]) : null; });
+        return line;
+      }).sort(function (a, b) { return a.week - b.week; });
+      if (rows.length) attached++;
+    });
+    return attached;
+  }
+  // Sums usage rows. A field is null if any row lacks it, so a partial total
+  // is never presented as complete.
+  function usageTotals(rows) {
+    var t = {games: rows.length};
+    USAGE_FIELDS.concat(TEAM_FIELDS).forEach(function (f) {
+      t[f] = rows.reduce(function (s, r) { return s == null || r[f] == null ? null : s + r[f]; }, 0);
+    });
+    return t;
+  }
+  function usageRows(player, c) {
+    if (!player.u) return null;
+    if (c.usageRows) return c.usageRows;
+    if (!c.row) return player.u;
+    return player.u.filter(function (r) { return r.week === c.row[0]; });
+  }
+  function usageMissing(c) {
+    return c.usageStatus === 'unavailable' ? 'Advanced usage not available for this season' :
+      c.usageStatus === 'error' ? 'Advanced usage failed to load' : 'Advanced usage loading';
+  }
   var METRICS = [
     m('games','GP','Games with a recorded stat (nflverse lists no row for games without one)','fantasy','all',{week:false, value:function (l) { return l.games; }}),
     m('points','FP','Fantasy points','fantasy','all',{decimals:1, value:fp}),
@@ -178,6 +224,30 @@
     m('pa','Pts allowed','Points allowed (scoreboard-based estimate)','totals','defense',{dir:'asc', value:function (l) { return l.pa; }}),
     m('paPg','PA/G','Points allowed per game (lower is better)','usage','defense',{week:false, decimals:1, dir:'asc', value:perGame('pa')})
   ];
+  function u(key, short, label, applies, options) { options.usage = true; return m(key, short, label, 'advanced', applies, options); }
+  var PASS_QUAL = {field:'att', label:'pass attempts', perWeek:14, single:10};
+  METRICS = METRICS.concat([
+    u('att','Att','Pass attempts','passing',{value:function (l) { return l.att; }}),
+    u('cmp','Cmp','Pass completions','passing',{value:function (l) { return l.cmp; }}),
+    u('cmpPct','Comp %','Completion percentage (completions' + DIVIDE + 'pass attempts)','passing',{format:'pct', decimals:1,
+      value:function (l) { return uratio(l.cmp,l.att); }, missing:noVolume('pass attempts'), qualifier:PASS_QUAL}),
+    u('ypa','Y/A','Passing yards per attempt (passing yards' + DIVIDE + 'pass attempts; sacks are not attempts)','passing',{decimals:1,
+      value:function (l) { return uratio(l.pyd,l.att); }, missing:noVolume('pass attempts'), qualifier:PASS_QUAL}),
+    u('attPg','Att/G','Pass attempts per game','passing',{week:false, decimals:1, value:function (l) { return uratio(l.att,l.games); }}),
+    u('cmpPg','Cmp/G','Completions per game','passing',{week:false, decimals:1, value:function (l) { return uratio(l.cmp,l.games); }}),
+    u('tgtShare','Tgt share','Target share (player targets' + DIVIDE + 'team targets in the same games)','receiving',{format:'pct', decimals:1,
+      value:function (l) { return uratio(l.tgt,l.teamTgt); }, missing:function () { return 'No team targets recorded'; }}),
+    u('ay','Air yds','Air yards (yards downfield at the catch point on every target, caught or not)','receiving',{value:function (l) { return l.ay; }}),
+    u('ayShare','AY share','Air-yards share (player air yards' + DIVIDE + 'team air yards in the same games)','receiving',{format:'pct', decimals:1,
+      value:function (l) { return l.teamAy > 0 ? uratio(l.ay,l.teamAy) : null; }, missing:function () { return 'Team air yards not positive'; }}),
+    u('adot','aDOT','Average depth of target (air yards' + DIVIDE + 'targets)','receiving',{decimals:1,
+      value:function (l) { return uratio(l.ay,l.tgt); }, missing:noVolume('targets'), qualifier:{field:'tgt', label:'targets'}}),
+    u('yac','YAC','Receiving yards after catch','receiving',{value:function (l) { return l.yac; }}),
+    u('yacPerRec','YAC/Rec','Yards after catch per reception (YAC' + DIVIDE + 'receptions)','receiving',{decimals:1,
+      value:function (l) { return uratio(l.yac,l.rec); }, missing:noVolume('receptions'), qualifier:{field:'rec', label:'receptions'}}),
+    u('carShare','Car share','Carry share (player carries' + DIVIDE + 'team carries in the same games; team carries include QB scrambles and kneel-downs)','rushing',{format:'pct', decimals:1,
+      value:function (l) { return uratio(l.car,l.teamCar); }, missing:function () { return 'No team carries recorded'; }})
+  ]);
   var BY_KEY = {};
   METRICS.forEach(function (def) { BY_KEY[def.key] = def; });
 
@@ -200,6 +270,42 @@
       DEF: ['points','sacks','ints','fr','pa']
     }
   };
+  // Advanced usage view: opportunity columns, loaded on demand.
+  var USAGE_COLUMNS = {
+    season: {
+      ALL: ['games','points','ppg','tgtShare','carShare','ayShare','adot'],
+      QB: ['games','points','ppg','att','cmp','cmpPct','ypa','attPg','cmpPg','carShare'],
+      RB: ['games','points','ppg','carShare','carPg','tgtShare','tgtPg','yac','yacPerRec'],
+      WR: ['games','points','ppg','tgtShare','tgtPg','ay','ayShare','adot','yac','yacPerRec']
+    },
+    week: {
+      ALL: ['points','tgtShare','carShare','ayShare','adot'],
+      QB: ['points','att','cmp','cmpPct','ypa','carShare'],
+      RB: ['points','carShare','carries','tgtShare','targets','yac'],
+      WR: ['points','targets','tgtShare','ay','ayShare','adot','yac']
+    }
+  };
+  USAGE_COLUMNS.season.TE = USAGE_COLUMNS.season.WR;
+  USAGE_COLUMNS.week.TE = USAGE_COLUMNS.week.WR;
+  var USAGE_PROFILE_KEYS = {
+    QB: ['att','cmp','cmpPct','ypa','attPg','cmpPg','carShare'],
+    RB: ['carShare','tgtShare','yac','yacPerRec'],
+    WR: ['tgtShare','ay','ayShare','adot','yac','yacPerRec']
+  };
+  USAGE_PROFILE_KEYS.TE = USAGE_PROFILE_KEYS.WR;
+  // Opportunity trend keys: recent vs earlier, shown as absolute change.
+  var USAGE_TREND_KEYS = {
+    QB: ['attPg','cmpPct','ypa','carShare'],
+    RB: ['carShare','carPg','tgtShare','tgtPg'],
+    WR: ['tgtShare','tgtPg','ayShare','adot']
+  };
+  USAGE_TREND_KEYS.TE = USAGE_TREND_KEYS.WR;
+  var COMPARE_USAGE_KEYS = {
+    QB: ['attPg','cmpPg','cmpPct','ypa','carShare'],
+    RB: ['carShare','tgtShare','yacPerRec'],
+    WR: ['tgtShare','ayShare','adot','yacPerRec']
+  };
+  COMPARE_USAGE_KEYS.TE = COMPARE_USAGE_KEYS.WR;
   TABLE_COLUMNS.season.TE = TABLE_COLUMNS.season.WR;
   TABLE_COLUMNS.week.TE = TABLE_COLUMNS.week.WR;
   var PROFILE_KEYS = {
@@ -228,14 +334,15 @@
   COMPARE_KEYS.TE = COMPARE_KEYS.WR;
   var COMPARE_FANTASY = ['ppg','last3','last5','high','low','sd','volatility'];
   var SORT_GROUPS = [['fantasy','Fantasy'],['trend','Trends & consistency'],['usage','Per-game usage'],
-    ['efficiency','Efficiency'],['totals','Totals']];
+    ['efficiency','Efficiency'],['advanced','Advanced usage'],['totals','Totals']];
 
   function metric(key) { return BY_KEY[key] || null; }
   function applies(def, pos) { return !!def && def.applies.indexOf(pos) !== -1; }
   function context(player, options) {
     options = options || {};
     return {player: player, scoring: options.scoring || 'half', row: options.row || null,
-      throughWeek: options.throughWeek || 0, mode: options.row ? 'week' : 'season'};
+      throughWeek: options.throughWeek || 0, mode: options.row ? 'week' : 'season',
+      usageStatus: options.usageStatus || null, usageRows: options.usageRows || null};
   }
   function lineFor(player, row) { return row ? weekLine(player, row) : seasonLine(player); }
   // Returns {value, missing}. value is null when the statistic is unavailable;
@@ -245,7 +352,13 @@
     if (!def) return {value: null, missing: 'Unknown statistic'};
     if (!applies(def, player.pos)) return {value: null, missing: 'Not applicable for ' + (player.pos === 'DEF' ? 'DST' : player.pos)};
     if (c.mode === 'week' ? !def.week : !def.season) return {value: null, missing: 'Season-only statistic'};
-    var line = options && options.line ? options.line : lineFor(player, c.row);
+    var line;
+    if (def.usage) {
+      var rows = usageRows(player, c);
+      if (!rows) return {value: null, missing: usageMissing(c)};
+      if (!rows.length) return {value: null, missing: c.row ? 'No advanced usage row for this week' : 'No advanced usage rows'};
+      line = usageTotals(rows);
+    } else line = options && options.line ? options.line : lineFor(player, c.row);
     var value = def.value(line, c);
     if (value == null || !isFinite(value)) return {value: null, missing: def.missing ? def.missing(line, c) : 'Not recorded'};
     return {value: value, missing: null};
@@ -257,6 +370,13 @@
   function isQualified(key, player, options) {
     var def = metric(key);
     if (!def || !def.qualifier) return true;
+    if (def.usage) {
+      var c = context(player, options), rows = usageRows(player, c);
+      if (!rows) return true;
+      var vol = usageTotals(rows)[def.qualifier.field] || 0;
+      var q = def.qualifier;
+      return vol >= (q.perWeek ? (c.row ? q.single : q.perWeek * Math.max(1, num(c.throughWeek))) : qualifierThreshold(options));
+    }
     var line = lineFor(player, options && options.row);
     var volume = def.qualifier.field === 'touches' ? line.car + line.rec : line[def.qualifier.field];
     return volume >= qualifierThreshold(options);
@@ -282,12 +402,12 @@
     if (b == null) return -1;
     return dir === 'asc' ? a - b : b - a;
   }
-  function tableColumns(pos, mode) {
-    var set = TABLE_COLUMNS[mode === 'week' ? 'week' : 'season'];
+  function tableColumns(pos, mode, view) {
+    var set = (view === 'usage' && (USAGE_COLUMNS.season[pos] || pos === 'ALL') ? USAGE_COLUMNS : TABLE_COLUMNS)[mode === 'week' ? 'week' : 'season'];
     return (set[pos] || set.ALL).slice();
   }
-  function sortableMetrics(pos, mode) {
-    var visible = tableColumns(pos, mode);
+  function sortableMetrics(pos, mode, view) {
+    var visible = tableColumns(pos, mode).concat(tableColumns(pos, mode, 'usage'));
     return METRICS.filter(function (def) {
       if (def.key === 'games') return false;
       if (mode === 'week' ? !def.week : !def.season) return false;
@@ -322,10 +442,52 @@
         if (positional.indexOf(key) === -1 && applies(BY_KEY[key], posA) && applies(BY_KEY[key], posB)) positional.push(key);
       });
     }
-    return {same: same, related: related, fantasy: COMPARE_FANTASY.slice(), positional: positional};
+    var usage = [];
+    if (related) {
+      (COMPARE_USAGE_KEYS[posA] || []).concat(COMPARE_USAGE_KEYS[posB] || []).forEach(function (key) {
+        if (usage.indexOf(key) === -1 && applies(BY_KEY[key], posA) && applies(BY_KEY[key], posB)) usage.push(key);
+      });
+    }
+    return {same: same, related: related, fantasy: COMPARE_FANTASY.slice(), positional: positional, usage: usage};
+  }
+  // Opportunity windows from recorded usage rows only (byes have no row).
+  // window(n) = last n rows; trend = last n rows vs every earlier row. Changes
+  // are absolute (percentage points for shares), never % change from a base.
+  function usageWindow(player, key, n, options) {
+    if (!player.u || player.u.length < n) return null;
+    var o = {}; Object.keys(options || {}).forEach(function (k) { o[k] = options[k]; });
+    o.usageRows = player.u.slice(-n); o.row = null;
+    return compute(key, player, o);
+  }
+  function opportunityTrend(player, options, windowSize) {
+    var size = windowSize || RECENT_WINDOW, rows = player.u;
+    if (!rows || rows.length < size + 2) return null;
+    var keys = (USAGE_TREND_KEYS[player.pos] || []);
+    function at(sub, key) {
+      var o = {}; Object.keys(options || {}).forEach(function (k) { o[k] = options[k]; });
+      o.usageRows = sub; o.row = null;
+      return def(key) ? compute(key, player, o) : null;
+    }
+    function def(key) { return metric(key) && metric(key).usage ? metric(key) : null; }
+    var recentRows = rows.slice(-size), priorRows = rows.slice(0, -size);
+    return {recentWeeks: recentRows.map(function (r) { return r.week; }), priorWeeks: priorRows.map(function (r) { return r.week; }),
+      metrics: keys.map(function (key) {
+        var a, b;
+        if (def(key)) { a = at(recentRows, key); b = at(priorRows, key); }
+        else {
+          var weekRows = sortedRows(player), recentSet = recentRows.map(function (r) { return r.week; });
+          var lr = sumLines(weekRows.filter(function (w) { return recentSet.indexOf(w[0]) !== -1; }).map(function (w) { return weekLine(player, w); }));
+          var lp = sumLines(weekRows.filter(function (w) { return recentSet.indexOf(w[0]) === -1; }).map(function (w) { return weekLine(player, w); }));
+          a = compute(key, player, {scoring: options && options.scoring, line: lr});
+          b = compute(key, player, {scoring: options && options.scoring, line: lp});
+        }
+        return {key: key, recent: a, prior: b, change: a == null || b == null ? null : a - b};
+      })};
   }
 
   return {
+    attachUsage: attachUsage, usageTotals: usageTotals, usageWindow: usageWindow, opportunityTrend: opportunityTrend,
+    USAGE_PROFILE_KEYS: USAGE_PROFILE_KEYS, USAGE_TREND_KEYS: USAGE_TREND_KEYS, USAGE_COLUMNS: USAGE_COLUMNS,
     METRICS: METRICS, SORT_GROUPS: SORT_GROUPS, PROFILE_KEYS: PROFILE_KEYS, QUALIFIER: QUALIFIER,
     MIN_CONSISTENCY_GAMES: MIN_CONSISTENCY_GAMES, RECENT_WINDOW: RECENT_WINDOW,
     metric: metric, applies: applies, ratio: ratio, mean: mean, stdDev: stdDev,

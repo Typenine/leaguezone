@@ -3,6 +3,7 @@
   var state = {
     year: null, latest: null, years: [], throughWeek: 0,
     cache: new Map(), players: [], byId: new Map(), requestId: 0,
+    view: 'core', usage: new Map(), usageStatus: {}, usageManifest: null,
     score: 'half', query: '', position: 'ALL', sort: 'points',
     games: 1, week: 0, rookieOnly: false, limit: 40, compare: []
   };
@@ -30,13 +31,42 @@
     return promise;
   }
   function columns(pos) {
-    return M.tableColumns(pos, state.week ? 'week' : 'season');
+    return M.tableColumns(pos, state.week ? 'week' : 'season', state.view);
   }
   var M = window.LZResearchMetrics;
   var DASH = '\u2014';
   var SCORING_LABELS = {half:'Half PPR', ppr:'Full PPR', standard:'Standard'};
   state.listUrl = ''; state.listScroll = 0; state.pendingWeek = 0;
-  function opts(row) { return {scoring: state.score, row: row || null, throughWeek: state.throughWeek}; }
+  function opts(row) { return {scoring: state.score, row: row || null, throughWeek: state.throughWeek, usageStatus: state.usageStatus[state.year]}; }
+  var USAGE_POS = ['QB','RB','WR','TE'];
+  // Optional advanced usage: fetched only when a usage view, sort, profile or
+  // comparison needs it; cached per season; failures leave core stats intact.
+  function ensureUsage(year) {
+    if (state.usage.has(year)) return state.usage.get(year);
+    state.usageStatus[year] = 'loading';
+    if (!state.usageManifest) state.usageManifest = fetch('/research/data/usage/seasons.json', {cache:'no-cache'}).then(responseError);
+    var promise = state.usageManifest.then(function (manifest) {
+      if (!manifest || manifest.schema !== 1 || (manifest.years || []).indexOf(year) === -1) throw {unavailable: true};
+      return Promise.all([loadData(year), fetch('/research/data/usage/'+year+'.json', {cache:'default'}).then(responseError)]);
+    }).then(function (r) {
+      if (!r[1] || r[1].schema !== 1 || r[1].year !== year) throw {unavailable: true};
+      M.attachUsage(r[0].players, r[1]);
+      state.usageStatus[year] = 'ready';
+    }).catch(function (e) {
+      state.usageStatus[year] = e && e.unavailable ? 'unavailable' : 'error';
+    }).then(function () {
+      renderTable(); renderCompare();
+      if (/^\/research\/players\/[^/]+\/?$/.test(location.pathname)) renderRoute();
+    });
+    state.usage.set(year, promise);
+    return promise;
+  }
+  function usageNote() {
+    var st = state.usageStatus[state.year];
+    return st === 'ready' ? 'Advanced usage from nflverse weekly player and team stats. Shares = player total ÷ team total in the same games (the team he played for that week).' :
+      st === 'unavailable' ? 'Advanced usage is not available for '+state.year+'. Core statistics are unaffected.' :
+      st === 'error' ? 'Advanced usage failed to load. Core statistics are unaffected.' : 'Loading advanced usage…';
+  }
   function evaluate(p, key, row) { return M.evaluate(key, p, opts(row)); }
   function stat(p, key, row) { return M.compute(key, p, opts(row)); }
   function shortPos(pos) { return pos === 'DEF' ? 'DST' : pos; }
@@ -108,6 +138,10 @@
     $('leaders').innerHTML = cards.join('');
   }
   function renderTable() {
+    var sortIsUsage = !!(M.metric(state.sort) && M.metric(state.sort).usage);
+    if (sortIsUsage && state.view !== 'usage') { state.view = 'usage'; $('view').value = 'usage'; }
+    if (state.view === 'usage' && state.year) ensureUsage(state.year);
+    $('usage-status').textContent = state.view === 'usage' ? usageNote() : '';
     var list = ranked(), cols = columns(state.position), sortDef = M.metric(state.sort);
     $('result-count').textContent = list.length+(state.week?' weekly performances':' players');
     $('directory-title').textContent = state.year+' '+(state.week?'Week '+state.week:'Season')+' Fantasy Statistics';
@@ -216,6 +250,57 @@
   function careerUsageKeys(pos) {
     return {QB:['ppydPg','ruyPg'],RB:['touchPg','tgtPg'],WR:['tgtPg','ryPg'],TE:['tgtPg','ryPg'],K:['fgmPg'],DEF:['paPg']}[pos]||[];
   }
+  var USAGE_WEEK_KEYS = {QB:['att','cmp','cmpPct','ypa','carShare'], RB:['carries','carShare','targets','tgtShare'],
+    WR:['targets','tgtShare','ay','ayShare','adot','yac'], TE:['targets','tgtShare','ay','ayShare','adot','yac']};
+  var USAGE_CHART_KEY = {QB:'att', RB:'carShare', WR:'tgtShare', TE:'tgtShare'};
+  function usageVal(key,v) { return v==null?missingMark('Not recorded'):escape(M.format(key,v)); }
+  function usageChart(p,key) {
+    var pts=(p.u||[]).map(function (r) {
+      var o=opts(); o.usageRows=[r]; return {week:r.week, team:r.team, v:M.compute(key,p,o)};
+    });
+    if (!pts.length) return '';
+    var w=320,h=120,pad=18,max=Math.max.apply(null,pts.map(function (x) {return x.v||0;}).concat([0.0001]));
+    var bw=(w-pad*2)/Math.max(state.throughWeek,1);
+    var bars=pts.map(function (x) {
+      var bh=x.v>0?(x.v/max)*(h-pad*2):0, bx=pad+(x.week-1)*bw;
+      var label='Week '+x.week+' ('+x.team+'): '+(x.v==null?'not recorded':M.format(key,x.v));
+      return '<rect x="'+bx.toFixed(1)+'" y="'+(h-pad-bh).toFixed(1)+'" width="'+Math.max(bw-2,2).toFixed(1)+'" height="'+bh.toFixed(1)+
+        '"><title>'+escape(label)+'</title></rect>';
+    }).join('');
+    return '<div class="usage-chart"><svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="'+escape(p.n+' weekly '+M.metric(key).label.split(' (')[0]+' in '+state.year)+
+      '">'+bars+'<text x="'+pad+'" y="12" class="axis">Max '+escape(M.format(key,max))+'</text></svg>'+
+      '<p class="subdued">Weekly '+escape(M.metric(key).label.split(' (')[0].toLowerCase())+'. Gaps are weeks without stats (byes, inactive), not zero usage.</p></div>';
+  }
+  function usageSection(p) {
+    var keys=M.USAGE_PROFILE_KEYS[p.pos];
+    if (!keys) return '';
+    ensureUsage(state.year);
+    var st=state.usageStatus[state.year];
+    var head='<section class="panel profile-section" id="usage-profile"><h2>Opportunity and usage</h2>'+
+      '<p class="subdued">How much of the team\u2019s opportunity '+escape(p.n)+' received, measured separately from fantasy production. '+
+      'Shares use the team he played for each week and only games with stats.</p>';
+    if (st!=='ready') return head+'<p class="subdued" id="usage-state">'+escape(usageNote())+'</p></section>';
+    var share=USAGE_CHART_KEY[p.pos], grid=keys.map(function (k) {return metricFor(p,k);}).join('');
+    [3,5].forEach(function (n) {
+      var v=M.usageWindow(p,share,n,opts());
+      grid+=metric(M.metric(share).short+', last '+n,M.format(share,v),'Last '+n+' games with stats',v==null?'Needs '+n+'+ games with stats':null);
+    });
+    var t=M.opportunityTrend(p,opts());
+    var trend=t?'<div class="table-scroll"><table class="usage-trend"><thead><tr><th>Opportunity</th><th class="num">Last 3</th><th class="num">Earlier</th><th class="num">Change</th></tr></thead><tbody>'+
+      t.metrics.map(function (m) {
+        return '<tr data-usage-trend="'+m.key+'"><td>'+escape(M.metric(m.key).label.split(' (')[0])+'</td><td class="num">'+usageVal(m.key,m.recent)+
+          '</td><td class="num">'+usageVal(m.key,m.prior)+'</td><td class="num">'+(M.formatDiff(m.key,m.change)?escape(M.formatDiff(m.key,m.change)):missingMark('Not comparable'))+'</td></tr>';
+      }).join('')+'</tbody></table></div><p class="subdued">Weeks '+t.recentWeeks.join(', ')+' vs. weeks '+t.priorWeeks.join(', ')+
+      '. Share changes are percentage points, not percent growth.</p>':
+      '<p class="subdued">Opportunity trends need at least '+(M.RECENT_WINDOW+2)+' games with stats.</p>';
+    var wk=USAGE_WEEK_KEYS[p.pos], rows=[...p.w].sort(function (a,b) {return b[0]-a[0];});
+    var table='<div class="table-scroll game-log"><table id="usage-weekly"><thead><tr><th>Week</th><th>Team</th>'+wk.map(function (k) {
+      return '<th class="num" title="'+escape(M.metric(k).label)+'">'+escape(M.metric(k).short)+'</th>';}).join('')+'</tr></thead><tbody>'+
+      rows.map(function (w) {return '<tr><td>'+w[0]+'</td><td>'+escape(w[1])+'</td>'+wk.map(function (k) {return '<td class="num">'+display(p,k,w)+'</td>';}).join('')+'</tr>';}).join('')+
+      '</tbody></table></div>';
+    return head+'<div class="profile-grid">'+grid+'</div><h3>Recent opportunity vs. earlier games</h3>'+trend+
+      '<h3>Weekly opportunity</h3>'+usageChart(p,share)+table+'</section>';
+  }
   function renderProfile(p) {
     var container=$('profile');
     if (!p) {container.hidden=true; return;}
@@ -253,6 +338,7 @@
       '<section class="profile-section" id="position-stats"><h2>'+escape(shortPos(p.pos))+' production and efficiency</h2>'+
       '<div class="profile-grid">'+positional+'</div>'+
       (p.pos==='DEF'?'<p class="subdued">DST points allowed are estimated from scoring by the opposing offense.</p>':'')+'</section>'+
+      usageSection(p)+
       '<section class="panel profile-section"><h2>Weekly performance</h2><p class="subdued">Fantasy points by regular-season week \u00b7 '+
       escape(SCORING_LABELS[state.score])+'</p>'+trendSvg(p)+'</section>'+
       '<section class="profile-section"><div class="section-head"><h2>Career history</h2><span class="subdued">Available LeagueZone seasons</span></div>'+
@@ -291,7 +377,7 @@
       if (errors.length) $('career-history').insertAdjacentHTML('beforeend','<p class="subdued">Some earlier seasons were unavailable.</p>');
     });
   }
-  function cmpOpts(item) { return {scoring:state.score,throughWeek:item.throughWeek}; }
+  function cmpOpts(item) { return {scoring:state.score,throughWeek:item.throughWeek,usageStatus:state.usageStatus[item.year]}; }
   function cmpVal(key,item) {
     var r=M.evaluate(key,item.player,cmpOpts(item));
     return {value:r.value,html:r.value==null?missingMark(r.missing):escape(M.format(key,r.value))};
@@ -328,6 +414,7 @@
       return;
     }
     var a=state.compare[0], b=state.compare[1], plan=M.comparisonPlan(a.pos,b.pos), notes=[];
+    if (plan.usage.length) [a,b].forEach(function (x) { ensureUsage(x.year); });
     if (!plan.related) notes.push('Different position groups ('+shortPos(a.pos)+' vs '+shortPos(b.pos)+
       '): only fantasy scoring is compared. Position statistics are not comparable.');
     else if (!plan.same) notes.push('Different skill positions: only statistics recorded for both positions are compared.');
@@ -341,7 +428,8 @@
       '<div role="columnheader">A: '+escape(a.name+' '+a.year)+'</div><div role="columnheader">B: '+escape(b.name+' '+b.year)+'</div>'+
       '<div role="columnheader">Difference (A \u2212 B)</div></div>'+
       cmpSection('Fantasy production and consistency',plan.fantasy,a,b)+
-      cmpSection('Per-game usage and efficiency',plan.positional,a,b)+'</div>'+
+      cmpSection('Per-game usage and efficiency',plan.positional,a,b)+
+      (plan.usage.length?cmpSection('Opportunity shares and passing rates (per game or rate, never season totals)',plan.usage,a,b):'')+'</div>'+
       '<p class="subdued">Highlighted values are better. Lower is better for standard deviation, volatility and points allowed. '+
       'Recent averages use the last recorded games of each season.</p>';
     $('compare-notice').textContent='Comparing the selected seasons using '+label+' scoring.';
@@ -369,6 +457,7 @@
     if (state.position!=='ALL') s.set('pos',state.position);
     if (state.score!=='half') s.set('scoring',state.score);
     if (state.sort!=='points') s.set('sort',state.sort);
+    if (state.view!=='core') s.set('view',state.view);
     if (state.week) s.set('week',state.week);
     if (state.games!==1) s.set('min',state.games);
     if (state.rookieOnly) s.set('rookies','1');
@@ -393,6 +482,7 @@
     state.rookieOnly=$('rookies').checked=s.get('rookies')==='1';
     state.query=$('search').value=s.get('q')||'';
     state.sort=s.get('sort')||'points';
+    state.view=setSelect('view',s.get('view')||'core','core');
     state.pendingWeek=Math.max(0,parseInt(s.get('week'),10)||0);
     state.limit=40;
   }
@@ -409,7 +499,7 @@
     state.query=$('search').value;state.position=$('position').value;
     state.score=$('scoring').value;state.games=Number($('games').value);
     state.week=Number($('week').value);state.rookieOnly=$('rookies').checked;
-    state.sort=$('sort').value||state.sort;sortOptions();state.limit=40;
+    state.sort=$('sort').value||state.sort;state.view=$('view').value;sortOptions();state.limit=40;
     syncFilterNotes();
     renderTable();renderCompare();
     if (/^\/research\/players\/[^/]+\/?$/.test(location.pathname)) renderRoute();
@@ -510,11 +600,12 @@
     else {state.compare=state.compare.filter(function (x) {return x.year+':'+x.id!==key;});renderTable();renderCompare();}
   }
   $('players-body').addEventListener('change',compareChanged);
+  $('view').addEventListener('change',updateFilters);
   $('mobile-results').addEventListener('change',compareChanged);
   $('clear-compare').addEventListener('click',function () {state.compare=[];renderTable();renderCompare();});
   $('more').addEventListener('click',function () {state.limit+=40;renderTable();});
   $('reset-filters').addEventListener('click',function () {
-    $('search').value='';$('position').value='ALL';$('scoring').value='half';$('games').value='1';
+    $('search').value='';$('position').value='ALL';$('view').value='core';$('scoring').value='half';$('games').value='1';
     $('week').value='0';$('rookies').checked=false;$('sort').value='points';state.sort='points';
     updateFilters();
   });

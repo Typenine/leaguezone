@@ -106,3 +106,14 @@ td.unqualified{color:var(--muted);font-style:italic}
   .compare-card .metric{padding:8px}
   .compare-card .metric .value{font-size:17px}
 }
+
+.usage-status{margin:.25rem 0 0}
+.usage-chart svg rect{fill:currentColor;opacity:.8}
+.usage-chart{color:var(--accent,#2f6fed)}
+.usage-chart .axis{font-size:10px;fill:var(--muted,#666)}
+#usage-profile h3{margin:1rem 0 .5rem;font-size:1rem}
+.usage-chart{margin-top:10px;overflow:hidden}
+.usage-chart svg{display:block;width:100%;height:auto;max-height:200px}
+.usage-trend{min-width:0}
+.usage-trend th,.usage-trend td{padding:10px 6px}
+.usage-trend td:first-child,.usage-trend th:first-child{white-space:normal}

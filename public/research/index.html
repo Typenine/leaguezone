@@ -46,10 +46,12 @@
         <label>Position <select id="position"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option><option value="DEF">DEF/DST</option></select></label>
         <label>Scoring <select id="scoring"><option value="half">Half PPR</option><option value="ppr">Full PPR</option><option value="standard">Standard</option></select></label>
         <label>Sort by <select id="sort" aria-label="Sort by"><option value="points">FP</option></select></label>
+        <label>Columns <select id="view" aria-label="Columns"><option value="core">Core stats</option><option value="usage">Advanced usage</option></select></label>
         <label>Minimum games <select id="games" aria-label="Minimum games"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="8">8</option><option value="12">12</option></select></label>
         <label class="rookie-toggle"><input type="checkbox" id="rookies"> Rookies only <small>Verified NFL rookie season</small></label>
       </div>
       <div class="filter-meta"><p class="sort-context" id="sort-context" aria-live="polite"></p><button type="button" id="reset-filters" class="mini-link">Reset filters</button></div>
+      <p class="subdued usage-status" id="usage-status" aria-live="polite"></p>
       <p class="subdued filter-note" id="games-note" aria-live="polite"></p>
       <div class="table-scroll research-table" role="region" aria-label="Player statistics, scroll horizontally for more columns" tabindex="0">
         <table><thead id="players-head"><tr><th>Player</th><th>FP</th></tr></thead><tbody id="players-body"><tr><td colspan="2" class="empty">Loading…</td></tr></tbody></table>

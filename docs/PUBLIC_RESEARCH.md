@@ -135,3 +135,68 @@ static page and unit tested directly. No new data files or requests are needed.
   season, and current NFL injuries are not a live feed.
 - Custom league scoring, proprietary fantasy projections, comprehensive
   snap/route charts, and verified historical playoff stats are not included.
+
+## Advanced usage (optional dataset)
+
+Advanced usage statistics live in separate files, `/research/data/usage/{season}.json`, listed in `/research/data/usage/seasons.json` (`{"schema":1,"years":[...]}`). The browser fetches them only when the **Columns: Advanced usage** view, an advanced sort, a QB/RB/WR/TE profile or a comparison needs them, caches each season for the visit, and keeps every core statistic working if the file is missing, unlisted or fails to load (cells show "—" with the reason).
+
+### Source and schema (usage schema 1)
+
+Built by `scripts/build-research-usage.py` from nflverse weekly player stats (`load_player_stats(summary_level="week")`) and weekly team stats (`load_team_stats(summary_level="week")`), regular season only, through the base file's `throughWeek`.
+
+- `players[gsis_id]`: weekly rows `[week, team, att, cmp, pyd, car, tgt, rec, ay, yac]`, one row per base player-week (same GSIS IDs, same weeks, same team as `/research/data/{season}.json`). No names or positions are repeated; they come from the base file.
+- `teams[team]`: weekly denominators `[week, att, car, tgt, ay]` for each team-week played.
+- Metadata: `year`, `schema`, `throughWeek`, `baseUpdated`, `updated`, `source`, `sourceUrl`, `license`, `fields`.
+- A field that nflverse leaves null is published as `null` and shown as unavailable; it is never converted to 0.
+
+| Field | nflverse column |
+|---|---|
+| att / cmp / pyd | `attempts`, `completions`, `passing_yards` |
+| car / tgt / rec | `carries`, `targets`, `receptions` |
+| ay / yac | `receiving_air_yards`, `receiving_yards_after_catch` |
+| team att / car / tgt / ay | team `attempts`, `carries`, `targets`, `receiving_air_yards` |
+
+### Statistics
+
+| Statistic | Formula | Applies to | Unavailable when |
+|---|---|---|---|
+| Att, Cmp | source totals | QB | usage not loaded |
+| Comp % | cmp ÷ att | QB | 0 attempts |
+| Y/A | passing yards ÷ att (sacks are not attempts, sack yards excluded) | QB | 0 attempts |
+| Att/G, Cmp/G | total ÷ games with stats | QB | — |
+| Target share | Σ player targets ÷ Σ team targets in the same games | RB, WR, TE | team targets 0 |
+| Air yards | Σ receiving air yards (caught and uncaught targets; can be negative) | RB, WR, TE | source null |
+| Air-yards share | Σ player air yards ÷ Σ team air yards in the same games | RB, WR, TE | team air yards ≤ 0 |
+| aDOT | air yards ÷ targets | RB, WR, TE | 0 targets |
+| YAC, YAC/Rec | Σ yards after catch; YAC ÷ receptions | RB, WR, TE | 0 receptions |
+| Carry share | Σ player carries ÷ Σ team carries in the same games | QB, RB, WR, TE | team carries 0 |
+
+Rules:
+- **Team changes:** every week uses the denominator of the team the player played for that week. Season shares are weighted (sum of numerators ÷ sum of denominators), never an average of weekly percentages and never based on the final team only.
+- **Same games only:** season shares count team opportunities only in the player's games with stats. Games in which he played but recorded nothing have no nflverse row, so shares can run slightly high for low-usage players (same limitation as "Games with stats").
+- **Carry denominator:** team `carries` from nflverse weekly team stats, which equals play-by-play rush attempts excluding two-point tries. It includes QB designed runs, scrambles recorded as rushes and kneel-downs (verified for 2025: team carries match play-by-play rush attempts including the 434 kneels; excluding kneels does not match). Kneels therefore lower every non-QB's carry share slightly, consistently across teams and seasons.
+- **Air-yards denominator:** the nflverse team value, not a sum of player rows. They differ in some team-weeks (371 in 2025) because the team total includes targets not credited to a rostered receiver. Our shares equal nflverse's own `target_share` and `air_yards_share` columns for every published 2023 and 2025 row.
+- **Rate qualifiers:** Comp % and Y/A rank players with ≥ 14 attempts per team week (season) or ≥ 10 (single week); aDOT and YAC/Rec use the existing targets/receptions qualifiers.
+- **Trends:** "Last 3 / Last 5" use the last 3 or 5 games with stats (byes and missed games skipped, never zero). "Recent opportunity vs. earlier games" compares the last 3 games with all earlier games of the same season (needs 5+ games, no later data). Changes are absolute: percentage points for shares, raw differences for per-game values, never percent growth from a small base. Opportunity is shown separately from fantasy production.
+- **Comparisons:** only rates and shares (Att/G, Cmp/G, Comp %, Y/A, target/air-yards/carry share, aDOT, YAC/Rec) are compared across seasons, so incomplete seasons are not compared on totals.
+
+### Coverage
+
+Published for every season listed in `usage/seasons.json` (currently 2023–2026; 2026 partial). nflverse weekly stats go back to 1999, but older seasons are not built yet; the UI reads availability from the manifest, not from hard-coded years.
+
+### Generate and validate
+
+```
+python scripts/build-research-usage.py --seasons 2023 2024 2025 2026
+python scripts/validate-research-usage.py
+```
+
+The builder requires the base season file, validates each season in memory against it (`validate_usage`), refuses to publish if any season fails or if `throughWeek` would go backwards, writes each file atomically (`.tmp` + rename), and writes the manifest last. The validator checks schema/metadata, unique ascending weeks, no week past `throughWeek`, every row matching a base player-week (ID, week, team), carries/targets/receptions/passing yards reconciling with the base row, completions ≤ attempts, finite numbers, a team denominator for every row, and player totals not exceeding team totals.
+
+### Publication contract (for the R2/refresh owner)
+
+Not wired into the scheduled refresh yet. To integrate: run the builder after the base snapshot, then the validator; upload `usage/{season}.json` files before `usage/seasons.json`; never upload if validation fails (previous files stay live); keep earlier seasons untouched; serve with the same cache headers as base season files (the manifest should be short-lived/revalidated). Breaking field changes must bump `schema`; the browser ignores files whose schema it does not understand and falls back to core stats.
+
+### Not included
+
+Snap counts, routes, targets per route, red-zone usage, EPA/CPOE, expected fantasy points and true games played need additional sources or licensing review and are not shown.
