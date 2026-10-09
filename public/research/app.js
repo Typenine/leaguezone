@@ -11,13 +11,14 @@
     if(sort==='targets')return p.tgt||0;
     if(sort==='touches')return (p.car||0)+(p.rec||0);
     if(sort==='yards')return p.ry||0;
-    if(sort==='snaps')return p.snap||0;
+    if(sort==='passing')return p.ppyd||0;
+    if(sort==='rushing')return p.ruy||0;
     return score(p);
   }
   function profileUrl(id){return '/research/players/'+encodeURIComponent(id)+(state.year===2026?'':'?season='+state.year);}
   function positionLeaders() {
     var host=el('leaders');if(!host)return;
-    host.innerHTML=['QB','RB','WR','TE','K'].map(function(pos){
+    host.innerHTML=['QB','RB','WR','TE','K','DEF'].map(function(pos){
       var list=state.players.filter(function(p){return p.pos===pos&&p.g>0}).sort(function(a,b){return score(b)-score(a)});
       var p=list[0];return p?'<button class="leader-card" data-profile="'+escape(p.id)+'"><span class="pos">'+pos+' LEADER</span><span class="name">'+escape(p.n)+'</span><span class="team">'+escape(p.team)+'</span><span class="value">'+fmt(score(p))+' <span class="unit">FP</span></span></button>':'';
     }).join('');
@@ -46,14 +47,33 @@
     if(!p){el('profile').hidden=true;return;}
     var history=[...p.w].sort(function(a,b){return b[0]-a[0];});
     var adjustments=state.score==='half'?.5:state.score==='standard'?1:0;
+    var isQB=p.pos==='QB',isK=p.pos==='K',isDef=p.pos==='DEF';
+    var profileMetrics=isQB?[
+      ['Passing yards',p.ppyd||0],['Passing TDs',p.pptd||0],['Interceptions',p.pint||0],
+      ['Rushing yards',p.ruy||0],['Carries',p.car||0]
+    ]:isK?[
+      ['Field goals made',p.fgm||0],['Extra points made',p.xpm||0]
+    ]:isDef?[
+      ['Sacks',fmt(p.sacks||0)],['Interceptions',p.ints||0],
+      ['Fumble recoveries',p.fr||0],['Points allowed',p.pa||0]
+    ]:[
+      ['Targets',p.tgt||0],['Receptions',p.rec||0],['Receiving yards',p.ry||0],
+      ['Carries',p.car||0],['Rushing yards',p.ruy||0]
+    ];
+    var head=isQB?['Pass yds','Pass TD','INT','Carries','Rush yds']:
+      isK?['FG made','XP made']:
+      isDef?['Sacks','INT','FR','Pts allowed']:
+      ['Targets','Receptions','Rec yards','Carries','Rush yards'];
+    var idx=isQB?[8,9,10,6,7]:isK?[11,12]:isDef?[13,14,15,16]:[4,3,5,6,7];
     var html='<button class="crumb" id="return-list">← Back to player directory</button><div class="section-head">'+
       '<div><div class="eyebrow">'+escape(p.pos)+' · '+escape(p.team)+'</div><h2>'+escape(p.n)+'</h2></div>'+
       '<button class="btn outline" data-add-profile="'+escape(p.id)+'">Add to comparison</button></div>'+
       '<div class="profile-grid">'+metric('Fantasy points',fmt(score(p)))+metric('Points / game',fmt(ppg(p)))+
-      metric('Games played',p.g)+metric('Targets',p.tgt)+metric('Receptions',p.rec)+
-      metric('Receiving yards',p.ry)+metric('Carries',p.car)+metric('Rushing yards',p.ruy)+'</div>'+
-      '<h2>'+state.year+' game log</h2><div class="table-scroll"><table><thead><tr><th>Week</th><th>Team</th><th class="num">Fantasy points</th><th class="num">Targets</th><th class="num">Receptions</th><th class="num">Rec yards</th><th class="num">Carries</th><th class="num">Rush yards</th></tr></thead><tbody>';
-    html+=history.map(function(w){return '<tr><td>'+w[0]+'</td><td>'+escape(w[1])+'</td><td class="num">'+fmt(w[2]-adjustments*w[3])+'</td><td class="num">'+w[4]+'</td><td class="num">'+w[3]+'</td><td class="num">'+w[5]+'</td><td class="num">'+w[6]+'</td><td class="num">'+w[7]+'</td></tr>';}).join('');
+      metric('Games played',p.g)+profileMetrics.map(function(m){return metric(m[0],m[1]);}).join('')+'</div>'+
+      '<h2>'+state.year+' game log</h2><div class="table-scroll"><table><thead><tr><th>Week</th><th>Team</th><th class="num">Fantasy points</th>'+
+      head.map(function(h){return '<th class="num">'+h+'</th>';}).join('')+'</tr></thead><tbody>';
+    html+=history.map(function(w){return '<tr><td>'+w[0]+'</td><td>'+escape(w[1])+'</td><td class="num">'+fmt(w[2]-adjustments*w[3])+'</td>'+
+      idx.map(function(i){return '<td class="num">'+escape(w[i]===undefined?'—':w[i])+'</td>';}).join('')+'</tr>';}).join('');
     el('profile').innerHTML=html+'</tbody></table></div>';el('profile').hidden=false;
   }
   function renderCompare(){
@@ -61,8 +81,12 @@
     panel.hidden=ids.length===0;if(!ids.length)return;
     el('compare-grid').innerHTML=ids.map(function(id){var p=state.byId.get(id);if(!p)return '';
       return '<div class="panel"><div class="eyebrow">'+escape(p.pos)+' · '+escape(p.team)+'</div><h2>'+escape(p.n)+'</h2>'+
-      metric('Fantasy points',fmt(score(p)))+metric('Points / game',fmt(ppg(p)))+metric('Targets',p.tgt)+
-      metric('Receptions',p.rec)+metric('Carries',p.car)+metric('Receiving yards',p.ry)+'</div>';
+      metric('Fantasy points',fmt(score(p)))+metric('Points / game',fmt(ppg(p)))+
+      (p.pos==='QB'?metric('Passing yards',p.ppyd||0)+metric('Passing TDs',p.pptd||0):
+      p.pos==='K'?metric('Field goals made',p.fgm||0)+metric('Extra points made',p.xpm||0):
+      p.pos==='DEF'?metric('Sacks',fmt(p.sacks||0))+metric('INT',p.ints||0):
+      metric('Targets',p.tgt)+metric('Receptions',p.rec)+metric('Carries',p.car)+
+      metric('Receiving yards',p.ry))+'</div>';
     }).join('');
   }
   function navigate(path){
