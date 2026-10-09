@@ -2,15 +2,17 @@ name: Refresh public research snapshot
 on:
   workflow_dispatch:
   push:
-    branches: [feature/nflverse-research-rebuild]
+    branches: [feature/research-explorer-v2]
     paths:
       - 'scripts/build-nflverse-research.py'
       - 'scripts/validate-nflverse-research.py'
       - 'public/research/**'
       - '.github/workflows/refresh-public-research.yml'
       - 'tests/unit/public-research-static.test.ts'
+      - 'tests/e2e/public-research-history.spec.ts'
+  # Thursday after stat corrections, September-January only.
   schedule:
-    - cron: '0 12 * * 4'
+    - cron: '0 12 * 1,9-12 4'
 
 permissions:
   contents: write
@@ -22,7 +24,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,43 +38,38 @@ jobs:
           cache: npm
       - name: Install direct nflverse reader
         run: pip install 'nflreadpy>=0.1.2,<0.3'
-      - name: Build snapshots with no server/database dependency
+      - name: Rebuild and validate static research files without Neon
         shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
-            month="$(date -u +%m)"
-            if (( 10#$month < 9 )); then
-              echo "Offseason: nothing to refresh."
-              exit 0
-            fi
-            python scripts/build-nflverse-research.py --seasons "$(date -u +%Y)"
-            python scripts/validate-nflverse-research.py "$(date -u +%Y)"
+            python scripts/build-nflverse-research.py
           else
-            python scripts/build-nflverse-research.py --seasons 2023 2024 2025 2026
-            python scripts/validate-nflverse-research.py
+            mapfile -t years < <(find public/research/data -maxdepth 1 -name '20??.json' -printf '%f\n' | sed 's/\.json$//' | sort -n)
+            python scripts/build-nflverse-research.py --seasons "${years[@]}"
           fi
-      - name: Install and verify application
+          python scripts/validate-nflverse-research.py
+      - name: Type checking and research unit tests
         run: |
           npm ci
           node --check public/research/app.js
           npm run typecheck
           npx vitest run tests/unit/public-research-static.test.ts
-      - name: Browser-test desktop and mobile research pages
+      - name: Desktop and mobile research browser tests
         if: github.event_name != 'schedule'
         run: |
           npx playwright install --with-deps chromium
           npx playwright test tests/e2e/public-research-history.spec.ts
-      - name: Commit only if validated snapshots changed
+      - name: Commit only when research data actually changed
         shell: bash
         run: |
           git config user.name "leaguezone-data-bot"
           git config user.email "actions@users.noreply.github.com"
           git add public/research/data/
           if ! git diff --staged --quiet; then
-            git commit -m "Refresh validated nflverse research snapshots [skip ci]"
+            git commit -m "Refresh validated LeagueZone research data [skip ci]"
             git fetch origin "${GITHUB_REF_NAME}"
             git rebase FETCH_HEAD
             git push origin HEAD:"${GITHUB_REF_NAME}"
           else
-            echo "Research data unchanged; no Vercel deployment."
+            echo "No research data changes; no production build."
           fi
