@@ -57,6 +57,26 @@ describe('public research database isolation', () => {
     expect(ui).not.toMatch(/fetch\s*\(\s*['"\`]\/l\//);
     expect(ui).not.toMatch(/DATABASE_URL|@neondatabase|sql\`|\/api\/players/);
   });
+  it('R2 publisher is isolated, versioned, and never commits weekly stats to Git', () => {
+    const publisher = read('scripts/publish-public-research-r2.py');
+    const workflow = read('.github/workflows/refresh-public-research.yml');
+    const config = JSON.parse(read('public/research/data-source.json'));
+    expect(publisher).toContain('CATALOG_KEY');
+    expect(publisher).toContain('max-age=60');
+    expect(publisher).toContain('immutable');
+    expect(publisher).not.toMatch(/DATABASE_URL|@neondatabase|SLEEPER_API_KEY/);
+    expect(workflow).toContain('python scripts/publish-public-research-r2.py');
+    expect(workflow).not.toContain('git push');
+    expect(workflow).not.toContain('git commit');
+    expect(config.publicBase).toBe('');
+    expect(read('public/research/app.js')).toContain('Last validated backup');
+    expect(read('public/research/app.js')).toContain('R2 live data');
+  });
+  it('does not keep production R2 credentials hardcoded in the environment helper', () => {
+    const setup = read('scripts/set-r2-envs.mjs');
+    expect(setup).toContain('process.env');
+    expect(setup).not.toContain('3814f2f8664d'); // accidental historical secret prefix regression
+  });
   it('data pipeline is not allowed to import LeagueZone server code', () => {
     const updater = read('scripts/build-nflverse-research.py');
     expect(updater).toContain('nfl.load_player_stats');
