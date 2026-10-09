@@ -51,7 +51,9 @@ describe('public research database isolation', () => {
   });
   it('client application cannot call authenticated or database APIs', () => {
     const ui = read('public/research/app.js');
-    expect(ui).toContain("fetch('/research/data/'+year+'.json'");
+    expect(ui).toContain("var localUrl='/research/data/'+year+'.json'");
+    expect(ui).toContain('fetch(localUrl');
+    expect(ui).toContain('loadAvailableSeasons()');
     expect(ui).toContain("fetch('/research/data/seasons.json'");
     expect(ui).not.toMatch(/fetch\s*\(\s*['"\`]\/api\//);
     expect(ui).not.toMatch(/fetch\s*\(\s*['"\`]\/l\//);
