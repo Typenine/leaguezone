@@ -22,6 +22,7 @@ export default function MobileAppTabs() {
     {tabs.map(({href,label,Icon}) => {
       const selected = label==='Home' ? pathname==='/' :
         label==='Players' ? pathname.startsWith('/research/players') || pathname==='/research/stats' :
+        label==='Research' ? pathname==='/research' || ['/research/radar','/research/receipts','/research/development'].some(route=>pathname.startsWith(route)) :
         label==='My Leagues' ? pathname.startsWith('/app') || pathname.startsWith('/l/') :
         pathname===href || pathname.startsWith(href+'/');
       return <Link key={label} href={href} aria-current={selected?'page':undefined} className={'lz-bottom-tab'+(selected?' lz-bottom-tab-active':'')}><Icon aria-hidden="true" size={21}/><span>{label}</span></Link>;
