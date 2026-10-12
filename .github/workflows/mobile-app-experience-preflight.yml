@@ -5,6 +5,10 @@ on:
     branches: [feature/mobile-app-experience]
   workflow_dispatch:
 
+concurrency:
+  group: mobile-app-experience-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
