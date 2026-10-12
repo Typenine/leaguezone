@@ -4,7 +4,9 @@ type PushResponse={publicKey:string|null;registered?:string[]};
 function decode(key:string):ArrayBuffer{
  const pad='='.repeat((4-key.length%4)%4);
  const raw=atob((key+pad).replace(/-/g,'+').replace(/_/g,'/'));
- return Uint8Array.from(raw,c=>c.charCodeAt(0));
+ const buffer=new ArrayBuffer(raw.length);
+ new Uint8Array(buffer).set(Uint8Array.from(raw,c=>c.charCodeAt(0)));
+ return buffer;
 }
 export default function NotificationPreferences(){
  const [supported,setSupported]=useState(false);
