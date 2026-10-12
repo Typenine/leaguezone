@@ -5,6 +5,7 @@ import {readSaved,writeSaved,safeHref,type SavedItem} from '@/lib/saved-research
 export default function SavedResearch(){
  const [items,setItems]=useState<SavedItem[]>([]);
  const [ready,setReady]=useState(false);
+ const [filter,setFilter]=useState<'all'|'player'|'view'>('all');
  useEffect(()=>{
   const sync=()=>{setItems(readSaved());setReady(true)};
   sync();window.addEventListener('storage',sync);
@@ -19,7 +20,7 @@ export default function SavedResearch(){
    <p className="mt-2 text-sm text-[var(--muted)]">On a research page, choose Save this research view to bookmark a player or filter selection.</p>
    <Link href="/research/players" className="mt-4 inline-block text-[var(--brand-gold)] underline">Browse players</Link>
   </div>}
-  <div className="grid gap-3 sm:grid-cols-2">{items.map(item=><article key={item.key}
+  <div className="grid gap-3 sm:grid-cols-2">{items.filter(item=>filter==='all'||item.type===filter).map(item=><article key={item.key}
     className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-4">
    <div className="min-w-0"><span className="text-xs text-[var(--muted)]">{item.type==='player'?'Player':'Research view'}</span>
     <Link href={safeHref(item.href)||'/research'} className="block break-words font-semibold underline">{item.title}</Link>
