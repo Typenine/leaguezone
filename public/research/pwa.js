@@ -12,3 +12,5 @@
     });
   }, { once: true });
 })();
+
+(function(){var script=document.createElement('script');script.src='/research/app-shell.js';script.defer=true;document.head.appendChild(script)})();
