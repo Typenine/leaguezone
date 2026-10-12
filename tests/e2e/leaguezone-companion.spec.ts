@@ -45,6 +45,23 @@ test.describe('Shared LeagueZone companion', () => {
     expect(cron.status()).toBe(401);
   });
 
+  test('previously visited research can be read offline',async ({page})=>{
+    await page.goto('/research/stats');
+    await page.waitForFunction(async()=>{
+      if(!navigator.serviceWorker?.controller)return false;
+      const names=await caches.keys();
+      return names.some(name=>name.startsWith('leaguezone-pwa-v3-research'));
+    },{timeout:20000});
+    await page.context().setOffline(true);
+    try {
+      await page.goto('/research/players/00-0034857?season=2026');
+      await expect(page.locator('#page-title')).toHaveText('Josh Allen',{timeout:15000});
+      await expect(page.locator('#profile-summary')).toBeVisible();
+    } finally {
+      await page.context().setOffline(false);
+    }
+  });
+
   test('offline worker contains bounded research caches and excludes APIs',async ({request})=>{
     const worker=await request.get('/sw.js');
     expect(worker.ok()).toBeTruthy();
