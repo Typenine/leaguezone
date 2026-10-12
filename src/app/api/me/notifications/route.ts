@@ -23,8 +23,8 @@ export async function GET(){
       WHERE user_id=${session.userId}::uuid LIMIT 1`);
     const subs=await db.execute(sql`SELECT COUNT(*)::int AS count FROM user_push_subscriptions
       WHERE user_id=${session.userId}::uuid`);
-    const row=(prefs as {rows?:Array<{enabled:boolean;role_changes:boolean}>}).rows?.[0];
-    const count=(subs as {rows?:Array<{count:number}>}).rows?.[0]?.count||0;
+    const row=(prefs as unknown as unknown as {rows?:Array<{enabled:boolean;role_changes:boolean}>}).rows?.[0];
+    const count=(subs as unknown as unknown as {rows?:Array<{count:number}>}).rows?.[0]?.count||0;
     return Response.json({configured:!!publicVapidKey(),publicKey:publicVapidKey(),
       enabled:row?.enabled||false,roleChanges:row?.role_changes??true,subscribed:count>0},{headers});
   }catch{return error('Notification settings unavailable.',503);}

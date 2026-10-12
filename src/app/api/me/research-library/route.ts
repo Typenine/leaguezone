@@ -39,7 +39,7 @@ export async function GET(){
   try{
     const db=getDb();
     const result=await db.execute(sql`SELECT data FROM user_research_library WHERE user_id=${session.userId}::uuid LIMIT 1`);
-    const row=(result as {rows?:Array<{data:unknown}>}).rows?.[0];
+    const row=(result as unknown as unknown as {rows?:Array<{data:unknown}>}).rows?.[0];
     return Response.json(clean(row?.data)||{players:[],views:[],updatedAt:0},{headers});
   }catch{return Response.json({error:'Saved research temporarily unavailable.'},{status:503,headers});}
 }

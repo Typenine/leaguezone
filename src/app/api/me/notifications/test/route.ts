@@ -25,7 +25,7 @@ export async function POST(req:NextRequest){
        AND (last_test_at IS NULL OR last_test_at < now()-interval '1 minute')
       RETURNING endpoint,p256dh,auth
     `);
-    const row=(result as {rows?:Array<{endpoint:string;p256dh:string;auth:string}>}).rows?.[0];
+    const row=(result as unknown as unknown as {rows?:Array<{endpoint:string;p256dh:string;auth:string}>}).rows?.[0];
     if(!row)return Response.json({error:'No eligible subscription or test was recently sent.'},{status:429});
     const sent=await sendWebPush(row,{title:'LeagueZone test',body:'Notifications are connected to LeagueZone.',url:'/settings/notifications',tag:'leaguezone-test'});
     if(sent.gone)await db.execute(sql`DELETE FROM user_push_subscriptions

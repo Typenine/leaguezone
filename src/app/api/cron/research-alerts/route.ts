@@ -52,7 +52,7 @@ export async function GET(req:NextRequest){
         AND jsonb_array_length(l.data->'players')>0
       ORDER BY l.user_id,s.endpoint_hash LIMIT 250
     `);
-    const rows=(result as {rows?:Row[]}).rows||[];
+    const rows=(result as unknown as {rows?:Row[]}).rows||[];
     const groups=new Map<string,Row[]>();
     for(const row of rows){
       const group=groups.get(row.user_id)||[];
@@ -72,7 +72,7 @@ export async function GET(req:NextRequest){
         VALUES(${userId}::uuid,${signal.id},${year},${data.throughWeek},${signal.direction})
         ON CONFLICT DO NOTHING RETURNING user_id
       `);
-      if(!((claim as {rows?:unknown[]}).rows||[]).length)continue;
+      if(!((claim as unknown as {rows?:unknown[]}).rows||[]).length)continue;
       attempted++;
       let succeeded=0;
       for(const device of devices){

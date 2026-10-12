@@ -11,7 +11,7 @@ export type StoredSubscription={endpoint:string;p256dh:string;auth:string};
 
 function decode(value:string):Buffer {return Buffer.from(value,'base64url');}
 function expand(prk:Buffer,info:Buffer,len:number):Buffer {
-  let block=Buffer.alloc(0),result=Buffer.alloc(0),counter=1;
+  let block:Buffer<ArrayBufferLike>=Buffer.alloc(0),result:Buffer<ArrayBufferLike>=Buffer.alloc(0),counter=1;
   while(result.length<len){
     block=createHmac('sha256',prk).update(Buffer.concat([block,info,Buffer.from([counter++])])).digest();
     result=Buffer.concat([result,block]);
