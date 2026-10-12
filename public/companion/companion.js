@@ -143,13 +143,21 @@
   async function search(){
     var body=open('Search LeagueZone');if(!body)return;
     body.innerHTML='<p>Find NFL players, research tools and your own leagues.</p><label for="lzc-query">Search</label><input type="search" id="lzc-query" placeholder="Player, tool, or league" autocomplete="off"><div class="lzc-results" id="lzc-results"></div>';
-    var input=body.querySelector('#lzc-query'),results=body.querySelector('#lzc-results'),a=await identity(),season=await dataset(),leagues=a&&a.leagues||[];
-    if(overlay.hidden)return;
+    var input=body.querySelector('#lzc-query'),results=body.querySelector('#lzc-results');
+    var season={year:null,players:[]},leagues=[],loaded=false;
     function render(){
+      if(overlay.hidden)return;
       var matches=searchResults(input.value,season,leagues);
-      results.innerHTML=matches.length?matches.map(function(x){return '<a class="lzc-result" href="'+esc(x.url)+'"><strong>'+esc(x.title)+'</strong><small>'+esc(x.section)+'</small></a>';}).join(''):'<p>No matches in the available research season. Try a different name.</p>';
+      results.innerHTML=matches.length?matches.map(function(x){return '<a class="lzc-result" href="'+esc(x.url)+'"><strong>'+esc(x.title)+'</strong><small>'+esc(x.section)+'</small></a>';}).join(''):
+        '<p>'+(loaded?'No matching players or tools. Try a different name.':'Loading available players and leagues…')+'</p>';
     }
-    render();input.addEventListener('input',render);input.focus();
+    input.addEventListener('input',render);input.focus();render();
+    // Search and keyboard input are ready immediately, even when the R2
+    // catalog or the signed-in account lookup is slow or temporarily down.
+    void Promise.all([identity(),dataset()]).then(function(data){
+      var a=data[0];
+      season=data[1];leagues=a&&a.leagues||[];loaded=true;render();
+    }).catch(function(){loaded=true;render();});
   }
   function listItem(x,label){
     return '<div class="lzc-result"><a style="color:inherit;min-width:0;flex:1" href="'+esc(label==='player'?'/research/players/'+encodeURIComponent(x.id)+'?season='+x.year:x.url)+'">'+esc(x.name)+'</a>'+
