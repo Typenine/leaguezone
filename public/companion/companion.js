@@ -93,9 +93,38 @@
   }
   async function dataset(){
     if(seasonPromise)return seasonPromise;
-    seasonPromise=fetch('/research/data/seasons.json',{cache:'force-cache'}).then(function(r){if(!r.ok)throw Error('No season index');return r.json();})
-      .then(function(idx){var years=idx.years||[],year=Math.max.apply(null,years);if(!Number.isInteger(year))throw Error('No seasons');return fetch('/research/data/'+year+'.json',{cache:'force-cache'}).then(function(r){if(!r.ok)throw Error('Research unavailable');return r.json();}).then(function(d){return {year:year,players:(d.players||[])};});})
-      .catch(function(){seasonPromise=null;return {year:null,players:[]};});
+    // Read the same immutable R2 catalog as the research app when possible.
+    // The checked-in static archive is the offline and Cloudflare-failure fallback.
+    seasonPromise=(async function(){
+      var archive=fetch('/research/data/seasons.json',{cache:'force-cache'})
+        .then(function(r){if(!r.ok)throw Error('No archive');return r.json();})
+        .then(function(idx){var year=Math.max.apply(null,idx.years||[]);
+          if(!Number.isInteger(year))throw Error('No seasons');
+          return fetch('/research/data/'+year+'.json',{cache:'force-cache'})
+            .then(function(r){if(!r.ok)throw Error('Archive unavailable');return r.json();})
+            .then(function(data){return {year:year,players:data.players||[]};});
+        });
+      try{
+        var source=await fetch('/research/data-source.json',{cache:'force-cache',signal:AbortSignal.timeout(4000)}).then(function(r){return r.json();});
+        var base=String(source.publicBase||'').replace(/\/+$/,'');
+        if(!/^https:\/\/[^/]+$/.test(base))throw Error('Untrusted research source');
+        var catalog=await fetch(base+'/research/v1/catalog.json',{cache:'no-cache',signal:AbortSignal.timeout(5000)})
+          .then(function(r){if(!r.ok)throw Error('Catalog unavailable');return r.json();});
+        if(catalog.schema!==1||!catalog.files)throw Error('Catalog invalid');
+        var years=Object.keys(catalog.files).map(Number).filter(function(y){return Number.isInteger(y)&&y>=2000&&y<=2100;});
+        var year=Math.max.apply(null,years),info=catalog.files[String(year)];
+        if(!info||!/^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key))
+          throw Error('Invalid snapshot key');
+        var snapshot=await fetch(base+'/'+info.key,{cache:'force-cache',signal:AbortSignal.timeout(7000)})
+          .then(function(r){if(!r.ok)throw Error('Snapshot unavailable');return r.json();});
+        if(snapshot.schema!==3||snapshot.year!==year||!Array.isArray(snapshot.players)||
+          snapshot.players.length<100||snapshot.throughWeek!==info.throughWeek||snapshot.updated!==info.updated)
+          throw Error('Snapshot mismatch');
+        return {year:year,players:snapshot.players};
+      }catch{
+        try{return await archive;}catch{return {year:null,players:[]};}
+      }
+    })();
     return seasonPromise;
   }
   function searchResults(needle,season,leagues){
