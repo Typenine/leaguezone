@@ -28,6 +28,8 @@ export function isLeagueSitePath(pathname: string): boolean {
 
 export function isPlatformPath(pathname: string): boolean {
   if (pathname === '/') return true;
+  // Notification preferences are platform-wide, not tied to the active league.
+  if (matchesPrefix(pathname, '/settings/notifications')) return true;
   return PLATFORM_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
 }
 
