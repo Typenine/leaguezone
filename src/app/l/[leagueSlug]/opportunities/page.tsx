@@ -105,6 +105,11 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
   const [position, setPosition] = useState('ALL');
   const [category, setCategory] = useState<'trade' | 'waiver' | 'roster'>('trade');
   const [scoring, setScoring] = useState('half');
+  const [focusId, setFocusId] = useState('');
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('player') || '';
+    setFocusId(/^[\w-]{1,70}$/.test(id) ? id : '');
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -153,6 +158,14 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
     || Math.abs(b.signal.change) - Math.abs(a.signal.change)) || [];
   }, [report, category, position, teamId, rosters]);
 
+  const focused = useMemo(() => {
+    if (!focusId || !season || !rosters) return null;
+    const player = season.players.find((p) => p.id === focusId);
+    if (!player) return { player:null,ownership:null };
+    const owner = engine.ownership([player],rosters.teams,rosters.players,rosters.catalog||[])[0]||null;
+    return { player,ownership:owner };
+  },[focusId,season,rosters]);
+
   const rosterContext = useMemo(() => {
     const snapshot=rosters;
     if (!snapshot || !teamId) return null;
@@ -192,6 +205,28 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
         </select></label>
         <div className="text-xs text-[var(--muted)]"><span className="font-bold text-[var(--text)]">{rosters.season} season</span><br/>Research through Week {season.throughWeek}<br/>Updated {season.updated}</div>
       </div>
+      {focused && <section className="mb-5 rounded-xl border border-[var(--accent)]/50 bg-[var(--surface)] p-5" aria-label="Selected player ownership">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-black">Player roster check</h2>
+          <Link href={`/l/${encodeURIComponent(slug||'')}/opportunities`} className="text-sm text-accent underline">Clear player</Link>
+        </div>
+        {!focused.player ? <p className="mt-2 text-sm text-[var(--muted)]">This player is not in the league's current research season.</p> :
+          <div className="mt-3">
+            <p className="font-bold">{focused.player.n} <span className="text-xs font-normal text-[var(--muted)]">{focused.player.pos} · {focused.player.team}</span></p>
+            {focused.ownership?.match === 'unmatched'
+              ? <p className="mt-2 text-sm">Provider identity could not be verified. Roster status is unknown.</p>
+              : focused.ownership?.owner
+                ? <p className="mt-2 text-sm">Currently rostered by <Link className="font-bold text-accent underline" href={`/l/${encodeURIComponent(slug||'')}/teams/${focused.ownership.owner.rosterId}`}>{focused.ownership.owner.teamName}</Link>.</p>
+                : rosters.provider === 'sleeper' && focused.ownership?.match === 'catalog'
+                  ? <p className="mt-2 text-sm">Not on a current roster. Confirm waiver eligibility in Sleeper.</p>
+                  : <p className="mt-2 text-sm">The provider data cannot verify unrostered status.</p>}
+            <div className="mt-3 flex flex-wrap gap-4">
+              <Link className="text-sm text-accent underline" href={`/research/players/${encodeURIComponent(focused.player.id)}?season=${season.year}`}>Research profile</Link>
+              {rosters.provider === 'sleeper' && focused.ownership?.owner && focused.ownership.providerId &&
+                <Link className="text-sm text-accent underline" href={`/l/${encodeURIComponent(slug||'')}/trades/analyzer?b=${encodeURIComponent(focused.ownership.providerId)}`}>Trade analyzer</Link>}
+            </div>
+          </div>}
+      </section>}
       {rosterContext && <section className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-label="Roster construction">
         <h2 className="mb-2 text-sm font-bold">Your roster construction</h2>
         <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
