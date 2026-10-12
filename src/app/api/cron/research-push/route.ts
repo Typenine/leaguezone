@@ -24,7 +24,7 @@ export async function GET(req:Request){
    WHERE research_updates=true AND last_research_version IS DISTINCT FROM ${version}
    ORDER BY updated_at ASC LIMIT 30`);
   let delivered=0,failed=0,removed=0;
-  for(const entry of (rows as {rows?:Row[]}).rows||[]){
+  for(const entry of (rows as unknown as {rows?:Row[]}).rows||[]){
    try{
     const response=await sendPush({endpoint:entry.endpoint,p256dh:entry.p256dh,auth:entry.auth_secret},
      {title:'LeagueZone Research updated',body:'Week '+week+' research is available.',
