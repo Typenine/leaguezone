@@ -13,7 +13,7 @@ export async function GET(){
  try{
   const result=await getDb().execute(sql`SELECT endpoint FROM leaguezone_push_subscriptions
    WHERE user_id=${user.userId}::uuid AND research_updates=true`);
-  const registered=(result as {rows?:Array<{endpoint:string}>}).rows?.map(r=>r.endpoint)||[];
+  const registered=(result as unknown as {rows?:Array<{endpoint:string}>}).rows?.map(r=>r.endpoint)||[];
   return NextResponse.json({publicKey,registered},{headers:noStore});
  }catch{return NextResponse.json({publicKey,registered:[]},{headers:noStore})}
 }
@@ -32,7 +32,7 @@ export async function POST(req:NextRequest){
  try{
   const db=getDb();
   const count=await db.execute(sql`SELECT count(*)::int AS n FROM leaguezone_push_subscriptions WHERE user_id=${user.userId}::uuid`);
-  const n=Number((count as {rows?:Array<{n:number}>}).rows?.[0]?.n||0);
+  const n=Number((count as unknown as {rows?:Array<{n:number}>}).rows?.[0]?.n||0);
   if(n>=5){
    const known=await db.execute(sql`SELECT id FROM leaguezone_push_subscriptions
       WHERE user_id=${user.userId}::uuid AND endpoint=${device.endpoint} LIMIT 1`);
