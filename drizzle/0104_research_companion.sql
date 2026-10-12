@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS user_push_subscriptions (
  p256dh text NOT NULL,
  auth text NOT NULL,
  created_at timestamptz NOT NULL DEFAULT now(),
- last_seen_at timestamptz NOT NULL DEFAULT now()
+ last_seen_at timestamptz NOT NULL DEFAULT now(),
+ last_test_at timestamptz
 );
 CREATE INDEX IF NOT EXISTS user_push_subscriptions_user_idx ON user_push_subscriptions(user_id);
 CREATE TABLE IF NOT EXISTS user_push_role_alerts (
