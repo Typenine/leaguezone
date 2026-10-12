@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'leaguezone-pwa-v3';
+const CACHE_VERSION = 'leaguezone-pwa-v4';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = '/offline';
 const DATA_CACHE = `${CACHE_VERSION}-research-data`;
@@ -6,12 +6,28 @@ const RESEARCH_SHELL = '/research/index.html';
 const PRECACHE_URLS = [OFFLINE_URL, '/manifest.webmanifest', '/pwa/icon-192.png', RESEARCH_SHELL, '/research/styles.css', '/research/app.js', '/research/metrics.js', '/research/opportunities.js', '/research/tools.js', '/research/pwa.js', '/research/app-shell.js', '/research/app-shell.css'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches
-      .open(STATIC_CACHE)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting()),
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(STATIC_CACHE);
+    await cache.addAll(PRECACHE_URLS);
+    // Public research normally loads its latest snapshot from R2. Keep the
+    // local static backup ready even if it was not requested during this visit.
+    try {
+      const response = await fetch('/research/data/seasons.json', {cache: 'no-store'});
+      if (response.ok) {
+        const manifest = await response.clone().json();
+        const years = Array.isArray(manifest.years) ? manifest.years.filter(Number.isInteger) : [];
+        const latest = Math.max(...years);
+        const data = await caches.open(DATA_CACHE);
+        await data.put('/research/data/seasons.json', response);
+        if (Number.isInteger(latest) && latest >= 2020) {
+          await data.add('/research/data/' + latest + '.json');
+        }
+      }
+    } catch {
+      // Installability is more important than the optional offline backup.
+    }
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {
