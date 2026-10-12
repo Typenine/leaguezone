@@ -47,7 +47,7 @@ test.describe('Shared LeagueZone companion', () => {
 
   test('previously visited research can be read offline',async ({page})=>{
     await page.goto('/research/stats');
-    const player=page.locator('[data-profile="00-0034857"]').first();
+    const player=page.locator('button[data-profile="00-0034857"]:visible').first();
     await expect(player).toBeVisible();
     await page.waitForFunction(async()=>{
       if(!navigator.serviceWorker?.controller)return false;
