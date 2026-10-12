@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 type PushResponse={publicKey:string|null;registered?:string[]};
-function decode(key:string):Uint8Array{
+function decode(key:string):ArrayBuffer{
  const pad='='.repeat((4-key.length%4)%4);
  const raw=atob((key+pad).replace(/-/g,'+').replace(/_/g,'/'));
  return Uint8Array.from(raw,c=>c.charCodeAt(0));
