@@ -61,7 +61,7 @@ test.describe('Shared LeagueZone companion', () => {
       // The already loaded static research app navigates player profiles
       // client-side. No additional network access should be necessary.
       await player.click();
-      await expect(page).toHaveURL(/\\/research\\/players\\/00-0034857\\?season=2026/);
+      await expect(page).toHaveURL(/\/research\/players\/00-0034857\?season=2026/);
       await expect(page.locator('#page-title')).toHaveText('Josh Allen',{timeout:15000});
       await expect(page.locator('#profile-summary')).toBeVisible();
     } finally {
