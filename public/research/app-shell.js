@@ -3,10 +3,12 @@
 var nav=document.createElement('nav');
 nav.className='lz-research-tabs';
 nav.setAttribute('aria-label','LeagueZone app navigation');
-[['/?view=public','Home'],['/search','Search'],['/research/players','Players'],['/saved','Saved'],['/app','My Leagues']].forEach(function(item){
+[['/?view=public','Home'],['/research','Research'],['/research/players','Players'],['/app','My Leagues'],['/profile','Profile']].forEach(function(item){
  var a=document.createElement('a');a.href=item[0];a.textContent=item[1];nav.appendChild(a);
 });
 document.body.appendChild(nav);
+var headerNav=document.querySelector('.site-head .nav');
+if(headerNav){[['/search','Search'],['/saved','Saved']].forEach(function(item){var a=document.createElement('a');a.href=item[0];a.textContent=item[1];headerNav.appendChild(a)})}
 var row=document.querySelector('.meta-row');
 if(!row)return;
 var save=document.createElement('button');save.type='button';save.className='btn outline';save.textContent='Save this research view';
