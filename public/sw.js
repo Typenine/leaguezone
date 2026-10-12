@@ -100,3 +100,37 @@ self.addEventListener('fetch', (event) => {
     })(),
   );
 });
+
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  let payload;
+  try { payload = event.data.json(); } catch { return; }
+  const title = typeof payload.title === 'string' ? payload.title.slice(0, 100) : 'LeagueZone';
+  const body = typeof payload.body === 'string' ? payload.body.slice(0, 200) : '';
+  const requested = typeof payload.url === 'string' ? payload.url : '/research';
+  const next = new URL(requested, self.location.origin);
+  const url = next.origin === self.location.origin &&
+    (next.pathname.startsWith('/research') || next.pathname.startsWith('/app'))
+    ? next.pathname + next.search : '/research';
+  event.waitUntil(self.registration.showNotification(title, {
+    body, icon: '/pwa/icon-192.png', badge: '/pwa/icon-192.png',
+    tag: typeof payload.tag === 'string' ? payload.tag.slice(0, 100) : undefined,
+    data: {url},
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || '/research', self.location.origin);
+  if (target.origin !== self.location.origin) return;
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
+    for (const client of windows) {
+      if ('navigate' in client) {
+        await client.navigate(target.href);
+        return client.focus();
+      }
+    }
+    return self.clients.openWindow(target.href);
+  })());
+});
