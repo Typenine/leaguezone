@@ -28,8 +28,8 @@ test.describe('Shared LeagueZone companion', () => {
     await page.locator('[data-lzc-watch]').first().click();
     await expect(page.locator('[data-lzc-watch]').first()).toHaveAttribute('aria-pressed','true');
     await page.locator('[data-lzc-saved]').first().click();
-    await expect(page.getByRole('heading',{name:'Saved research'})).toBeVisible();
-    await expect(page.getByText('Josh Allen',{exact:true}).first()).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Saved research',exact:true})).toBeVisible();
+    await expect(page.getByRole('dialog',{name:'LeagueZone tools'}).getByText('Josh Allen',{exact:true})).toBeVisible();
     await page.getByRole('button',{name:'Close dialog'}).click();
     await page.locator('[data-lzc-player-leagues]').click();
     await expect(page.getByRole('heading',{name:/Check Josh Allen in my leagues/})).toBeVisible();
