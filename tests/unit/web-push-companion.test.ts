@@ -16,7 +16,7 @@ afterEach(()=>{
 });
 function extract(salt:Buffer,value:Buffer){return createHmac('sha256',salt).update(value).digest();}
 function expand(prk:Buffer,info:Buffer,len:number):Buffer{
-  let result=Buffer.alloc(0),block=Buffer.alloc(0),n=1;
+  let result:Buffer<ArrayBufferLike>=Buffer.alloc(0),block:Buffer<ArrayBufferLike>=Buffer.alloc(0),n=1;
   while(result.length<len){
     block=createHmac('sha256',prk).update(Buffer.concat([block,info,Buffer.from([n++])])).digest();
     result=Buffer.concat([result,block]);

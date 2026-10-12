@@ -210,7 +210,7 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
           <h2 className="text-lg font-black">Player roster check</h2>
           <Link href={`/l/${encodeURIComponent(slug||'')}/opportunities`} className="text-sm text-accent underline">Clear player</Link>
         </div>
-        {!focused.player ? <p className="mt-2 text-sm text-[var(--muted)]">This player is not in the league's current research season.</p> :
+        {!focused.player ? <p className="mt-2 text-sm text-[var(--muted)]">This player is not in the league&apos;s current research season.</p> :
           <div className="mt-3">
             <p className="font-bold">{focused.player.n} <span className="text-xs font-normal text-[var(--muted)]">{focused.player.pos} · {focused.player.team}</span></p>
             {focused.ownership?.match === 'unmatched'

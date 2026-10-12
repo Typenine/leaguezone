@@ -105,7 +105,7 @@ export default function NotificationControls(){
         <input type="checkbox" checked={settings.roleChanges} disabled={busy} onChange={e=>void save(e.target.checked)}
           className="mt-1 h-5 w-5 accent-[var(--accent)]"/>
         <span><strong className="block">Watchlist opportunity changes</strong>
-          <span className="mt-1 block leading-6 text-[var(--muted)]">Notify me if a saved player's published research shows rising or falling usage. Requires account-synced watchlists and an active device subscription.</span></span>
+          <span className="mt-1 block leading-6 text-[var(--muted)]">Notify me if a saved player&apos;s published research shows rising or falling usage. Requires account-synced watchlists and an active device subscription.</span></span>
       </label>
     </>}
     {message&&<p role="status" className="mt-5 rounded border border-[var(--border)] p-3 text-sm">{message}</p>}
