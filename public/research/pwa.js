@@ -14,3 +14,5 @@
 })();
 
 (function(){var script=document.createElement('script');script.src='/research/app-shell.js';script.defer=true;document.head.appendChild(script)})();
+
+(function(){var link=document.createElement('link');link.rel='stylesheet';link.href='/research/app-shell.css';document.head.appendChild(link)})();
