@@ -7,7 +7,15 @@ export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const noStore={'Cache-Control':'private, no-store'};
 export async function GET(){
- return NextResponse.json({publicKey:publicVapidKey()}, {headers:noStore});
+ const publicKey=publicVapidKey();
+ const user=await requireUser();
+ if(!user)return NextResponse.json({publicKey,registered:[]},{headers:noStore});
+ try{
+  const result=await getDb().execute(sql`SELECT endpoint FROM leaguezone_push_subscriptions
+   WHERE user_id=${user.userId}::uuid AND research_updates=true`);
+  const registered=(result as {rows?:Array<{endpoint:string}>}).rows?.map(r=>r.endpoint)||[];
+  return NextResponse.json({publicKey,registered},{headers:noStore});
+ }catch{return NextResponse.json({publicKey,registered:[]},{headers:noStore})}
 }
 export async function POST(req:NextRequest){
  if(req.headers.get('origin')!==new URL(req.url).origin)
