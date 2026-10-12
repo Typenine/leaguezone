@@ -20,6 +20,11 @@ export default function SavedResearch(){
    <p className="mt-2 text-sm text-[var(--muted)]">On a research page, choose Save this research view to bookmark a player or filter selection.</p>
    <Link href="/research/players" className="mt-4 inline-block text-[var(--brand-gold)] underline">Browse players</Link>
   </div>}
+  {items.length>0&&<div className="mb-5 flex gap-2" role="group" aria-label="Saved research categories">
+   <button type="button" onClick={()=>setFilter('all')} aria-pressed={filter==='all'} className="rounded border border-[var(--border)] px-3 py-2 text-sm">All</button>
+   <button type="button" onClick={()=>setFilter('player')} aria-pressed={filter==='player'} className="rounded border border-[var(--border)] px-3 py-2 text-sm">Player watchlist</button>
+   <button type="button" onClick={()=>setFilter('view')} aria-pressed={filter==='view'} className="rounded border border-[var(--border)] px-3 py-2 text-sm">Research views</button>
+  </div>}
   <div className="grid gap-3 sm:grid-cols-2">{items.filter(item=>filter==='all'||item.type===filter).map(item=><article key={item.key}
     className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-4">
    <div className="min-w-0"><span className="text-xs text-[var(--muted)]">{item.type==='player'?'Player':'Research view'}</span>
