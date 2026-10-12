@@ -5,10 +5,10 @@ import { Home, Search, Users, Bookmark, CircleUserRound } from 'lucide-react';
 import { useEffect } from 'react';
 const tabs = [
   { href: '/?view=public', label: 'Home', Icon: Home },
-  { href: '/search', label: 'Search', Icon: Search },
+  { href: '/research', label: 'Research', Icon: Search },
   { href: '/research/players', label: 'Players', Icon: Users },
-  { href: '/saved', label: 'Saved', Icon: Bookmark },
-  { href: '/app', label: 'My Leagues', Icon: CircleUserRound },
+  { href: '/profile', label: 'Profile', Icon: CircleUserRound },
+  { href: '/app', label: 'My Leagues', Icon: Bookmark },
 ] as const;
 export default function MobileAppTabs() {
   const pathname = usePathname() || '/';
