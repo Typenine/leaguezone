@@ -19,7 +19,7 @@
     {title:'Development Lab',url:'/research/development',section:'Research'},
     {title:'League websites',url:'/features',section:'LeagueZone'}
   ];
-  var dock,overlay,dialog,authPromise=null,seasonPromise=null,userKey='guest',library=null;
+  var dock,overlay,dialog,authPromise=null,seasonPromise=null,userKey='guest',library=null,lastPath=location.pathname;
   var esc=function(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
   function icon(name){return '<svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[name]+'</svg>';}
   function safeUrl(url){try{var u=new URL(url,location.origin);return u.origin===location.origin&&u.pathname.startsWith('/research')?u.pathname+u.search:'';}catch{return '';}}
@@ -75,6 +75,7 @@
   }
   function route(){
     var path=location.pathname;
+    if(path!==lastPath){lastPath=path;authPromise=null;userKey='guest';library=null;}
     if(dock){
       dock.classList.toggle('lzc-hidden',path.startsWith('/l/')||/^\/(draft\/(room|overlay)|admin|login|register|setup)/.test(path));
       dock.querySelectorAll('a[data-lzc-tab]').forEach(function(a){
@@ -83,6 +84,12 @@
       });
     }
     document.querySelectorAll('[data-lzc-watch]').forEach(function(btn){var saved=!!library&&library.players.some(function(p){return p.id===btn.dataset.lzcWatch;});btn.setAttribute('aria-pressed',String(saved));btn.textContent=saved?'Watching':'Watch player';});
+    var saveButton=document.getElementById('lzc-save-view');
+    if(saveButton){
+      var isSaved=!!library&&library.views.some(function(v){return v.url===safeUrl(location.pathname+location.search);});
+      saveButton.setAttribute('aria-pressed',String(isSaved));
+      saveButton.textContent=isSaved?'View saved':'Save this view';
+    }
   }
   async function dataset(){
     if(seasonPromise)return seasonPromise;
@@ -140,7 +147,7 @@
   }
   async function watch(id,name,year){
     if(!id||!name||!Number.isInteger(year))return;
-    await identity();
+    await hydrate();
     var ix=library.players.findIndex(function(p){return p.id===id;});
     if(ix>=0)library.players.splice(ix,1);
     else if(library.players.length>=80){showMessage('Watchlist limit is 80 players. Remove one before adding another.');return;}
@@ -148,7 +155,7 @@
     persist();void send();route();
   }
   async function saveView(){
-    await identity();
+    await hydrate();
     var url=safeUrl(location.pathname+location.search);if(!url)return;
     var label=(document.querySelector('#page-title')||document.querySelector('h1'));
     var name=label&&label.textContent.trim()||'Research view';
@@ -165,7 +172,7 @@
     if(overlay.hidden)return;
     var leagues=auth&&auth.leagues||[];
     root.innerHTML=leagues.length?leagues.map(function(l){return '<a class="lzc-result" href="/l/'+encodeURIComponent(l.leagueSlug)+'/opportunities?player='+encodeURIComponent(id)+'"><strong>'+esc(l.leagueName)+'</strong><small>Check roster</small></a>';}).join(''):
-      '<p>Sign in to a LeagueZone account with a connected league to check roster ownership. <a href="/login?next='+encodeURIComponent('/research/players/'+id+'?season='+year)+'">Sign in</a></p>';
+      '<p>'+(auth&&auth.authenticated?'No connected leagues in this account.':'Sign in to a LeagueZone account with a connected league to check roster ownership. <a href="/login?next='+encodeURIComponent('/research/players/'+id+'?season='+year)+'">Sign in</a>')+'</p>';
   }
   function initialize(){
     if(document.querySelector('.lzc-dock'))return;
