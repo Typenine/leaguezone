@@ -535,7 +535,9 @@
     container.innerHTML='<button type="button" class="crumb" id="return-list">\u2190 Back to results</button>'+
       '<div class="section-head"><div><div class="eyebrow">'+escape(shortPos(p.pos))+' \u00b7 '+escape(p.team)+
       escape(rookie)+'</div><h2>'+escape(p.n)+'</h2></div>'+
-      '<button type="button" class="btn outline" data-add-profile="'+escape(p.id)+'" data-year="'+state.year+'">Compare this season</button></div>'+
+      '<div class="lzc-actions"><button type="button" class="btn outline lzc-watch" data-lzc-watch="'+escape(p.id)+'" data-lzc-name="'+escape(p.n)+'" data-lzc-year="'+state.year+'">Watch player</button>'+
+      '<button type="button" class="btn outline" data-lzc-player-leagues="'+escape(p.id)+'" data-lzc-name="'+escape(p.n)+'" data-lzc-year="'+state.year+'">Check my leagues</button>'+
+      '<button type="button" class="btn outline" data-add-profile="'+escape(p.id)+'" data-year="'+state.year+'">Compare</button></div></div>'+
       (complete?'':'<p class="season-note" id="season-note">'+state.year+' season in progress: data through Week '+state.throughWeek+
         '. Totals are partial; use per-game and recent averages when comparing with completed seasons.</p>')+
       '<section class="profile-section" id="profile-summary"><h2>Fantasy production</h2>'+
@@ -553,6 +555,7 @@
       '<section class="profile-section"><h2>'+state.year+' game log</h2><div class="table-scroll game-log"><table><thead><tr>'+
       logHead+'</tr></thead><tbody>'+logRows+'</tbody></table></div></section>';
     container.hidden=false;
+    if(window.LZCompanion)window.LZCompanion.route();
     renderCareer(p);
   }
   function renderCareer(p) {

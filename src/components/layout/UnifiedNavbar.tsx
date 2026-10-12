@@ -312,6 +312,7 @@ export default function UnifiedNavbar() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {platform && <button type="button" onClick={() => window.dispatchEvent(new Event('leaguezone:open-search'))} className="hidden rounded-lg border border-white/20 px-3 py-2 text-xs font-bold text-white/75 hover:bg-white/10 sm:inline-flex" aria-label="Search players and leagues">Search</button>}
             {platform && activeTeam && <a href={dashboardHref} className="hidden rounded-md border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-white/20 sm:inline-flex">League Dashboard</a>}
             <ThemeToggle />
             <div ref={accountRef} className="relative hidden md:block">

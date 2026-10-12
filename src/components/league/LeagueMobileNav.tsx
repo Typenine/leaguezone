@@ -3,36 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { CalendarDays, House, Menu, Newspaper, Trophy, X } from 'lucide-react';
+import { House, Menu, Search, Bookmark, ChartNoAxesCombined, X } from 'lucide-react';
 
 type MobileLink = { href: string; label: string };
-
-function itemIcon(label: string) {
-  const normalized = label.toLowerCase();
-  if (normalized.includes('standing')) return Trophy;
-  if (normalized.includes('calendar') || normalized.includes('schedule')) return CalendarDays;
-  if (normalized.includes('news') || normalized.includes('transaction')) return Newspaper;
-  return House;
-}
-
-function isPrimaryLink(link: MobileLink): boolean {
-  const label = link.label.toLowerCase();
-  return label === 'dashboard'
-    || label === 'home'
-    || label === 'standings'
-    || label === 'schedule'
-    || label === 'news';
-}
 
 export default function LeagueMobileNav({ links }: { links: MobileLink[] }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const primaryCandidates = links.filter(isPrimaryLink);
-  const hasDashboard = primaryCandidates.some((link) => link.label.toLowerCase() === 'dashboard');
-  const primary = primaryCandidates
-    .filter((link) => !(hasDashboard && link.label.toLowerCase() === 'home'))
-    .slice(0, 4);
-
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
     if (!open) return;
@@ -57,6 +34,10 @@ export default function LeagueMobileNav({ links }: { links: MobileLink[] }) {
               <h2 className="text-sm font-black uppercase tracking-[0.18em]">League menu</h2>
               <button className="rounded-lg border border-[var(--border)] p-2" onClick={() => setOpen(false)} aria-label="Close league menu"><X className="h-5 w-5" /></button>
             </div>
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => { setOpen(false); window.dispatchEvent(new Event('leaguezone:open-saved')); }} className="rounded-xl border border-[var(--border)] bg-black/5 px-4 py-3 text-left text-sm font-bold">Saved Research</button>
+              <Link href="/settings/notifications" className="rounded-xl border border-[var(--border)] bg-black/5 px-4 py-3 text-sm font-bold">Notifications</Link>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {links.map((link) => <Link key={link.href} href={link.href} className="rounded-xl border border-[var(--border)] bg-black/5 px-4 py-3 text-sm font-bold hover:border-[var(--accent)]">{link.label}</Link>)}
             </div>
@@ -65,23 +46,11 @@ export default function LeagueMobileNav({ links }: { links: MobileLink[] }) {
       )}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[var(--brand-navy)]/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden" aria-label="Mobile league navigation">
         <div className="mx-auto grid max-w-lg grid-cols-5">
-          {primary.map((link) => {
-            const Icon = itemIcon(link.label);
-            const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={active ? 'page' : undefined}
-                className={`flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-[10px] font-bold ${active ? 'text-white' : 'text-white/60'}`}
-                style={active ? { boxShadow: 'inset 0 3px 0 var(--accent)' } : undefined}
-              >
-                <Icon className="h-5 w-5" />
-                <span className="max-w-full truncate">{link.label}</span>
-              </Link>
-            );
-          })}
-          <button type="button" onClick={() => setOpen(true)} className="flex min-h-16 flex-col items-center justify-center gap-1 text-[10px] font-bold text-white/60" aria-expanded={open}><Menu className="h-5 w-5" />More</button>
+          <Link href={links.find((link) => link.label.toLowerCase() === 'home')?.href || '/'} className="flex min-h-16 flex-col items-center justify-center gap-1 text-[10px] font-bold text-white/75" aria-label="League home"><House className="h-5 w-5" />Home</Link>
+          <Link href="/research" className="flex min-h-16 flex-col items-center justify-center gap-1 text-[10px] font-bold text-white/75"><ChartNoAxesCombined className="h-5 w-5" />Research</Link>
+          <button type="button" onClick={() => window.dispatchEvent(new Event('leaguezone:open-search'))} className="flex min-h-16 flex-col items-center justify-center gap-1 text-[10px] font-bold text-white/75" aria-label="Search LeagueZone"><Search className="h-5 w-5" />Search</button>
+          <Link href="/app" className="flex min-h-16 flex-col items-center justify-center gap-1 text-[10px] font-bold text-white/75"><Bookmark className="h-5 w-5" />My Leagues</Link>
+          <button type="button" onClick={() => setOpen(true)} className="flex min-h-16 flex-col items-center justify-center gap-1 text-[10px] font-bold text-white/75" aria-expanded={open}><Menu className="h-5 w-5" />More</button>
         </div>
       </nav>
     </>

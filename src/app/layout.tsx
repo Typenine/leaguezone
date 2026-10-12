@@ -4,6 +4,8 @@ import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import './native-select-theme.css';
 import { Suspense } from 'react';
+import Script from 'next/script';
+import CompanionLifecycle from '@/components/pwa/CompanionLifecycle';
 import { cookies } from 'next/headers';
 
 import UnifiedNavbar from '@/components/layout/UnifiedNavbar';
@@ -82,6 +84,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="stylesheet" href="/companion/companion.css" />
         <script dangerouslySetInnerHTML={{ __html: `(() => { try { const saved = localStorage.getItem('theme'); const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; const theme = saved || (prefersDark ? 'dark' : 'light'); const el = document.documentElement; el.setAttribute('data-theme', theme); el.style.setProperty('color-scheme', theme); } catch (e) {} })();` }} />
         <script dangerouslySetInnerHTML={{ __html: `window.__LEAGUE_CONFIG__ = ${leagueConfigJson};` }} />
         <script dangerouslySetInnerHTML={{ __html: `window.__LEAGUE_BRANDING__ = ${leagueBrandingJson};` }} />
@@ -97,6 +100,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </TeamLogoProvider>
         </PlayerModalProvider>
         {hasQaSession && <QABar />}
+        <CompanionLifecycle />
+        <Script src="/companion/companion.js" strategy="afterInteractive" />
         <PwaInstallPrompt />
         <PwaRegistration />
         <Analytics />

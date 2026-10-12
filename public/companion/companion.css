@@ -2,7 +2,7 @@
 /* Shared mobile app navigation and research controls across Next and static research. */
 .lzc-dock{display:none}
 @media(max-width:767px){
-  body{padding-bottom:calc(69px + env(safe-area-inset-bottom,0px))}
+  body:has(.lzc-dock:not(.lzc-hidden)){padding-bottom:calc(69px + env(safe-area-inset-bottom,0px))}
   .lzc-dock{position:fixed;inset:auto 0 0;z-index:48;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:0 4px env(safe-area-inset-bottom,0px);background:#0a1c39;border-top:1px solid #304260;box-shadow:0 -8px 25px #0004}
   .lzc-dock a,.lzc-dock button{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;min-height:64px;border:0;background:transparent;color:#b9c9df;font:700 10px/1.4 system-ui;text-align:center;text-decoration:none;padding:7px 2px}
   .lzc-dock [aria-current=page]{color:#e2bc71;box-shadow:inset 0 3px #c0a84a}
@@ -26,9 +26,12 @@
 .lzc-action{display:inline-flex;align-items:center;justify-content:center;min-height:40px;background:#c0a84a;border:1px solid #c0a84a;color:#06101f;border-radius:7px;padding:8px 12px;font-weight:800}
 .lzc-action.secondary{background:transparent;color:#e8edf6;border-color:#5b6d88}
 .lzc-action:disabled{opacity:.55;cursor:not-allowed}
+.research-companion-search{border:1px solid #516786;background:transparent;color:#fff;padding:7px 12px;font-weight:700;cursor:pointer}
 .lzc-section{border-top:1px solid #384b64;padding-top:12px;margin-top:17px}
 .lzc-section h3{font-size:15px;color:#e1eaf7;margin:0 0 6px}
 .lzc-muted{color:#9eb2c9!important;font-size:12px}
 .lzc-watch[aria-pressed=true]{background:#153d36;color:#a5edcb;border-color:#59bc99}
 body.lzc-modal-open{overflow:hidden}
 @media(max-width:767px){.lzc-dialog{padding:17px}.lzc-overlay{padding:0}.lzc-dialog{max-height:100dvh;min-height:100dvh;width:100%;border-radius:0}.lzc-dismiss{top:14px}}
+
+@media(max-width:600px){.research-companion-search{border:1px solid #4b6585;background:transparent;color:#f3f7ff;min-height:34px;padding:5px 12px;font-weight:700}}

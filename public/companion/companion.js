@@ -192,6 +192,8 @@
     document.addEventListener('keydown',function(e){if(e.key==='Escape')close();if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();void search();}});
     overlay.addEventListener('click',function(e){if(e.target.closest('a'))close();});
     document.addEventListener('leaguezone:navigated',route);
+    window.addEventListener('leaguezone:open-search',function(){void search();});
+    window.addEventListener('leaguezone:open-saved',function(){void saved();});
     window.addEventListener('popstate',route);
     route();
   }

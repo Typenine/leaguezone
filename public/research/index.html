@@ -13,11 +13,13 @@
   <link rel="icon" type="image/png" href="/pwa/icon-192.png">
   <link rel="apple-touch-icon" href="/pwa/icon-192.png">
   <link rel="stylesheet" href="/research/styles.css">
+  <link rel="stylesheet" href="/companion/companion.css">
   <script defer src="/research/metrics.js"></script>
   <script defer src="/research/opportunities.js"></script>
   <script defer src="/research/app.js"></script>
   <script defer src="/research/tools.js"></script>
   <script defer src="/research/pwa.js"></script>
+  <script defer src="/companion/companion.js"></script>
 </head>
 <body>
   <header class="site-head">
@@ -32,6 +34,7 @@
         <a href="/research/receipts" data-nav="receipts">Receipts</a>
         <a href="/research/development" data-nav="development">Development Lab</a>
         <a href="/install" class="install-link">Get the App</a>
+        <button type="button" class="research-companion-search" data-lzc-search aria-label="Search all LeagueZone">Search</button>
         <a href="/app" class="my-leagues">My Leagues ↗</a>
       </nav>
     </div>
@@ -43,6 +46,8 @@
       <p id="page-desc">Explore current-season fantasy production, discover statistical leaders, compare players, and review weekly game logs.</p>
       <div class="meta-row">
         <span id="data-stamp" class="meta-pill">Loading player data…</span>
+        <button id="lzc-save-view" type="button" class="btn outline" data-lzc-save-view>Save this view</button>
+        <button type="button" class="btn outline" data-lzc-saved>My saved research</button>
       </div>
     </section>
     <div id="error" role="alert" hidden></div>
