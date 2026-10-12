@@ -47,14 +47,21 @@ test.describe('Shared LeagueZone companion', () => {
 
   test('previously visited research can be read offline',async ({page})=>{
     await page.goto('/research/stats');
+    const player=page.locator('[data-profile="00-0034857"]').first();
+    await expect(player).toBeVisible();
     await page.waitForFunction(async()=>{
       if(!navigator.serviceWorker?.controller)return false;
-      const names=await caches.keys();
-      return names.some(name=>name.startsWith('leaguezone-pwa-v3-research'));
-    },{timeout:20000});
+      const shell=await caches.open('leaguezone-pwa-v3-static');
+      const research=await caches.open('leaguezone-pwa-v3-research');
+      return Boolean(await shell.match('/research/index.html')) &&
+        Boolean(await research.match('/research/data/2026.json'));
+    },null,{timeout:20000});
     await page.context().setOffline(true);
     try {
-      await page.goto('/research/players/00-0034857?season=2026');
+      // The already loaded static research app navigates player profiles
+      // client-side. No additional network access should be necessary.
+      await player.click();
+      await expect(page).toHaveURL(/\\/research\\/players\\/00-0034857\\?season=2026/);
       await expect(page.locator('#page-title')).toHaveText('Josh Allen',{timeout:15000});
       await expect(page.locator('#profile-summary')).toBeVisible();
     } finally {
