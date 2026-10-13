@@ -15,7 +15,7 @@ export default function SavedResearch(){
   const [busy,setBusy]=useState<string|null>(null);
 
   const refresh=useCallback(async()=>{
-    setMode('loading');setError('');
+    setMode('loading');setItems([]);setError('');
     try{
       const library=await loadSavedLibrary();
       setItems(library.items);
