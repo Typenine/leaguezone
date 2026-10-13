@@ -767,6 +767,8 @@
       navigate:navigate
     });
     document.title=(tool?$('page-title').textContent+' | ':p?p.n+' Stats | ':'Fantasy Research | ')+'LeagueZone';
+    window.dispatchEvent(new Event('leaguezone:routechange'));
+
   }
   function navigate(url,replace,scrollY) {
     var target=new URL(url,location.href);
