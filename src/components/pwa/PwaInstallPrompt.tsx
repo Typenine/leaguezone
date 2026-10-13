@@ -122,7 +122,7 @@ export default function PwaInstallPrompt() {
     <aside
       aria-label="Install LeagueZone app"
       className="fixed left-3 right-3 z-[80] md:hidden"
-      style={{ bottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
+      style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
     >
       <div className="mx-auto flex max-w-md items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-2xl">
         <Image
