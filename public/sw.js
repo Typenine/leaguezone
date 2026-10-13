@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'leaguezone-pwa-v4';
+const CACHE_VERSION = 'leaguezone-pwa-v5';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = '/offline';
 const DATA_CACHE = `${CACHE_VERSION}-research-data`;
