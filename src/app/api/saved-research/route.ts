@@ -20,7 +20,7 @@ function failure(error:string,status:number){
 
 async function payload(req:NextRequest):Promise<unknown>{
   const text=await req.text();
-  if(text.length>85_000)throw Error('too_large');
+  if(text.length>220_000)throw Error('too_large');
   return JSON.parse(text);
 }
 
