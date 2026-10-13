@@ -1,1 +1,30 @@
-.lz-bottom-tabs{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(5,1fr);z-index:60;background:#091729;color:white}.lz-bottom-tab{display:flex;flex-direction:column;align-items:center;min-height:56px;font-size:11px}.lz-bottom-tab-active{color:#e7c876}@media(min-width:768px){.lz-bottom-tabs{display:none}}@media(max-width:767px){body:has(.lz-bottom-tabs){padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}}
+/* One persistent navigation shell for LeagueZone on mobile. */
+.lz-bottom-tabs{display:none}
+@media(max-width:767px){
+  body:has(.lz-bottom-tabs){
+    padding-bottom:calc(72px + env(safe-area-inset-bottom,0px));
+  }
+  .lz-bottom-tabs{
+    position:fixed;
+    inset-inline:0;
+    bottom:0;
+    z-index:70;
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    padding:6px 4px calc(7px + env(safe-area-inset-bottom,0px));
+    border-top:1px solid rgba(255,255,255,.2);
+    background:#0a1b34;
+    box-shadow:0 -4px 22px rgba(0,0,0,.3);
+  }
+  .lz-bottom-tab{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:4px;min-width:0;min-height:54px;border-radius:6px;
+    color:#d2ddec;font-size:10px;line-height:1.15;font-weight:700;
+    text-align:center;text-decoration:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .lz-bottom-tab svg{flex-shrink:0}
+  .lz-bottom-tab-active{color:#f1d478;background:rgba(241,212,120,.11)}
+  .lz-bottom-tab:focus-visible{outline:2px solid #f1d478;outline-offset:-2px}
+}
+@media print{.lz-bottom-tabs{display:none!important}}
