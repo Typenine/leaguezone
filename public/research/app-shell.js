@@ -73,12 +73,18 @@
       var legacy=readLocal();
       if(legacy.length){
         await request('POST',{import:legacy});
-        localStorage.removeItem(STORE);
         var refreshed=await fetch('/api/saved-research',{credentials:'same-origin',cache:'no-store'});
         if(!refreshed.ok)throw Error('Saved bookmarks imported, but could not reload the list.');
         var latest=await refreshed.json();
         if(!Array.isArray(latest.items))throw Error('Invalid updated bookmarks.');
         items=latest.items;
+        var keys={};
+        items.forEach(function(x){keys[x.key]=true});
+        var unimported=legacy.filter(function(x){return !keys[x.key]});
+        if(unimported.length){
+          localStorage.setItem(STORE,JSON.stringify(unimported));
+          setMessage(unimported.length+' bookmarks remain on this device because your account library is full.');
+        }else localStorage.removeItem(STORE);
       }
     })();
     try{await pending;}
