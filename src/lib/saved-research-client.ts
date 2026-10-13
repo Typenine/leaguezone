@@ -3,7 +3,7 @@ import {
   writeSaved, type SavedInput, type SavedItem,
 } from '@/lib/saved-research';
 
-export type SavedLibrary = { signedIn: boolean; items: SavedItem[] };
+export type SavedLibrary = { signedIn: boolean; items: SavedItem[]; unsyncedLocal?: number };
 
 function browserError(message:string):Error{return new Error(message)}
 
@@ -30,13 +30,21 @@ export async function loadSavedLibrary():Promise<SavedLibrary>{
   const guest=readSaved();
   if(guest.length){
     await accountRequest('POST',{import:guest.slice(0,MAX_SAVED)});
-    // Never erase browser data before the server confirms the import.
-    try{localStorage.removeItem(SAVED_KEY)}catch{/*Already imported; keep remote authoritative.*/}
-    window.dispatchEvent(new Event('leaguezone:saved-changed'));
+    // Verify every imported key is actually present before discarding local
+    // bookmarks. A full account (100 items) can only absorb part of the import.
     const latest=await fetch('/api/saved-research',{cache:'no-store',credentials:'same-origin'});
     if(!latest.ok)throw browserError('Bookmarks imported, but the updated list could not be loaded.');
     const saved=await latest.json() as {items?:SavedItem[]};
-    return {signedIn:true,items:Array.isArray(saved.items)?saved.items:[]};
+    if(!Array.isArray(saved.items))throw browserError('Invalid updated watchlist.');
+    const remoteKeys=new Set(saved.items.map(item=>item.key));
+    const remaining=guest.filter(item=>!remoteKeys.has(item.key));
+    if(remaining.length){
+      if(!writeSaved(remaining))throw browserError('Could not preserve unsynced browser bookmarks.');
+    }else{
+      try{localStorage.removeItem(SAVED_KEY)}catch{/* Remote contents remain safe. */}
+    }
+    window.dispatchEvent(new Event('leaguezone:saved-changed'));
+    return {signedIn:true,items:saved.items,unsyncedLocal:remaining.length};
   }
   return {signedIn:true,items:data.items};
 }
