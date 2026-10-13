@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {Home,BookOpen,Users,LayoutDashboard,UserRound} from 'lucide-react';
-import {getNavigationSurface} from '@/lib/navigation/surfaces';
 
 const tabs=[
   {href:'/?view=public',label:'Home',Icon:Home},
@@ -18,9 +17,6 @@ export default function MobileAppTabs(){
   const excluded=['/login','/register','/setup','/forgot-password','/reset-password',
     '/verify-email','/super-admin','/admin','/e2e-test'];
   if(excluded.some(p=>pathname===p||pathname.startsWith(p+'/')))return null;
-  // The platform tabs are shared by the platform and hosted league pages.
-  // Legacy unscoped league routes retain their own site navigation.
-  if(getNavigationSurface(pathname)==='legacy-league')return null;
   return <nav aria-label="LeagueZone app navigation" className="lz-bottom-tabs">
     {tabs.map(({href,label,Icon})=>{
       const selected=label==='Home'?pathname==='/' :
