@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
+import './app-tabs.css';
 import './native-select-theme.css';
 import { Suspense } from 'react';
 import { cookies } from 'next/headers';
@@ -15,6 +16,7 @@ import { getLeagueById } from '@/lib/server/league-context';
 import { getLeagueProviderRuntimeConfig } from '@/lib/server/provider-seasons';
 import PwaInstallPrompt from '@/components/pwa/PwaInstallPrompt';
 import PwaRegistration from '@/components/pwa/PwaRegistration';
+import MobileAppTabs from '@/components/layout/MobileAppTabs';
 import PlayerModalProvider from '@/components/players/PlayerModalProvider';
 import QABar from '@/components/admin/QABar';
 import { verifySession } from '@/lib/server/auth';
@@ -99,6 +101,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         {hasQaSession && <QABar />}
         <PwaInstallPrompt />
         <PwaRegistration />
+        <MobileAppTabs />
         <Analytics />
       </body>
     </html>
