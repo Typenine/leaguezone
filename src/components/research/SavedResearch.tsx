@@ -13,12 +13,14 @@ export default function SavedResearch(){
   const [filter,setFilter]=useState<'all'|'player'|'view'>('all');
   const [error,setError]=useState('');
   const [busy,setBusy]=useState<string|null>(null);
+  const [unsynced,setUnsynced]=useState(0);
 
   const refresh=useCallback(async()=>{
-    setMode('loading');setItems([]);setError('');
+    setMode('loading');setItems([]);setError('');setUnsynced(0);
     try{
       const library=await loadSavedLibrary();
       setItems(library.items);
+      setUnsynced(library.unsyncedLocal||0);
       setMode(library.signedIn?'account':'guest');
     }catch(cause){
       setMode('error');
@@ -53,6 +55,9 @@ export default function SavedResearch(){
     </div>}
     {mode==='guest'&&<p className="mb-5 text-sm text-[var(--muted)]">
       These bookmarks are saved only in this browser. <Link href="/login" className="font-semibold text-[var(--brand-gold)] underline">Sign in</Link> to sync them with your account and other devices.
+    </p>}
+    {mode==='account'&&unsynced>0&&<p role="status" className="mb-4 rounded-lg border border-amber-500/50 p-4 text-sm text-amber-500">
+      {unsynced} older browser bookmark{unsynced===1?' has':'s have'} not synced because the account library is full. The original bookmarks are preserved on this device. Remove some account items and refresh to import the rest.
     </p>}
     {mode==='account'&&<div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-[var(--muted)]">Saved to your LeagueZone account and available across devices.</p>
