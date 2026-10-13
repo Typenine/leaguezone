@@ -25,7 +25,7 @@ async function payload(req:NextRequest):Promise<unknown>{
 }
 
 function itemsFromDb(value:unknown):SavedItem[]{
-  const rows=(value as {rows?:Array<Record<string,unknown>>}).rows||[];
+  const rows=(value as unknown as {rows?:Array<Record<string,unknown>>}).rows||[];
   return rows.map(row=>normalizeSaved({
     key:row.item_key,
     type:row.item_type,
