@@ -26,12 +26,13 @@ export default function SavedResearch(){
     }
   },[]);
 
+  useEffect(()=>{void refresh()},[refresh]);
   useEffect(()=>{
-    void refresh();
-    const sync=()=>{if(mode==='guest')setItems(readSaved())};
+    if(mode!=='guest')return;
+    const sync=()=>setItems(readSaved());
     window.addEventListener('storage',sync);
     return ()=>window.removeEventListener('storage',sync);
-  },[refresh,mode]);
+  },[mode]);
 
   const remove=async(item:SavedItem)=>{
     if(busy)return;
