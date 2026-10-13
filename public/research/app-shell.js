@@ -14,6 +14,9 @@
     if(!/^\/research(?:\/(?:players(?:\/[^/]+)?|stats|radar|receipts|development))?\/?$/.test(location.pathname))return null;
     var title=(document.getElementById('page-title')||{}).textContent||'Fantasy Research';
     var player=/^\/research\/players\/([^/]+)\/?$/.exec(location.pathname);
+    // Never save the overview heading as a player's name while research loads.
+    if(player && (!title.trim() || title==='A clearer look at every player.' ||
+      title==='Player not found' || title==='Player not found in this season.')) return null;
     if(player){
       var id;
       try{id=decodeURIComponent(player[1]);}catch{return null;}
