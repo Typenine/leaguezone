@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
+import './app-tabs.css';
 import './native-select-theme.css';
 import { Suspense } from 'react';
 import { cookies } from 'next/headers';
@@ -15,6 +16,7 @@ import { getLeagueById } from '@/lib/server/league-context';
 import { getLeagueProviderRuntimeConfig } from '@/lib/server/provider-seasons';
 import PwaInstallPrompt from '@/components/pwa/PwaInstallPrompt';
 import PwaRegistration from '@/components/pwa/PwaRegistration';
+import MobileAppTabs from '@/components/layout/MobileAppTabs';
 import PlayerModalProvider from '@/components/players/PlayerModalProvider';
 import QABar from '@/components/admin/QABar';
 import { verifySession } from '@/lib/server/auth';
@@ -23,16 +25,19 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'LeagueZone HQ — Custom Fantasy League Websites',
-  description: 'Custom fantasy football league websites for serious dynasty commissioners.',
+  title: 'LeagueZone HQ | Fantasy Football Research & League Management',
+  description: 'Research NFL players, compare fantasy football stats and opportunity trends, and manage your league with custom websites, draft tools, trades, and history.',
   applicationName: 'LeagueZone HQ',
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'LeagueZone HQ', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: 'LeagueZone', statusBarStyle: 'default' },
   formatDetection: { telephone: false },
   icons: {
-    icon: [{ url: '/assets/LeagueZone HQ Logo.png', sizes: '512x512', type: 'image/png' }],
-    shortcut: '/assets/LeagueZone HQ Logo.png',
-    apple: [{ url: '/assets/LeagueZone HQ Logo.png', sizes: '512x512' }],
+    icon: [
+      { url: '/pwa/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/pwa/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    shortcut: '/pwa/icon-192.png',
+    apple: [{ url: '/pwa/icon-192.png', sizes: '192x192', type: 'image/png' }],
   },
 };
 
@@ -96,6 +101,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         {hasQaSession && <QABar />}
         <PwaInstallPrompt />
         <PwaRegistration />
+        <MobileAppTabs />
         <Analytics />
       </body>
     </html>

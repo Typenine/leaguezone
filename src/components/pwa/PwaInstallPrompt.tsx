@@ -17,6 +17,10 @@ type BeforeInstallPromptEvent = Event & {
 const DISMISSED_AT_KEY = 'leaguezone-pwa-install-dismissed-at';
 const DISMISS_FOR_MS = 30 * 24 * 60 * 60 * 1000;
 
+// A native install offer may arrive before the user opens /install.
+// Keep that offer available across client-side navigation.
+type InstallWindow = Window & { __leaguezoneDeferredInstall?: BeforeInstallPromptEvent | null };
+
 function isStandalone(): boolean {
   const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
   return window.matchMedia('(display-mode: standalone)').matches || navigatorWithStandalone.standalone === true;
@@ -46,9 +50,17 @@ export default function PwaInstallPrompt() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (pathname !== '/' && pathname !== '/app' && !pathname.startsWith('/l/')) return;
-    if (isStandalone() || recentlyDismissed()) return;
-    if (!window.matchMedia('(max-width: 767px)').matches) return;
+    if (pathname !== '/' && pathname !== '/app' && !pathname.startsWith('/l/')) {
+      setVisible(false);
+      return;
+    }
+    if (isStandalone()) {
+      setVisible(false);
+      return;
+    }
+    // The deferred browser offer is also useful on desktop and after dismissing
+    // the banner. Those users can still explicitly install from /install.
+    const showBanner = window.matchMedia('(max-width: 767px)').matches && !recentlyDismissed();
 
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIos = /iphone|ipad|ipod/.test(userAgent);
@@ -56,12 +68,16 @@ export default function PwaInstallPrompt() {
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
+      (window as InstallWindow).__leaguezoneDeferredInstall = event as BeforeInstallPromptEvent;
       setInstallPrompt(event as BeforeInstallPromptEvent);
-      setMode('native');
-      setVisible(true);
+      if (showBanner) {
+        setMode('native');
+        setVisible(true);
+      }
     };
 
     const handleInstalled = () => {
+      (window as InstallWindow).__leaguezoneDeferredInstall = null;
       setVisible(false);
       setInstallPrompt(null);
       setMode(null);
@@ -70,7 +86,7 @@ export default function PwaInstallPrompt() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleInstalled);
 
-    if (isIos) {
+    if (isIos && showBanner) {
       iosTimer = window.setTimeout(() => {
         setMode('ios');
         setVisible(true);
@@ -94,6 +110,7 @@ export default function PwaInstallPrompt() {
   const install = async () => {
     if (!installPrompt) return;
 
+    (window as InstallWindow).__leaguezoneDeferredInstall = null;
     await installPrompt.prompt();
     const choice = await installPrompt.userChoice;
     if (choice.outcome === 'dismissed') rememberDismissal();
@@ -105,7 +122,7 @@ export default function PwaInstallPrompt() {
     <aside
       aria-label="Install LeagueZone app"
       className="fixed left-3 right-3 z-[80] md:hidden"
-      style={{ bottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
+      style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
     >
       <div className="mx-auto flex max-w-md items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-2xl">
         <Image
@@ -120,7 +137,7 @@ export default function PwaInstallPrompt() {
           <p className="mt-0.5 text-xs leading-5 text-[var(--muted)]">
             {mode === 'ios'
               ? 'Tap the Share button, then choose Add to Home Screen.'
-              : 'Add the league to your home screen for a full-screen app experience.'}
+              : 'Add LeagueZone to your home screen for research and league tools in a standalone app.'}
           </p>
           <div className="mt-3 flex items-center gap-2">
             {mode === 'native' ? (

@@ -3,16 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#071020">
+  <meta name="theme-color" content="#08111f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="LeagueZone">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="/manifest.webmanifest">
   <meta name="description" content="Explore NFL fantasy football player stats, leaders, game logs and comparisons on LeagueZone. No account required.">
   <title>Fantasy Football Player Research | LeagueZone</title>
-  <link rel="icon" type="image/png" href="/assets/LeagueZone%20HQ%20Logo.png">
-  <link rel="apple-touch-icon" href="/assets/LeagueZone%20HQ%20Logo.png">
+  <link rel="icon" type="image/png" href="/pwa/icon-192.png">
+  <link rel="apple-touch-icon" href="/pwa/icon-192.png">
   <link rel="stylesheet" href="/research/styles.css">
+  <link rel="stylesheet" href="/research/app-shell.css">
   <script defer src="/research/metrics.js"></script>
   <script defer src="/research/opportunities.js"></script>
   <script defer src="/research/app.js"></script>
   <script defer src="/research/tools.js"></script>
+  <script defer src="/research/pwa.js"></script>
+  <script defer src="/research/app-shell.js"></script>
 </head>
 <body>
   <header class="site-head">
@@ -21,11 +28,14 @@
       <nav aria-label="Site navigation" class="nav">
         <a href="/">Home</a>
         <a href="/research" data-nav="research">Overview</a>
+        <a href="/search">Search</a>
+        <a href="/saved">Saved</a>
         <a href="/research/players" data-nav="players">Players</a>
         <a href="/research/stats" data-nav="stats">Stat Leaders</a>
         <a href="/research/radar" data-nav="radar">Opportunity Radar</a>
         <a href="/research/receipts" data-nav="receipts">Receipts</a>
         <a href="/research/development" data-nav="development">Development Lab</a>
+        <a href="/install" class="install-link">Get the App</a>
         <a href="/app" class="my-leagues">My Leagues ↗</a>
       </nav>
     </div>
@@ -37,6 +47,9 @@
       <p id="page-desc">Explore current-season fantasy production, discover statistical leaders, compare players, and review weekly game logs.</p>
       <div class="meta-row">
         <span id="data-stamp" class="meta-pill">Loading player data…</span>
+        <button id="lz-save-view" type="button" class="btn outline" aria-pressed="false">Save this research view</button>
+        <span id="lz-saved-feedback" class="subdued" role="status"></span>
+        <a id="lz-player-leagues" class="btn outline" href="/app" hidden>Check player in my leagues</a>
       </div>
     </section>
     <div id="error" role="alert" hidden></div>
@@ -103,6 +116,13 @@
       <div id="compare-grid" class="comparison"></div><div id="compare-detail"></div><p id="compare-notice" class="subdued" role="status"></p>
     </section>
   </main>
+  <nav class="lz-research-tabs" aria-label="LeagueZone app navigation">
+    <a href="/?view=public" data-tab="home"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8"/></svg><span>Home</span></a>
+    <a href="/research" data-tab="research"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 6c-3-2-7-2-10-1v15c3-1 7-1 10 1 3-2 7-2 10-1V5c-3-1-7-1-10 1ZM12 6v15"/></svg><span>Research</span></a>
+    <a href="/research/players" data-tab="players"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6M19 14a5 5 0 0 1 2 5v2"/></svg><span>Players</span></a>
+    <a href="/app" data-tab="leagues"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg><span>My Leagues</span></a>
+    <a href="/profile" data-tab="profile"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>Profile</span></a>
+  </nav>
   <footer class="wrap footer"><span>LeagueZone Research</span><details class="data-credit"><summary>Data credits</summary><p>NFL weekly statistics: <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noopener noreferrer">nflverse-data</a> (nflverse contributors), licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>. Fantasy scoring and statistics are calculated by LeagueZone; league-specific settings may vary.</p></details><a href="/">LeagueZone HQ</a></footer>
 </body>
 </html>

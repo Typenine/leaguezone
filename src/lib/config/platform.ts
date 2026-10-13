@@ -1,15 +1,15 @@
 /**
- * Platform configuration — the product-level identity and defaults for the
- * hosted league-website service. League-specific values live in the `leagues`
+ * Platform configuration — shared identity for LeagueZone research and
+ * hosted league websites. League-specific values live in the `leagues`
  * DB table; this file holds platform branding, marketing copy structure, the
  * default/demo league slug, and the league-site navigation definition.
  */
 
 export const PLATFORM = {
   name: 'LeagueZone HQ',
-  tagline: 'Custom fantasy football league websites for serious dynasty commissioners.',
+  tagline: 'Research the game. Run your league.',
   description:
-    'A branded league headquarters that connects to supported fantasy providers — team pages, rulebook, draft hub, trade block, suggestions, voting, and league history in one polished home.',
+    'A home for fantasy football research and league management. Explore player statistics, opportunity trends, and career development alongside connected league websites, drafts, trades, and history.',
   contactEmail: process.env.PLATFORM_CONTACT_EMAIL || 'hello@leaguezonehq.com',
   disclaimer:
     'LeagueZone HQ is an independent product and is not affiliated with, endorsed by, or sponsored by the NFL, Sleeper, ESPN, Yahoo, or any other league platform.',
@@ -88,39 +88,6 @@ export const HOW_IT_WORKS = [
     step: '04',
     title: 'Run the league',
     description: 'Manage the rulebook, draft, trade block, suggestions, and league history from one commissioner desk.',
-  },
-] as const;
-
-export const PRICING_TIERS = [
-  {
-    name: 'Starter',
-    price: 'Free',
-    period: 'during beta',
-    description: 'A league homepage with provider-connected standings, teams, and history.',
-    features: ['League homepage', 'Team pages', 'Standings & matchups', 'Season history'],
-    cta: 'View demo',
-    href: '/demo',
-    highlighted: false,
-  },
-  {
-    name: 'Commissioner',
-    price: 'TBD',
-    period: 'per season',
-    description: 'The full league headquarters for serious dynasty leagues.',
-    features: ['Everything in Starter', 'Rulebook & constitution hub', 'Draft hub & draft tools', 'Trade block & trade trees', 'Suggestions & voting'],
-    cta: 'Request setup',
-    href: '/register',
-    highlighted: true,
-  },
-  {
-    name: 'Premium',
-    price: 'TBD',
-    period: 'per season',
-    description: 'Custom branding and white-glove setup for leagues that want everything.',
-    features: ['Everything in Commissioner', 'Custom branding & colors', 'Discord announcements', 'Advanced imports & archives', 'Priority support'],
-    cta: 'Request setup',
-    href: '/register',
-    highlighted: false,
   },
 ] as const;
 

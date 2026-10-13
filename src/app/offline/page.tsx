@@ -12,7 +12,7 @@ export default function OfflinePage() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--muted)]">Connection unavailable</p>
         <h1 className="mt-3 text-3xl font-bold text-[var(--text)]">LeagueZone is offline</h1>
         <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-          Live league data, voting, and draft tools require an internet connection. Reconnect and try again.
+          Live player research and league tools require an internet connection. Reconnect and try again.
         </p>
         <Link
           href="/"

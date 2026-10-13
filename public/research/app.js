@@ -681,7 +681,10 @@
   function syncUrl() {
     if (!isListPath(location.pathname) || !state.year) return;
     var next=location.pathname+filterSearch();
-    if (next!==location.pathname+location.search) history.replaceState(history.state,'',next);
+    if (next!==location.pathname+location.search) {
+      history.replaceState(history.state,'',next);
+      window.dispatchEvent(new Event('leaguezone:routechange'));
+    }
   }
   function setSelect(id,value,fallback) {
     var el=$(id), ok=Array.from(el.options).some(function (o) {return o.value===value;});
@@ -767,6 +770,8 @@
       navigate:navigate
     });
     document.title=(tool?$('page-title').textContent+' | ':p?p.n+' Stats | ':'Fantasy Research | ')+'LeagueZone';
+    window.dispatchEvent(new Event('leaguezone:routechange'));
+
   }
   function navigate(url,replace,scrollY) {
     var target=new URL(url,location.href);
