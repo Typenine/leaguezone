@@ -94,7 +94,17 @@ test('account watchlist survives another browser session',async({page,browser})=
   await second.route('**/api/saved-research',respond);
   const p=await second.newPage();
   await p.goto('/saved');
-  await expect(p.getByRole('link',{name:'Josh Allen'})).toBeVisible();
+  const savedLink=p.getByRole('link',{name:'Josh Allen'});
+  try{
+   await expect(savedLink).toBeVisible({timeout:10000});
+  }catch(error){
+   console.log('ACCOUNT_WATCHLIST_DEBUG',JSON.stringify({
+     serverRecords:[...records.values()],
+     url:p.url(),
+     body:(await p.locator('body').innerText()).slice(0,3500)
+   }));
+   throw error;
+  }
   await p.getByRole('button',{name:'Remove Josh Allen'}).click();
   await expect(p.getByText('No saved research yet')).toBeVisible();
  }finally{await second.close()}
