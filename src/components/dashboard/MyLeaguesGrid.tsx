@@ -23,6 +23,8 @@ function LeagueDashboardCard({ league }: { league: UserLeague }) {
         >
           Open Site
         </Link>
+        <a href={dashboardHref(league.leagueId, leagueUrl(league.leagueSlug, 'opportunities'))}
+          className="inline-flex items-center justify-center border border-[var(--brand-gold)]/50 px-4 py-2 text-xs font-bold text-[var(--text)] transition hover:bg-white/5">My Fantasy Decisions</a>
         {league.isCommissioner && (
           <a
             href={dashboardHref(league.leagueId, leagueUrl(league.leagueSlug, 'admin'))}

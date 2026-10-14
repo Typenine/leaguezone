@@ -31,6 +31,14 @@ function newest(years:unknown):number{
 }
 // Read one validated static/R2 season per dashboard visit. No server DB call.
 export async function loadDashboardResearch(fetcher:Fetcher=(url,options)=>fetch(url,options)):Promise<ResearchSnapshot>{
+ try {
+  const base='/api/research-feed';
+  const catalog=await readJson(fetcher,base+'/research/v1/catalog.json','no-cache') as {schema?:number;years?:number[];files?:Record<string,{key:string}>};
+  if(catalog.schema!==1||!catalog.files)throw Error('Invalid published catalog');
+  const year=newest(catalog.years),key=catalog.files[String(year)]?.key;
+  if(!key||!OBJECT_KEY.test(key)||Number(OBJECT_KEY.exec(key)?.[1])!==year)throw Error('Invalid published object');
+  return {...validateResearchSnapshot(await readJson(fetcher,base+'/'+key,'default'),year),source:'live'};
+ } catch { /* Cross-origin Worker and bundled archive remain as fallbacks. */ }
  try{
   const conf=await readJson(fetcher,'/research/data-source.json','no-store') as {publicBase?:string};
   const base=String(conf?.publicBase||'').replace(/\/+$/,'');

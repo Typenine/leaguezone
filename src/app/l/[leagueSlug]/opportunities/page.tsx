@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FantasyRostersData } from '@/lib/providers/types';
 import opportunityEngine from '../../../../../public/research/opportunities.js';
 import decisionEngine from '../../../../../public/research/insights.js';
+import {decisionCandidates,rosterNeeds} from '@/lib/fantasy/personalized-decisions';
+import type {LineupOptimizerResponse} from '@/lib/fantasy/lineup-types';
 
 type Signal = {
   id: string; name: string; team: string; pos: string; week: number;
@@ -14,9 +16,9 @@ type Signal = {
 type ResearchPlayer = { id: string; n: string; team: string; pos: string; ryr: number | null;
   w: Array<[number, string, number, number, number, number, number, ...number[]]>;
   u?: Array<{ week: number; team: string; att: number }> };
-type Season = { year: number; throughWeek: number; updated: string; schema: number; players: ResearchPlayer[] };
+type Season = { year: number; throughWeek: number; updated: string; schema: number; players: ResearchPlayer[]; _researchSource?: 'live'|'backup' };
 type CatalogPlayer = { id: string; gsisId: string | null; name: string; position: string; team: string };
-type LeagueRosters = FantasyRostersData & { catalog: CatalogPlayer[]; viewerRosterId: number | null; leaguePpr: number | null };
+type LeagueRosters = FantasyRostersData & { catalog: CatalogPlayer[]; viewerRosterId: number | null; leaguePpr: number | null; starterSlots: string[]; superflex:boolean|null; scoringIsCustom?:boolean };
 type Ownership = { player: ResearchPlayer; owner: FantasyRostersData['teams'][number] | null;
   providerId: string | null; match: 'catalog' | 'roster' | 'unmatched' };
 type OpportunityEngine = {
@@ -39,26 +41,37 @@ async function json<T>(url: string): Promise<T> {
 async function researchSeason(year: number): Promise<Season> {
   const local = `/research/data/${year}.json`;
   let remote: string | null = null;
+  let alternateRemote: string | null = null;
   try {
     const config = await json<{publicBase?: string}>('/research/data-source.json');
     const base = String(config.publicBase || '').replace(/\/+$/, '');
     if (/^https:\/\/[^/]+$/i.test(base)) {
-      const catalog = await json<{schema: number; files: Record<string, {key: string}>}>(`${base}/research/v1/catalog.json`);
-      const key = catalog.schema === 1 && catalog.files?.[String(year)]?.key;
-      if (key && /^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(key)) remote = `${base}/${key}`;
+      const firstParty='/api/research-feed';
+      let catalog:{schema:number;files:Record<string,{key:string}>};
+      try {catalog=await json<typeof catalog>(firstParty+'/research/v1/catalog.json');}
+      catch {catalog=await json<typeof catalog>(base+'/research/v1/catalog.json');}
+      const key=catalog.schema===1&&catalog.files?.[String(year)]?.key;
+      if(key&&/^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(key)){
+        remote=firstParty+'/'+key;alternateRemote=base+'/'+key;
+      }
     }
   } catch { /* The website's archived static copy is the fallback. */ }
   if (remote) {
     try {
       const data = await json<Season>(remote);
-      if (data.year === year && data.schema === 3 && data.players?.length > 100) return data;
-    } catch { /* Fall back to the same copy used by public research. */ }
+      if (data.year === year && data.schema === 3 && data.players?.length > 100) return {...data,_researchSource:'live'};
+    } catch { /* Try the published Worker directly before using an archived bundle. */ }
+    if(alternateRemote){
+      try {const data=await json<Season>(alternateRemote);
+        if(data.year===year&&data.schema===3&&data.players?.length>100)return {...data,_researchSource:'live'};
+      } catch { /* Archived backup next. */ }
+    }
   }
   const data = await json<Season>(local);
   if (data.year !== year || data.schema !== 3 || !Array.isArray(data.players) || data.players.length < 100) {
     throw new Error(`Research statistics are not available for ${year}.`);
   }
-  return data;
+  return {...data,_researchSource:'backup'};
 }
 
 async function attachPassAttempts(data: Season): Promise<void> {
@@ -81,7 +94,7 @@ async function attachPassAttempts(data: Season): Promise<void> {
           baseInfo.throughWeek===data.throughWeek && baseInfo.updated===data.updated &&
           info && info.throughWeek===data.throughWeek && info.baseUpdated===data.updated &&
           /^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key)) {
-        advancedUrl = base + '/' + info.key;
+        advancedUrl = '/api/research-feed/' + info.key;
       }
     }
     const local = '/research/data/usage/' + data.year + '.json';
@@ -98,6 +111,33 @@ async function attachPassAttempts(data: Season): Promise<void> {
   } catch { /* No reliable attempts: QB signals remain omitted, never guessed. */ }
 }
 
+import type {FantasyTeamData} from '@/lib/providers/types';
+
+type GuidedFinding={signal:Signal;decision:Decision;owner:FantasyTeamData|null;providerId:string|null};
+function GuidedCard({item,season,slug,kind}:{
+ item:GuidedFinding;season:number;slug:string;kind:'waiver'|'trade'|'risk';
+}){
+ const {signal,decision,owner,providerId}=item;
+ return <article className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+   <div className="flex flex-wrap items-center justify-between gap-2">
+     <Link href={`/research/players/${encodeURIComponent(signal.id)}?season=${season}`}
+       className="font-bold text-accent underline underline-offset-2">{signal.name}</Link>
+     <span className="text-xs font-semibold text-[var(--muted)]">{signal.pos} · {signal.team} · Week {signal.week}</span>
+   </div>
+   <p className="mt-2 text-sm font-bold text-[var(--text)]">{decision?.heading||'Opportunity changing'}</p>
+   <p className="mt-1 text-sm text-[var(--muted)]">{decision?.why||'Review the observed workload before acting.'}</p>
+   <p className="mt-2 text-xs text-[var(--muted)]">Opportunity per game: {signal.baseline.toFixed(1)} → {signal.recent.toFixed(1)}
+     {' · '}Fantasy points per game: {signal.scoringBefore.toFixed(1)} → {signal.scoringRecent.toFixed(1)}</p>
+   {owner&&<p className="mt-2 text-xs text-[var(--muted)]">Rostered by {owner.teamName}</p>}
+   <div className="mt-3 flex flex-wrap gap-3 text-xs font-semibold text-accent underline">
+    <Link href={`/research/players/${encodeURIComponent(signal.id)}?season=${season}`}>Research player</Link>
+    {kind==='trade'&&providerId&&<Link href={`/l/${encodeURIComponent(slug)}/trades/analyzer?b=${encodeURIComponent(providerId)}`}>Check trade values</Link>}
+    {kind==='waiver'&&<Link href={`/l/${encodeURIComponent(slug)}/rosters`}>Review league rosters</Link>}
+    {kind==='risk'&&<Link href="/availability">Check injury status</Link>}
+   </div>
+ </article>;
+}
+
 export default function RosterOpportunitiesPage({ params }: { params: Promise<{leagueSlug: string}> }) {
   const [slug, setSlug] = useState<string | null>(null);
   const [season, setSeason] = useState<Season | null>(null);
@@ -108,6 +148,11 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
   const [position, setPosition] = useState('ALL');
   const [category, setCategory] = useState<'trade' | 'waiver' | 'roster'>('trade');
   const [scoring, setScoring] = useState('half');
+  const [view, setView] = useState<'brief'|'finder'>('brief');
+  const [focus, setFocus] = useState<'overview'|'waiver'|'trade'|'risk'|'lineup'>('overview');
+  const [lineup, setLineup] = useState<LineupOptimizerResponse|null>(null);
+  const [lineupError, setLineupError] = useState<string|null>(null);
+  const [lineupLoading, setLineupLoading] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -155,6 +200,34 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
   }).sort((a, b) => (b.signal.relativeChange || 0) - (a.signal.relativeChange || 0)
     || Math.abs(b.signal.change) - Math.abs(a.signal.change)) || [];
   }, [report, category, position, teamId, rosters]);
+
+
+  // Candidate ownership is verified by the existing provider identity matcher.
+  // Positional need is based on real roster counts and fixed starter slots.
+  const needs = useMemo(() => rosters && teamId
+    ? rosterNeeds(rosters.teams, rosters.players, Number(teamId), rosters.starterSlots||[])
+    : [], [rosters,teamId]);
+  const personal = useMemo(() => {
+    const rows=report?.signals||[];
+    const selected=Number(teamId);
+    return {
+      waiver:decisionCandidates(rows,needs,selected,rosters?.provider||'', 'waiver'),
+      trade:decisionCandidates(rows,needs,selected,rosters?.provider||'', 'trade'),
+      risk:decisionCandidates(rows,needs,selected,rosters?.provider||'', 'my-roster'),
+    };
+  },[report,needs,teamId,rosters]);
+  const [lineupRetry,setLineupRetry]=useState(0);
+  const isMyTeam=Boolean(rosters?.viewerRosterId!=null && String(rosters.viewerRosterId)===teamId);
+  useEffect(()=>{
+    if(!slug||!isMyTeam||view!=='brief'||focus!=='lineup')return;
+    let alive=true;
+    setLineup(null);setLineupError(null);setLineupLoading(true);
+    json<LineupOptimizerResponse>('/api/league-opportunities/'+encodeURIComponent(slug)+'/lineup')
+      .then(data=>{if(alive)setLineup(data);})
+      .catch(err=>{if(alive)setLineupError(err instanceof Error?err.message:'Lineup unavailable');})
+      .finally(()=>{if(alive)setLineupLoading(false);});
+    return ()=>{alive=false;};
+  },[slug,isMyTeam,view,focus,lineupRetry]);
 
   const rosterContext = useMemo(() => {
     const snapshot=rosters;
@@ -207,6 +280,111 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
       </section>}
       {rosters.leaguePpr != null && ![0,0.5,1].includes(rosters.leaguePpr) &&
         <p className="mb-4 text-xs text-[var(--muted)]">This league has custom PPR ({rosters.leaguePpr}); the selected standard research scoring view is an approximation, not exact league scoring.</p>}
+
+      <section className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6" aria-label="Personalized fantasy decisions">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><p className="text-xs font-bold uppercase tracking-widest text-accent">Phase 5C · Your League</p>
+            <h2 className="mt-2 text-2xl font-black">My Fantasy Decision Board</h2>
+            <p className="mt-2 max-w-3xl text-sm text-[var(--muted)]">See roster needs, players to investigate and lineup decisions in one place. Recommendations are based on observed statistics and verified ownership, not guessed trade availability.</p>
+          </div>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Decision board view">
+            <button type="button" onClick={()=>setView('brief')} aria-pressed={view==='brief'}
+              className={`rounded-lg border px-3 py-2 text-sm font-bold ${view==='brief'?'border-[var(--accent)] bg-accent-soft text-accent':'border-[var(--border)] text-[var(--text)]'}`}>My Decision Board</button>
+            <button type="button" onClick={()=>setView('finder')} aria-pressed={view==='finder'}
+              className={`rounded-lg border px-3 py-2 text-sm font-bold ${view==='finder'?'border-[var(--accent)] bg-accent-soft text-accent':'border-[var(--border)] text-[var(--text)]'}`}>Advanced Finder</button>
+          </div>
+        </div>
+        {season._researchSource==='backup' && <p role="status" className="mt-4 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-[var(--text)]">Live research is unavailable. This is the archived Week {season.throughWeek} copy from {season.updated}; newer published results may exist. Do not treat this as the current week.</p>}
+        {view==='brief' && <>
+          {!teamId?<p className="mt-5 rounded-xl border border-[var(--border)] p-4 text-sm text-[var(--muted)]">Select a team above to see personalized findings. Only your assigned team can display private lineup projections.</p>:<>
+            <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Decision category">
+              {([
+                ['overview','Overview'],['waiver','Waiver watch'],['trade','Trade research'],
+                ['risk','My roster alerts'],['lineup','Lineup decisions']
+              ] as const).map(([key,label])=><button type="button" key={key} aria-pressed={focus===key}
+                onClick={()=>setFocus(key)}
+                className={`rounded-lg border px-3 py-2 text-xs font-bold sm:text-sm ${focus===key?'border-[var(--accent)] bg-accent-soft text-accent':'border-[var(--border)] text-[var(--text)]'}`}>
+                {label}{key==='waiver'?' · '+personal.waiver.length:key==='trade'?' · '+personal.trade.length:key==='risk'?' · '+personal.risk.length:''}
+              </button>)}
+            </div>
+            {focus==='overview'&&<div className="mt-5 space-y-5">
+              <div><h3 className="text-lg font-black">Where your roster may need attention</h3>
+                <p className="mt-1 text-xs text-[var(--muted)]">Counts compared with the league median and fixed starter requirements. Flex slots, player talent, health and lineup eligibility require separate review.</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {needs.map(need=><div key={need.pos} className="rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] p-3">
+                    <p className="text-sm font-bold">{need.pos} <span className={need.level==='urgent'?'text-amber-400':need.level==='thin'?'text-sky-400':'text-[var(--muted)]'}>
+                      · {need.level==='urgent'?'Starter shortage':need.level==='thin'?'Below median':'Depth comparable'}</span></p>
+                    <p className="mt-2 text-lg font-black">{need.mine} <span className="text-xs font-medium text-[var(--muted)]">rostered · median {need.median}</span></p>
+                    <p className="mt-2 text-xs text-[var(--muted)]">{need.explanation}</p>
+                  </div>)}
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                {([
+                  ['waiver','Waiver watch',personal.waiver.length,'Verified unrostered players with growing roles.'],
+                  ['trade','Trade research',personal.trade.length,'Players on other rosters worth investigating.'],
+                  ['risk','Roster alerts',personal.risk.length,'Your players with declining opportunity.'],
+                ] as const).map(([key,label,count,detail])=><button type="button" key={key} onClick={()=>setFocus(key)}
+                  className="rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] p-4 text-left transition hover:border-[var(--accent)]">
+                  <span className="text-2xl font-black">{count}</span><strong className="mt-2 block text-sm">{label}</strong>
+                  <span className="mt-1 block text-xs text-[var(--muted)]">{detail}</span>
+                  <span className="mt-3 block text-xs font-bold text-accent">Review findings →</span>
+                </button>)}
+              </div>
+              <p className="text-xs text-[var(--muted)]">Priority is based on roster-count shortfalls and measured four-game workload shifts. There is no inferred trading interest, projected breakout probability or automatic waiver claim.</p>
+            </div>}
+            {(focus==='waiver'||focus==='trade'||focus==='risk')&&
+              <div className="mt-5">
+                <h3 className="text-lg font-black">{focus==='waiver'?'Unrostered players to investigate':focus==='trade'?'Players on other teams to investigate':'Your players with shrinking roles'}</h3>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  {focus==='waiver'?'Verified against current Sleeper roster ownership, not waiver clearance or eligibility.':
+                   focus==='trade'?'Ranked by your positional depth and observed usage, not by trade value or availability.':
+                   'A falling workload is a warning to investigate, not an automatic drop recommendation.'}
+                </p>
+                {focus==='waiver'&&rosters.provider!=='sleeper'&&
+                  <p className="mt-4 rounded-lg border border-[var(--border)] p-4 text-sm text-[var(--muted)]">This provider does not expose a reliable complete unrostered player catalog here, so LeagueZone will not invent waiver candidates.</p>}
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {(focus==='waiver'?personal.waiver:focus==='trade'?personal.trade:personal.risk).slice(0,12).map(item=>
+                    <GuidedCard key={item.signal.id} item={item} season={season.year} slug={slug||''} kind={focus}/>)}
+                </div>
+                {(focus==='waiver'?personal.waiver:focus==='trade'?personal.trade:personal.risk).length===0&&
+                  <p className="mt-4 rounded-lg border border-[var(--border)] p-5 text-sm text-[var(--muted)]">No verified candidates match these conditions right now. This does not mean your roster has no improvement opportunities.</p>}
+                {(focus==='waiver'?personal.waiver:focus==='trade'?personal.trade:personal.risk).length>12&&
+                  <button type="button" onClick={()=>setView('finder')} className="mt-3 text-sm font-bold text-accent underline">Open the full opportunity finder</button>}
+              </div>}
+            {focus==='lineup'&&<div className="mt-5">
+              <h3 className="text-lg font-black">Your weekly lineup decisions</h3>
+              {!isMyTeam?<p className="mt-3 rounded-lg border border-[var(--border)] p-4 text-sm text-[var(--muted)]">
+                Lineup projections are only available for the roster assigned to your account. Select your own team above to continue.</p>:<>
+                {lineupLoading&&<p className="mt-3 text-sm" role="status">Loading your existing lineup projections…</p>}
+                {lineupError&&<div className="mt-3 rounded-lg border border-red-400/50 p-4 text-sm">
+                  {lineupError} <button type="button" className="ml-3 font-bold text-accent underline" onClick={()=>setLineupRetry(n=>n+1)}>Retry</button></div>}
+                {lineup&&!lineupLoading&&<div className="mt-4">
+                  <p className="text-sm text-[var(--muted)]">{lineup.season} · Week {lineup.week} · {lineup.confidence} projection confidence</p>
+                  {!lineup.available?<p className="mt-3 rounded-lg border border-[var(--border)] p-4 text-sm">{lineup.reason||'No reliable lineup comparison is available for this week.'}</p>:<>
+                    <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-xl">
+                      <div className="rounded-xl border border-[var(--border)] p-4"><span className="text-xs text-[var(--muted)]">Current projected lineup</span><p className="text-xl font-black">{lineup.currentTotal==null?'—':lineup.currentTotal.toFixed(1)}</p></div>
+                      <div className="rounded-xl border border-[var(--border)] p-4"><span className="text-xs text-[var(--muted)]">Optimized projected lineup</span><p className="text-xl font-black">{lineup.optimalTotal==null?'—':lineup.optimalTotal.toFixed(1)}</p></div>
+                    </div>
+                    <p className="mt-3 text-xs text-[var(--muted)]">{lineup.confidenceNote} These are model projections, not guaranteed points. Verify starters, injuries and the league&apos;s lineup rules.</p>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      {lineup.optimalLineup.filter(entry=>entry.changed&&entry.player).map(entry=><article key={entry.slot+':'+entry.slotIndex} className="rounded-xl border border-[var(--border)] p-4">
+                        <p className="text-xs font-bold uppercase tracking-wider text-accent">{entry.slot} · Suggested lineup review</p>
+                        <p className="mt-2 font-bold">{entry.player?.name} <span className="text-xs font-normal text-[var(--muted)]">({entry.player?.position})</span></p>
+                        <p className="mt-1 text-sm text-[var(--muted)]">Projected {entry.player?.projection.toFixed(1)} points · {entry.player?.confidence} confidence</p>
+                        <Link href="/availability" className="mt-2 inline-block text-xs font-bold text-accent underline">Check availability</Link>
+                      </article>)}
+                    </div>
+                    {!lineup.optimalLineup.some(entry=>entry.changed&&entry.player)&&<p className="mt-3 text-sm text-[var(--muted)]">The model does not identify a different projected starting lineup this week.</p>}
+                  </>}
+                </div>}
+              </>}
+            </div>}
+          </>}
+        </>}
+      </section>
+
+      {view==='finder' && <>
       <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Opportunity category">
         {(['trade','waiver','roster'] as const).map((key) => <button type="button" key={key} onClick={() => setCategory(key)} aria-pressed={category===key}
           className={`rounded-lg border px-4 py-2 text-sm font-bold ${category===key?'border-[var(--accent)] bg-accent-soft text-accent':'border-[var(--border)] text-[var(--muted)]'}`}>
@@ -229,6 +407,7 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
           {owner && rosters.provider === 'sleeper' && providerId && <Link href={`/l/${encodeURIComponent(slug || '')}/trades/analyzer?b=${encodeURIComponent(providerId)}`} className="mt-3 inline-block text-xs font-semibold text-accent underline">Review in Trade Analyzer</Link>}
         </article>)}</div> : <div className="rounded-xl border border-[var(--border)] p-5 text-sm text-[var(--muted)]">No verified {category === 'waiver'?'unrostered':'rostered'} players meet this filter.</div>}
       <p className="mt-6 max-w-3xl text-xs leading-relaxed text-[var(--muted)]">Usage signals use the last two recorded games against the previous two, with a minimum change of 1.5 opportunities and 15%. These are ownership-filtered observations, not verified trade availability, league-specific valuations, or waiver eligibility. Ownership is a current roster snapshot; review league settings, player news, and price before acting. Future draft prospects and traded picks are outside this NFL player dataset.</p>
+      </>}
     </>}
   </main>;
 }

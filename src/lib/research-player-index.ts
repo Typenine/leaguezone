@@ -25,6 +25,14 @@ function latest(years: unknown): number {
 // reads, so it is usually already cached), else the bundled static backup.
 export async function loadPlayerIndex(f: Fetch = (u, i) => fetch(u, i)): Promise<PlayerIndex> {
   try {
+    const base='/api/research-feed';
+    const catalog=await json(f,base+'/research/v1/catalog.json',{cache:'no-cache'});
+    if(catalog?.schema!==1||!catalog.files)throw Error('Invalid catalog');
+    const year=latest(catalog.years),info=catalog.files[String(year)];
+    if(!info||!OBJECT_KEY.test(String(info.key)))throw Error('Invalid research object');
+    return {...season(await json(f,base+'/'+info.key,{cache:'default'}),year),source:'live'};
+  } catch { /* The public Worker and bundled season directory remain fallbacks. */ }
+  try {
     const config = await json(f, '/research/data-source.json', { cache: 'no-store' });
     const base = String(config?.publicBase || '').replace(/\/+$/, '');
     if (!/^https:\/\/[^/]+$/i.test(base) || /\.r2\.dev$/i.test(new URL(base).hostname)) throw Error('No public research source');

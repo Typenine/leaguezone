@@ -44,6 +44,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ ...rosters.value, catalog,
       viewerRosterId: membership.rosterId,
       leaguePpr: settings?.ppr ?? null,
+      starterSlots: settings?.starterSlots ?? [],
+      superflex: settings?.superflex ?? null,
     }, {
       headers: {...reliabilityResponseHeaders(rosters), 'Cache-Control': 'private, no-store'},
     });

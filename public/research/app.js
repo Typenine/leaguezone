@@ -66,12 +66,18 @@
       .then(function (config) {
         var base=String(config.publicBase||'').replace(/\/+$/,'');
         if (!/^https:\/\/[^/]+$/i.test(base) || /\.r2\.dev$/i.test(new URL(base).hostname)) return null;
-        return fetch(base+'/research/v1/catalog.json',{cache:'no-cache'}).then(responseError)
-          .then(function (catalog) {
+        return fetch('/api/research-feed/research/v1/catalog.json',{cache:'no-cache'}).then(responseError)
+          .then(function(catalog){
             if (!catalogLooksValid(catalog)) throw Error('Invalid research catalog');
-            state.remoteBase=base;state.remoteCatalog=catalog;
+            state.remoteBase='/api/research-feed';state.remoteCatalog=catalog;
             return {years:catalog.years,remote:true};
-          }).catch(function () {return null;});
+          }).catch(function(){
+            return fetch(base+'/research/v1/catalog.json',{cache:'no-cache'}).then(responseError).then(function(catalog){
+              if (!catalogLooksValid(catalog)) throw Error('Invalid research catalog');
+              state.remoteBase=base;state.remoteCatalog=catalog;
+              return {years:catalog.years,remote:true};
+            }).catch(function(){return null;});
+          });
       }).catch(function () {return null;})
       .then(function (remote) {
         if (remote) return remote;
