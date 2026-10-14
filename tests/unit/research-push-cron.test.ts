@@ -57,6 +57,24 @@ describe('research push delivery',()=>{
     expect(text(execute.mock.calls[2])).toContain('SET last_research_version=NULL');
     expect(params(execute.mock.calls[2])).toEqual(['c','2026:6']);
   });
+  it('does not immediately retry failures while processing multiple batches',async()=>{
+    serveCatalog(catalog(today));
+    const firstBatch=Array.from({length:50},(_,i)=>row(i===0?'fail':'ok'+i));
+    execute.mockResolvedValueOnce({rows:firstBatch})
+      .mockResolvedValueOnce({rows:[row('later')]})
+      .mockResolvedValue({rows:[]});
+    vi.mocked(sendPush).mockImplementation(async device=>
+      device.endpoint.endsWith('/fail')?500:201);
+    const body=await (await GET(new Request('https://lz.example/api/cron/research-push'))).json();
+    expect(body).toMatchObject({ok:true,delivered:50,failed:1,removed:0});
+    expect(vi.mocked(sendPush).mock.calls.filter(([device])=>device.endpoint.endsWith('/fail'))).toHaveLength(1);
+    expect(execute).toHaveBeenCalledTimes(3);
+    expect(text(execute.mock.calls[0])).toContain('FOR UPDATE SKIP LOCKED');
+    expect(text(execute.mock.calls[1])).toContain('FOR UPDATE SKIP LOCKED');
+    expect(text(execute.mock.calls[2])).toContain('SET last_research_version=NULL');
+    expect(params(execute.mock.calls[2])).toEqual(['fail','2026:6']);
+  });
+
   it('sends nothing when every device already has this week',async()=>{
     serveCatalog(catalog(today));
     execute.mockResolvedValue({rows:[]});
