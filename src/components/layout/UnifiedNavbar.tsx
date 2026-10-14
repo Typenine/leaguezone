@@ -127,7 +127,7 @@ export default function UnifiedNavbar() {
     { href: '/research', label: 'Research' },
     { href: '/features', label: 'League Websites' },
     { href: '/demo', label: 'Demo' },
-    ...(user ? [{ href: '/app', label: 'My Leagues' }] : []),
+    ...(user ? [{ href: '/app', label: 'My Hub' }] : []),
   ];
 
   const leagueLinks = activeTeam ? [
@@ -251,7 +251,7 @@ export default function UnifiedNavbar() {
       )}
       <div className="p-1">
         <Link href="/" onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">LeagueZone Home</Link>
-        <Link href="/app" onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">My Leagues</Link>
+        <Link href="/app" onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">My Hub</Link>
         {activeTeam && <a href={`/l/${activeTeam.leagueSlug}`} onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">League Site</a>}
         {activeTeam && <a href={dashboardHref} onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">League Dashboard</a>}
         {user && <a href={teamSettingsHref} onClick={close} className="block rounded px-2 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-strong)]">Team & Account Settings</a>}

@@ -8,6 +8,7 @@
   var nav=document.querySelector('.lz-research-tabs');
   if(!button||!feedback||!ownership||!nav)return;
   var mode='unknown', items=[], pending=null, busy=false, shownKey=null, sessionEpoch=0;
+  var recentScope='guest',lastRecent='';
 
   function current() {
     var href=location.pathname+location.search;
@@ -25,6 +26,22 @@
         href:'/research/players/'+encodeURIComponent(id),savedAt:Date.now()};
     }
     return {key:'view:'+href,type:'view',title:title.slice(0,150),href:href,savedAt:Date.now()};
+  }
+
+  // Browsing history contains only public research links and is device-local.
+  // Account-specific keys prevent one signed-in user seeing another's history.
+  function rememberPlayer(item) {
+    if(!item||item.type!=='player'||mode==='unknown'||mode==='error')return;
+    var key='leaguezone:recent-research:'+recentScope+':v1';
+    if(lastRecent===key+'|'+item.href)return;
+    lastRecent=key+'|'+item.href;
+    try{
+      var rows=JSON.parse(localStorage.getItem(key)||'[]');
+      if(!Array.isArray(rows))rows=[];
+      rows=rows.filter(function(x){return x&&x.href!==item.href;});
+      rows.unshift({href:item.href,title:item.title,visitedAt:Date.now()});
+      localStorage.setItem(key,JSON.stringify(rows.slice(0,12)));
+    }catch{/* Browsing still works when storage is unavailable. */}
   }
 
   function readLocal() {
@@ -70,12 +87,12 @@
     pending=(async function(){
       var response=await fetch('/api/saved-research',{credentials:'same-origin',cache:'no-store'});
       if(epoch!==sessionEpoch)return;
-      if(response.status===401){mode='guest';items=readLocal();return;}
+      if(response.status===401){mode='guest';recentScope='guest';items=readLocal();return;}
       if(!response.ok)throw Error('Account bookmarks unavailable. Please retry.');
       var data=await response.json();
       if(epoch!==sessionEpoch)return;
       if(!Array.isArray(data.items))throw Error('Invalid saved research response.');
-      items=data.items;mode='account';
+      items=data.items;mode='account';recentScope='user:'+data.userId;
       var legacy=readLocal();
       if(legacy.length){
         await request('POST',{import:legacy});
@@ -117,6 +134,7 @@
     ownership.hidden=!(item&&item.type==='player');
     if(!ownership.hidden)ownership.href='/player-leagues/'+encodeURIComponent(item.key.slice(7));
     button.hidden=!item;
+    rememberPlayer(item);
     if(!item)return;
     var present=items.some(function(v){return v.key===item.key});
     button.textContent=item.type==='player'?(present?'Unfollow player':'Follow player'):
@@ -136,7 +154,7 @@
   // Discard the in-memory library so the next render re-reads the account.
   window.addEventListener('pageshow',function(event){
     if(!event.persisted)return;
-    sessionEpoch++;pending=null;mode='unknown';items=[];busy=false;setMessage('');update();
+    sessionEpoch++;pending=null;mode='unknown';items=[];recentScope='guest';lastRecent='';busy=false;setMessage('');update();
   });
 
   async function saveOrRemove(){
