@@ -51,6 +51,10 @@ test.describe('LeagueZone research, static data only', () => {
     await expect(page.locator('#profile')).toContainText('2025 game log');
     await expect(page.locator('#profile')).toContainText('Davante Adams');
     await expect(page.locator('.trend-chart svg')).toHaveAttribute('role','img');
+    await expect(async () => { // career seasons load lazily; the profile may re-render as usage arrives
+      await page.evaluate(() => document.getElementById('career-history')?.scrollIntoView());
+      await expect(page.locator('#career-history')).not.toContainText('load when you reach', { timeout: 1000 });
+    }).toPass();
     await expect(page.locator('#career-history')).toContainText('2024');
     await page.locator('[data-add-profile][data-year="2025"]').first().click();
     await expect(page.locator('#compare-panel')).toBeVisible();

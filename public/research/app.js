@@ -6,7 +6,7 @@
     remoteBase: '', remoteCatalog: null, sourceMode: 'backup',
     view: 'core', usage: new Map(), usageStatus: {}, usageManifest: null,
     score: 'half', query: '', position: 'ALL', sort: 'points',
-    games: 1, week: 0, rookieOnly: false, limit: 40, compare: []
+    games: 1, week: 0, rookieOnly: false, limit: 40, compare: [], chartKey: 'points'
   };
   var $ = function (id) { return document.getElementById(id); };
   var escape = function (s) {
@@ -508,6 +508,197 @@
       '<h3>Recent red-zone opportunity</h3><div class="profile-grid">'+recent+'</div>'+trend+
       '<h3>Weekly red-zone opportunity</h3>'+(qb?'':rzChart(p))+table+'</section>';
   }
+  var H=window.LZPlayerHub;
+  var PROFILE_SECTIONS=[['profile-overview','Overview'],['profile-production','Production'],['profile-opportunity','Opportunity'],
+    ['profile-career','Career'],['profile-log','Game log'],['profile-compare','Compare']];
+  function hubOpts() { return {scoring:state.score,throughWeek:state.throughWeek,year:state.year,
+    usageStatus:state.usageStatus[state.year],rzStatus:state.rzStatus&&state.rzStatus[state.year]}; }
+  function ordinal(n) { var s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+  function seasonTeams(p) {
+    var teams=[];
+    [...p.w].sort(function (a,b) {return a[0]-b[0];}).forEach(function (w) {if (w[1]&&teams.indexOf(w[1])===-1) teams.push(w[1]);});
+    return teams.length?teams:[p.team];
+  }
+  function profileNav() {
+    return '<nav class="profile-nav" aria-label="Player sections">'+PROFILE_SECTIONS.map(function (s) {
+      return '<a href="#'+s[0]+'" data-jump="'+s[0]+'">'+s[1]+'</a>';}).join('')+'</nav>';
+  }
+  function profileFacts(p) {
+    var st=H.seasonStatus(state.year,state.latest,state.throughWeek), teams=seasonTeams(p);
+    var rookie=p.pos==='DEF'?null:p.ryr===state.year?'Rookie season (verified)':p.ryr==null?'Rookie status unverified':'First NFL season '+p.ryr;
+    var facts=[shortPos(p.pos),teams.join(' \u2192 '),state.year+' season',st.label,'Data through Week '+state.throughWeek].concat(rookie?[rookie]:[]);
+    return '<ul class="profile-facts" aria-label="Player details">'+facts.map(function (f) {return '<li>'+escape(f)+'</li>';}).join('')+'</ul>'+
+      (teams.length>1?'<p class="subdued">Played for '+escape(teams.join(' and '))+' this season; weekly rows and shares use the team for each game.</p>':'');
+  }
+  function rankLine(p,key) {
+    var r=H.positionalRank(state.players,p,key,hubOpts()), def=M.metric(key);
+    if (!r) return '';
+    var who=shortPos(p.pos)+'s', text;
+    if (r.rank) text=ordinal(r.rank)+' of '+r.population+' qualified '+who+(r.percentile!=null?' \u00b7 '+ordinal(r.percentile)+' percentile':'');
+    else text=r.value==null?missingMark(r.reason):escape('Not ranked: '+r.reason);
+    return '<li><span>'+escape(def.short)+(r.value!=null?' '+escape(M.format(key,r.value)):'')+'</span><strong>'+(r.rank?escape(text):text)+'</strong></li>';
+  }
+  function trendLine(p) {
+    var t=M.usageTrend(p,state.score);
+    if (!t) return '<p class="subdued">Recent trend needs at least '+(M.RECENT_WINDOW+2)+' games with stats ('+p.g+' recorded).</p>';
+    return '<ul class="rank-list">'+t.metrics.slice(0,3).map(function (row) {
+      var d=M.metric(row.key), c=M.formatDiff(row.key,row.change);
+      return '<li><span>'+escape(d.short)+': last '+t.recentWeeks.length+' '+(row.recent==null?'\u2014':escape(M.format(row.key,row.recent)))+
+        ' vs earlier '+t.priorWeeks.length+' '+(row.prior==null?'\u2014':escape(M.format(row.key,row.prior)))+'</span><strong>'+
+        (c==null?missingMark('Not comparable'):escape(c))+'</strong></li>';
+    }).join('')+'</ul><p class="subdued">Last '+t.recentWeeks.length+' games: Weeks '+t.recentWeeks.join(', ')+
+      '. Earlier sample: '+t.priorWeeks.length+' games. Fantasy points and volume are shown separately so a role change is not confused with scoring luck.</p>';
+  }
+  function toolLink(path,label) { return '<a class="btn outline" href="'+path+'">'+escape(label)+'</a>'; }
+  function overviewSection(p) {
+    var keys=H.overviewKeys(p.pos);
+    if (keys.some(function (k) {return H.needs(k)==='usage';})) ensureUsage(state.year);
+    if (keys.some(function (k) {return H.needs(k)==='redzone';})) ensureRedzone(state.year);
+    var grid=keys.map(function (k) {return metricFor(p,k);}).join('');
+    var ranks=H.rankKeys(p.pos).map(function (k) {return rankLine(p,k);}).join('');
+    var sig=window.LZOpportunities&&p.pos!=='K'&&p.pos!=='DEF'?window.LZOpportunities.signal(p,state.throughWeek,state.score):null;
+    var radar=sig&&sig.direction!=='steady'?'<p><span class="role-label '+escape(sig.direction)+'">Volume '+escape(sig.direction)+'</span> '+
+      escape(sig.baseline+' to '+sig.recent+' '+sig.metric+' per game')+' (Weeks '+escape(sig.recentWeeks.join(', '))+' vs Weeks '+
+      escape(sig.baselineWeeks.join(', '))+'). Measured change only, not a recommendation.</p>':
+      (p.pos==='K'||p.pos==='DEF'?'<p class="subdued">Opportunity Radar measures QB, RB, WR and TE volume only.</p>':
+      '<p class="subdued">No current Opportunity Radar signal for '+escape(p.n)+' through Week '+state.throughWeek+'.</p>');
+    var q='?season='+state.year;
+    return '<section class="profile-section" id="profile-overview"><h2>Overview</h2>'+
+      '<p class="subdued">'+escape(SCORING_LABELS[state.score])+' \u00b7 per-game values use games with stats only.</p>'+
+      '<div class="profile-grid">'+grid+'</div>'+
+      '<div class="hub-columns"><div class="panel"><h3>Position rank</h3><ul class="rank-list">'+ranks+'</ul>'+
+      '<p class="subdued">Compared with '+escape(shortPos(p.pos))+'s in '+state.year+' who have at least '+H.minGames(state.throughWeek)+
+      ' games with stats (half the weeks through Week '+state.throughWeek+'), plus each rate\u2019s volume minimum. '+
+      (M.isSeasonComplete(state.year,state.throughWeek)?'Completed season.':'Season in progress: ranks are partial and will change.')+'</p></div>'+
+      '<div class="panel"><h3>Recent volume and production</h3>'+trendLine(p)+'</div></div>'+
+      '<div class="hub-columns"><div class="panel"><h3>Opportunity Radar</h3>'+radar+'</div>'+
+      '<div class="panel"><h3>Published forward record</h3><div id="profile-forward" class="subdued">Checking published forward observations\u2026</div></div></div>'+
+      '<div class="panel" id="overview-history"><h3>Versus previous season</h3><p class="subdued">Checking the previous season\u2026</p></div>'+
+      '<div class="tool-links">'+toolLink('/research/radar'+q,'Opportunity Radar')+toolLink('/research/receipts'+q,'Prediction Receipts')+
+      toolLink('/research/development'+q+'&player='+encodeURIComponent(p.id),'Development Lab')+'</div></section>';
+  }
+  function loadProfileForward(p) {
+    var request=state.requestId, year=state.year, tools=window.LZResearchTools;
+    if (!tools || !tools.forwardFor) return;
+    tools.forwardFor({year:year,players:state.players,throughWeek:state.throughWeek,remoteBase:state.remoteBase,remoteCatalog:state.remoteCatalog},p.id)
+      .then(function (res) {
+        var el=$('profile-forward');
+        if (request!==state.requestId || year!==state.year || !el) return;
+        el.innerHTML=res.rows.length?'<ul class="rank-list">'+res.rows.map(function (r) {
+          var s=r.signal;
+          return '<li><span>Week '+escape(s.week)+' volume '+escape(s.direction)+' ('+escape(s.baseline+' to '+s.recent+' '+s.metric)+'/game) \u00b7 recorded '+
+            escape(String(r.recordedAt||'').slice(0,10))+'</span><strong>'+escape(r.status)+'</strong></li>';
+        }).join('')+'</ul>':'<p>No published forward observation for '+escape(p.n)+' in '+year+'.'+(res.status?' '+escape(res.status):'')+
+          ' Historical replay on Prediction Receipts is reconstructed after the fact and is not shown here.</p>';
+      }).catch(function () { var el=$('profile-forward'); if (el) el.textContent='Published forward records could not be loaded.'; });
+  }
+  function loadPreviousSeason(p) {
+    var request=state.requestId, year=state.year, prev=year-1, el=$('overview-history');
+    if (!el) return;
+    if (state.years.indexOf(prev)===-1 || H.candidateSeasons([prev],p).length===0) {
+      el.innerHTML='<h3>Versus previous season</h3><p class="subdued">'+(state.years.indexOf(prev)===-1?'No '+prev+' season is published in LeagueZone.':
+        escape(p.n)+'\u2019s verified first NFL season is '+p.ryr+'.')+'</p>'; return;
+    }
+    loadData(prev).then(function (d) {
+      if (request!==state.requestId || year!==state.year || !$('overview-history')) return;
+      var q=d.players.find(function (x) {return x.id===p.id;});
+      if (!q) {$('overview-history').innerHTML='<h3>Versus previous season</h3><p class="subdued">No '+prev+' games with stats in LeagueZone data.</p>';return;}
+      var c=H.careerRows([{year:prev,throughWeek:d.throughWeek,player:q},{year:year,throughWeek:state.throughWeek,player:p}],[],state.score).rows;
+      var diff=M.formatDiff('ppg',c[1].change.ppg);
+      $('overview-history').innerHTML='<h3>Versus previous season</h3><ul class="rank-list"><li><span>FP/G '+prev+' '+escape(M.format('ppg',c[0].values.ppg))+
+        ' ('+c[0].games+' G) \u2192 '+year+' '+escape(M.format('ppg',c[1].values.ppg))+' ('+c[1].games+' G)</span><strong>'+escape(diff==null?'\u2014':diff)+'</strong></li></ul>'+
+        (c[1].partial?'<p class="subdued">'+year+' is in progress; per-game values are compared, not totals.</p>':'');
+    }).catch(function () { if ($('overview-history')) $('overview-history').innerHTML='<h3>Versus previous season</h3><p class="subdued">The '+prev+' season could not be loaded.</p>'; });
+  }
+  function chartLabel(key) { return M.metric(key).label.split(' (')[0]; }
+  function chartControls(p) {
+    var keys=H.chartKeys(p.pos);
+    if (keys.indexOf(state.chartKey)===-1) state.chartKey='points';
+    return '<label class="chart-pick">Chart <select id="chart-metric" aria-controls="chart-body">'+keys.map(function (k) {
+      return '<option value="'+k+'"'+(k===state.chartKey?' selected':'')+'>'+escape(chartLabel(k))+'</option>';}).join('')+'</select></label>';
+  }
+  // Bars only for games with stats; byes, inactive weeks and unrecorded values
+  // get labelled markers so nothing is interpolated or drawn as zero.
+  function barSvg(p,key,series,cls) {
+    var ok=series.filter(function (x) {return x.status==='ok';}).map(function (x) {return x.value;});
+    var hi=Math.max(1e-9,...ok), lo=Math.min(0,...ok), w=720, h=170, l=40, r=8, t=12, b=26, n=series.length||1, bw=(w-l-r)/n;
+    var y=function (v) {return t+(hi-v)/((hi-lo)||1)*(h-t-b);};
+    var marks=series.map(function (x,i) {
+      var cx=l+i*bw, mid=cx+bw/2, label;
+      if (x.status==='ok') {
+        label='Week '+x.week+' ('+x.team+'): '+M.format(key,x.value);
+        return '<rect x="'+(cx+1).toFixed(1)+'" y="'+y(Math.max(x.value,0)).toFixed(1)+'" width="'+Math.max(bw-2,2).toFixed(1)+'" height="'+
+          Math.max(Math.abs(y(x.value)-y(0)),x.value?1:0).toFixed(1)+'"><title>'+escape(label)+'</title></rect>';
+      }
+      label='Week '+x.week+': '+(x.status==='no-game'?'no game (bye, inactive or not played)':(x.missing||'not recorded'));
+      return '<text class="gap-mark" x="'+mid.toFixed(1)+'" y="'+(y(0)-4).toFixed(1)+'" text-anchor="middle">'+(x.status==='no-game'?'\u2013':'?')+
+        '<title>'+escape(label)+'</title></text>';
+    }).join('');
+    var ticks=series.map(function (x,i) {return '<text class="axis" x="'+(l+i*bw+bw/2).toFixed(1)+'" y="'+(h-8)+'" text-anchor="middle">'+x.week+'</text>';}).join('');
+    var axis=[hi,lo<0?lo:0].map(function (v) {return '<text class="axis" x="2" y="'+(y(v)+4).toFixed(1)+'">'+escape(M.format(key,v))+'</text>';}).join('');
+    return '<div class="bar-chart'+(cls?' '+cls:'')+'"><svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="'+
+      escape(p.n+' weekly '+chartLabel(key).toLowerCase()+' in '+state.year+'. Weekly values are listed in the table below.')+'">'+
+      '<line x1="'+l+'" x2="'+(w-r)+'" y1="'+y(0)+'" y2="'+y(0)+'" stroke="#31445d"/>'+axis+marks+ticks+'</svg></div>';
+  }
+  function chartTable(key,series) {
+    return '<details class="chart-data"><summary>Weekly values table</summary><div class="table-scroll compact-table"><table><thead><tr>'+
+      '<th>Week</th><th>Team</th><th class="num">'+escape(M.metric(key).short)+'</th></tr></thead><tbody>'+series.map(function (x) {
+        return '<tr><td>'+x.week+'</td><td>'+escape(x.team||'\u2014')+'</td><td class="num">'+(x.status==='ok'?escape(M.format(key,x.value)):
+          missingMark(x.status==='no-game'?'No game':(x.missing||'Not recorded')))+'</td></tr>';}).join('')+'</tbody></table></div></details>';
+  }
+  function chartBody(p) {
+    var key=state.chartKey, need=H.needs(key), last=Math.max(state.throughWeek,1);
+    var fp=H.weeklySeries(p,'points',hubOpts(),last);
+    if (key==='points') return trendSvg(p)+chartTable('points',fp);
+    if (need==='usage') ensureUsage(state.year);
+    if (need==='redzone') ensureRedzone(state.year);
+    var status=need==='usage'?state.usageStatus[state.year]:need==='redzone'?(state.rzStatus||{})[state.year]:'ready';
+    if (status!=='ready') return '<p class="subdued" id="chart-state">'+escape(need==='usage'?usageNote():rzNote(state.year))+'</p>';
+    var s=H.weeklySeries(p,key,hubOpts(),last);
+    return barSvg(p,key,s)+'<p class="subdued chart-key">'+escape(chartLabel(key))+' by week. \u2013 marks a week without a game; ? marks a game where this value was not recorded.</p>'+
+      '<h3 class="chart-sub">Fantasy points, same weeks</h3>'+barSvg(p,'points',fp,'fp')+chartTable(key,s);
+  }
+  function chartSection(p) {
+    return '<section class="panel profile-section" id="weekly-chart"><div class="section-head"><h2>Weekly performance</h2>'+chartControls(p)+'</div>'+
+      '<p class="subdued">Regular-season weeks \u00b7 '+escape(SCORING_LABELS[state.score])+'. Switch metrics to separate opportunity from fantasy production.</p>'+
+      '<div id="chart-body">'+chartBody(p)+'</div></section>';
+  }
+  // Career seasons are fetched only when the section is near the viewport (or
+  // requested), and only from the verified rookie season onward.
+  function observeCareer(p) {
+    var el=$('career-history'), started=false, key=p.id+':'+state.year;
+    if (!el) return;
+    state.careerStart=function () {if (started) return; started=true; state.careerShown=key; renderCareer(p);};
+    // Re-renders (scoring change, usage arriving) keep an already-opened career.
+    if (state.careerShown===key) return state.careerStart();
+    if (!('IntersectionObserver' in window)) return state.careerStart();
+    var io=new IntersectionObserver(function (entries) {
+      if (entries.some(function (e) {return e.isIntersecting;})) {io.disconnect();state.careerStart();}
+    },{rootMargin:'600px 0px'});
+    io.observe(el);
+  }
+  function yoyCell(row) {
+    if (row.change.ppg!=null) return escape(M.formatDiff('ppg',row.change.ppg));
+    return missingMark(row.previousYear==null?'First LeagueZone season':'No '+(row.year-1)+' season');
+  }
+  function careerSummary(prog,p) {
+    var years=prog.rows.map(function (r) {return r.year;}), opts=function (sel) {return years.slice().reverse().map(function (y) {
+      return '<option value="'+y+'"'+(y===sel?' selected':'')+'>'+y+'</option>';}).join('');};
+    var other=years.filter(function (y) {return y!==state.year;}).pop();
+    var hl=prog.high&&prog.low?'<p class="subdued">Highest FP/G: '+prog.high.year+' ('+escape(M.format('ppg',prog.high.values.ppg))+
+      ') \u00b7 Lowest: '+prog.low.year+' ('+escape(M.format('ppg',prog.low.values.ppg))+'). Seasons with at least half the weeks played'+
+      ' through the published week; LeagueZone data begins in '+state.years[0]+'.</p>':'';
+    return hl+(years.length>1?'<div class="career-compare"><label>Compare <select id="career-a">'+opts(state.year)+'</select></label>'+
+      '<label>with <select id="career-b">'+opts(other)+'</select></label><button class="btn outline" type="button" id="career-compare-go" data-player="'+
+      escape(p.id)+'">Compare seasons</button></div>':'');
+  }
+  function compareSection(p) {
+    return '<section class="profile-section" id="profile-compare"><h2>Compare</h2><p class="subdued">Uses the same head-to-head comparison as the player directory; '+
+      'in-progress seasons are compared per game.</p><div class="tool-links">'+
+      '<button type="button" class="btn outline" data-add-profile="'+escape(p.id)+'" data-year="'+state.year+'">Add '+state.year+' to comparison</button>'+
+      '<button type="button" class="btn outline" data-jump="profile-career">Compare another season</button>'+
+      toolLink('/research/players?season='+state.year,'Choose another player')+'</div></section>';
+  }
   function renderProfile(p) {
     var container=$('profile');
     if (!p) {container.hidden=true; return;}
@@ -535,29 +726,28 @@
     container.innerHTML='<button type="button" class="crumb" id="return-list">\u2190 Back to results</button>'+
       '<div class="section-head"><div><div class="eyebrow">'+escape(shortPos(p.pos))+' \u00b7 '+escape(p.team)+
       escape(rookie)+'</div><h2>'+escape(p.n)+'</h2></div>'+
-      '<button type="button" class="btn outline" data-add-profile="'+escape(p.id)+'" data-year="'+state.year+'">Compare this season</button></div>'+
+      '<button type="button" class="btn outline" data-add-profile="'+escape(p.id)+'" data-year="'+state.year+'">Compare this season</button></div>'+profileFacts(p)+profileNav()+
       (complete?'':'<p class="season-note" id="season-note">'+state.year+' season in progress: data through Week '+state.throughWeek+
         '. Totals are partial; use per-game and recent averages when comparing with completed seasons.</p>')+
-      '<section class="profile-section" id="profile-summary"><h2>Fantasy production</h2>'+
+      overviewSection(p)+'<div id="profile-production" class="profile-group"><section class="profile-section" id="profile-summary"><h2>Fantasy production</h2>'+
       '<p class="subdued">'+escape(SCORING_LABELS[state.score])+' \u00b7 averages use recorded games only; bye weeks and missed games are not counted as zero.</p>'+
       '<div class="profile-grid">'+summary+'</div></section>'+
-      '<section class="panel profile-section" id="recent-form"><h2>Recent usage vs. earlier games</h2>'+recentForm(p)+'</section>'+
       '<section class="profile-section" id="position-stats"><h2>'+escape(shortPos(p.pos))+' production and efficiency</h2>'+
       '<div class="profile-grid">'+positional+'</div>'+
       (p.pos==='DEF'?'<p class="subdued">DST points allowed are estimated from scoring by the opposing offense.</p>':'')+'</section>'+
-      usageSection(p)+rzSection(p)+
-      '<section class="panel profile-section"><h2>Weekly performance</h2><p class="subdued">Fantasy points by regular-season week \u00b7 '+
-      escape(SCORING_LABELS[state.score])+'</p>'+trendSvg(p)+'</section>'+
-      '<section class="profile-section"><div class="section-head"><h2>Career history</h2><span class="subdued">Available LeagueZone seasons</span></div>'+
-      '<div id="career-history" aria-live="polite" class="subdued">Loading historical seasons\u2026</div></section>'+
-      '<section class="profile-section"><h2>'+state.year+' game log</h2><div class="table-scroll game-log"><table><thead><tr>'+
-      logHead+'</tr></thead><tbody>'+logRows+'</tbody></table></div></section>';
+      chartSection(p)+'</div><div id="profile-opportunity" class="profile-group">'+
+      '<section class="panel profile-section" id="recent-form"><h2>Recent usage vs. earlier games</h2>'+recentForm(p)+'</section>'+
+      usageSection(p)+rzSection(p)+'</div>'+
+      '<section class="profile-section" id="profile-career"><div class="section-head"><h2>Career history</h2><span class="subdued">LeagueZone seasons '+state.years[0]+'–'+state.latest+' only, not a complete NFL career</span></div>'+
+      '<div id="career-history" aria-live="polite" class="subdued">Career seasons load when you reach this section\u2026</div></section>'+
+      '<section class="profile-section" id="profile-log"><h2>'+state.year+' game log</h2><div class="table-scroll game-log"><table><thead><tr>'+
+      logHead+'</tr></thead><tbody>'+logRows+'</tbody></table></div></section>'+compareSection(p);
     container.hidden=false;
-    renderCareer(p);
+    observeCareer(p);loadProfileForward(p);loadPreviousSeason(p);
   }
   function renderCareer(p) {
     var request=state.requestId,year=state.year,usage=careerUsageKeys(p.pos);
-    Promise.all(state.years.map(function (season) {
+    Promise.all(H.candidateSeasons(state.years,p).map(function (season) {
       return loadData(season).then(function (d) {
         return {year:season,throughWeek:d.throughWeek,player:d.players.find(function (x) {return x.id===p.id;})};
       }).catch(function () {return {year:season,error:true};});
@@ -565,8 +755,10 @@
       if (request!==state.requestId || year!==state.year || !$('career-history')) return;
       var available=found.filter(function (f) {return f.player;});
       var errors=found.filter(function (f) {return f.error;});
+      var prog=H.careerRows(available,usage,state.score), byYear={};
+      prog.rows.forEach(function (r) {byYear[r.year]=r;});
       $('career-history').innerHTML=available.length?'<div class="table-scroll career-scroll"><table><thead><tr>'+
-        '<th>Season</th><th>Actions</th><th>Team</th><th>GP</th><th class="num">FP</th><th class="num">PPG</th>'+
+        '<th>Season</th><th>Actions</th><th>Team</th><th>GP</th><th class="num">FP</th><th class="num">PPG</th><th class="num" title="Change in fantasy points per game from the previous season">PPG Δ</th>'+
         usage.map(function (k) {return '<th class="num" title="'+escape(M.metric(k).label)+'">'+escape(M.metric(k).short)+'</th>';}).join('')+
         '<th>Coverage</th></tr></thead><tbody>'+
         available.map(function (f) {
@@ -575,12 +767,12 @@
           return '<tr'+(f.year===year?' class="current-row"':'')+'><td>'+f.year+'</td><td class="career-actions">'+
             '<a class="table-link" href="'+link(p.id,f.year)+'" data-career-nav="1">View</a> &middot; '+
             '<button class="mini-link" type="button" data-add-profile="'+escape(p.id)+'" data-year="'+f.year+'">Compare</button>'+
-            '</td><td>'+escape(f.player.team)+'</td><td>'+f.player.g+'</td><td class="num">'+
-            val('points')+'</td><td class="num">'+val('ppg')+'</td>'+
+            '</td><td>'+escape(byYear[f.year].teams.join(' → '))+'</td><td>'+f.player.g+'</td><td class="num">'+
+            val('points')+'</td><td class="num">'+val('ppg')+'</td><td class="num">'+yoyCell(byYear[f.year])+'</td>'+
             usage.map(function (k) {return '<td class="num">'+val(k)+'</td>';}).join('')+
             '<td class="subdued">'+escape(coverageNote(f.year,f.throughWeek))+'</td></tr>';
         }).join('')+'</tbody></table></div>'+
-        '<p class="subdued">Compare seasons by per-game values; totals for an in-progress season are partial.</p>':'<p>No other season data found.</p>';
+        '<p class="subdued">Compare seasons by per-game values; totals for an in-progress season are partial.</p>'+careerSummary(prog,p):'<p>No other season data found.</p>';
       if (errors.length) $('career-history').insertAdjacentHTML('beforeend','<p class="subdued">Some earlier seasons were unavailable.</p>');
     });
   }
@@ -818,6 +1010,19 @@
     });
   }
   document.addEventListener('click',function (e) {
+    var jump=e.target.closest('[data-jump]');
+    if (jump) {
+      e.preventDefault();var to=$(jump.dataset.jump);
+      if (jump.dataset.jump==='profile-career'&&state.careerStart) state.careerStart();
+      if (to) to.scrollIntoView({behavior:'smooth',block:'start'});
+      return;
+    }
+    var go=e.target.closest('#career-compare-go');
+    if (go) {
+      var ya=Number($('career-a').value), yb=Number($('career-b').value);
+      if (ya===yb) {$('compare-panel').hidden=false;$('compare-notice').textContent='Choose two different seasons.';return;}
+      state.compare=[];addCompare(ya,go.dataset.player);addCompare(yb,go.dataset.player);return;
+    }
     var sortHead=e.target.closest('[data-sort-key]');
     if (sortHead) {state.sort=sortHead.dataset.sortKey;$('sort').value=state.sort;updateFilters();return;}
     var profile=e.target.closest('[data-profile]');
@@ -834,6 +1039,12 @@
     if (back) {navigate((state.listPath||'/research/players')+filterSearch(),false,state.listScroll);return;}
     var anchor=e.target.closest('a[data-career-nav],a[href^="/research"]');
     if (anchor) {e.preventDefault();navigate(anchor.getAttribute('href'));return;}
+  });
+  document.addEventListener('change',function (e) {
+    if (e.target.id!=='chart-metric') return;
+    var m=location.pathname.match(/^\/research\/players\/([^/]+)\/?$/), p=m&&state.byId.get(decodeURIComponent(m[1]));
+    state.chartKey=e.target.value;
+    if (p && $('chart-body')) $('chart-body').innerHTML=chartBody(p);
   });
   function compareChanged(e) {
     var target=e.target.closest('[data-compare]');if (!target)return;

@@ -243,5 +243,16 @@
     if (player) {selectedPlayer=player.dataset.labPlayer;history.replaceState({},'',location.pathname+'?season='+context.year+'&player='+encodeURIComponent(selectedPlayer));
       show('development',context);}
   });
-  window.LZResearchTools={show:show};
+  // Player Hub: published forward observations for one player. Historical
+  // replay is never substituted here.
+  function forwardFor(ctx, playerId) {
+    var keepLedger=ledger, keepStatus=ledgerStatus, loading=loadForward(ctx), fallback=ledgerStatus;
+    ledger=keepLedger;ledgerStatus=keepStatus;
+    return loading.then(function () {
+      var rows=(forwardByYear.get(ctx.year)||[]).filter(function (r) {return r.signal && r.signal.id===playerId;});
+      return {status:forwardStatusByYear.get(ctx.year)||fallback,
+        rows:rows.length?O.resolveRecorded(rows,{year:ctx.year,players:ctx.players,throughWeek:ctx.throughWeek}):[]};
+    });
+  }
+  window.LZResearchTools={show:show,forwardFor:forwardFor};
 })();

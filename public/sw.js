@@ -1,9 +1,9 @@
-const CACHE_VERSION = 'leaguezone-pwa-v5';
+const CACHE_VERSION = 'leaguezone-pwa-v6';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = '/offline';
 const DATA_CACHE = `${CACHE_VERSION}-research-data`;
 const RESEARCH_SHELL = '/research/index.html';
-const PRECACHE_URLS = [OFFLINE_URL, '/manifest.webmanifest', '/pwa/icon-192.png', RESEARCH_SHELL, '/research/styles.css', '/research/app.js', '/research/metrics.js', '/research/opportunities.js', '/research/tools.js', '/research/pwa.js', '/research/app-shell.js', '/research/app-shell.css'];
+const PRECACHE_URLS = [OFFLINE_URL, '/manifest.webmanifest', '/pwa/icon-192.png', RESEARCH_SHELL, '/research/styles.css', '/research/app.js', '/research/metrics.js', '/research/hub.js', '/research/opportunities.js', '/research/tools.js', '/research/pwa.js', '/research/app-shell.js', '/research/app-shell.css'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
