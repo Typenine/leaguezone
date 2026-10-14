@@ -136,20 +136,23 @@
   // Discard the in-memory library so the next render re-reads the account.
   window.addEventListener('pageshow',function(event){
     if(!event.persisted)return;
-    sessionEpoch++;pending=null;mode='unknown';items=[];setMessage('');update();
+    sessionEpoch++;pending=null;mode='unknown';items=[];busy=false;setMessage('');update();
   });
 
   async function saveOrRemove(){
     if(busy)return;
+    var epoch=sessionEpoch;
     busy=true;button.disabled=true;setMessage('');
     try{
       await load();
+      if(epoch!==sessionEpoch)return;
       if(mode==='error')throw Error('Bookmarks unavailable. Please retry.');
       var item=current();
       if(!item)return;
       var present=items.some(function(v){return v.key===item.key});
       if(mode==='account'){
         await request(present?'DELETE':'POST',present?{key:item.key}:{item:item});
+        if(epoch!==sessionEpoch)return;
         if(present)items=items.filter(function(v){return v.key!==item.key});
         else items=[item].concat(items.filter(function(v){return v.key!==item.key})).slice(0,MAX);
         setMessage(present?'Removed from your account watchlist.':'Saved to your LeagueZone account.');
@@ -159,8 +162,8 @@
         writeLocal(next);
         setMessage(present?'Removed from this browser.':'Saved on this device. Sign in to sync.');
       }
-    }catch(error){setMessage(error.message||'Unable to save research.');}
-    finally{busy=false;update();}
+    }catch(error){if(epoch===sessionEpoch)setMessage(error.message||'Unable to save research.');}
+    finally{if(epoch===sessionEpoch){busy=false;update();}}
   }
 
   button.addEventListener('click',function(){void saveOrRemove();});
