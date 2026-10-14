@@ -7,7 +7,7 @@
   var ownership=document.getElementById('lz-player-leagues');
   var nav=document.querySelector('.lz-research-tabs');
   if(!button||!feedback||!ownership||!nav)return;
-  var mode='unknown', items=[], pending=null, busy=false, shownKey=null;
+  var mode='unknown', items=[], pending=null, busy=false, shownKey=null, sessionEpoch=0;
 
   function current() {
     var href=location.pathname+location.search;
@@ -66,19 +66,24 @@
   async function load() {
     if(mode==='account'||mode==='guest')return;
     if(pending)return pending;
+    var epoch=sessionEpoch;
     pending=(async function(){
       var response=await fetch('/api/saved-research',{credentials:'same-origin',cache:'no-store'});
+      if(epoch!==sessionEpoch)return;
       if(response.status===401){mode='guest';items=readLocal();return;}
       if(!response.ok)throw Error('Account bookmarks unavailable. Please retry.');
       var data=await response.json();
+      if(epoch!==sessionEpoch)return;
       if(!Array.isArray(data.items))throw Error('Invalid saved research response.');
       items=data.items;mode='account';
       var legacy=readLocal();
       if(legacy.length){
         await request('POST',{import:legacy});
+        if(epoch!==sessionEpoch)return;
         var refreshed=await fetch('/api/saved-research',{credentials:'same-origin',cache:'no-store'});
         if(!refreshed.ok)throw Error('Saved bookmarks imported, but could not reload the list.');
         var latest=await refreshed.json();
+        if(epoch!==sessionEpoch)return;
         if(!Array.isArray(latest.items))throw Error('Invalid updated bookmarks.');
         items=latest.items;
         var keys={};
@@ -91,8 +96,8 @@
       }
     })();
     try{await pending;}
-    catch(error){mode='error';throw error;}
-    finally{pending=null;}
+    catch(error){if(epoch===sessionEpoch)mode='error';throw error;}
+    finally{if(epoch===sessionEpoch)pending=null;}
   }
 
   function setMessage(text){feedback.textContent=text;}
@@ -121,7 +126,9 @@
     // Public research views stay static: only player pages read the account
     // library up front. A view's saved state is resolved when the user acts.
     if(mode==='unknown'&&item.type==='player'){
-      load().then(update).catch(function(error){setMessage(error.message);update()});
+      var requestedEpoch=sessionEpoch;
+      load().then(function(){if(requestedEpoch===sessionEpoch)update()})
+        .catch(function(error){if(requestedEpoch===sessionEpoch){setMessage(error.message);update()}});
     }
   }
 
@@ -129,7 +136,7 @@
   // Discard the in-memory library so the next render re-reads the account.
   window.addEventListener('pageshow',function(event){
     if(!event.persisted)return;
-    mode='unknown';items=[];setMessage('');update();
+    sessionEpoch++;pending=null;mode='unknown';items=[];setMessage('');update();
   });
 
   async function saveOrRemove(){
