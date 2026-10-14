@@ -20,6 +20,9 @@ export async function GET(req:Request){
   if(!('version' in target))return Response.json({ok:true,...target});
   const {year,week,version}=target, db=getDb(), started=Date.now();
   let delivered=0,failed=0,removed=0;
+  // Hold failed devices until the run has finished claiming other devices.
+  // Releasing them inside the loop could reclaim them immediately.
+  const failedIds:string[]=[];
   while(Date.now()-started<TIME_BUDGET_MS){
    // Claim before sending: one atomic statement marks the batch, so an
    // overlapping or retried cron run cannot select the same devices again.
@@ -45,11 +48,13 @@ export async function GET(req:Request){
     }));
    }
    if(expired.length)await db.execute(sql`DELETE FROM leaguezone_push_subscriptions WHERE id::text IN ${expired}`);
-   // Transient failures are released for the next scheduled run, not retried now.
-   if(retry.length)await db.execute(sql`UPDATE leaguezone_push_subscriptions SET last_research_version=NULL
-    WHERE id::text IN ${retry} AND last_research_version=${version}`);
+   // Keep transient failures claimed until this run finishes, otherwise they
+   // become eligible in the very next batch of the same run.
+   failedIds.push(...retry);
    if(claimed.length<BATCH||retry.length===claimed.length)break;
   }
+  if(failedIds.length)await db.execute(sql`UPDATE leaguezone_push_subscriptions SET last_research_version=NULL
+   WHERE id::text IN ${failedIds} AND last_research_version=${version}`);
   return Response.json({ok:true,year,week,delivered,failed,removed});
  }catch(error){
   console.error('[research-push]',error instanceof Error?error.message:'error');
