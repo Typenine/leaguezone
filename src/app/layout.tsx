@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   title: 'LeagueZone HQ | Fantasy Football Research & League Management',
   description: 'Research NFL players, compare fantasy football stats and opportunity trends, and manage your league with custom websites, draft tools, trades, and history.',
   applicationName: 'LeagueZone HQ',
-  manifest: '/manifest.webmanifest',
+  // app/manifest.ts supplies the manifest metadata link automatically.
   appleWebApp: { capable: true, title: 'LeagueZone', statusBarStyle: 'default' },
   formatDetection: { telephone: false },
   icons: {
