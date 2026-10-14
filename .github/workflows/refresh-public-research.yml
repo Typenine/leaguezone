@@ -16,9 +16,11 @@ on:
       - 'public/research/opportunities.js'
       - 'tests/research_r2/**'
   schedule:
-    # Thursday refresh after the completed Sunday/Monday week, plus a Friday
-    # retry for provider delays. An unchanged rebuild is a no-op publication.
-    - cron: '0 12 * 1,9-12 4,5'
+    # NFL weeks typically conclude Monday evening. Try Tuesday afternoon after
+    # upstream weekly stats settle; retry Wednesday-Friday if a dataset lags.
+    # Runs are idempotent: unchanged validated weeks do not re-upload to R2.
+    - cron: '0 18 * 1,9-12 2'
+    - cron: '0 12 * 1,9-12 3-5'
 
 permissions:
   contents: read
