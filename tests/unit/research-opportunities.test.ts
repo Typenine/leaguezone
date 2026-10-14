@@ -194,6 +194,8 @@ describe('Prediction receipt integrity', () => {
     const bye=player('p1',[5,5,10,10,9,9]);
     bye.w=bye.w.filter((row: (string | number)[]) => row[0]!==5);
     expect(O.resolveRecorded([entry],{year:2026,players:[bye],throughWeek:6})[0].status).toBe('unresolved');
+    const missingVersion={...entry,modelVersion:undefined};
+    expect(O.resolveRecorded([missingVersion],{year:2026,players:[player('p1',[5,5,10,10,9,9])],throughWeek:6})[0].status).toBe('unresolved');
     const future={...entry,modelVersion:'radar-v2'};
     expect(O.resolveRecorded([future],{year:2026,players:[player('p1',[5,5,10,10,9,9])],throughWeek:6})[0].status).toBe('unresolved');
     expect(O.resolveRecorded([entry],{year:2025,players:[p],throughWeek:18})).toEqual([]);
