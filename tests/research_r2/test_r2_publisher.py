@@ -97,8 +97,11 @@ class ResearchPublisherTests(unittest.TestCase):
         timestamp="2026-10-09T15:00:00Z"
         catalog,uploads=publisher.build_catalog(self.data,observation=timestamp)
         entries=catalog["forwardReceipts"]["years"]["2026"]
+        # The CI refresh rewrites this source file as each completed NFL week
+        # arrives. Never lock an idempotence test to one specific league week.
+        expected_week=json.loads((self.data / "2026.json").read_text())["throughWeek"]
         self.assertEqual(len(entries),1)
-        self.assertEqual(entries[0]["week"],4)
+        self.assertEqual(entries[0]["week"],expected_week)
         self.assertEqual(entries[0]["recordedAt"],timestamp)
         self.assertEqual(entries[0]["modelVersion"],"radar-v1")
         self.assertEqual(len(uploads),13)
@@ -106,7 +109,7 @@ class ResearchPublisherTests(unittest.TestCase):
         self.assertEqual(record["year"],2026)
         self.assertEqual(record["recordedAt"],timestamp)
         self.assertTrue(record["signals"])
-        self.assertTrue(all(s["week"]==4 for s in record["signals"]))
+        self.assertTrue(all(s["week"]==expected_week for s in record["signals"]))
         again,files=publisher.build_catalog(self.data,catalog,observation="2026-10-10T09:00:00Z")
         self.assertEqual(again,catalog)
         self.assertEqual(files,[])
