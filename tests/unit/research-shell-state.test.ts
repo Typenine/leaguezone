@@ -13,7 +13,9 @@ describe('static research shell state',()=>{
     expect(shell).toContain("if(mode==='unknown'&&item.type==='player'){");
   });
   it('discards in-memory account bookmarks after a back/forward cache restore',()=>{
-    expect(shell).toMatch(/addEventListener\('pageshow',function\(event\)\{\s*if\(!event\.persisted\)return;\s*mode='unknown';items=\[\]/);
+    expect(shell).toMatch(/addEventListener\('pageshow',function\(event\)\{\s*if\(!event\.persisted\)return;\s*sessionEpoch\+\+;pending=null;mode='unknown';items=\[\]/);
+    expect(shell).toContain('if(epoch!==sessionEpoch)return;');
+    expect(shell).toContain('if(epoch===sessionEpoch)pending=null;');
   });
   it('clears save/remove feedback when the user moves to a different research item',()=>{
     expect(shell).toContain("if(key!==shownKey){shownKey=key;setMessage('');}");
