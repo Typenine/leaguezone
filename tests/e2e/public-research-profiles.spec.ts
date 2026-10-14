@@ -14,6 +14,9 @@ function guardPrivateCalls(page: Page) {
   const calls: string[] = [];
   page.on('request', r => {
     const p = new URL(r.url()).pathname;
+    // Player pages check the visitor's own Follow state. Signed out, that
+    // route answers 401 from the cookie alone and never reaches Neon.
+    if (p === '/api/saved-research') return;
     if (p.startsWith('/api/') || p.startsWith('/l/')) calls.push(p);
   });
   return calls;

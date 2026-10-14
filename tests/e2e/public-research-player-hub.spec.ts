@@ -68,6 +68,28 @@ test.describe('player hub', () => {
     await expect(page.locator('#chart-body .bar-chart.fp')).toHaveCount(1);
   });
 
+  test('fantasy points never draw a line across an unrecorded week', async ({ page }) => {
+    const d = season(previous);
+    const p = d.players.find(x => {
+      if (x.pos !== 'WR' || x.w.length < 8) return false;
+      const weeks = x.w.map(w => w[0]).sort((a, b) => a - b);
+      return weeks.some((week, i) => i >= 3 && i < weeks.length - 2 && week > weeks[i - 1] + 1);
+    })!;
+    expect(p).toBeDefined();
+    const weeks = p.w.map(w => w[0]).sort((a, b) => a - b);
+    const i = weeks.findIndex((week, index) => index >= 3 && index < weeks.length - 2 && week > weeks[index - 1] + 1);
+    const gap = weeks[i - 1] + 1;
+    await page.goto(`/research/players/${p.id}?season=${previous}`);
+    await expect(page.locator('.trend-chart svg')).toBeVisible();
+    await expect(page.locator('.trend-chart .gap-mark title').filter({ hasText: 'Week ' + gap + ': no recorded game' })).toHaveCount(1);
+    const lines = await page.locator('.trend-chart polyline').evaluateAll(nodes =>
+      nodes.map(node => (node.getAttribute('points') || '').split(' ').filter(Boolean)
+        .map(pair => Number(pair.split(',')[0]))));
+    const gapX = 36 + (gap - 1) / (d.throughWeek - 1) * (720 - 36 - 15);
+    expect(lines.some(line => line.length >= 2)).toBe(true);
+    for (const line of lines) expect(Math.min(...line) < gapX && Math.max(...line) > gapX).toBe(false);
+  });
+
   test('traded player shows both teams and per-week teams', async ({ page }) => {
     const d = season(previous);
     const p = d.players.find(x => teamsOf(x).length > 1 && x.g >= 6)!;
@@ -116,6 +138,11 @@ test.describe('player hub', () => {
     await page.locator('#career-compare-go').click();
     await expect(page.locator('#compare-panel')).toBeVisible();
     await expect(page.locator('#compare-panel')).toContainText(String(previous));
+    await page.locator('#career-a').selectOption(String(previous));
+    await page.locator('#career-b').selectOption(String(latest));
+    await page.locator('#career-compare-go').click();
+    await expect(page.locator('#compare-grid .compare-card').first()).toContainText(String(previous));
+    await expect(page.locator('#compare-grid .compare-card').nth(1)).toContainText(String(latest));
   });
 
   test('direct links and back/forward keep the season', async ({ page }) => {

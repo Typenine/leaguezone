@@ -340,7 +340,25 @@
     var width=720,height=220,l=36,r=15,t=16,b=30;
     var x=function (week) { return l+(week-1)/(lastWeek-1)*(width-l-r); };
     var y=function (value) { return t+(positiveMax-value)/range*(height-t-b); };
-    var coords = values.map(function (v) {return x(v.week).toFixed(1)+','+y(v.fp).toFixed(1);}).join(' ');
+    // Break the line at each missing week instead of drawing across an absence.
+    var segments=[],segment=[];
+    values.forEach(function (v,i) {
+      if (i && v.week!==values[i-1].week+1) {
+        if (segment.length>1) segments.push(segment);
+        segment=[];
+      }
+      segment.push(v);
+    });
+    if (segment.length>1) segments.push(segment);
+    var strokes=segments.map(function (part) {
+      return '<polyline points="'+part.map(function (v) {return x(v.week).toFixed(1)+','+y(v.fp).toFixed(1);}).join(' ')+
+        '" stroke="#76d5bb" stroke-width="2.5" fill="none"/>';
+    }).join('');
+    var played=new Set(values.map(function (v) {return v.week;})),gaps='';
+    for (var w=1;w<=state.throughWeek;w++) {
+      if (!played.has(w)) gaps+='<text class="gap-mark" x="'+x(w).toFixed(1)+'" y="'+(height-b-10)+'" text-anchor="middle">–'+
+        '<title>Week '+w+': no recorded game</title></text>';
+    }
     var circles=values.map(function (v) {
       return '<circle cx="'+x(v.week)+'" cy="'+y(v.fp)+'" r="4" fill="#76d5bb"><title>Week '+
       v.week+': '+fmt(v.fp)+' fantasy points</title></circle>';
@@ -357,8 +375,7 @@
       '" stroke="#e2bc71" stroke-dasharray="5 5"><title>Season average: '+fmt(avg)+' FP per recorded game</title></line>';
     return '<div class="trend-chart"><svg viewBox="0 0 '+width+' '+height+'" role="img" aria-label="'+escape(p.n)+
       ' weekly fantasy points in '+state.year+'"><g>'+lines+'</g>'+avgLine+
-      (values.length>1?'<polyline points="'+coords+'" stroke="#76d5bb" stroke-width="2.5" fill="none"/>':'')+
-      circles+ticks+'</svg></div>'+
+      strokes+gaps+circles+ticks+'</svg></div>'+
       '<p class="subdued chart-key"><span class="key-dot"></span> Recorded games only (byes and missed games are skipped, not zero)'+
       (avg==null?'':' \u00b7 <span class="key-dash"></span> Season average '+fmt(avg)+' FP/G')+'</p>';
   }
@@ -999,7 +1016,9 @@
       if (token!==state.requestId) return;
       state.players=data.players;state.byId=new Map(data.players.map(function (p) {return [p.id,p];}));
       state.throughWeek=data.throughWeek;
-      $('data-stamp').textContent=year+' Season · Through Week '+data.throughWeek+' · Updated '+data.updated;
+      // The bundled backup can lag the weekly R2 refresh; never present it as current.
+      $('data-stamp').textContent=year+' Season · Through Week '+data.throughWeek+' · Updated '+data.updated+
+        (data._researchSource==='backup'?' · Backup copy'+(navigator.onLine===false?' (offline)':'')+' — may not include the latest week':'');
       populateWeeks();sortOptions();renderTable();renderCompare();renderRoute();
       $('research-year-range').textContent=state.years[0]+'–'+state.latest;
     }).catch(function (error) {
@@ -1021,7 +1040,28 @@
     if (go) {
       var ya=Number($('career-a').value), yb=Number($('career-b').value);
       if (ya===yb) {$('compare-panel').hidden=false;$('compare-notice').textContent='Choose two different seasons.';return;}
-      state.compare=[];addCompare(ya,go.dataset.player);addCompare(yb,go.dataset.player);return;
+      // Keep the selected A/B order even if the second season resolves first.
+      var wanted=[ya,yb],playerId=go.dataset.player,requestId=state.requestId,originYear=state.year;
+      Promise.all(wanted.map(function (year) {
+        return loadData(year).then(function (data) {
+          var p=data.players.find(function (candidate) {return candidate.id===playerId;});
+          return p?{year:year,id:playerId,name:p.n,pos:p.pos,team:p.team,player:p,throughWeek:data.throughWeek}:null;
+        });
+      })).then(function (selected) {
+        if (requestId!==state.requestId||originYear!==state.year||!$('career-compare-go'))return;
+        if (selected.some(function (p) {return !p;})) {
+          $('compare-panel').hidden=false;
+          $('compare-notice').textContent='This player does not have verified statistics in both selected seasons.';
+          return;
+        }
+        state.compare=selected;
+        renderTable();renderCompare();
+        $('compare-panel').scrollIntoView({behavior:'smooth',block:'nearest'});
+      }).catch(function () {
+        if (requestId!==state.requestId||originYear!==state.year)return;
+        $('compare-panel').hidden=false;
+        $('compare-notice').textContent='The selected seasons could not be loaded. Please retry.';
+      });return;
     }
     var sortHead=e.target.closest('[data-sort-key]');
     if (sortHead) {state.sort=sortHead.dataset.sortKey;$('sort').value=state.sort;updateFilters();return;}

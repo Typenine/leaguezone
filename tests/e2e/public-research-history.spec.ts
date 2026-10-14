@@ -105,7 +105,7 @@ test.describe('Research site navigation and branding', () => {
 
     await page.goto('/research/players?season=2025');
     await expect(page.locator('#data-stamp')).toContainText('2025 Season');
-    await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/assets/LeagueZone%20HQ%20Logo.png');
+    await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/pwa/icon-192.png');
     await expect(page.locator('.site-head .wordmark')).toHaveAttribute('href', '/');
     await expect(page.locator('.site-head a[href="/"]')).toHaveCount(2);
     await expect(page.locator('.meta-note')).toHaveCount(0);
