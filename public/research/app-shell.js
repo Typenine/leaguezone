@@ -115,10 +115,19 @@
       (present?'Remove saved view':'Save this research view');
     button.setAttribute('aria-pressed',String(present));
     button.disabled=busy;
+    // Public research views stay static: only player pages read the account
+    // library up front. A view's saved state is resolved when the user acts.
     if(mode==='unknown'&&item.type==='player'){
       load().then(update).catch(function(error){setMessage(error.message);update()});
     }
   }
+
+  // A back/forward cache restore can follow a sign-out or account switch.
+  // Discard the in-memory library so the next render re-reads the account.
+  window.addEventListener('pageshow',function(event){
+    if(!event.persisted)return;
+    mode='unknown';items=[];setMessage('');update();
+  });
 
   async function saveOrRemove(){
     if(busy)return;

@@ -154,3 +154,56 @@ describe('Opportunity Radar and historical receipts', () => {
     expect(signals.every((s: {recentWeeks:number[]})=>s.recentWeeks.at(-1)!>=season.throughWeek-1)).toBe(true);
   });
 });
+
+describe('Prediction receipt integrity', () => {
+  it('records the team as of the signal week, not the later trade destination', () => {
+    const p=player('trade',[5,5,10,10,9,9]);
+    const moved={...p,team:'KC',w:p.w.map((row: (string | number)[]) => Number(row[0])>4 ? [row[0],'KC',...row.slice(2)] : row)};
+    expect(O.signal(moved,4,'half').team).toBe('SEA');
+    expect(O.receipts({players:[moved],throughWeek:6},'half')[0].signal.team).toBe('SEA');
+  });
+
+  it('stamps the model version and never lets a later copy replace the original record', () => {
+    const p=player('p1',[5,5,10,10,9,9]);
+    const original=O.recordSignals([],{year:2026,players:[p],throughWeek:4},'half','2026-10-09T12:00:00Z');
+    expect(original[0].modelVersion).toBe(O.modelVersion);
+    const forged={...original[0],recordedAt:'2026-10-20T12:00:00Z',signal:{...original[0].signal,baseline:99}};
+    const rows=O.resolveRecorded([forged,original[0],original[0]],{year:2026,players:[p],throughWeek:6});
+    expect(rows).toHaveLength(1);
+    expect(rows[0].recordedAt).toBe('2026-10-09T12:00:00Z');
+    expect(rows[0].signal.baseline).toBe(5);
+    expect(rows[0].modelVersion).toBe('radar-v1');
+  });
+
+  it('grades only with stored values, so later stat corrections cannot rewrite the signal', () => {
+    const p=player('p1',[5,5,10,10,9,9]);
+    const [entry]=O.recordSignals([],{year:2026,players:[p],throughWeek:4},'half','2026-10-09T12:00:00Z');
+    const snapshot=JSON.stringify(entry);
+    const corrected={...p,w:p.w.map((row: (string | number)[]) => Number(row[0])<=4 ? [...row.slice(0,6),1,...row.slice(7)] : row)};
+    const [row]=O.resolveRecorded([entry],{year:2026,players:[corrected],throughWeek:6});
+    expect(row.signal.baseline).toBe(5);
+    expect(row.signal.recent).toBe(10);
+    expect(JSON.stringify(entry)).toBe(snapshot);
+  });
+
+  it('leaves missing games, missing players and unknown model versions unresolved', () => {
+    const p=player('p1',[5,5,10,10,9]);
+    const [entry]=O.recordSignals([],{year:2026,players:[player('p1',[5,5,10,10])],throughWeek:4},'half','2026-10-09T12:00:00Z');
+    expect(O.resolveRecorded([entry],{year:2026,players:[p],throughWeek:5})[0].status).toBe('unresolved');
+    expect(O.resolveRecorded([entry],{year:2026,players:[],throughWeek:8})[0].status).toBe('unresolved');
+    const bye=player('p1',[5,5,10,10,9,9]);
+    bye.w=bye.w.filter((row: (string | number)[]) => row[0]!==5);
+    expect(O.resolveRecorded([entry],{year:2026,players:[bye],throughWeek:6})[0].status).toBe('unresolved');
+    const future={...entry,modelVersion:'radar-v2'};
+    expect(O.resolveRecorded([future],{year:2026,players:[player('p1',[5,5,10,10,9,9])],throughWeek:6})[0].status).toBe('unresolved');
+    expect(O.resolveRecorded([entry],{year:2025,players:[p],throughWeek:18})).toEqual([]);
+  });
+
+  it('keeps forward receipts and the historical replay in separate published sections', () => {
+    const tools=readFileSync('public/research/tools.js','utf8');
+    expect(tools).toContain('Published forward record');
+    expect(tools).toContain('they were not stored when originally made');
+    expect(tools).not.toContain('saved on this device');
+    expect(tools).toContain("catch(function () {failed++;return [];})");
+  });
+});

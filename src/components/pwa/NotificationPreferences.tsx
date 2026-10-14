@@ -23,7 +23,8 @@ export default function NotificationPreferences(){
   if(!available){setStatus('This browser cannot receive web push notifications. On iPhone, install LeagueZone to your Home Screen first.');return}
   Promise.all([
    fetch('/api/push',{cache:'no-store'}).then(r=>r.json() as Promise<PushResponse>),
-   navigator.serviceWorker.ready.then(r=>r.pushManager.getSubscription())
+   // ready never settles when no worker is registered; getRegistration does.
+   navigator.serviceWorker.getRegistration('/').then(r=>r?r.pushManager.getSubscription():null)
   ]).then(([info,sub])=>{
    if(!alive)return;
    setConfigured(Boolean(info.publicKey));

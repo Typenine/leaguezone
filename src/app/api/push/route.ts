@@ -43,11 +43,13 @@ export async function POST(req:NextRequest){
    (user_id,endpoint,p256dh,auth_secret,research_updates)
    VALUES (${user.userId}::uuid,${device.endpoint},${device.p256dh},${device.auth},${body.researchUpdates})
    ON CONFLICT(endpoint) DO UPDATE SET
-    p256dh=EXCLUDED.p256dh,auth_secret=EXCLUDED.auth_secret,
+    user_id=EXCLUDED.user_id,p256dh=EXCLUDED.p256dh,auth_secret=EXCLUDED.auth_secret,
     research_updates=EXCLUDED.research_updates,updated_at=now()
-   WHERE leaguezone_push_subscriptions.user_id=EXCLUDED.user_id RETURNING id`);
+   RETURNING id`);
+  // Only the browser holding this subscription knows its endpoint and keys, so
+  // the account currently signed in on that device becomes its sole owner.
   if(!(result as {rows?:unknown[]}).rows?.length)
-   return NextResponse.json({error:'This device is already registered to another account'},{status:409,headers:noStore});
+   return NextResponse.json({error:'Notification settings unavailable'},{status:503,headers:noStore});
   return NextResponse.json({ok:true},{headers:noStore});
  }catch{return NextResponse.json({error:'Notification settings unavailable'},{status:503,headers:noStore})}
 }

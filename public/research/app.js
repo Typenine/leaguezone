@@ -807,7 +807,9 @@
       if (token!==state.requestId) return;
       state.players=data.players;state.byId=new Map(data.players.map(function (p) {return [p.id,p];}));
       state.throughWeek=data.throughWeek;
-      $('data-stamp').textContent=year+' Season · Through Week '+data.throughWeek+' · Updated '+data.updated;
+      // The bundled backup can lag the weekly R2 refresh; never present it as current.
+      $('data-stamp').textContent=year+' Season · Through Week '+data.throughWeek+' · Updated '+data.updated+
+        (data._researchSource==='backup'?' · Backup copy'+(navigator.onLine===false?' (offline)':'')+' — may not include the latest week':'');
       populateWeeks();sortOptions();renderTable();renderCompare();renderRoute();
       $('research-year-range').textContent=state.years[0]+'–'+state.latest;
     }).catch(function (error) {

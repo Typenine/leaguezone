@@ -11,8 +11,14 @@ on:
       - 'scripts/publish-public-research-r2.py'
       - 'scripts/validate-research-usage.py'
       - 'scripts/validate-research-redzone.py'
+      - 'scripts/validate-nflverse-research.py'
+      - 'scripts/build-forward-research-receipts.cjs'
+      - 'public/research/opportunities.js'
+      - 'tests/research_r2/**'
   schedule:
-    - cron: '0 12 * 1,9-12 4'
+    # Thursday refresh after the completed Sunday/Monday week, plus a Friday
+    # retry for provider delays. An unchanged rebuild is a no-op publication.
+    - cron: '0 12 * 1,9-12 4,5'
 
 permissions:
   contents: read
@@ -43,8 +49,12 @@ jobs:
         run: |
           season="$(python -c 'from datetime import datetime,timezone; now=datetime.now(timezone.utc); print(now.year if now.month >= 9 else now.year - 1)')"
           python scripts/build-nflverse-research.py --seasons "$season"
-          python scripts/build-research-usage.py --seasons "$season"
-          python scripts/build-research-redzone.py --seasons "$season"
+          if [ -f "public/research/data/$season.json" ]; then
+            python scripts/build-research-usage.py --seasons "$season"
+            python scripts/build-research-redzone.py --seasons "$season"
+          else
+            echo "No completed week for $season yet; publishing existing archived seasons only."
+          fi
           python scripts/validate-nflverse-research.py
           python scripts/validate-research-usage.py
           python scripts/validate-research-redzone.py
