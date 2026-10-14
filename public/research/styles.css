@@ -221,7 +221,7 @@ td.unqualified{color:var(--muted);font-style:italic}
 .bar-chart rect{fill:var(--teal)}
 .bar-chart.fp rect{fill:var(--gold)}
 .bar-chart .axis{fill:var(--muted);font-size:11px}
-.bar-chart .gap-mark{fill:var(--muted);font-size:14px}
+.bar-chart .gap-mark,.trend-chart .gap-mark{fill:var(--muted);font-size:14px}
 .chart-data{margin-top:10px}
 .chart-data summary{cursor:pointer;min-height:40px;display:flex;align-items:center}
 .career-compare{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
