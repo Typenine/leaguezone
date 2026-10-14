@@ -126,6 +126,7 @@ export default function UnifiedNavbar() {
     { href: '/', label: 'Home' },
     { href: '/research', label: 'Research' },
     { href: '/weekly', label: 'NFL Weekly' },
+    { href: '/availability', label: 'Availability' },
     { href: '/features', label: 'League Websites' },
     { href: '/demo', label: 'Demo' },
     ...(user ? [{ href: '/app', label: 'My Hub' }] : []),

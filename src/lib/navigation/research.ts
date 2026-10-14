@@ -3,6 +3,7 @@
 export const RESEARCH_DESTINATIONS=[
  {href:'/research',label:'Overview',key:'overview'},
  {href:'/weekly',label:'Weekly Center',key:'weekly'},
+ {href:'/availability',label:'Availability',key:'availability'},
  {href:'/research/players',label:'Players',key:'players'},
  {href:'/research/stats',label:'Stat Leaders',key:'stats'},
  {href:'/research/radar',label:'Radar',key:'radar'},
@@ -16,6 +17,7 @@ export const RESEARCH_DESTINATIONS=[
 export function researchSectionKey(pathname:string):string|null{
  if(pathname==='/research')return 'overview';
  if(pathname==='/weekly'||pathname.startsWith('/weekly/'))return 'weekly';
+ if(pathname==='/availability'||pathname.startsWith('/availability/'))return 'availability';
  if(pathname==='/my-research'||pathname==='/app')return 'mine';
  if(pathname==='/saved')return 'saved';
  if(pathname==='/search')return 'search';
