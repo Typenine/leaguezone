@@ -722,6 +722,26 @@
       '<button type="button" class="btn outline" data-jump="profile-career">Compare another season</button>'+
       toolLink('/research/players?season='+state.year,'Choose another player')+'</div></section>';
   }
+  function fantasySummary(p) {
+    var opportunity=window.LZOpportunities;
+    var decisions=window.LZDecisions;
+    var signal=opportunity&&opportunity.signal?opportunity.signal(p,state.throughWeek,state.score):null;
+    var insight=signal&&decisions&&decisions.classify?decisions.classify(signal):null;
+    var heading=insight?insight.heading:'No verified major role change';
+    var why=insight?insight.why:'Recent games do not meet the four-game workload change threshold. This is not a guarantee the player will remain stable.';
+    var evidence=signal&&insight?'Opportunity/game '+fmt(signal.baseline)+' to '+fmt(signal.recent)+
+      '; fantasy points/game '+fmt(signal.scoringBefore)+' to '+fmt(signal.scoringRecent)+
+      '. Measured through Week '+signal.week+'.':'More evidence may be needed. Research through Week '+state.throughWeek+'.';
+    var next=insight?insight.next:'Review weekly production, injuries, opponent and league context before making a roster decision.';
+    return '<section class="profile-section" id="profile-fantasy-outlook"><h2>Fantasy summary</h2>'+
+      '<p class="subdued"><strong>'+escape(heading)+'</strong></p>'+
+      '<p>'+escape(why)+'</p><p class="subdued">'+escape(evidence)+'</p>'+
+      '<p class="subdued"><strong>What to consider:</strong> '+escape(next)+'</p>'+
+      '<p><a href="/player-leagues/'+encodeURIComponent(p.id)+'">Check my leagues</a> · '+
+      '<a href="/availability?player='+encodeURIComponent(p.n)+'">Availability &amp; teammates</a> · '+
+      '<a href="/research/decisions">All fantasy insights</a></p>'+
+      '<p class="subdued">Based on published game observations, not verified lineup eligibility or future predictions.</p></section>';
+  }
   function renderProfile(p) {
     var container=$('profile');
     if (!p) {container.hidden=true; return;}
@@ -750,7 +770,7 @@
       '<div class="section-head"><div><div class="eyebrow">'+escape(shortPos(p.pos))+' \u00b7 '+escape(p.team)+
       escape(rookie)+'</div><h2>'+escape(p.n)+'</h2></div>'+
       '<div class="profile-actions"><button type="button" class="btn outline" data-add-profile="'+escape(p.id)+'" data-year="'+state.year+'">Compare this season</button>'+
-      '<a class="btn outline" href="/availability?player='+encodeURIComponent(p.n)+'&team='+encodeURIComponent(p.team)+'">Availability &amp; teammates</a></div></div>'+profileFacts(p)+profileNav()+
+      '<a class="btn outline" href="/availability?player='+encodeURIComponent(p.n)+'&team='+encodeURIComponent(p.team)+'">Availability &amp; teammates</a></div></div>'+profileFacts(p)+profileNav()+fantasySummary(p)+
       (complete?'':'<p class="season-note" id="season-note">'+state.year+' season in progress: data through Week '+state.throughWeek+
         '. Totals are partial; use per-game and recent averages when comparing with completed seasons.</p>')+
       overviewSection(p)+'<div id="profile-production" class="profile-group"><section class="profile-section" id="profile-summary"><h2>Fantasy production</h2>'+

@@ -6,6 +6,8 @@ import type { FantasyRostersData } from '@/lib/providers/types';
 import opportunityEngine from '../../../../../public/research/opportunities.js';
 import decisionEngine from '../../../../../public/research/insights.js';
 import {decisionCandidates,rosterNeeds} from '@/lib/fantasy/personalized-decisions';
+import ActionableDecisions from '@/components/fantasy/ActionableDecisions';
+import LineupComparison from '@/components/fantasy/LineupComparison';
 import type {LineupOptimizerResponse} from '@/lib/fantasy/lineup-types';
 
 type Signal = {
@@ -307,51 +309,17 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
                 {label}{key==='waiver'?' · '+personal.waiver.length:key==='trade'?' · '+personal.trade.length:key==='risk'?' · '+personal.risk.length:''}
               </button>)}
             </div>
-            {focus==='overview'&&<div className="mt-5 space-y-5">
-              <div><h3 className="text-lg font-black">Where your roster may need attention</h3>
-                <p className="mt-1 text-xs text-[var(--muted)]">Counts compared with the league median and fixed starter requirements. Flex slots, player talent, health and lineup eligibility require separate review.</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {needs.map(need=><div key={need.pos} className="rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] p-3">
-                    <p className="text-sm font-bold">{need.pos} <span className={need.level==='urgent'?'text-amber-400':need.level==='thin'?'text-sky-400':'text-[var(--muted)]'}>
-                      · {need.level==='urgent'?'Starter shortage':need.level==='thin'?'Below median':'Depth comparable'}</span></p>
-                    <p className="mt-2 text-lg font-black">{need.mine} <span className="text-xs font-medium text-[var(--muted)]">rostered · median {need.median}</span></p>
-                    <p className="mt-2 text-xs text-[var(--muted)]">{need.explanation}</p>
-                  </div>)}
-                </div>
+            {(['overview','waiver','trade'] as const).includes(focus as 'overview'|'waiver'|'trade')&&
+              <ActionableDecisions rosters={rosters} season={season.year} slug={slug||''} teamId={Number(teamId)}
+                needs={needs} personal={personal} focus={focus} onFocus={setFocus}/>}
+            {focus==='risk'&&<div className="mt-5">
+              <h3 className="text-lg font-black">Your players with shrinking roles</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">A falling workload is a reason to investigate, not an automatic drop recommendation.</p>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {personal.risk.slice(0,18).map(item=><GuidedCard key={item.signal.id} item={item} season={season.year} slug={slug||''} kind="risk"/>)}
               </div>
-              <div className="grid gap-3 md:grid-cols-3">
-                {([
-                  ['waiver','Waiver watch',personal.waiver.length,'Verified unrostered players with growing roles.'],
-                  ['trade','Trade research',personal.trade.length,'Players on other rosters worth investigating.'],
-                  ['risk','Roster alerts',personal.risk.length,'Your players with declining opportunity.'],
-                ] as const).map(([key,label,count,detail])=><button type="button" key={key} onClick={()=>setFocus(key)}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] p-4 text-left transition hover:border-[var(--accent)]">
-                  <span className="text-2xl font-black">{count}</span><strong className="mt-2 block text-sm">{label}</strong>
-                  <span className="mt-1 block text-xs text-[var(--muted)]">{detail}</span>
-                  <span className="mt-3 block text-xs font-bold text-accent">Review findings →</span>
-                </button>)}
-              </div>
-              <p className="text-xs text-[var(--muted)]">Priority is based on roster-count shortfalls and measured four-game workload shifts. There is no inferred trading interest, projected breakout probability or automatic waiver claim.</p>
+              {!personal.risk.length&&<p className="mt-4 rounded-lg border border-[var(--border)] p-4 text-sm text-[var(--muted)]">No measured declining-role signals currently match your roster.</p>}
             </div>}
-            {(focus==='waiver'||focus==='trade'||focus==='risk')&&
-              <div className="mt-5">
-                <h3 className="text-lg font-black">{focus==='waiver'?'Unrostered players to investigate':focus==='trade'?'Players on other teams to investigate':'Your players with shrinking roles'}</h3>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  {focus==='waiver'?'Verified against current Sleeper roster ownership, not waiver clearance or eligibility.':
-                   focus==='trade'?'Ranked by your positional depth and observed usage, not by trade value or availability.':
-                   'A falling workload is a warning to investigate, not an automatic drop recommendation.'}
-                </p>
-                {focus==='waiver'&&rosters.provider!=='sleeper'&&
-                  <p className="mt-4 rounded-lg border border-[var(--border)] p-4 text-sm text-[var(--muted)]">This provider does not expose a reliable complete unrostered player catalog here, so LeagueZone will not invent waiver candidates.</p>}
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {(focus==='waiver'?personal.waiver:focus==='trade'?personal.trade:personal.risk).slice(0,12).map(item=>
-                    <GuidedCard key={item.signal.id} item={item} season={season.year} slug={slug||''} kind={focus}/>)}
-                </div>
-                {(focus==='waiver'?personal.waiver:focus==='trade'?personal.trade:personal.risk).length===0&&
-                  <p className="mt-4 rounded-lg border border-[var(--border)] p-5 text-sm text-[var(--muted)]">No verified candidates match these conditions right now. This does not mean your roster has no improvement opportunities.</p>}
-                {(focus==='waiver'?personal.waiver:focus==='trade'?personal.trade:personal.risk).length>12&&
-                  <button type="button" onClick={()=>setView('finder')} className="mt-3 text-sm font-bold text-accent underline">Open the full opportunity finder</button>}
-              </div>}
             {focus==='lineup'&&<div className="mt-5">
               <h3 className="text-lg font-black">Your weekly lineup decisions</h3>
               {!isMyTeam?<p className="mt-3 rounded-lg border border-[var(--border)] p-4 text-sm text-[var(--muted)]">
@@ -375,6 +343,7 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
                         <Link href="/availability" className="mt-2 inline-block text-xs font-bold text-accent underline">Check availability</Link>
                       </article>)}
                     </div>
+                    <LineupComparison players={lineup.projectedPlayers} starterSlots={rosters.starterSlots||[]}/>
                     {!lineup.optimalLineup.some(entry=>entry.changed&&entry.player)&&<p className="mt-3 text-sm text-[var(--muted)]">The model does not identify a different projected starting lineup this week.</p>}
                   </>}
                 </div>}

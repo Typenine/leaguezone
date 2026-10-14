@@ -16,6 +16,13 @@ type SleeperLeagueInfo = {
   rosters: Array<{ rosterId: number; ownerName: string; teamName: string }>;
 };
 
+type SleeperLookupLeague={leagueId:string;name:string;season:number;lrosters:number|null};
+const validLeagueId=(value:string):string|null=>{
+ const trimmed=value.trim();if(/^\d{7,25}$/.test(trimmed))return trimmed;
+ try{const url=new URL(trimmed);if(!['sleeper.app','sleeper.com','www.sleeper.com','www.sleeper.app'].includes(url.hostname.toLowerCase()))return null;
+  return url.pathname.match(/^\/leagues?\/(\d{7,25})(?:\/|$)/i)?.[1]||null;}catch{return null;}
+};
+
 type HistoricalLeague = {
   year: string;
   leagueId: string;
@@ -31,6 +38,9 @@ export default function SetupSleeperPage() {
   const [error, setError] = useState<string | null>(null);
   
   const [currentLeagueId, setCurrentLeagueId] = useState('');
+  const [sleeperUsername,setSleeperUsername]=useState('');
+  const [discovered,setDiscovered]=useState<SleeperLookupLeague[]>([]);
+  const [searchingUser,setSearchingUser]=useState(false);
   const [currentLeagueInfo, setCurrentLeagueInfo] = useState<SleeperLeagueInfo | null>(null);
   const [historicalLeagues, setHistoricalLeagues] = useState<HistoricalLeague[]>([]);
   const [showHistorical, setShowHistorical] = useState(false);
@@ -112,16 +122,14 @@ export default function SetupSleeperPage() {
     return discovered;
   };
 
-  const handleValidateCurrent = async () => {
-    if (!currentLeagueId.trim()) {
-      setError('Please enter a Sleeper League ID');
-      return;
-    }
-
+  const handleValidateCurrent = async (explicitId?:string) => {
+    const trimmedId=validLeagueId(explicitId||currentLeagueId);
+    if(!trimmedId){setError('Enter a numeric Sleeper league ID or paste a Sleeper league URL.');return;}
+    setCurrentLeagueId(trimmedId);
+    setCurrentLeagueInfo(null);
+    setHistoricalLeagues([]);
     setValidating(true);
     setError(null);
-
-    const trimmedId = currentLeagueId.trim();
     const info = await fetchLeagueInfo(trimmedId);
 
     if (info) {
@@ -137,6 +145,17 @@ export default function SetupSleeperPage() {
     }
 
     setValidating(false);
+  };
+
+  const findMyLeagues=async()=>{
+    setError(null);setDiscovered([]);setSearchingUser(true);
+    try{const res=await fetch('/api/setup/sleeper/discover?username='+encodeURIComponent(sleeperUsername.trim()),{cache:'no-store'});
+      const data=await res.json() as {error?:string;leagues?:SleeperLookupLeague[]};
+      if(!res.ok)throw Error(data.error||'Unable to search Sleeper');
+      setDiscovered(data.leagues||[]);
+      if(!data.leagues?.length)setError('No NFL leagues found for the current or previous season. You can still paste a league URL or ID.');
+    }catch(e){setError(e instanceof Error?e.message:'Sleeper lookup is unavailable');}
+    finally{setSearchingUser(false);}
   };
 
   const handleAddHistorical = () => {
@@ -264,9 +283,25 @@ export default function SetupSleeperPage() {
           )}
 
           <div className="space-y-6">
+            <section className="rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] p-4">
+              <h2 className="font-bold text-[var(--text)]">Find a league with your Sleeper username</h2>
+              <p className="mt-1 text-xs text-[var(--muted)]">No Sleeper password or OAuth required. Search your public NFL leagues and choose one to import.</p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Input value={sleeperUsername} onChange={e=>setSleeperUsername(e.target.value)} placeholder="Sleeper username" aria-label="Sleeper username" className="flex-1"/>
+                <Button type="button" variant="secondary" disabled={searchingUser||!sleeperUsername.trim()} onClick={()=>void findMyLeagues()}>{searchingUser?'Searching…':'Find My Leagues'}</Button>
+              </div>
+              {discovered.length>0&&<div className="mt-4 space-y-2">
+                {discovered.map(league=><button type="button" key={league.leagueId} disabled={validating} onClick={()=>void handleValidateCurrent(league.leagueId)}
+                   className="flex w-full items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-left text-sm hover:border-[var(--accent)]">
+                  <span className="font-bold text-[var(--text)]">{league.name} <span className="font-normal text-[var(--muted)]">· {league.season}</span></span>
+                  <span className="text-xs font-semibold text-accent">Select →</span>
+                </button>)}
+              </div>}
+            </section>
+
             {/* Current League */}
             <div>
-              <Label htmlFor="currentLeagueId">Current Season League ID *</Label>
+              <Label htmlFor="currentLeagueId">Sleeper league URL or ID</Label>
               <div className="flex gap-2">
                 <Input
                   id="currentLeagueId"
@@ -282,14 +317,14 @@ export default function SetupSleeperPage() {
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={handleValidateCurrent}
+                  onClick={()=>void handleValidateCurrent()}
                   disabled={validating || !currentLeagueId.trim()}
                 >
                   {validating ? 'Loading history…' : 'Validate'}
                 </Button>
               </div>
               <p className="text-xs text-[var(--muted)] mt-1">
-                Find this in your Sleeper app under League Settings → General
+                Paste a Sleeper league link or enter its numeric ID. You can still import older seasons automatically.
               </p>
             </div>
 

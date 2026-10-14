@@ -84,6 +84,11 @@ export default function MyLeaguesGrid({ leagues }: { leagues: UserLeague[] }) {
           </div>
         </div>
 
+        <div className="league-card border border-[var(--brand-gold)]/30 p-6">
+          <h3 className="text-base font-black uppercase tracking-wide text-[var(--text)]">Connect a Sleeper League</h3>
+          <p className="mt-2 text-sm text-[var(--muted)]">Import your Sleeper teams and past seasons. Find your league using your Sleeper username or paste a league link. You can configure branding later.</p>
+          <Link href="/setup/league?new=1" className="mt-4 inline-flex bg-[var(--brand-gold)] px-5 py-2.5 text-xs font-black uppercase text-[var(--brand-ink)]">Connect Sleeper</Link>
+        </div>
         {/* Create a League Card */}
         <div className="league-card p-7">
           <div className="flex items-start gap-5">
