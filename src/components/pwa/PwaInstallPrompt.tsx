@@ -85,6 +85,14 @@ export default function PwaInstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleInstalled);
+    const offeredBeforeMount = (window as InstallWindow).__leaguezoneDeferredInstall;
+    if (offeredBeforeMount) {
+      setInstallPrompt(offeredBeforeMount);
+      if (showBanner) {
+        setMode('native');
+        setVisible(true);
+      }
+    }
 
     if (isIos && showBanner) {
       iosTimer = window.setTimeout(() => {

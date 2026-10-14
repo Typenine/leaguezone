@@ -7,6 +7,7 @@
   else root.LZOpportunities = api;
 })(typeof self !== 'undefined' ? self : this, function () {
   var POSITIONS = ['QB', 'RB', 'WR', 'TE'];
+  var MODEL_VERSION = 'radar-v1';
   var round = function (n) { return Math.round(n * 10) / 10; };
   var mean = function (rows, fn) { return rows.reduce(function (sum, row) { return sum + fn(row); }, 0) / rows.length; };
   function gameVolume(player, row) {
@@ -80,7 +81,8 @@
     var afterAir=player.pos==='WR'||player.pos==='TE'?metricWindow(player,recent,'air'):null;
     var beforeRz=metricWindow(player,prior,'redzone'),afterRz=metricWindow(player,recent,'redzone');
     var differentTeams=games.slice(-4).some(function (row) { return row[1]!==games[games.length-1][1]; });
-    return {id:player.id,name:player.n,team:player.team,pos:player.pos,week:asOf,
+    // The team as of the signal week; player.team reflects later trades.
+    return {id:player.id,name:player.n,team:games[games.length-1][1]||player.team,pos:player.pos,week:asOf,
       baselineWeeks:prior.map(function (r) { return r[0]; }),recentWeeks:recent.map(function (r) { return r[0]; }),
       baseline:round(before),recent:round(after),change:round(diff),direction:direction,metric:metric(player),
       scoringBefore:round(fpBefore),scoringRecent:round(fpAfter),scoringChange:round(fpDiff),scoringDirection:scoringDirection,
@@ -143,14 +145,26 @@
     radar(data,format).forEach(function (s) {
       var key=data.year+':'+s.week+':'+s.id+':'+format;
       if (seen.has(key)) return;
-      ledger.push({key:key,year:data.year,format:format,recordedAt:recordedAt,signal:s});seen.add(key);
+      ledger.push({key:key,year:data.year,format:format,recordedAt:recordedAt,modelVersion:MODEL_VERSION,signal:s});seen.add(key);
     });
     return ledger;
   }
   function resolveRecorded(ledger, data) {
-    return (ledger||[]).filter(function (r) {return r.year===data.year;}).map(function (entry) {
+    // The earliest record for a key is authoritative; a repeated or later copy
+    // can never replace the original observation.
+    var seen=new Set();
+    var unique=(ledger||[]).filter(function (r) {return r && r.signal && r.year===data.year;}).slice()
+      .sort(function (a,b) {return String(a.recordedAt||'').localeCompare(String(b.recordedAt||''));})
+      .filter(function (r) {
+        var key=r.key||[r.year,r.signal.week,r.signal.id,r.format].join(':');
+        if (seen.has(key)) return false;
+        seen.add(key);return true;
+      });
+    return unique.map(function (entry) {
       var p=(data.players||[]).find(function (candidate) {return candidate.id===entry.signal.id;});
-      var s=entry.signal, follow=p?weeks(p,data.throughWeek).filter(function (w) {
+      // Grading rules are versioned; an unknown model is never graded by this one.
+      var gradable=entry.modelVersion===MODEL_VERSION;
+      var s=entry.signal, follow=p&&gradable?weeks(p,data.throughWeek).filter(function (w) {
         return w[0]>s.week && w[0]<=s.week+3;
       }).slice(0,2):[];
       var values=p?follow.map(function (w) {return volume(p,w);}):[];
@@ -158,7 +172,7 @@
       var future=resolved?mean(values,function (v) {return v;}):null;
       var difference=resolved?future-s.baseline:null;
       var confirmed=resolved?(s.direction==='rising' ? difference>=threshold(s.baseline) : difference<=-threshold(s.baseline)):null;
-      return {signal:s,recordedAt:entry.recordedAt,status:resolved?(confirmed?'confirmed':'not confirmed'):'unresolved',
+      return {signal:s,recordedAt:entry.recordedAt,modelVersion:entry.modelVersion||null,status:resolved?(confirmed?'confirmed':'not confirmed'):'unresolved',
         nextWeeks:follow.map(function (w) {return w[0];}),future:future==null?null:round(future),
         difference:difference==null?null:round(difference)};
     }).sort(function (a,b) {return b.signal.week-a.signal.week || a.signal.name.localeCompare(b.signal.name);});
@@ -238,6 +252,6 @@
         match:id?(catalog&&catalog.some(function (x) {return x.id===id;})?'catalog':'roster'):'unmatched'};
     });
   }
-  return {signal:signal,radar:radar,receipts:receipts,summary:summary,recordSignals:recordSignals,resolveRecorded:resolveRecorded,
+  return {modelVersion:MODEL_VERSION,signal:signal,radar:radar,receipts:receipts,summary:summary,recordSignals:recordSignals,resolveRecorded:resolveRecorded,
     development:development,comparisons:comparisons,ownership:ownership};
 });

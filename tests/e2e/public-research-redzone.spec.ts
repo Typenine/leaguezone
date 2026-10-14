@@ -1,6 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
+// The site worker answers /research/data requests; page.route cannot see
+// worker-handled fetches, so failure-injection tests must bypass it.
+test.use({ serviceWorkers: 'block' });
+
 type P = { id: string; n: string; pos: string; g: number; w: unknown[][] };
 type Z = { throughWeek: number; fields: { player: string[]; team: string[] }; teams: Record<string, number[][]>; players: Record<string, (number | string)[][]> };
 const season = (y: number) => JSON.parse(readFileSync(`public/research/data/${y}.json`, 'utf8')) as { throughWeek: number; players: P[] };

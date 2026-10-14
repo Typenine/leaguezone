@@ -71,6 +71,10 @@ def build_catalog(data_dir: Path, old_catalog: dict | None = None, observation: 
     years = sorted(set(local_years) | set(old_years))
     uploads = []
     files = dict(prior.get("files", {}))
+    # A rebuild on a later day restamps "updated" even when no statistic
+    # changed. The archived base pointer is kept in that case, so advanced
+    # datasets must be aligned to the archived version, not the new stamp.
+    effective_updated = {}
     for year in local_years:
         d = json.loads((data_dir / f"{year}.json").read_text())
         if d.get("year") != year or d.get("schema") != 3 or len(d.get("players", [])) < 100:
@@ -88,7 +92,9 @@ def build_catalog(data_dir: Path, old_catalog: dict | None = None, observation: 
         if (prior_file.get("sha256") == hexdigest and
                 prior_file.get("key") == key):
             files[str(year)] = prior_file
+            effective_updated[year] = prior_file.get("updated", d["updated"])
             continue
+        effective_updated[year] = d["updated"]
         raw = (json.dumps(d, separators=(",", ":"), ensure_ascii=False)
                + "\n").encode("utf-8")
         uploads.append((key, raw))
@@ -129,6 +135,7 @@ def build_catalog(data_dir: Path, old_catalog: dict | None = None, observation: 
                     snapshot.get("throughWeek") != base["throughWeek"] or
                     snapshot.get("baseUpdated") != base["updated"]):
                 raise ValueError(f"{kind} {year} does not match base season/version")
+            snapshot["baseUpdated"] = effective_updated.get(year, base["updated"])
             checksum = digest(snapshot)
             key = f"{PREFIX}/objects/{year}-{checksum}.json"
             previous_info = previous.get("files", {}).get(str(year), {})
@@ -330,6 +337,9 @@ def verify_r2_objects(client, bucket: str, catalog: dict):
 
 
 def publish(client, bucket: str, base: str, catalog: dict, uploads: list, old: dict | None):
+    if catalog == old and not uploads:
+        print("R2 research data unchanged; no R2 reads or writes and no Vercel build.")
+        return False
     # Immutable object first; catalog pointer is published only after all
     # files are uploaded and HEAD-verified. Failures preserve prior catalog.
     for key, raw in uploads:

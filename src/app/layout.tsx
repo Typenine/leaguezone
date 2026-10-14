@@ -85,6 +85,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: `(() => { try { const saved = localStorage.getItem('theme'); const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; const theme = saved || (prefersDark ? 'dark' : 'light'); const el = document.documentElement; el.setAttribute('data-theme', theme); el.style.setProperty('color-scheme', theme); } catch (e) {} })();` }} />
+        {/* Chrome can offer installation before React hydrates; keep that offer for the install UI. */}
+        <script dangerouslySetInnerHTML={{ __html: `window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__leaguezoneDeferredInstall = e; });` }} />
         <script dangerouslySetInnerHTML={{ __html: `window.__LEAGUE_CONFIG__ = ${leagueConfigJson};` }} />
         <script dangerouslySetInnerHTML={{ __html: `window.__LEAGUE_BRANDING__ = ${leagueBrandingJson};` }} />
       </head>

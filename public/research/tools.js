@@ -20,9 +20,10 @@
       ledgerStatus='No system-wide forward observations have been published for this season.';
       return Promise.resolve();
     }
+    var failed=0;
     var loading=Promise.all(entries.map(function (info) {
-      if (!/^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key) ||
-          typeof info.week!=='number') return Promise.reject(Error('Invalid forward receipt index'));
+      if (!info || !/^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key) ||
+          typeof info.week!=='number') {failed++;return Promise.resolve([]);}
       return fetch(ctx.remoteBase+'/'+info.key,{cache:'default'}).then(function (response) {
         if (!response.ok) throw Error('Forward receipt unavailable');
         return response.json();
@@ -34,16 +35,19 @@
             !Array.isArray(observation.signals)) throw Error('Forward receipt metadata mismatch');
         return observation.signals.map(function (signal) {
           return {key:ctx.year+':'+info.week+':'+signal.id+':half',
-            year:ctx.year,format:'half',recordedAt:observation.recordedAt,signal:signal};
+            year:ctx.year,format:'half',recordedAt:observation.recordedAt,
+            modelVersion:observation.modelVersion,signal:signal};
         });
-      });
+      }).catch(function () {failed++;return [];});
     })).then(function (batches) {
+      // One unavailable weekly object must not hide every other dated record.
       forwardByYear.set(ctx.year,batches.flat());
-      forwardStatusByYear.set(ctx.year,forwardByYear.get(ctx.year).length ? '' :
+      if (failed) remoteLoads.delete(ctx.year);
+      forwardStatusByYear.set(ctx.year,failed>0 && failed===entries.length ?
+        'Shared forward receipts could not be loaded. Historical replay remains available.' :
+        failed ? failed+' of '+entries.length+' weekly forward records could not be loaded; showing the rest.' :
+        forwardByYear.get(ctx.year).length ? '' :
         'No qualifying forward observations have been published for this season.');
-    }).catch(function () {
-      forwardByYear.set(ctx.year,[]);
-      forwardStatusByYear.set(ctx.year,'Shared forward receipts could not be loaded. Historical replay remains available.');
     }).then(function () {
       if (context && ctx.year===context.year) {
         ledger=forwardByYear.get(ctx.year)||[];
@@ -113,7 +117,7 @@
   function receiptRow(r,year) {
     var s=r.signal;
     return '<article class="receipt-row"><div><a href="'+profile(s,year)+'">'+esc(s.name)+'</a> '+
-      '<span class="subdued">'+esc(s.pos)+' · Week '+s.week+(r.recordedAt?' · Saved '+esc(r.recordedAt.slice(0,10)):'')+'</span><br><small>Volume '+s.direction+' · '+
+      '<span class="subdued">'+esc(s.pos)+' · Week '+s.week+(r.recordedAt?' · Recorded '+esc(r.recordedAt.slice(0,10)):'')+(r.modelVersion?' · '+esc(r.modelVersion):'')+'</span><br><small>Volume '+s.direction+' · '+
       s.baseline+' to '+s.recent+' '+esc(s.metric)+'/game</small></div><div class="receipt-outcome"><span class="role-label '+
       (r.status==='confirmed'?'rising':r.status==='unresolved'?'steady':'falling')+'">'+esc(r.status)+'</span>'+
       '<small>'+(r.future==null?'Fewer than two later games':'Next games: '+r.future.toFixed(1)+' ('+signed(r.difference)+' vs. baseline)')+
@@ -133,7 +137,7 @@
       '<div class="receipt-summary"><div><strong>'+forwardStats.total+'</strong><span>saved signals</span></div><div><strong>'+forwardStats.resolved+
       '</strong><span>resolved</span></div><div><strong>'+(forwardStats.rate==null?'—':forwardStats.rate+'%')+'</strong><span>confirmed among resolved</span></div></div>'+
       '<div class="receipt-list">'+(forward.length?forward.slice(0,20).map(function (r) {return receiptRow(r,ctx.year);}).join(''):
-        '<p class="empty">No signals saved on this device for '+ctx.year+'.</p>')+'</div></section>'+
+        '<p class="empty">No published forward signals for '+ctx.year+'.</p>')+'</div></section>'+
       '<p class="subdued">Forward records use half-PPR fantasy scoring. The scoring selector affects historical replay only.</p>'+
       '<h2>Historical replay</h2><p class="tool-explainer">For each week, the signal uses only stats available through that week. '+
       'A receipt is confirmed when the next two recorded games within three calendar weeks remain at least 1.5 and 15% '+

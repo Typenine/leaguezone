@@ -124,6 +124,50 @@ class ResearchPublisherTests(unittest.TestCase):
         self.assertEqual(new,old)
         self.assertEqual(uploads,[])
 
+    def test_restamped_rebuild_on_a_later_day_is_a_true_noop(self):
+        old,_=publisher.build_catalog(self.data)
+        with tempfile.TemporaryDirectory() as temp:
+            from shutil import copytree
+            root=Path(temp)/"data"
+            copytree(self.data,root)
+            for rel in ("2026.json","usage/2026.json","redzone/2026.json"):
+                path=root/rel
+                d=json.loads(path.read_text())
+                d["updated"]="2027-01-14"
+                if "baseUpdated" in d:
+                    d["baseUpdated"]="2027-01-14"
+                path.write_text(json.dumps(d))
+            new,uploads=publisher.build_catalog(root,old)
+            self.assertEqual(uploads,[])
+            self.assertEqual(new,old)
+            fake=FakeR2()
+            self.assertFalse(publisher.publish(fake,"research-public","https://data.example.com",
+                                               new,uploads,old))
+            self.assertEqual(fake.ops,[])
+
+    def test_changed_base_keeps_advanced_data_aligned_to_new_version(self):
+        old,_=publisher.build_catalog(self.data)
+        with tempfile.TemporaryDirectory() as temp:
+            from shutil import copytree
+            root=Path(temp)/"data"
+            copytree(self.data,root)
+            base=json.loads((root/"2026.json").read_text())
+            base["players"][0]["n"]=base["players"][0]["n"]+" Jr."
+            base["updated"]="2027-01-14"
+            (root/"2026.json").write_text(json.dumps(base))
+            for kind in ("usage","redzone"):
+                path=root/kind/"2026.json"
+                d=json.loads(path.read_text())
+                d["baseUpdated"]="2027-01-14"
+                path.write_text(json.dumps(d))
+            new,uploads=publisher.build_catalog(root,old)
+            self.assertEqual(new["files"]["2026"]["updated"],"2027-01-14")
+            for kind in ("usage","redzone"):
+                self.assertEqual(new["datasets"][kind]["files"]["2026"]["baseUpdated"],"2027-01-14")
+            self.assertEqual(len(uploads),3)
+            for _,raw in uploads[1:]:
+                self.assertEqual(json.loads(raw)["baseUpdated"],"2027-01-14")
+
     def test_refresh_timestamp_does_not_trigger_upload(self):
         d=json.loads((self.data/"2026.json").read_text())
         newer=dict(d,updated="2040-01-01")

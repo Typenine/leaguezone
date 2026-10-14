@@ -61,6 +61,13 @@ def has_activity(row: dict) -> bool:
 
 def completed_weeks(schedule_rows: list[dict], season: int) -> int:
     """Only publish fully completed regular-season weeks; not Thursday partials."""
+    last = completed_week_count(schedule_rows, season)
+    if last == 0:
+        raise ValueError(f"No completed regular-season week in schedule for {season}")
+    return last
+
+
+def completed_week_count(schedule_rows: list[dict], season: int) -> int:
     games: dict[int, list[dict]] = defaultdict(list)
     for row in schedule_rows:
         if int(row.get("season") or 0) != season:
@@ -80,8 +87,6 @@ def completed_weeks(schedule_rows: list[dict], season: int) -> int:
         ):
             break
         last = week
-    if last == 0:
-        raise ValueError(f"No completed regular-season week in schedule for {season}")
     return last
 
 
@@ -308,8 +313,13 @@ def main() -> None:
         stats = nfl.load_player_stats(season, summary_level="week").to_dicts()
         schedule = nfl.load_schedules(season).to_dicts()
         teams = nfl.load_team_stats(season, summary_level="week").to_dicts()
-        snapshot = build_season(season, stats, teams, schedule, stamp, player_meta)
         path = DEST / f"{season}.json"
+        if not path.exists() and completed_week_count(schedule, season) == 0:
+            # A new season before Week 1 finishes: nothing to publish yet, and
+            # no existing snapshot to protect. Later runs pick it up automatically.
+            print(f"Season {season} has no completed regular-season week yet; skipping", flush=True)
+            continue
+        snapshot = build_season(season, stats, teams, schedule, stamp, player_meta)
         old = json.loads(path.read_text()) if path.exists() else None
         guard_previous(old, snapshot)
         if old and {k:v for k,v in old.items() if k != "updated"} == {k:v for k,v in snapshot.items() if k != "updated"}:
