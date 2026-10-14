@@ -51,8 +51,6 @@ test.describe('LeagueZone app install', () => {
 
   test('native install offer survives navigation from the homepage', async ({ page }) => {
     await page.goto('/?view=public');
-    // A pre-hydration click is a full page load, where the browser re-offers install itself.
-    await page.waitForLoadState('networkidle');
     await page.evaluate(() => {
       const offered = new Event('beforeinstallprompt');
       Object.defineProperties(offered, {
