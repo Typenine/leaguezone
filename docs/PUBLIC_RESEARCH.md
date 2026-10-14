@@ -447,3 +447,47 @@ landing pages, while robots.txt continues excluding private league URLs.
 - No new public Neon reads, schema migrations, or runtime provider integrations
   were added to the public research pages. The authenticated Finder alone
   requests the league's existing normalized provider roster cache.
+
+## Player Hub (Phase 2)
+
+Player profiles (`/research/players/{id}?season=YYYY`) are the main research
+destination. Still static: no new datasets, no Neon reads, no R2 writes.
+
+- **Header**: position, every team the player had that season (week order),
+  the season, its status (current, in progress or historical), the week the
+  data runs through, and verified rookie status (`ryr`). Follow/Unfollow and
+  "Check player in my leagues" stay in the page header (`app-shell.js`).
+- **Section navigation**: Overview, Production, Opportunity, Career, Game log,
+  Compare. A sticky row of in-page links that scroll to the section (no URL
+  hash, so back/forward history is unchanged).
+- **Overview**: position headline numbers, position ranks, recent volume vs.
+  production (with sample sizes), the player's Opportunity Radar signal, any
+  published forward records, a previous-season comparison, and links to Radar,
+  Receipts and Development Lab (`?player=`).
+- **Weekly chart**: pick any per-game metric that applies to the position
+  (`LZPlayerHub.CHART_KEYS`). Weeks with no game show "–" and unrecorded
+  values show "?". They are never drawn as zero or interpolated. Fantasy
+  points for the same weeks are drawn underneath, and a weekly values table is
+  provided for accessibility.
+- **Position ranks** (`LZPlayerHub.positionalRank`): compared only with players
+  at the same position in the selected season and scoring format. A player
+  qualifies with at least half the published weeks played
+  (`minGames = ceil(throughWeek / 2)`) and the metric's own volume minimum
+  (`M.isQualified`). Players who don't qualify get a reason instead of a rank.
+  Ranks for an in-progress season are labelled partial.
+- **Career**: the label says LeagueZone seasons only, not a complete NFL
+  career. Seasons load only when the section comes into view, and only from
+  the verified rookie year onward. It shows every team, PPG change from the
+  previous season (consecutive seasons only), and the highest and lowest
+  qualifying PPG. You can compare any two seasons using the existing
+  comparison panel.
+- **Global search** (`src/lib/research-player-index.ts`): the season file
+  loads only after the first two-character query. It uses the latest
+  validated R2 season (same object key rules as the research app) and falls
+  back to the bundled backup, which is labelled as a backup.
+
+Cost: career cost now scales with the seasons a player actually has. Each
+season object is immutable and cached, so opening a second profile in the same
+season costs nothing extra. If the archive grows well beyond about 10 seasons,
+a per-season career summary built by the existing publisher would be the next
+step. It is not needed at the current size.

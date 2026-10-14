@@ -200,3 +200,33 @@ td.unqualified{color:var(--muted);font-style:italic}
 @media(max-width:1000px){.tool-discovery{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.tool-grid,.tool-discovery{grid-template-columns:1fr}.tool-discovery a{min-height:0}.tool-controls label{flex:1;min-width:120px}.tool-controls select{min-width:0}.receipt-row{align-items:start;flex-direction:column}.receipt-outcome{align-items:start;text-align:left}}
 
+/* Player Hub */
+.profile-facts{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:6px 0 10px;padding:0}
+.profile-facts li{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:.82rem;color:var(--muted);background:var(--panel2)}
+.profile-nav{position:sticky;top:0;z-index:5;display:flex;gap:4px;overflow-x:auto;margin:8px 0 14px;padding:6px 0;background:var(--bg);border-bottom:1px solid var(--line);scrollbar-width:thin}
+.profile-nav a{flex:0 0 auto;min-height:40px;display:inline-flex;align-items:center;padding:0 12px;border-radius:8px;color:var(--ink);text-decoration:none;font-weight:600;font-size:.9rem}
+.profile-nav a:hover,.profile-nav a:focus-visible{background:var(--panel2);color:var(--gold)}
+#profile .profile-section,#profile .profile-group{scroll-margin-top:64px}
+.hub-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+.hub-columns .panel,#overview-history{min-width:0}
+.hub-columns h3,#overview-history h3,.chart-sub{margin:0 0 8px;font-size:1rem}
+.rank-list{list-style:none;margin:0;padding:0}
+.rank-list li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.rank-list li span{color:var(--muted);min-width:0;overflow-wrap:anywhere}
+.tool-links{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.tool-links .btn{min-height:44px;display:inline-flex;align-items:center}
+.chart-pick{display:inline-flex;align-items:center;gap:8px;font-size:.9rem;color:var(--muted)}
+.chart-pick select{min-height:40px;max-width:100%}
+.bar-chart svg{width:100%;height:auto;display:block}
+.bar-chart rect{fill:var(--teal)}
+.bar-chart.fp rect{fill:var(--gold)}
+.bar-chart .axis{fill:var(--muted);font-size:11px}
+.bar-chart .gap-mark,.trend-chart .gap-mark{fill:var(--muted);font-size:14px}
+.chart-data{margin-top:10px}
+.chart-data summary{cursor:pointer;min-height:40px;display:flex;align-items:center}
+.career-compare{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.career-compare select{min-height:40px}
+@media (max-width:650px){.hub-columns{grid-template-columns:1fr}.profile-nav{top:0}}
+#weekly-chart .section-head{flex-wrap:wrap;gap:8px}
+.chart-pick{max-width:100%;min-width:0}
+.chart-pick select{min-width:0;max-width:100%}

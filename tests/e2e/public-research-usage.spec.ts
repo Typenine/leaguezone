@@ -140,6 +140,10 @@ test.describe('advanced usage', () => {
     const u24 = usage(2024), u25 = usage(2025);
     test.skip(!u24.players[p.id], 'needs a 2024 season');
     await page.goto(`/research/players/${p.id}?season=2025`);
+    await expect(async () => { // career seasons load lazily; the profile may re-render as usage arrives
+      await page.evaluate(() => document.getElementById('career-history')?.scrollIntoView());
+      await expect(page.locator('#career-history')).not.toContainText('load when you reach', { timeout: 1000 });
+    }).toPass();
     await expect(page.locator('#career-history')).toContainText('2024');
     await page.locator('[data-add-profile][data-year="2025"]').first().click();
     await page.locator('#career-history [data-add-profile][data-year="2024"]').click();

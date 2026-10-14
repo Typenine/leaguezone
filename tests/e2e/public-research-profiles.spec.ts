@@ -71,6 +71,10 @@ test.describe('research profiles and comparisons', () => {
     const p = d.players.filter(x => x.pos === 'WR').sort((a, b) => b.p - a.p)[0];
     await page.goto(`/research/players/${p.id}?season=${latest}`);
     await expect(page.locator('#season-note')).toContainText(`through Week ${d.throughWeek}`);
+    await expect(async () => { // career seasons load lazily; the profile may re-render as usage arrives
+      await page.evaluate(() => document.getElementById('career-history')?.scrollIntoView());
+      await expect(page.locator('#career-history')).not.toContainText('load when you reach', { timeout: 1000 });
+    }).toPass();
     await expect(page.locator('#career-history')).toContainText(`Through Week ${d.throughWeek}`);
   });
 
@@ -78,6 +82,10 @@ test.describe('research profiles and comparisons', () => {
     const a = season(2025).players.find(x => x.id === '00-0031381')!;
     const b = season(2024).players.find(x => x.id === '00-0031381')!;
     await page.goto('/research/players/00-0031381?season=2025');
+    await expect(async () => { // career seasons load lazily; the profile may re-render as usage arrives
+      await page.evaluate(() => document.getElementById('career-history')?.scrollIntoView());
+      await expect(page.locator('#career-history')).not.toContainText('load when you reach', { timeout: 1000 });
+    }).toPass();
     await expect(page.locator('#career-history')).toContainText('2024');
     await page.locator('[data-add-profile][data-year="2025"]').first().click();
     await page.locator('#career-history [data-add-profile][data-year="2024"]').click();
@@ -114,6 +122,10 @@ test.describe('research profiles and comparisons', () => {
     test.skip(!isMobile, 'Mobile-specific layout');
     await page.setViewportSize({ width: 360, height: 780 });
     await page.goto('/research/players/00-0031381?season=2025');
+    await expect(async () => { // career seasons load lazily; the profile may re-render as usage arrives
+      await page.evaluate(() => document.getElementById('career-history')?.scrollIntoView());
+      await expect(page.locator('#career-history')).not.toContainText('load when you reach', { timeout: 1000 });
+    }).toPass();
     await expect(page.locator('#career-history')).toContainText('2024');
     await page.locator('[data-add-profile][data-year="2025"]').first().click();
     await page.locator('#career-history [data-add-profile][data-year="2024"]').click();

@@ -4,13 +4,16 @@ import {Bookmark,BookmarkCheck} from 'lucide-react';
 import {normalizeSaved,type SavedItem} from '@/lib/saved-research';
 import {addSaved,loadSavedLibrary,removeSaved} from '@/lib/saved-research-client';
 import {useEffect,useMemo,useState} from 'react';
-type Player={id:string;n:string;pos:string;team:string};
+import {loadPlayerIndex,type IndexPlayer,type PlayerIndex} from '@/lib/research-player-index';
+type Player=IndexPlayer;
 type League={leagueId:string;leagueSlug:string;leagueName:string;teamName:string};
 export default function UniversalSearch(){
  const [query,setQuery]=useState('');
  const [players,setPlayers]=useState<Player[]>([]);
  const [leagues,setLeagues]=useState<League[]>([]);
- const [year,setYear]=useState<number|null>(null);
+ const [index,setIndex]=useState<Omit<PlayerIndex,'players'>|null>(null);
+ const [indexState,setIndexState]=useState<'idle'|'loading'|'ready'>('idle');
+ const year=index?.year??null;
  const [error,setError]=useState('');
  const [saved,setSaved]=useState<SavedItem[]>([]);
  const [savedMode,setSavedMode]=useState<'loading'|'account'|'guest'|'error'>('loading');
@@ -18,12 +21,6 @@ export default function UniversalSearch(){
  const [savedStatus,setSavedStatus]=useState('');
  useEffect(()=>{
   let alive=true;
-  fetch('/research/data/seasons.json').then(r=>r.json()).then((c:{years:number[]})=>{
-   const latest=Math.max(...c.years.filter(Number.isInteger));
-   if(!Number.isFinite(latest))throw Error('No seasons available');
-   return fetch('/research/data/'+latest+'.json').then(r=>{if(!r.ok)throw Error('Research unavailable');return r.json()});
-  }).then(d=>{if(alive&&Array.isArray(d.players)){setPlayers(d.players);setYear(d.year)}})
-   .catch(()=>{if(alive)setError('The public player index is unavailable.')});
   fetch('/api/auth/me',{credentials:'same-origin',cache:'no-store'}).then(r=>r.ok?r.json():null)
    .then(d=>{if(alive&&d?.authenticated&&Array.isArray(d.leagues))setLeagues(d.leagues)}).catch(()=>{});
   void loadSavedLibrary().then(library=>{if(alive){setSaved(library.items);setSavedMode(library.signedIn?'account':'guest')}})
@@ -31,6 +28,13 @@ export default function UniversalSearch(){
   return ()=>{alive=false};
  },[]);
  const q=query.trim().toLowerCase();
+ // The season player list is fetched once, on the first real search.
+ useEffect(()=>{
+  if(q.length<2||indexState!=='idle')return;
+  setIndexState('loading');
+  loadPlayerIndex().then(d=>{setPlayers(d.players);setIndex({year:d.year,throughWeek:d.throughWeek,source:d.source});setIndexState('ready')})
+   .catch(()=>{setError('The public player index is unavailable.');setIndexState('ready')});
+ },[q,indexState]);
  const results=useMemo(()=>q.length<2?[]:players.filter(p=>p.n.toLowerCase().includes(q)||p.team.toLowerCase()===q)
   .sort((a,b)=>Number(b.n.toLowerCase().startsWith(q))-Number(a.n.toLowerCase().startsWith(q))||a.n.localeCompare(b.n)).slice(0,30),[q,players]);
  const matching=useMemo(()=>q.length<2?[]:leagues.filter(l=>l.leagueName.toLowerCase().includes(q)||l.teamName.toLowerCase().includes(q)),[q,leagues]);
@@ -59,7 +63,10 @@ export default function UniversalSearch(){
   {error&&<p role="alert" className="mt-3 text-sm text-red-400">{error}</p>}
   {savedStatus&&<p role="status" className="mt-3 text-sm text-[var(--muted)]">{savedStatus}</p>}
   {savedMode==='error'&&<p role="alert" className="mt-3 text-sm text-red-400">Account watchlist unavailable. Saving is disabled until it can be loaded.</p>}
-  {year&&<p className="mt-3 text-xs text-[var(--muted)]">Player directory uses the {year} static research backup. Live research may be more recent.</p>}
+  {index&&<p className="mt-3 text-xs text-[var(--muted)]">{index.source==='live'?
+   `Player directory: ${index.year} season${index.throughWeek?` through Week ${index.throughWeek}`:''} from published LeagueZone research.`:
+   `Player directory uses the ${index.year} static research backup. Live research may be more recent.`}</p>}
+  {indexState==='loading'&&<p role="status" className="mt-3 text-xs text-[var(--muted)]">Loading player directory…</p>}
   {q.length<2?<p className="mt-7 text-sm text-[var(--muted)]">Enter at least two characters to begin.</p>:<>
    <h2 className="mt-7 text-xl font-bold">Players</h2>
    <div className="mt-3 grid gap-2 sm:grid-cols-2">{results.map(p=><div key={p.id} className="flex items-center gap-2"><Link
