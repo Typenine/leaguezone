@@ -154,7 +154,7 @@
   // Discard the in-memory library so the next render re-reads the account.
   window.addEventListener('pageshow',function(event){
     if(!event.persisted)return;
-    sessionEpoch++;pending=null;mode='unknown';recentScope='guest';lastRecent='';items=[];busy=false;setMessage('');update();
+    sessionEpoch++;pending=null;mode='unknown';items=[];recentScope='guest';lastRecent='';busy=false;setMessage('');update();
   });
 
   async function saveOrRemove(){
