@@ -953,16 +953,16 @@
   function renderRoute() {
     var path=location.pathname, match=path.match(/^\/research\/players\/([^/]+)\/?$/);
     var p=match?state.byId.get(decodeURIComponent(match[1])):null;
-    var tool=/^\/research\/(radar|receipts|development)\/?$/.exec(path);
+    var tool=/^\/research\/(radar|receipts|development|decisions)\/?$/.exec(path);
     $('overview').hidden=!!match || !!tool || path.includes('/stats') || path.endsWith('/players');
     $('directory').hidden=!!match || !!tool;
     if (match && !p) {
       $('profile').hidden=true;$('error').hidden=false;
       $('error').textContent='Player not found in this season. Choose another year or return to the directory.';
     } else { $('error').hidden=true;renderProfile(p); }
-    $('page-title').textContent=tool?({radar:'Opportunity Radar',receipts:'Prediction Receipts',development:'Development Lab'})[tool[1]]:
+    $('page-title').textContent=tool?({radar:'Opportunity Radar',decisions:'Fantasy Decision Center',receipts:'Prediction Receipts',development:'Development Lab'})[tool[1]]:
       match?(p?p.n:'Player not found'):path.includes('/stats')?'NFL fantasy stat leaders':path.endsWith('/players')?'Player research':'A clearer look at every player.';
-    $('page-desc').textContent=tool?({radar:'See which roles are changing, with fantasy points shown separately.',
+    $('page-desc').textContent=tool?({radar:'See which roles are changing, with fantasy points shown separately.',decisions:'Find players to watch, growing roles and warning signs with supporting evidence.',
       receipts:'Check whether past opportunity signals were followed by another change.',
       development:'Compare season by season production and players at the same career stage.'})[tool[1]]:
       match?'Recent form, efficiency, season comparisons and weekly game logs.':
@@ -993,9 +993,9 @@
   }
   function navigate(url,replace,scrollY) {
     var target=new URL(url,location.href);
-    if ((isListPath(location.pathname) || /^\/research\/(radar|receipts|development)\/?$/.test(location.pathname)) &&
+    if ((isListPath(location.pathname) || /^\/research\/(radar|receipts|development|decisions)\/?$/.test(location.pathname)) &&
         /^\/research\/players\/[^/]+\/?$/.test(target.pathname)) {
-      state.listPath=location.pathname+(/^\/research\/(radar|receipts|development)\/?$/.test(location.pathname)?location.search:'');
+      state.listPath=location.pathname+(/^\/research\/(radar|receipts|development|decisions)\/?$/.test(location.pathname)?location.search:'');
       state.listScroll=window.scrollY;
     }
     var year=Number(target.searchParams.get('season'))||state.latest;

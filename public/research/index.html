@@ -17,8 +17,10 @@
   <script defer src="/research/metrics.js"></script>
   <script defer src="/research/hub.js"></script>
   <script defer src="/research/opportunities.js"></script>
+  <script defer src="/research/insights.js"></script>
   <script defer src="/research/app.js"></script>
   <script defer src="/research/tools.js"></script>
+  <script defer src="/research/decisions-ui.js"></script>
   <script defer src="/research/pwa.js"></script>
   <script defer src="/research/app-shell.js"></script>
 </head>
@@ -28,6 +30,7 @@
       <a class="wordmark" href="/" aria-label="LeagueZone home"><span class="brand-icon">LZ</span><span>LeagueZone <small>RESEARCH</small></span></a>
       <nav aria-label="Site navigation" class="nav">
         <a href="/">Home</a>
+        <a href="/research/decisions">Fantasy Insights</a>
         <a href="/research" data-nav="research">Research</a>
         <a href="/weekly">NFL Weekly</a>
         <a href="/availability">Injuries</a>
@@ -44,6 +47,7 @@
         <a href="/research" data-research-tool="overview">Overview</a>
         <a href="/weekly" data-research-tool="weekly">Weekly Center</a>
         <a href="/availability" data-research-tool="availability">Availability</a>
+        <a href="/research/decisions" data-research-tool="decisions">Fantasy Insights</a>
         <a href="/research/players" data-research-tool="players">Players</a>
         <a href="/research/stats" data-research-tool="stats">Stat Leaders</a>
         <a href="/research/radar" data-research-tool="radar">Radar</a>
@@ -70,6 +74,7 @@
     <div id="error" role="alert" hidden></div>
     <section id="tool-panel" hidden aria-live="polite"></section>
     <section id="overview" aria-label="Season leaders">
+      <a class="decision-feature" href="/research/decisions"><span class="eyebrow">New · Fantasy Decision Center</span><strong>Find useful signals without digging through every stat.</strong><span>Players to watch, rising roles and warning signs. Every finding explains the supporting evidence.</span><span class="feature-action">Explore fantasy insights →</span></a>
       <div class="research-pathways" aria-labelledby="pathways-title">
         <div class="pathways-heading"><div class="eyebrow">Start with a question</div><h2 id="pathways-title">What would you like to research?</h2><p>Choose a starting point, then adjust the filters and compare players.</p></div>
         <div class="pathway-grid">

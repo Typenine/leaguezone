@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { FantasyRostersData } from '@/lib/providers/types';
 import opportunityEngine from '../../../../../public/research/opportunities.js';
+import decisionEngine from '../../../../../public/research/insights.js';
 
 type Signal = {
   id: string; name: string; team: string; pos: string; week: number;
@@ -26,6 +27,8 @@ type OpportunityEngine = {
 // This is the exact same deterministic engine as the public Radar. The module
 // also runs without a DOM in Vitest and in the static research application.
 const engine = opportunityEngine as OpportunityEngine;
+type Decision = {category:'watch'|'momentum'|'risk'; label:string; heading:string; why:string; next:string}|null;
+const decisionModel = decisionEngine as {classify:(signal:Signal)=>Decision};
 
 async function json<T>(url: string): Promise<T> {
   const response = await fetch(url, { credentials: 'same-origin' });
@@ -138,7 +141,7 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
     const signals = engine.radar(season, scoring);
     const owners = engine.ownership(signals.map((s) => season.players.find((p) => p.id === s.id)!),
       rosters.teams, rosters.players, rosters.catalog || []);
-    return { signals: signals.map((signal, i) => ({signal, ...owners[i]})),
+    return { signals: signals.map((signal, i) => ({signal, decision: decisionModel.classify(signal), ...owners[i]})),
       unmatched: owners.filter((o) => o.match === 'unmatched').length };
   }, [season, rosters, scoring]);
   const visible = useMemo(() => {
@@ -173,7 +176,7 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
       <div><p className="text-xs font-bold uppercase tracking-widest text-accent">League research</p>
         <h1 className="mt-2 text-3xl font-black">Roster Opportunity Finder</h1></div>
-      <div className="flex flex-wrap gap-4 text-sm font-semibold text-accent underline"><Link href="/research/radar">Explore all Radar signals</Link>
+      <div className="flex flex-wrap gap-4 text-sm font-semibold text-accent underline"><Link href="/research/decisions">Fantasy Decision Center</Link><Link href="/research/radar">Explore Radar</Link>
         <Link href={`/l/${encodeURIComponent(slug || '')}/draft?view=team-prospect-draftboard`}>Open prospect board</Link></div>
     </div>
     <p className="mb-6 max-w-3xl text-sm text-[var(--muted)]">Match observed NFL usage changes against current league rosters. Select your team to separate players on other rosters, verified unrostered players, and your own roster.</p>
@@ -214,12 +217,14 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
         {stale && ' League roster data is a cached snapshot.'}
       </p>
       {!teamId && category !== 'waiver' ? <div className="rounded-xl border border-[var(--border)] p-5">Select your team to see {category === 'trade'?'other rosters':'your roster'}.</div> :
-        visible.length ? <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{visible.map(({signal,owner,player,providerId}) => <article key={signal.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+        visible.length ? <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{visible.map(({signal,decision,owner,player,providerId}) => <article key={signal.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
           <div className="flex items-start justify-between gap-2"><div><Link href={`/research/players/${encodeURIComponent(signal.id)}?season=${season.year}`} className="font-bold text-accent underline">{signal.name}</Link>
             <p className="text-xs text-[var(--muted)]">{signal.pos} · {signal.team}{player.ryr === season.year?' · Rookie':''}</p></div>
             <span className={signal.direction==='rising'?'text-sm font-bold text-emerald-400':'text-sm font-bold text-red-400'}>Volume {signal.direction}</span></div>
+          {decision && <div className="mt-3"><p className="text-sm font-bold text-[var(--text)]">{decision.label}: {decision.heading}</p><p className="mt-1 text-sm text-[var(--muted)]">{decision.why}</p></div>}
           <p className="mt-4 text-xl font-black">{signal.change>0?'+':''}{signal.change.toFixed(1)} <span className="text-xs font-medium text-[var(--muted)]">{signal.metric}/game</span></p>
           <p className="text-sm text-[var(--muted)]">{signal.baseline.toFixed(1)} to {signal.recent.toFixed(1)} opportunity · Fantasy points {signal.scoringBefore.toFixed(1)} to {signal.scoringRecent.toFixed(1)}/game</p>
+          {decision && <p className="mt-3 text-xs text-[var(--muted)]"><span className="font-bold text-[var(--text)]">Before acting:</span> {decision.next}</p>}
           <p className="mt-3 text-sm">{owner ? <>On <Link href={`/l/${encodeURIComponent(slug || '')}/teams/${owner.rosterId}`} className="font-semibold text-accent underline">{owner.teamName}</Link></> : 'Unrostered in current Sleeper roster snapshot; confirm waiver eligibility'}</p>
           {owner && rosters.provider === 'sleeper' && providerId && <Link href={`/l/${encodeURIComponent(slug || '')}/trades/analyzer?b=${encodeURIComponent(providerId)}`} className="mt-3 inline-block text-xs font-semibold text-accent underline">Review in Trade Analyzer</Link>}
         </article>)}</div> : <div className="rounded-xl border border-[var(--border)] p-5 text-sm text-[var(--muted)]">No verified {category === 'waiver'?'unrostered':'rostered'} players meet this filter.</div>}

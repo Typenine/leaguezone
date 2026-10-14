@@ -7,6 +7,7 @@ import { PLATFORM, PRODUCT_FEATURES } from '@/lib/config/platform';
 export const dynamic = 'force-dynamic';
 
 const RESEARCH_TOOLS = [
+  {number: '00', label: 'Fantasy Decision Center', title: 'See what matters before digging into the numbers.', description: 'Players to watch, growing roles and warning signs, with the evidence and next steps explained.', href: '/research/decisions', action: 'Explore fantasy insights'},
   {
     number: '00',
     label: 'Weekly Football Center',
@@ -120,15 +121,15 @@ export default async function RootPage({ searchParams }: { searchParams?: Promis
               The home for fantasy football
             </p>
             <h1 className="mt-6 text-5xl font-black uppercase leading-[0.99] tracking-tighter sm:text-6xl xl:text-7xl">
-              Research the game.<br />
+              Find your fantasy edge.<br />
               <span className="text-[var(--brand-gold)]">Run your league.</span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-8 text-white/65 sm:text-lg">
-              {PLATFORM.name} brings fantasy football research and league management together. Understand players, explore the trends, and give your league a home that lasts beyond a single season.
+              {PLATFORM.name} brings fantasy football research and league management together. See useful player insights, understand the trends behind them, and give your league a home that lasts beyond a single season.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/research" className="inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--brand-gold)] px-6 py-3 text-sm font-black uppercase tracking-wider text-[var(--brand-ink)] transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-                Explore Player Research <span className="ml-2" aria-hidden="true">↗</span>
+              <Link href="/research/decisions" className="inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--brand-gold)] px-6 py-3 text-sm font-black uppercase tracking-wider text-[var(--brand-ink)] transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                Find Fantasy Insights <span className="ml-2" aria-hidden="true">↗</span>
               </Link>
               <Link href="/features" className="inline-flex min-h-12 items-center justify-center rounded-md border border-white/30 px-6 py-3 text-sm font-bold uppercase tracking-wider text-white transition hover:border-white/70 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                 Explore League Tools

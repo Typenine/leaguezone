@@ -1,6 +1,6 @@
 'use strict';
 (function () {
-  var O=window.LZOpportunities, panel=document.getElementById('tool-panel');
+  var O=window.LZOpportunities, D=window.LZDecisions, panel=document.getElementById('tool-panel');
   var scoring='half', selectedPlayer='', search='', radarQuery='', radarPosition='ALL', radarLimit=36,
     receiptLimit=100, filter='all', request=0, context=null, lastTool=null;
   // Only the offline R2 publisher can add forward observations. Browsers
@@ -202,6 +202,7 @@
     context=ctx;request++;
     panel.hidden=!tool;
     if (!tool || !ctx.players.length) return;
+    if (tool==='decisions') {if(window.LZDecisionTools) window.LZDecisionTools.show(ctx,panel); return;}
     if (tool==='radar' || tool==='receipts') {
       if (!ctx.usageStatus[ctx.year]) ctx.ensureUsage(ctx.year).then(function () {
         if (location.pathname.match(/^\/research\/(radar|receipts)\/?$/)) window.LZResearchApp.refresh();

@@ -239,6 +239,7 @@ const nextConfig: NextConfig = {
       { source: '/research/players', destination: '/research/index.html' },
       { source: '/research/stats', destination: '/research/index.html' },
       { source: '/research/radar', destination: '/research/index.html' },
+      { source: '/research/decisions', destination: '/research/index.html' },
       { source: '/research/receipts', destination: '/research/index.html' },
       { source: '/research/development', destination: '/research/index.html' },
       { source: '/research/players/:playerId', destination: '/research/index.html' },
