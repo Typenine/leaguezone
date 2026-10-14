@@ -4,7 +4,7 @@ import {useCallback,useEffect,useMemo,useState} from 'react';
 import {Activity,ArrowDown,ArrowUp,Bookmark,BookOpen,Check,LayoutDashboard,RefreshCw,Settings2} from 'lucide-react';
 import {loadSavedLibrary,type SavedLibrary} from '@/lib/saved-research-client';
 import type {SavedItem} from '@/lib/saved-research';
-import {DASHBOARD_SECTIONS,DEFAULT_DASHBOARD_PREFERENCES,RESEARCH_POSITIONS,
+import {DEFAULT_DASHBOARD_PREFERENCES,RESEARCH_POSITIONS,
   moveSection,normalizeDashboardPreferences,type DashboardPreferences,type DashboardSection,
   type ResearchPosition} from '@/lib/dashboard-preferences';
 import {loadDashboardResearch,ownershipLabel,safeRecent,type RecentResearch,type RadarSignal,
@@ -273,7 +273,7 @@ export default function MyResearchDashboard({
     <button type="button" disabled={rosterBusy||!followed.length} onClick={()=>void checkLeague()}
       className="mt-4 min-h-11 rounded-md bg-[var(--brand-gold)] px-4 text-sm font-bold text-[var(--brand-ink)] disabled:opacity-50">
       {rosterBusy?'Checking…':'Check watched players in this league'}</button>
-    {!followed.length&&<p className="mt-2 text-xs text-white/50">Follow a player first to compare against this league's roster.</p>}
+    {!followed.length&&<p className="mt-2 text-xs text-white/50">Follow a player first to compare against this league&apos;s roster.</p>}
     {rosterStatus&&<p role="status" className="mt-3 text-xs text-white/65">{rosterStatus}</p>}
     {Object.keys(owners).length>0&&<div className="mt-4 grid gap-2 sm:grid-cols-2">
      {followed.filter(x=>owners[x.key]).map(x=><div key={x.key} className="rounded-lg border border-white/10 p-3">
