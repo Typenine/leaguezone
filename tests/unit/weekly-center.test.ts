@@ -27,7 +27,7 @@ describe('weekly center normalization and calculations',()=>{
   expect(games[2].status).toBe('scheduled');
   expect(games[1].stadium).toBe('Hard Rock Stadium');
   expect(effectiveWeek(games,Date.parse('2026-09-18T00:00:00Z'))).toBe(3);
-  expect(normalizeGames(data,2025)).toThrow();
+  expect(()=>normalizeGames(data,2025)).toThrow();
  });
  it('normalizes Eastern kickoff including DST changes',()=>{
   expect(eastKickoff('2026-10-11','13:00')).toBe('2026-10-11T17:00:00.000Z');
