@@ -163,7 +163,7 @@
     return unique.map(function (entry) {
       var p=(data.players||[]).find(function (candidate) {return candidate.id===entry.signal.id;});
       // Grading rules are versioned; an unknown model is never graded by this one.
-      var gradable=!entry.modelVersion || entry.modelVersion===MODEL_VERSION;
+      var gradable=entry.modelVersion===MODEL_VERSION;
       var s=entry.signal, follow=p&&gradable?weeks(p,data.throughWeek).filter(function (w) {
         return w[0]>s.week && w[0]<=s.week+3;
       }).slice(0,2):[];
