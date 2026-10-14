@@ -59,7 +59,7 @@ function ProductPreview() {
             <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand-gold)]" />
             <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">LeagueZone</span>
           </div>
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Your football hub</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/65">Your football hub</span>
         </div>
         <div className="grid gap-3 pt-4 sm:grid-cols-2">
           <div className="rounded-xl border border-[var(--brand-gold)]/30 bg-[var(--brand-gold)]/[0.07] p-5">
@@ -95,7 +95,7 @@ function ProductPreview() {
             </Link>
           </div>
         </div>
-        <p className="mt-4 text-center text-[11px] text-white/35">Two connected parts of one fantasy football platform.</p>
+        <p className="mt-4 text-center text-[11px] text-white/65">Two connected parts of one fantasy football platform.</p>
       </div>
     </div>
   );
@@ -111,7 +111,7 @@ export default async function RootPage({ searchParams }: { searchParams?: Promis
   if(signedIn && !cookieJar.get('lz_qa_session')?.value && params?.view !== 'public') redirect('/app');
 
   return (
-    <div className="overflow-hidden bg-[var(--brand-ink)] text-white">
+    <div className="lz-dark-surface overflow-hidden bg-[var(--brand-ink)] text-white">
       <section className="relative isolate border-b border-white/10" style={{ background: 'radial-gradient(ellipse at 78% 30%, rgba(28, 87, 127, .28), transparent 46%), linear-gradient(155deg, var(--brand-navy), var(--brand-ink) 78%)' }}>
         <div className="container mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:py-24 lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:gap-14 lg:py-28">
           <div className="max-w-2xl">
@@ -134,7 +134,7 @@ export default async function RootPage({ searchParams }: { searchParams?: Promis
                 Explore League Tools
               </Link>
             </div>
-            <p className="mt-5 text-xs font-semibold tracking-wide text-white/45">
+            <p className="mt-5 text-xs font-semibold tracking-wide text-white/65">
               Public player research. League websites. One destination.
             </p>
             <Link href="/install" className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-white/75 underline decoration-[var(--brand-gold)] underline-offset-4 hover:text-white">
@@ -148,7 +148,7 @@ export default async function RootPage({ searchParams }: { searchParams?: Promis
       <section id="explore" aria-labelledby="explore-title" className="container mx-auto max-w-7xl px-4 py-16 sm:py-20">
         <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">Pick your starting point</p>
         <h2 id="explore-title" className="mt-3 max-w-3xl text-3xl font-black uppercase tracking-tight sm:text-5xl">Everything you need, wherever you play.</h2>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-white/55">
+        <p className="mt-4 max-w-2xl text-base leading-7 text-white/70">
           You do not need to run a LeagueZone league to use its research. And you do not need to leave your existing fantasy provider to build a better league experience.
         </p>
         <div className="mt-9 grid gap-4 md:grid-cols-2">
@@ -191,7 +191,7 @@ export default async function RootPage({ searchParams }: { searchParams?: Promis
                   <span className="text-xs font-black text-white/20">{tool.number}</span>
                 </div>
                 <h3 className="mt-6 text-xl font-black uppercase leading-tight tracking-tight text-white">{tool.title}</h3>
-                <p className="mt-3 flex-1 text-sm leading-6 text-white/55">{tool.description}</p>
+                <p className="mt-3 flex-1 text-sm leading-6 text-white/70">{tool.description}</p>
                 <span className="mt-6 text-xs font-black uppercase tracking-wider text-[var(--brand-gold)] group-hover:underline">{tool.action} <span aria-hidden="true">↗</span></span>
               </Link>
             ))}
@@ -199,7 +199,7 @@ export default async function RootPage({ searchParams }: { searchParams?: Promis
           <div className="mt-5 flex flex-col gap-4 rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <div>
               <h3 className="font-black uppercase tracking-wide">Roster Opportunity Finder</h3>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-white/55">The next step is bringing player research into your own league to explore who is rostered and which moves might be realistic. League-connected tools are still being refined.</p>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-white/70">The next step is bringing player research into your own league to explore who is rostered and which moves might be realistic. League-connected tools are still being refined.</p>
             </div>
             <Link href={signedIn ? '/app' : '/login?next=%2Fapp'} className="inline-flex shrink-0 items-center justify-center rounded-md border border-white/25 px-5 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-white/10">
               {signedIn ? 'My Leagues' : 'Sign In to My Leagues'} <span aria-hidden="true" className="ml-2">↗</span>
@@ -224,7 +224,7 @@ export default async function RootPage({ searchParams }: { searchParams?: Promis
               <div key={feature.title} className="rounded-xl border border-white/10 bg-white/[0.035] p-5">
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-300">{feature.eyebrow}</span>
                 <h3 className="mt-3 font-black uppercase tracking-wide text-white">{feature.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-white/50">{feature.description}</p>
+                <p className="mt-2 text-sm leading-6 text-white/65">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -247,7 +247,7 @@ export default async function RootPage({ searchParams }: { searchParams?: Promis
               <div key={item.step} className="rounded-xl border border-white/10 bg-white/[0.035] p-5">
                 <span className="text-2xl font-black text-[var(--brand-gold)]">{item.step}</span>
                 <h3 className="mt-4 text-lg font-black uppercase text-white">{item.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-white/55">{item.detail}</p>
+                <p className="mt-2 text-sm leading-6 text-white/70">{item.detail}</p>
               </div>
             ))}
           </div>

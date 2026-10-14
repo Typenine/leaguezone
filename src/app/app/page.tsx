@@ -21,11 +21,11 @@ function ActiveLeagueCard({ league }: { league: UserLeague }) {
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--brand-gold)]">Continue your league</p>
           <h2 className="mt-2 text-2xl font-black uppercase tracking-tight text-white">{league.leagueName}</h2>
-          <p className="mt-1 text-sm text-white/50">
+          <p className="mt-1 text-sm text-white/65">
             {league.teamName}{league.isCommissioner ? ' · Commissioner' : ''}
           </p>
         </div>
-        <span className="border border-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/45">Active league</span>
+        <span className="border border-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/65">Active league</span>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">
@@ -77,7 +77,7 @@ export default async function AppDashboardPage({
   const displayName = user?.displayName?.trim() || user?.email?.split('@')[0] || 'there';
 
   return (
-    <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen">
+    <div style={{ background: 'var(--brand-ink)' }} className="lz-dark-surface min-h-screen text-white">
       <section
         style={{ background: 'linear-gradient(160deg, var(--brand-navy) 0%, var(--brand-ink) 72%)' }}
         className="border-b border-white/10"
@@ -98,7 +98,7 @@ export default async function AppDashboardPage({
               <h1 className="mt-4 text-4xl font-black uppercase leading-none tracking-tighter text-white sm:text-5xl">
                 Welcome back, {displayName}.
               </h1>
-              <p className="mt-4 max-w-xl text-base leading-7 text-white/55 sm:text-lg">
+              <p className="mt-4 max-w-xl text-base leading-7 text-white/70 sm:text-lg">
                 {activeLeague
                   ? 'Pick up with your league or jump into player research, all from your LeagueZone home.'
                   : 'Explore player research, join a league with an invite, or create a new league site to get started.'}
@@ -108,7 +108,7 @@ export default async function AppDashboardPage({
                 <a href="#join-league" className="text-white/60 hover:text-white">Join League</a>
                 <Link href="/research" className="text-white/60 hover:text-white">Player Research</Link>
                 <Link href="/install" className="text-white/60 hover:text-white">Get the App</Link>
-                <Link href="/?view=public" className="text-white/40 hover:text-white">LeagueZone Home</Link>
+                <Link href="/?view=public" className="text-white/65 hover:text-white">LeagueZone Home</Link>
               </div>
             </div>
 
@@ -118,7 +118,7 @@ export default async function AppDashboardPage({
               <div className="border border-dashed border-white/20 bg-white/[0.025] p-6">
                 <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--brand-gold)]">No league linked yet</p>
                 <h2 className="mt-2 text-2xl font-black uppercase text-white">Choose your next step</h2>
-                <p className="mt-2 text-sm leading-6 text-white/50">
+                <p className="mt-2 text-sm leading-6 text-white/65">
                   Use an invite from your commissioner, search for a hosted league, or create a league you will manage.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
@@ -138,7 +138,7 @@ export default async function AppDashboardPage({
             <div>
               <p className="eyebrow">Player research</p>
               <h2 id="research-shortcuts-heading" className="mt-2 text-3xl font-black uppercase tracking-tight text-white">Explore the NFL</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">Dive into player statistics, opportunity trends and career development outside your league pages.</p>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">Dive into player statistics, opportunity trends and career development outside your league pages.</p>
             </div>
             <Link href="/research" className="text-xs font-black uppercase tracking-wider text-[var(--brand-gold)] hover:underline">Research Home ↗</Link>
           </div>
@@ -151,7 +151,7 @@ export default async function AppDashboardPage({
             ].map((item) => (
               <Link key={item.href} href={item.href} className="rounded-lg border border-white/10 bg-white/[0.035] p-5 transition hover:border-[var(--brand-gold)]/40 hover:bg-white/[0.06]">
                 <h3 className="font-black uppercase tracking-wide text-white">{item.label}</h3>
-                <p className="mt-2 text-sm leading-6 text-white/50">{item.detail}</p>
+                <p className="mt-2 text-sm leading-6 text-white/65">{item.detail}</p>
                 <span className="mt-4 inline-flex text-xs font-black uppercase tracking-wider text-[var(--brand-gold)]">Explore ↗</span>
               </Link>
             ))}
@@ -203,17 +203,17 @@ export default async function AppDashboardPage({
           <Link href="/setup?new=1" className="border border-white/10 bg-white/[0.03] p-5 transition hover:border-[var(--brand-gold)]/40 hover:bg-white/[0.05]">
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">Create</p>
             <h3 className="mt-2 font-black uppercase text-white">New League Site</h3>
-            <p className="mt-2 text-sm leading-6 text-white/45">Connect and configure another fantasy league.</p>
+            <p className="mt-2 text-sm leading-6 text-white/65">Connect and configure another fantasy league.</p>
           </Link>
           <Link href="/settings" className="border border-white/10 bg-white/[0.03] p-5 transition hover:border-[var(--brand-gold)]/40 hover:bg-white/[0.05]">
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">Account</p>
             <h3 className="mt-2 font-black uppercase text-white">Settings</h3>
-            <p className="mt-2 text-sm leading-6 text-white/45">Manage your team identity, account, and password.</p>
+            <p className="mt-2 text-sm leading-6 text-white/65">Manage your team identity, account, and password.</p>
           </Link>
           <a href={`mailto:${PLATFORM.contactEmail}`} className="border border-white/10 bg-white/[0.03] p-5 transition hover:border-[var(--brand-gold)]/40 hover:bg-white/[0.05]">
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">Support</p>
             <h3 className="mt-2 font-black uppercase text-white">Get Help</h3>
-            <p className="mt-2 text-sm leading-6 text-white/45">Contact LeagueZone about setup or account access.</p>
+            <p className="mt-2 text-sm leading-6 text-white/65">Contact LeagueZone about setup or account access.</p>
           </a>
         </section>
       </div>

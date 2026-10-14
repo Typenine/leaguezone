@@ -44,7 +44,7 @@ export default function PlayerLeagueLookup({playerId}:{playerId:string}){
   finally{setLoading(false)}
  }
  return <div className="mt-7 max-w-2xl">
-  {!signedIn&&<p className="mb-5 text-sm text-[var(--muted)]">Sign in to check your own league rosters. Public research is available without an account. <Link href="/login" className="underline text-[var(--brand-gold)]">Sign in</Link></p>}
+  {!signedIn&&<p className="mb-5 text-sm text-[var(--muted)]">Sign in to check your own league rosters. Public research is available without an account. <Link href="/login" className="underline text-[var(--research-link)]">Sign in</Link></p>}
   <label htmlFor="lz-own-league" className="block text-sm font-semibold">Your league</label>
   <select id="lz-own-league" value={slug} onChange={e=>{setSlug(e.target.value);setStatus(null);setError('')}}
    className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3" disabled={!leagues.length}>
@@ -62,7 +62,7 @@ export default function PlayerLeagueLookup({playerId}:{playerId:string}){
    {status.owner&&<p className="mt-2 text-base font-bold">{status.owner.teamName}</p>}
    {status.stale&&<p className="mt-2 text-xs text-amber-500">Roster data is a cached snapshot.</p>}
    <p className="mt-2 text-xs text-[var(--muted)]">Provider: {status.provider} · Season: {status.season}</p>
-   <Link className="mt-4 inline-block text-sm font-semibold text-[var(--brand-gold)] underline"
+   <Link className="mt-4 inline-block text-sm font-semibold text-[var(--research-link)] underline"
     href={'/l/'+encodeURIComponent(slug)+'/opportunities'}>Open Roster Opportunity Finder</Link>
   </div>}
  </div>;

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function InstallPage() {
   return (
-    <div className="min-h-[70vh] bg-[var(--brand-ink)] text-white">
+    <div className="lz-dark-surface min-h-[70vh] bg-[var(--brand-ink)] text-white">
       <section className="border-b border-white/10" style={{ background: 'linear-gradient(155deg, var(--brand-navy), var(--brand-ink) 75%)' }}>
         <div className="container mx-auto max-w-5xl px-4 py-14 sm:py-20">
           <div className="flex flex-col gap-10 md:flex-row md:items-center md:justify-between">

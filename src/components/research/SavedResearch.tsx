@@ -54,7 +54,7 @@ export default function SavedResearch(){
       {error} <button type="button" className="ml-2 underline" onClick={()=>void refresh()}>Retry</button>
     </div>}
     {mode==='guest'&&<p className="mb-5 text-sm text-[var(--muted)]">
-      These bookmarks are saved only in this browser. <Link href="/login" className="font-semibold text-[var(--brand-gold)] underline">Sign in</Link> to sync them with your account and other devices.
+      These bookmarks are saved only in this browser. <Link href="/login" className="font-semibold text-[var(--research-link)] underline">Sign in</Link> to sync them with your account and other devices.
     </p>}
     {mode==='account'&&unsynced>0&&<p role="status" className="mb-4 rounded-lg border border-amber-500/50 p-4 text-sm text-amber-500">
       {unsynced} older browser bookmark{unsynced===1?' has':'s have'} not synced because the account library is full. The original bookmarks are preserved on this device. Remove some account items and refresh to import the rest.
@@ -66,7 +66,7 @@ export default function SavedResearch(){
     {mode!=='loading'&&mode!=='error'&&items.length===0&&<div className="rounded-xl border border-[var(--border)] p-6">
       <h2 className="text-lg font-bold">No saved research yet</h2>
       <p className="mt-2 text-sm text-[var(--muted)]">Follow a player or save a research view to find it here.</p>
-      <Link href="/research/players" className="mt-4 inline-block text-[var(--brand-gold)] underline">Browse players</Link>
+      <Link href="/research/players" className="mt-4 inline-block text-[var(--research-link)] underline">Browse players</Link>
     </div>}
     {items.length>0&&<>
       <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Saved research categories">
@@ -76,7 +76,7 @@ export default function SavedResearch(){
           {id:'view',label:'Research views'},
         ] as const).map(choice=><button key={choice.id} type="button" onClick={()=>setFilter(choice.id)}
           aria-pressed={filter===choice.id}
-          className={`rounded-lg border px-3 py-2 text-sm ${filter===choice.id?'border-[var(--brand-gold)] text-[var(--brand-gold)]':'border-[var(--border)] text-[var(--muted)]'}`}>{choice.label}</button>)}
+          className={`rounded-lg border px-3 py-2 text-sm ${filter===choice.id?'border-[var(--brand-gold)] text-[var(--research-link)]':'border-[var(--border)] text-[var(--muted)]'}`}>{choice.label}</button>)}
       </div>
       {visible.length===0&&<p className="text-sm text-[var(--muted)]">Nothing saved in this category.</p>}
       <div className="grid gap-3 sm:grid-cols-2">

@@ -78,7 +78,7 @@ export default function UniversalSearch(){
       aria-label={(saved.some(x=>x.key==='player:'+p.id)?'Unfollow ':'Follow ')+p.n}
       aria-pressed={saved.some(x=>x.key==='player:'+p.id)}
       onClick={()=>void togglePlayer(p)}
-      className="rounded-lg border border-[var(--border)] p-3 text-[var(--brand-gold)] disabled:opacity-50">
+      className="rounded-lg border border-[var(--border)] p-3 text-[var(--research-link)] disabled:opacity-50">
       {saved.some(x=>x.key==='player:'+p.id)?<BookmarkCheck aria-hidden="true" size={20}/>:<Bookmark aria-hidden="true" size={20}/>}
     </button></div>)}{results.length===0&&<p className="text-sm text-[var(--muted)]">No matching players in the loaded season.</p>}</div>
    <h2 className="mt-8 text-xl font-bold">My Leagues</h2>

@@ -11,11 +11,11 @@ const tools=[
 ] as const;
 export default function Page(){
  return <main className="container mx-auto max-w-4xl px-4 py-10">
-  <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-gold)]">Your LeagueZone</p>
+  <p className="text-xs font-bold uppercase tracking-widest text-[var(--research-link)]">Your LeagueZone</p>
   <h1 className="mt-2 text-4xl font-black">Profile & Tools</h1>
   <div className="mt-8 grid gap-3 sm:grid-cols-2">{tools.map(({href,label,detail,Icon})=><Link key={href} href={href}
    className="flex items-start gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 hover:border-[var(--brand-gold)]">
-   <Icon aria-hidden="true" size={22} className="shrink-0 text-[var(--brand-gold)]"/>
+   <Icon aria-hidden="true" size={22} className="shrink-0 text-[var(--research-link)]"/>
    <div><h2 className="text-base font-bold">{label}</h2><p className="mt-2 text-sm text-[var(--muted)]">{detail}</p></div>
   </Link>)}</div>
  </main>;

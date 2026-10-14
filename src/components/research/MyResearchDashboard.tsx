@@ -191,11 +191,11 @@ export default function MyResearchDashboard({
   activity:<section aria-labelledby="lz-watch-activity" className="rounded-xl border border-white/15 bg-white/[0.035] p-4 sm:p-6">
    <div className="flex flex-wrap items-start justify-between gap-3"><div>
     <h2 id="lz-watch-activity" className="text-lg font-black uppercase tracking-wide">Watchlist activity</h2>
-    <p className="mt-1 text-sm text-white/55">{followed.length} followed players · {watchSignals.length} measurable role changes</p>
+    <p className="mt-1 text-sm text-white/70">{followed.length} followed players · {watchSignals.length} measurable role changes</p>
    </div><Link className="text-sm font-semibold text-[var(--brand-gold)] underline" href="/saved">Manage watchlist</Link></div>
    {libraryMode==='loading'&&<p role="status" className="mt-4 text-sm text-white/60">Loading watchlist…</p>}
    {libraryMode==='error'&&<p role="alert" className="mt-4 text-sm text-red-300">Watchlist unavailable; account data was not replaced with browser bookmarks.</p>}
-   {libraryMode==='guest'&&<p className="mt-4 text-xs text-white/50">Guest watchlists are stored on this device. Sign in to sync across devices.</p>}
+   {libraryMode==='guest'&&<p className="mt-4 text-xs text-white/70">Guest watchlists are stored on this device. Sign in to sync across devices.</p>}
    {libraryMode!=='loading'&&libraryMode!=='error'&&followed.length===0&&
     <div className="mt-4 rounded-lg border border-dashed border-white/20 p-4">
      <p className="text-sm text-white/65">Follow players from their profiles to see their opportunity changes here.</p>
@@ -206,18 +206,18 @@ export default function MyResearchDashboard({
     return <Link key={p.key} href={research?playerLink(p.key.slice(7),research.year):p.href}
       className="block min-w-0 rounded-lg border border-white/10 bg-white/[0.035] px-4 py-3 hover:border-[var(--brand-gold)]/50">
       <span className="block truncate font-semibold">{p.title}</span>
-      <span className="mt-1 block text-xs text-white/55">{signal?
+      <span className="mt-1 block text-xs text-white/70">{signal?
        (signal.direction==='rising'?'Rising ':'Falling ')+signal.metric+': '+signal.baseline+' → '+signal.recent+' per game':
        'No qualifying current opportunity signal'}</span>
-      {signal&&<span className="mt-1 block text-xs text-white/45">Weeks {signal.baselineWeeks.join(', ')} vs {signal.recentWeeks.join(', ')}</span>}
+      {signal&&<span className="mt-1 block text-xs text-white/65">Weeks {signal.baselineWeeks.join(', ')} vs {signal.recentWeeks.join(', ')}</span>}
      </Link>
    })}</div>}
-   {followed.length>12&&<p className="mt-3 text-xs text-white/50">Showing 12 players · <Link href="/saved" className="underline">View all</Link></p>}
+   {followed.length>12&&<p className="mt-3 text-xs text-white/70">Showing 12 players · <Link href="/saved" className="underline">View all</Link></p>}
   </section>,
   feed:<section aria-labelledby="lz-research-feed" className="rounded-xl border border-white/15 bg-white/[0.035] p-4 sm:p-6">
    <div className="flex flex-wrap items-start justify-between gap-3">
     <div><h2 id="lz-research-feed" className="text-lg font-black uppercase tracking-wide">My research feed</h2>
-     <p className="mt-1 text-sm text-white/55">Measured opportunity changes, not predictions or trade recommendations.</p></div>
+     <p className="mt-1 text-sm text-white/70">Measured opportunity changes, not predictions or trade recommendations.</p></div>
     <button type="button" onClick={()=>setAllSignals(!allSignals)} className={pill(allSignals)}>
       {allSignals?'Followed players only':'Explore all signals'}</button>
    </div>
@@ -226,7 +226,7 @@ export default function MyResearchDashboard({
       className={pill(preferences.positions.includes(p))} onClick={()=>togglePosition(p)}>{p}</button>)}
    </div>
    {!research&&<p role="status" className="mt-4 text-sm text-white/65">{researchStatus}</p>}
-   {research&&<p className="mt-3 text-xs text-white/50">{researchStatus}</p>}
+   {research&&<p className="mt-3 text-xs text-white/70">{researchStatus}</p>}
    {research&&visibleSignals.length===0&&<p className="mt-4 text-sm text-white/60">
     No qualifying {allSignals?'published':'followed-player'} role changes in the current snapshot.
     {allSignals?' Try other positions.':' Follow more players or explore all signals.'}</p>}
@@ -234,10 +234,10 @@ export default function MyResearchDashboard({
     className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-white/10 p-4">
     <div className="min-w-0 flex-1"><Link href={playerLink(signal.id,research?.year||0)}
       className="font-semibold text-white hover:text-[var(--brand-gold)] hover:underline">{signal.name}</Link>
-     <p className="mt-1 text-xs text-white/55">{signal.pos} · {signal.team} · Week {signal.week}
+     <p className="mt-1 text-xs text-white/70">{signal.pos} · {signal.team} · Week {signal.week}
       {newlyUpdated&&signal.week>seenWeek!?' · New since last visit':''}</p>
      <p className="mt-2 text-sm text-white/75">{signal.metric}: {signal.baseline} → {signal.recent} per game</p>
-     <p className="mt-1 text-xs text-white/50">Fantasy scoring over the same windows: {signal.scoringBefore} → {signal.scoringRecent} FP/G</p>
+     <p className="mt-1 text-xs text-white/70">Fantasy scoring over the same windows: {signal.scoringBefore} → {signal.scoringRecent} FP/G</p>
     </div>
     <span className={signal.direction==='rising'?
      'rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300':
@@ -253,12 +253,12 @@ export default function MyResearchDashboard({
     {research&&<button type="button" onClick={markSeen} className={pill(false)}>
       <Check aria-hidden="true" className="mr-1 inline" size={14}/>Mark week reviewed</button>}
    </div>
-   {seenWeek!=null&&<p className="mt-2 text-xs text-white/45">Last reviewed through Week {seenWeek} on this device.</p>}
+   {seenWeek!=null&&<p className="mt-2 text-xs text-white/65">Last reviewed through Week {seenWeek} on this device.</p>}
   </section>,
   leagues:<section aria-labelledby="lz-linked-leagues" className="rounded-xl border border-white/15 bg-white/[0.035] p-4 sm:p-6">
    <div className="flex flex-wrap items-start justify-between gap-3"><div>
     <h2 id="lz-linked-leagues" className="text-lg font-black uppercase tracking-wide">League-aware research</h2>
-    <p className="mt-1 text-sm text-white/55">Check followed players against rosters you are authorized to view.</p></div>
+    <p className="mt-1 text-sm text-white/70">Check followed players against rosters you are authorized to view.</p></div>
     <Link href="/app/leagues" className="text-sm font-semibold text-[var(--brand-gold)] underline">My leagues</Link>
    </div>
    {!userId&&<p className="mt-4 text-sm text-white/65">Sign in and connect a league to see roster ownership. <Link href="/login?next=%2Fmy-research" className="underline text-[var(--brand-gold)]">Sign in</Link></p>}
@@ -269,29 +269,29 @@ export default function MyResearchDashboard({
       value={favorite?.leagueId||''} onChange={e=>{alter({...preferences,favoriteLeagueId:e.target.value||null});setOwners({});setRosterStatus('')}}>
       {leagues.map(l=><option value={l.leagueId} key={l.leagueId}>{l.leagueName}</option>)}
     </select>
-    {favorite&&<p className="mt-2 text-xs text-white/55">Your team: {favorite.teamName} · <Link className="underline text-[var(--brand-gold)]" href={'/l/'+encodeURIComponent(favorite.leagueSlug)}>Open league</Link></p>}
+    {favorite&&<p className="mt-2 text-xs text-white/70">Your team: {favorite.teamName} · <Link className="underline text-[var(--brand-gold)]" href={'/l/'+encodeURIComponent(favorite.leagueSlug)}>Open league</Link></p>}
     <button type="button" disabled={rosterBusy||!followed.length} onClick={()=>void checkLeague()}
       className="mt-4 min-h-11 rounded-md bg-[var(--brand-gold)] px-4 text-sm font-bold text-[var(--brand-ink)] disabled:opacity-50">
       {rosterBusy?'Checking…':'Check watched players in this league'}</button>
-    {!followed.length&&<p className="mt-2 text-xs text-white/50">Follow a player first to compare against this league&apos;s roster.</p>}
+    {!followed.length&&<p className="mt-2 text-xs text-white/70">Follow a player first to compare against this league&apos;s roster.</p>}
     {rosterStatus&&<p role="status" className="mt-3 text-xs text-white/65">{rosterStatus}</p>}
     {Object.keys(owners).length>0&&<div className="mt-4 grid gap-2 sm:grid-cols-2">
      {followed.filter(x=>owners[x.key]).map(x=><div key={x.key} className="rounded-lg border border-white/10 p-3">
       <Link href={x.href} className="font-semibold hover:underline">{x.title}</Link>
-      <p className="mt-1 text-xs text-white/55">{owners[x.key]}</p></div>)}</div>}
+      <p className="mt-1 text-xs text-white/70">{owners[x.key]}</p></div>)}</div>}
    </div>}
   </section>,
   recent:<section aria-labelledby="lz-recent-research" className="rounded-xl border border-white/15 bg-white/[0.035] p-4 sm:p-6">
    <div className="flex items-center justify-between gap-3">
     <div><h2 id="lz-recent-research" className="text-lg font-black uppercase tracking-wide">Continue researching</h2>
-     <p className="mt-1 text-sm text-white/55">Recently visited public research on this device.</p></div>
+     <p className="mt-1 text-sm text-white/70">Recently visited public research on this device.</p></div>
     {recent.length>0&&<button type="button" className={pill(false)} onClick={clearRecent}>Clear</button>}
    </div>
    {recent.length===0&&<p className="mt-4 text-sm text-white/65">Your recently opened player profiles will appear here.</p>}
    <div className="mt-4 grid gap-2 sm:grid-cols-2">{recent.slice(0,8).map(x=><Link href={x.href} key={x.href}
     className="rounded-lg border border-white/10 p-3 hover:border-[var(--brand-gold)]/60">
     <span className="block truncate font-semibold">{x.title}</span>
-    <span className="mt-1 block text-xs text-white/45">{new Date(x.visitedAt).toLocaleDateString()}</span>
+    <span className="mt-1 block text-xs text-white/65">{new Date(x.visitedAt).toLocaleDateString()}</span>
    </Link>)}</div>
    {items.some(x=>x.type==='view')&&<div className="mt-5 border-t border-white/10 pt-4">
     <h3 className="text-sm font-bold">Saved research views</h3>
@@ -300,7 +300,7 @@ export default function MyResearchDashboard({
    </div>}
   </section>
  };
- return <section data-testid="my-research-dashboard" className={embedded?'text-white':'min-h-screen bg-[var(--brand-ink)] px-4 py-8 text-white sm:py-12'}>
+ return <section data-testid="my-research-dashboard" className={embedded?'lz-dark-surface text-white':'lz-dark-surface min-h-screen bg-[var(--brand-ink)] px-4 py-8 text-white sm:py-12'}>
   <div className={embedded?'':'mx-auto max-w-6xl'}>
    <div className="flex flex-wrap items-start justify-between gap-4">
     <div><div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-[var(--brand-gold)]">
@@ -324,12 +324,12 @@ export default function MyResearchDashboard({
     ].map(({n,label,Icon})=><div key={label} className="rounded-xl border border-white/15 bg-white/[0.035] p-4">
      <Icon size={18} className="text-[var(--brand-gold)]" aria-hidden="true"/>
      <p className="mt-2 text-2xl font-black tabular-nums">{n}</p>
-     <p className="text-xs text-white/55">{label}</p>
+     <p className="text-xs text-white/70">{label}</p>
     </div>)}
    </div>
    {settingsOpen&&<div id="lz-dashboard-settings" className="mt-5 rounded-xl border border-[var(--brand-gold)]/40 bg-white/[0.035] p-4 sm:p-6">
     <h2 className="text-lg font-black uppercase">Customize your dashboard</h2>
-    <p className="mt-1 text-xs text-white/55">{userId?'Layout and filters can sync with your account.':'Guest layout is saved only on this device.'}</p>
+    <p className="mt-1 text-xs text-white/70">{userId?'Layout and filters can sync with your account.':'Guest layout is saved only on this device.'}</p>
     <div className="mt-4 grid gap-5 lg:grid-cols-2">
      <div><h3 className="text-sm font-bold">Sections and order</h3>
       <div className="mt-2 space-y-2">{preferences.sections.map((s,i)=><div key={s} className="flex items-center gap-2 rounded-lg border border-white/10 p-2">
@@ -347,7 +347,7 @@ export default function MyResearchDashboard({
        value={preferences.scoring} onChange={e=>alter({...preferences,scoring:e.target.value as DashboardPreferences['scoring']})}>
        <option value="half">Half PPR</option><option value="ppr">PPR</option><option value="standard">Standard</option>
       </select>
-      <p className="mt-3 text-xs text-white/55">Position filters are also available directly above the research feed.</p>
+      <p className="mt-3 text-xs text-white/70">Position filters are also available directly above the research feed.</p>
       <button type="button" onClick={()=>alter(DEFAULT_DASHBOARD_PREFERENCES)} className="mt-3 text-sm text-[var(--brand-gold)] underline">
        Restore default layout</button>
      </div>
