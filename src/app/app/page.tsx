@@ -6,6 +6,7 @@ import { getUserById, getUserLeagues, type UserLeague } from '@/lib/server/user-
 import { PLATFORM, leagueUrl } from '@/lib/config/platform';
 import MyLeaguesGrid from '@/components/dashboard/MyLeaguesGrid';
 import LeagueWebsiteSearch from '@/components/LeagueWebsiteSearch';
+import MyResearchDashboard from '@/components/research/MyResearchDashboard';
 
 export const dynamic = 'force-dynamic';
 
@@ -131,6 +132,7 @@ export default async function AppDashboardPage({
       </section>
 
       <div className="container mx-auto space-y-12 px-4 py-10 sm:py-12">
+        <MyResearchDashboard initialUserId={userId} initialLeagues={userLeagues} embedded />
         <section aria-labelledby="research-shortcuts-heading">
           <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>

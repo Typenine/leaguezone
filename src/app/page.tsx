@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { verifySession } from '@/lib/server/auth';
 import { PLATFORM, PRODUCT_FEATURES } from '@/lib/config/platform';
 
@@ -92,11 +93,13 @@ function ProductPreview() {
   );
 }
 
-export default async function RootPage() {
+export default async function RootPage({ searchParams }: { searchParams?: Promise<{view?:string}> }) {
   const cookieJar = await cookies();
   const sessionToken = cookieJar.get('evw_session')?.value || '';
   const claims = sessionToken ? verifySession(sessionToken) : null;
   const signedIn = claims?.type === 'user' && typeof claims.sub === 'string';
+  const params = await searchParams;
+  if(signedIn && params?.view !== 'public') redirect('/app');
 
   return (
     <div className="overflow-hidden bg-[var(--brand-ink)] text-white">
