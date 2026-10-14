@@ -11,7 +11,7 @@ function decodeXml(s:string):string{
 }
 function field(block:string,tag:string){const m=new RegExp('<'+tag+'(?:\\s[^>]*)?>([\\s\\S]*?)<\\/'+tag+'>','i').exec(block);
  return m?decodeXml(m[1].trim()):''}
-export function parseEspnRss(xml:string){
+function parseEspnRss(xml:string){
  if(!/<rss\b/i.test(xml)||!/<channel\b/i.test(xml))throw Error('Invalid RSS feed');
  const rows=xml.match(/<item\b[\s\S]*?<\/item>/gi)||[];
  const items:{title:string;url:string;published:string|null}[]=[];
