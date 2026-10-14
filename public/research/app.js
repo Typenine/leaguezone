@@ -972,6 +972,14 @@
         (key==='research'&&path==='/research' || key==='players'&&path.endsWith('/players') ||
          key==='stats'&&path.includes('/stats') || key===tool?.[1])?'page':'false');
     });
+    // The React pages and this static shell share the same tool destinations.
+    // Update only their selection state, never intercept external Next.js routes.
+    var selectedTool=tool?tool[1]:match?'players':path==='/research'?'overview':
+      path==='/research/stats'?'stats':path==='/research/players'?'players':null;
+    document.querySelectorAll('[data-research-tool]').forEach(function (a) {
+      if (a.dataset.researchTool===selectedTool) a.setAttribute('aria-current','page');
+      else a.removeAttribute('aria-current');
+    });
     if (window.LZResearchTools) window.LZResearchTools.show(tool&&tool[1],{
       year:state.year,years:state.years,throughWeek:state.throughWeek,players:state.players,
       data:state.cache.get(state.year),loadData:loadData,ensureUsage:ensureUsage,usageStatus:state.usageStatus,
