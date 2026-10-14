@@ -99,7 +99,8 @@ export default async function RootPage({ searchParams }: { searchParams?: Promis
   const claims = sessionToken ? verifySession(sessionToken) : null;
   const signedIn = claims?.type === 'user' && typeof claims.sub === 'string';
   const params = await searchParams;
-  if(signedIn && params?.view !== 'public') redirect('/app');
+  // Do not bypass a QA public/team perspective by redirecting into the real account dashboard.
+  if(signedIn && !cookieJar.get('lz_qa_session')?.value && params?.view !== 'public') redirect('/app');
 
   return (
     <div className="overflow-hidden bg-[var(--brand-ink)] text-white">
