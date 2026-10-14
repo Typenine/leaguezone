@@ -22,8 +22,8 @@
     }
     var failed=0;
     var loading=Promise.all(entries.map(function (info) {
-      if (!/^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key) ||
-          typeof info.week!=='number') return Promise.reject(Error('Invalid forward receipt index'));
+      if (!info || !/^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key) ||
+          typeof info.week!=='number') {failed++;return Promise.resolve([]);}
       return fetch(ctx.remoteBase+'/'+info.key,{cache:'default'}).then(function (response) {
         if (!response.ok) throw Error('Forward receipt unavailable');
         return response.json();
@@ -43,7 +43,7 @@
       // One unavailable weekly object must not hide every other dated record.
       forwardByYear.set(ctx.year,batches.flat());
       if (failed) remoteLoads.delete(ctx.year);
-      forwardStatusByYear.set(ctx.year,failed===entries.length ?
+      forwardStatusByYear.set(ctx.year,failed>0 && failed===entries.length ?
         'Shared forward receipts could not be loaded. Historical replay remains available.' :
         failed ? failed+' of '+entries.length+' weekly forward records could not be loaded; showing the rest.' :
         forwardByYear.get(ctx.year).length ? '' :
