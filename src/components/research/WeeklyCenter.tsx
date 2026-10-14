@@ -142,6 +142,7 @@ export default function WeeklyCenter(){
     <a href="#games" className={styles.link}>Games and weather</a>
     <a href="#matchups" className={styles.link}>Defensive matchups</a>
     <a href="#depth-charts" className={styles.link}>Depth charts</a>
+    <Link href="/availability" className={styles.link}>Injuries & availability</Link>
     <a href="#news" className={styles.link}>NFL headlines</a>
     <Link href="/my-research" className={styles.link}>My Research</Link>
    </nav>
@@ -252,6 +253,9 @@ export default function WeeklyCenter(){
      <p className="mt-2 text-xs text-white/70">Team affiliation from the latest published player statistics, which may lag current transactions.</p>
     </div>}
    </section>
+   <div className={styles.panel+' mt-8'}><h2 className="text-lg font-black uppercase">Injuries, practice & availability</h2>
+    <p className="mt-2 text-sm text-white/70">See reported player designations, official NFL injury-report links and historical teammate opportunity.</p>
+    <Link href="/availability" className={styles.link+' mt-3 inline-block text-sm font-semibold underline'}>Open Availability & Opportunity Center →</Link></div>
    <section id="depth-charts" className="mt-10 scroll-mt-28">
     <h2 className="flex items-center gap-2 text-xl font-black uppercase"><Users size={20} aria-hidden="true"/> NFL depth charts</h2>
     <p className="mt-2 text-sm text-white/60">Listed position and rank, as of the most recent available nflverse timestamp. Rankings do not establish snap share or injury status.</p>

@@ -743,7 +743,8 @@
     container.innerHTML='<button type="button" class="crumb" id="return-list">\u2190 Back to results</button>'+
       '<div class="section-head"><div><div class="eyebrow">'+escape(shortPos(p.pos))+' \u00b7 '+escape(p.team)+
       escape(rookie)+'</div><h2>'+escape(p.n)+'</h2></div>'+
-      '<button type="button" class="btn outline" data-add-profile="'+escape(p.id)+'" data-year="'+state.year+'">Compare this season</button></div>'+profileFacts(p)+profileNav()+
+      '<div class="profile-actions"><button type="button" class="btn outline" data-add-profile="'+escape(p.id)+'" data-year="'+state.year+'">Compare this season</button>'+
+      '<a class="btn outline" href="/availability?player='+encodeURIComponent(p.n)+'&team='+encodeURIComponent(p.team)+'">Availability &amp; teammates</a></div></div>'+profileFacts(p)+profileNav()+
       (complete?'':'<p class="season-note" id="season-note">'+state.year+' season in progress: data through Week '+state.throughWeek+
         '. Totals are partial; use per-game and recent averages when comparing with completed seasons.</p>')+
       overviewSection(p)+'<div id="profile-production" class="profile-group"><section class="profile-section" id="profile-summary"><h2>Fantasy production</h2>'+
