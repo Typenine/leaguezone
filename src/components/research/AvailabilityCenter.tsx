@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
-import {useCallback,useEffect,useMemo,useState} from 'react';
-import {Activity,ArrowRight,Bookmark,CalendarClock,ExternalLink,RefreshCw,ShieldAlert,Users} from 'lucide-react';
+import {useEffect,useMemo,useState} from 'react';
+import {ArrowRight,Bookmark,CalendarClock,ExternalLink,RefreshCw,ShieldAlert,Users} from 'lucide-react';
 import {TEAM_CODES} from '@/lib/weekly-center';
 import {diffAvailability,keyPlayer,labelStatus,matchResearchPlayer,
  type AvailabilityPayload,type AvailabilityPlayer,type SeenEvent,type SeenState} from '@/lib/availability';
@@ -174,7 +174,7 @@ export default function AvailabilityCenter(){
      <p className="text-xs font-black uppercase tracking-[.22em] text-[#e2bc71]">LeagueZone / NFL Research</p>
      <h1 className="mt-2 text-3xl font-black uppercase sm:text-4xl">Availability & Opportunity</h1>
      <p className="mt-3 text-sm leading-6 text-white/75">
-      Monitor reported player status, research teammates' recent opportunity, and follow updates involving your watched players.
+      Monitor reported player status, research teammates&apos; recent opportunity, and follow updates involving your watched players.
       Metadata is not an official practice report or a confirmed lineup.
      </p>
     </div>
@@ -296,7 +296,7 @@ export default function AvailabilityCenter(){
    <section id="changes" className="mt-10 scroll-mt-24">
     <h2 className="flex items-center gap-2 text-xl font-black uppercase"><CalendarClock size={20}/> Observed status changes</h2>
     <p className="mt-2 text-sm text-white/75">Changes detected between visits to this device, not the official day-by-day NFL practice history.
-     First visit establishes a baseline. A changed source field is not proof that the player's medical condition changed at that moment.</p>
+     First visit establishes a baseline. A changed source field is not proof that the player&apos;s medical condition changed at that moment.</p>
     {!tracked&&<p className={classes.panel+' mt-3 text-sm text-white/70'}>
      A fresh, locally stored baseline could not be established. Historical updates are unavailable.</p>}
     {tracked&&!recent.length&&<p className={classes.panel+' mt-3 text-sm text-white/70'}>
@@ -307,10 +307,10 @@ export default function AvailabilityCenter(){
      <p className="mt-1 text-xs text-white/70">{event.previous||'Not reported'} → {event.current||'Not reported'}</p>
      <p className="mt-1 text-xs text-white/65">Observed on this device: {safeTime(new Date(event.seenAt).toISOString())}</p>
     </div>)}</div>
-    <p className="mt-4 text-xs text-white/65">Notifications are not yet sent for injury changes because this provider's metadata does not establish official report times or guaranteed freshness. Existing research notifications are unaffected.</p>
+    <p className="mt-4 text-xs text-white/65">Notifications are not yet sent for injury changes because this provider&apos;s metadata does not establish official report times or guaranteed freshness. Existing research notifications are unaffected.</p>
    </section>
    <footer className="mt-10 border-t border-white/15 pt-4 text-xs text-white/65">
-    Data from Sleeper's non-commercial API; no licensed complete practice-report feed, injury diagnosis, or Sunday inactive guarantee. External reporting and fantasy interpretation are distinct.
+    Data from Sleeper&apos;s non-commercial API; no licensed complete practice-report feed, injury diagnosis, or Sunday inactive guarantee. External reporting and fantasy interpretation are distinct.
    </footer>
   </div>
  </div>;

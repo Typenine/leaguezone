@@ -12,10 +12,10 @@ describe('injury metadata adapter and safeguards',()=>{
   expect(first.practice).toBe('Limited');
   expect(first.gsisId).toBe('00-111');
   expect(labelStatus(first)).toBe('Questionable');
-  expect(normalizeSleeperPlayers(source(make({}))).toHaveLength(109);
+  expect(normalizeSleeperPlayers(source(make({})))).toHaveLength(109);
  });
  it('does not invent an injury designation from NFL roster active status',()=>{
-  expect(normalizeSleeperPlayers(source(make({practice_participation:null,injury_status:null,status:'Active'}))).toHaveLength(109);
+  expect(normalizeSleeperPlayers(source(make({practice_participation:null,injury_status:null,status:'Active'})))).toHaveLength(109);
  });
  it('recognizes practice terminology without equating DNP with out for the game',()=>{
   expect(practiceValue('Did Not Practice')).toBe('DNP');
