@@ -7,7 +7,7 @@
   var ownership=document.getElementById('lz-player-leagues');
   var nav=document.querySelector('.lz-research-tabs');
   if(!button||!feedback||!ownership||!nav)return;
-  var mode='unknown', items=[], pending=null, busy=false;
+  var mode='unknown', items=[], pending=null, busy=false, shownKey=null;
 
   function current() {
     var href=location.pathname+location.search;
@@ -106,6 +106,9 @@
       else a.removeAttribute('aria-current');
     });
     var item=current();
+    // Save/remove feedback belongs to the page it was given on.
+    var key=item?item.key:null;
+    if(key!==shownKey){shownKey=key;setMessage('');}
     ownership.hidden=!(item&&item.type==='player');
     if(!ownership.hidden)ownership.href='/player-leagues/'+encodeURIComponent(item.key.slice(7));
     button.hidden=!item;
