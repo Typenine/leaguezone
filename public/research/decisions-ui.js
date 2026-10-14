@@ -63,7 +63,7 @@
       '<div class="empty">No eligible four-game signals match these filters. Try another position or season, or check again after the next validated refresh.</div>')+'</div>'+
       (matches.length>limit?'<button type="button" id="decision-more" class="btn outline">Show more findings</button>':'')+
       '<section class="decision-foot"><h3>Turn a finding into a decision</h3><p>Review league ownership, scoring and lineup requirements before acting. A rising role does not guarantee a breakout, waiver availability or a fair trade price.</p>'+
-      '<div class="decision-footer-links"><a href="/app">My leagues</a><a href="/research/radar">Raw Radar signals</a>'+
+      '<div class="decision-footer-links"><a href="/app/connect-sleeper">Personalize with Sleeper</a><a href="/app">My leagues</a><a href="/research/radar">Raw Radar signals</a>'+
       '<a href="/weekly">Weekly matchups</a><a href="/availability">Injury reports</a></div></section>';
   }
   function render(){if(context&&container)container.innerHTML=markup(context);}

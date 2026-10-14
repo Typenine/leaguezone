@@ -23,6 +23,7 @@ export default async function AppLeaguesPage() {
           <p className="eyebrow">Dashboard</p>
           <h1 className="mt-2 text-3xl font-black uppercase tracking-tight text-white sm:text-4xl">My Leagues</h1>
           <p className="mt-2 text-[var(--muted)]">All the leagues connected to your account.</p>
+          <Link href="/app/connect-sleeper" className="mt-4 mr-3 inline-flex bg-[var(--brand-gold)] px-4 py-2 text-sm font-bold text-[var(--brand-ink)]">Connect Sleeper for Research</Link>
           <Link href="/setup/league?new=1" className="mt-4 inline-flex border border-[var(--brand-gold)]/50 px-4 py-2 text-sm font-bold text-[var(--brand-gold)] hover:bg-white/5">Connect another Sleeper league</Link>
         </div>
 

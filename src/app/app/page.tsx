@@ -121,9 +121,10 @@ export default async function AppDashboardPage({
                 <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--brand-gold)]">No league linked yet</p>
                 <h2 className="mt-2 text-2xl font-black uppercase text-white">Choose your next step</h2>
                 <p className="mt-2 text-sm leading-6 text-white/65">
-                  Use an invite from your commissioner, search for a hosted league, or create a league you will manage.
+                  Connect a Sleeper team for personalized research, join a hosted league, or create a league website you will manage.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
+                  <Link href="/app/connect-sleeper" className="bg-[var(--brand-gold)] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-[var(--brand-ink)]">Connect Sleeper for Research</Link>
                   <a href="#join-league" className="bg-[var(--brand-gold)] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-[var(--brand-ink)]">Join a League</a>
                   <Link href="/setup?new=1" className="border border-white/20 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white">Create League</Link>
                 </div>

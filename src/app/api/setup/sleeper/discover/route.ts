@@ -33,7 +33,7 @@ export async function GET(request:NextRequest){
   const leagues=results.flatMap(result=>result.status==='fulfilled'?result.value:[]);
   if(!leagues.length&&results.every(result=>result.status==='rejected'))
    return NextResponse.json({error:'Sleeper leagues could not be loaded. You can still paste a league URL or ID.'},{status:502});
-  return NextResponse.json({username:player.display_name||username,leagues},{
+  return NextResponse.json({username:player.display_name||username,sleeperUserId:player.user_id,leagues},{
    headers:{'Cache-Control':'private, max-age=60'}});
  }catch{
   return NextResponse.json({error:'Sleeper is temporarily unavailable. Try pasting your league URL or ID.'},{status:502});

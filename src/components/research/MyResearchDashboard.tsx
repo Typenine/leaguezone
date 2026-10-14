@@ -306,6 +306,7 @@ export default function MyResearchDashboard({
     <div><div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-[var(--brand-gold)]">
       <LayoutDashboard aria-hidden="true" size={15}/>My research center</div>
      <h1 className="mt-2 text-2xl font-black uppercase tracking-tight sm:text-3xl">Your fantasy football, in focus.</h1>
+          <Link href="/app/connect-sleeper" className="mt-3 inline-flex rounded-lg border border-[var(--brand-gold)]/50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-[var(--brand-gold)]">Connect My Sleeper Team for Personalized Research →</Link>
      <p className="mt-2 max-w-2xl text-sm leading-6 text-white/60">
       Your watched players, meaningful usage changes, recent research, and leagues in one place.</p></div>
     <div className="flex flex-wrap gap-2">

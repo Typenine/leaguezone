@@ -13,7 +13,7 @@ type Signal={id:string;name:string;pos:string;team:string;baseline:number;recent
 type Candidate={signal:Signal;providerId:string|null;owner:FantasyRostersData['teams'][number]|null;match:string;
  decision?:{heading:string;why:string;next:string}|null};
 type Focus='overview'|'waiver'|'trade'|'risk'|'lineup';
-type Props={rosters:Snapshot;season:number;slug:string;teamId:number;needs:Need[];
+type Props={rosters:Snapshot;season:number;slug?:string;teamId:number;needs:Need[];
  personal:{waiver:Candidate[];trade:Candidate[];risk:Candidate[]};focus:Focus;onFocus:(focus:Focus)=>void};
 type ValuationPayload={values?:MarketIndex;error?:string};
 const fmt=(v:number)=>Math.round(v).toLocaleString('en-US');
@@ -76,10 +76,10 @@ export default function ActionableDecisions({rosters,season,slug,teamId,needs,pe
    .sort((a,b)=>Math.abs(a.value-offerTotal)-Math.abs(b.value-offerTotal)||a.name.localeCompare(b.name))
    .slice(0,showAll?50:12);
  },[rosters,teamId,market,offerTotal,position,query,surplusOnly,medianCount,showAll]);
- const lineupUrl='/l/'+encodeURIComponent(slug)+'/opportunities';
+ const lineupUrl=slug?'/l/'+encodeURIComponent(slug)+'/opportunities':'/app/fantasy-team';
  const targetUrl=(id:string)=>{
   const params=new URLSearchParams({a:selectedAssets.join(','),b:id});
-  return '/l/'+encodeURIComponent(slug)+'/trades/analyzer?'+params.toString();
+  return (slug?'/l/'+encodeURIComponent(slug)+'/trades/analyzer':'/trades/analyzer')+'?'+params.toString();
  };
  if(!selected)return <p className="mt-5 text-sm text-[var(--muted)]">Choose a roster to generate decisions.</p>;
  return <section className="mt-5 space-y-5" aria-label="Actionable recommendations">

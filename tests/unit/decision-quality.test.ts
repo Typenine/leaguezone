@@ -10,7 +10,7 @@ const players=Object.fromEntries(['qb1','qb2','wr1','wr2','wr3','wr4','rb1','rb2
 }]));
 const indexed=marketById(Object.fromEntries([
  ['qb1',4000],['qb2',5000],['wr1',2000],['wr2',300],['wr3',5000],['wr4',1500],['rb1',500],['rb2',2100]
-].map(([id,value])=>[id,{name:id,position:String(id).slice(0,2).toUpperCase(),sleeperId:id,value:Number(value)}])));
+].map(([id,value])=>[id,{name:String(id),position:String(id).slice(0,2).toUpperCase(),sleeperId:String(id),value:Number(value)}])));
 describe('Decision board roster strength',()=>{
  it('compares real priced starters with league median instead of counting players',()=>{
   const q=rosterQuality({teams,players},indexed,1,['QB','RB','WR','WR','TE']);
