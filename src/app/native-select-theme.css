@@ -1,10 +1,10 @@
 /*
- * Native <select> menus are rendered by the browser/OS rather than by our
- * normal card/dropdown surfaces. Keep their popup palette in sync with the
- * site theme so option text always has sufficient contrast.
+ * Native select popups are painted by the browser/OS. Set the popup palette,
+ * but NEVER set the closed select's foreground globally: unlayered stylesheet
+ * rules override Tailwind text-white utilities, turning white-on-navy controls
+ * into black-on-navy when the site is in light mode.
  */
 select {
-  color: var(--text);
   color-scheme: dark;
 }
 
@@ -15,25 +15,10 @@ select optgroup {
 }
 
 select option:disabled {
-  color: #9AA5B1;
-}
-
-html[data-theme="dark"] select {
-  color-scheme: dark;
-}
-
-html[data-theme="dark"] select option,
-html[data-theme="dark"] select optgroup {
-  background-color: #111727;
-  color: #E9EDF5;
-}
-
-html[data-theme="dark"] select option:disabled {
-  color: #9AA5B1;
+  color: #BBC5D2;
 }
 
 html[data-theme="light"] select {
-  color: #0B1020;
   color-scheme: light;
 }
 
@@ -44,5 +29,20 @@ html[data-theme="light"] select optgroup {
 }
 
 html[data-theme="light"] select option:disabled {
-  color: #667085;
+  color: #56647A;
+}
+
+/* A dark form is dark even when the user's overall site theme is light. */
+.lz-dark-surface select {
+  color-scheme: dark;
+}
+
+.lz-dark-surface select option,
+.lz-dark-surface select optgroup {
+  background-color: #111727;
+  color: #E9EDF5;
+}
+
+.lz-dark-surface select option:disabled {
+  color: #BBC5D2;
 }

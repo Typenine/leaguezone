@@ -99,7 +99,7 @@ export default function SetupPage() {
   }
 
   return (
-    <div style={{ background: 'var(--brand-ink)' }} className="min-h-screen py-12 px-4">
+    <div style={{ background: 'var(--brand-ink)' }} className="lz-dark-surface min-h-screen py-12 px-4 text-white">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-10">
           <div className="flex items-center justify-center gap-3 mb-3">

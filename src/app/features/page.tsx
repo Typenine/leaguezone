@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function FeaturesPage() {
   return (
-    <div className="bg-[var(--brand-ink)]">
+    <div className="lz-dark-surface bg-[var(--brand-ink)] text-white">
       <section style={{ background: 'linear-gradient(155deg, var(--brand-navy), var(--brand-ink) 72%)' }} className="border-b border-white/10">
         <div className="container mx-auto max-w-7xl px-4 py-16 sm:py-20">
           <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">League Websites</p>

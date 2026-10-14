@@ -15,7 +15,7 @@ const fmt=new Intl.DateTimeFormat('en-US',{weekday:'short',month:'short',day:'nu
 const styles={
  panel:'rounded-xl border border-white/15 bg-white/[0.035] p-4 sm:p-5',
  muted:'text-sm text-white/60',
- small:'text-xs text-white/50',
+ small:'text-xs text-white/70',
  link:'text-[var(--brand-gold)] hover:underline',
  button:'rounded-lg border border-white/20 px-3 py-2 text-sm font-semibold text-white hover:border-[var(--brand-gold)]/60 disabled:opacity-40',
 };
@@ -124,7 +124,7 @@ export default function WeeklyCenter(){
  }
  const scoringName=scoring==='half'?'Half PPR':scoring==='ppr'?'PPR':'Standard';
  const dateRange=games.length?games.map(g=>g.kickoff).filter((s):s is string=>Boolean(s)).sort():[];
- return <div className="min-h-screen bg-[var(--brand-ink)] px-4 pb-24 pt-8 text-white sm:pt-12">
+ return <div className="lz-dark-surface min-h-screen bg-[var(--brand-ink)] px-4 pb-24 pt-8 text-white sm:pt-12">
   <div className="mx-auto max-w-7xl">
    <header className="flex flex-wrap items-start justify-between gap-5">
     <div>
@@ -156,7 +156,7 @@ export default function WeeklyCenter(){
      <label className="min-w-44 flex-1 text-xs font-semibold text-white/70">NFL week
       <select aria-label="NFL week" value={selectedWeek||''} disabled={!schedule}
        onChange={e=>setWeek(Number(e.target.value))}
-       className="mt-2 block min-h-11 w-full rounded-lg border border-white/25 bg-[#122740] p-2.5 text-white disabled:opacity-60">
+       className="mt-2 block min-h-11 w-full rounded-lg border border-white/25 bg-[#122740] p-2.5 text-white disabled:opacity-80">
        {selectedWeek===null&&<option value="">Loading schedule</option>}
        {Array.from(new Set(schedule?.games.map(g=>g.week)||[])).map(w=><option value={w} key={w}>Week {w}</option>)}
       </select>
@@ -179,23 +179,23 @@ export default function WeeklyCenter(){
       const forecast=weather[g.id];
       const metric=metrics.find(m=>m.team===g.home&&m.position===position);
       return <article key={g.id} className={styles.panel+' min-w-0'}>
-       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-white/55">
+       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-white/70">
         <span>{renderTime(g.kickoff)}</span>
-        <span className={g.status==='final'?'font-semibold text-emerald-300':'text-white/50'}>{g.status==='final'?'Final':'Scheduled'}</span>
+        <span className={g.status==='final'?'font-semibold text-emerald-300':'text-white/70'}>{g.status==='final'?'Final':'Scheduled'}</span>
        </div>
        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
         <div><strong className="text-xl">{teamName(g.away)}</strong>{g.awayScore!==null&&<p className="text-xl tabular-nums">{g.awayScore}</p>}</div>
-        <span className="text-xs text-white/45">@</span>
+        <span className="text-xs text-white/65">@</span>
         <div><strong className="text-xl">{teamName(g.home)}</strong>{g.homeScore!==null&&<p className="text-xl tabular-nums">{g.homeScore}</p>}</div>
        </div>
-       <p className="mt-3 truncate text-center text-xs text-white/45" title={g.stadium||undefined}>{g.stadium||'Stadium not listed'}{g.roof?' · '+g.roof:''}</p>
-       {metric&&<p className="mt-3 text-center text-xs text-white/55">Home defense allows {metric.avg.toFixed(1)} {scoringName} {position} points per game</p>}
+       <p className="mt-3 truncate text-center text-xs text-white/65" title={g.stadium||undefined}>{g.stadium||'Stadium not listed'}{g.roof?' · '+g.roof:''}</p>
+       {metric&&<p className="mt-3 text-center text-xs text-white/70">Home defense allows {metric.avg.toFixed(1)} {scoringName} {position} points per game</p>}
        <div className="mt-4 border-t border-white/10 pt-3">
-        {indoor?<p className="flex items-center gap-2 text-xs text-white/55"><CloudOff size={16}/> Listed as enclosed. Outdoor conditions are not shown as playing conditions.</p>:
+        {indoor?<p className="flex items-center gap-2 text-xs text-white/70"><CloudOff size={16}/> Listed as enclosed. Outdoor conditions are not shown as playing conditions.</p>:
          forecast?typeof forecast==='string'?<p role="status" className="text-xs text-amber-200">{forecast}</p>:
           <div><p className="flex items-center gap-2 text-sm font-semibold"><CloudSun size={17}/> {forecast.temperature}°{forecast.unit} · {forecast.conditions}</p>
-           <p className="mt-1 text-xs text-white/55">Wind {forecast.wind} {forecast.direction} · Rain chance {forecast.precipitation===null?'—':forecast.precipitation+'%'}</p>
-           <p className="mt-1 text-[11px] text-white/40">NWS forecast, not a game outcome or fantasy projection.</p></div>:
+           <p className="mt-1 text-xs text-white/70">Wind {forecast.wind} {forecast.direction} · Rain chance {forecast.precipitation===null?'—':forecast.precipitation+'%'}</p>
+           <p className="mt-1 text-[11px] text-white/65">NWS forecast, not a game outcome or fantasy projection.</p></div>:
          <button type="button" onClick={()=>void requestWeather(g)} disabled={!g.kickoff||!g.stadium||busyWeather!==null}
           className={styles.button+' w-full'}>{busyWeather===g.id?'Loading NWS forecast…':'Check kickoff weather'}</button>}
        </div>
@@ -203,7 +203,7 @@ export default function WeeklyCenter(){
      })}
     </div>
     {schedule&&!games.length&&<p className={styles.panel+' mt-4 text-sm text-white/60'}>No scheduled games found for the selected week.</p>}
-    <p className="mt-3 text-xs text-white/45">Schedule: <a className="underline" href="https://github.com/nflverse/nfldata" target="_blank" rel="noopener noreferrer">nflverse / nfldata</a>. Weather: <a className="underline" href="https://www.weather.gov/documentation/services-web-api" target="_blank" rel="noopener noreferrer">National Weather Service</a>. Closed-roof status comes from the schedule, not a live roof sensor.</p>
+    <p className="mt-3 text-xs text-white/65">Schedule: <a className="underline" href="https://github.com/nflverse/nfldata" target="_blank" rel="noopener noreferrer">nflverse / nfldata</a>. Weather: <a className="underline" href="https://www.weather.gov/documentation/services-web-api" target="_blank" rel="noopener noreferrer">National Weather Service</a>. Closed-roof status comes from the schedule, not a live roof sensor.</p>
    </section>
    <section id="matchups" className="mt-10 scroll-mt-28">
     <h2 className="flex items-center gap-2 text-xl font-black uppercase"><ArrowLeftRight size={20} aria-hidden="true"/> Defensive matchup research</h2>
@@ -224,7 +224,7 @@ export default function WeeklyCenter(){
      <label className="flex items-center gap-2 self-end pb-2 text-xs text-white/70">
       <input type="checkbox" checked={showAllTeams} onChange={e=>setShowAllTeams(e.target.checked)}/>Show all defenses</label>
     </div>
-    <p className="mt-3 text-xs text-white/45">Stats through Week {analytics?.throughWeek||'—'} · {analytics?.source==='backup'?'Site backup data (may be older)':'Published research snapshot'}. {scoringName}.</p>
+    <p className="mt-3 text-xs text-white/65">Stats through Week {analytics?.throughWeek||'—'} · {analytics?.source==='backup'?'Site backup data (may be older)':'Published research snapshot'}. {scoringName}.</p>
     {analyticsError&&<p role="status" className="mt-3 rounded-lg border border-amber-400/20 p-3 text-sm text-amber-100">{analyticsError}</p>}
     {!analytics&&!analyticsError&&<p role="status" className={styles.muted+' mt-3'}>Loading defensive statistics…</p>}
     <div className="mt-4 overflow-x-auto rounded-xl border border-white/15">
@@ -241,7 +241,7 @@ export default function WeeklyCenter(){
      </table>
      {teamMetrics.length===0&&<p className="p-4 text-sm text-white/60">No complete-game fantasy matchup sample is published for this season.</p>}
     </div>
-    <p className="mt-3 text-xs text-white/45">Method: Sum PPR points (adjusted for the selected scoring) by position in each opponent game, then divide by completed defensive games. The last-three value includes only verified games. Byes are excluded, and estimates are not provided for future games.</p>
+    <p className="mt-3 text-xs text-white/65">Method: Sum PPR points (adjusted for the selected scoring) by position in each opponent game, then divide by completed defensive games. The last-three value includes only verified games. Byes are excluded, and estimates are not provided for future games.</p>
     {watchedPlayers.length>0&&<div className={styles.panel+' mt-5'}>
      <h3 className="font-bold">Watched players in Week {selectedWeek}</h3>
      <div className="mt-3 flex flex-wrap gap-2">
@@ -249,7 +249,7 @@ export default function WeeklyCenter(){
        className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold hover:border-[var(--brand-gold)]">
        {p.n} · {p.team}</Link>)}
      </div>
-     <p className="mt-2 text-xs text-white/50">Team affiliation from the latest published player statistics, which may lag current transactions.</p>
+     <p className="mt-2 text-xs text-white/70">Team affiliation from the latest published player statistics, which may lag current transactions.</p>
     </div>}
    </section>
    <section id="depth-charts" className="mt-10 scroll-mt-28">
@@ -263,11 +263,11 @@ export default function WeeklyCenter(){
     {depthLoading&&<p role="status" className="mt-3 text-sm text-white/60">Loading verified depth-chart snapshot…</p>}
     {depthError&&<p role="status" className="mt-3 text-sm text-amber-200">{depthError} <a target="_blank" rel="noopener noreferrer" className="underline" href="https://github.com/nflverse/nflverse-data/releases/tag/depth_charts">Source</a></p>}
     {depth&&<div className={styles.panel+' mt-4'}>
-     <p className="text-xs text-white/55">Team {team} · Reported {new Date(depth.updated).toLocaleString('en-US')} · Source: <a className={styles.link} target="_blank" rel="noopener noreferrer" href={depth.sourceUrl||'https://github.com/nflverse/nflverse-data/releases/tag/depth_charts'}>nflverse</a></p>
+     <p className="text-xs text-white/70">Team {team} · Reported {new Date(depth.updated).toLocaleString('en-US')} · Source: <a className={styles.link} target="_blank" rel="noopener noreferrer" href={depth.sourceUrl||'https://github.com/nflverse/nflverse-data/releases/tag/depth_charts'}>nflverse</a></p>
      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[...new Set(depth.players.map(p=>p.position))].map(pos=><div key={pos} className="rounded-lg border border-white/10 p-3">
       <h3 className="mb-2 text-xs font-black uppercase tracking-wide text-[var(--brand-gold)]">{pos}</h3>
       {depth.players.filter(p=>p.position===pos).map((p,i)=><div className="flex gap-2 py-1 text-sm" key={(p.id||p.name)+'-'+i}>
-       <span className="w-6 shrink-0 text-white/40">{p.rank}</span>
+       <span className="w-6 shrink-0 text-white/65">{p.rank}</span>
        {p.id?<Link className="min-w-0 truncate hover:underline" href={'/research/players/'+encodeURIComponent(p.id)+'?season='+season}>{p.name}</Link>:
         <span className="min-w-0 truncate">{p.name}</span>}</div>)}
      </div>)}</div>
@@ -282,13 +282,13 @@ export default function WeeklyCenter(){
     </div>}
     {news&&news.items.length>0&&<div className="mt-4 grid gap-3 md:grid-cols-2">
      {news.items.slice(0,12).map((item,i)=><article key={item.url+'-'+i} className={styles.panel}>
-      <p className="text-[11px] font-bold uppercase tracking-wider text-white/45">ESPN · {item.published?new Date(item.published).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'Date not provided'}</p>
+      <p className="text-[11px] font-bold uppercase tracking-wider text-white/65">ESPN · {item.published?new Date(item.published).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'Date not provided'}</p>
       <a href={item.url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-start gap-2 font-semibold text-white hover:text-[var(--brand-gold)]">{item.title}<ExternalLink size={14} className="mt-1 shrink-0"/></a>
      </article>)}
     </div>}
     {!news&&<p role="status" className="mt-3 text-sm text-white/60">Checking the official NFL news feed…</p>}
    </section>
-   <footer className="mt-12 border-t border-white/10 pt-6 text-xs leading-6 text-white/45">
+   <footer className="mt-12 border-t border-white/10 pt-6 text-xs leading-6 text-white/65">
     All matchup statistics are historical observations, not predictions. Data sources include nflverse and the National Weather Service. No practice-participation or comprehensive injury-report feed is included in Phase 4A.
    </footer>
   </div>
