@@ -65,7 +65,7 @@ for(const theme of ['light','dark'] as const){
   const c=await contrast(page,'#lz-search');
   expect(c.ratio,`${theme} search input: ${JSON.stringify(c)}`).toBeGreaterThanOrEqual(4.5);
   await page.goto('/saved');
-  await expect(page.getByRole('heading',{name:'Saved Research'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Saved Research',exact:true})).toBeVisible();
   // A guest's empty saved-state browse link is the common on-light gold case.
   const link=page.getByRole('link',{name:'Browse players'});
   await expect(link).toBeVisible();
