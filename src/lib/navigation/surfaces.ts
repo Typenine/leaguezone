@@ -12,6 +12,8 @@ const PLATFORM_PREFIXES = [
   '/pricing',
   '/register',
   '/research',
+  '/my-research',
+  '/weekly',
   '/saved',
   '/search',
   '/profile',

@@ -17,6 +17,7 @@ import { getLeagueProviderRuntimeConfig } from '@/lib/server/provider-seasons';
 import PwaInstallPrompt from '@/components/pwa/PwaInstallPrompt';
 import PwaRegistration from '@/components/pwa/PwaRegistration';
 import MobileAppTabs from '@/components/layout/MobileAppTabs';
+import ResearchSectionNav from '@/components/research/ResearchSectionNav';
 import PlayerModalProvider from '@/components/players/PlayerModalProvider';
 import QABar from '@/components/admin/QABar';
 import { verifySession } from '@/lib/server/auth';
@@ -95,6 +96,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <PlayerModalProvider>
           <TeamLogoProvider>
             <Suspense fallback={null}><UnifiedNavbar /></Suspense>
+            <Suspense fallback={null}><ResearchSectionNav /></Suspense>
             <Suspense fallback={null}><GlobalLeagueSwitcher /></Suspense>
             <main className={hasQaSession ? 'flex-grow pb-16' : 'flex-grow'}>{children}</main>
             <Footer />

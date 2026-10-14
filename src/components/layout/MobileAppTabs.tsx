@@ -20,8 +20,8 @@ export default function MobileAppTabs(){
   return <nav aria-label="LeagueZone app navigation" className="lz-bottom-tabs">
     {tabs.map(({href,label,Icon})=>{
       const selected=label==='Home'?pathname==='/' :
-        label==='Research'?pathname==='/research'||['/research/radar','/research/receipts',
-          '/research/development'].some(p=>pathname.startsWith(p)) :
+        label==='Research'?['/research','/weekly','/my-research','/saved','/search'].includes(pathname)||
+          ['/research/radar','/research/receipts','/research/development'].some(p=>pathname.startsWith(p)) :
         label==='Players'?pathname.startsWith('/research/players')||pathname==='/research/stats' :
         label==='My Leagues'?pathname==='/app'||pathname.startsWith('/app/')||pathname.startsWith('/l/') :
         pathname==='/profile'||pathname.startsWith('/profile/');
