@@ -364,6 +364,7 @@ export default function MyResearchDashboard({
    </div>}
    {prefsStatus&&!settingsOpen&&dirty&&<p role="status" className="mt-3 text-xs text-white/60">{prefsStatus} <button type="button" onClick={()=>setSettingsOpen(true)} className="underline">Save settings</button></p>}
    <div className="mt-6 flex flex-wrap gap-3 text-xs font-semibold text-[var(--brand-gold)]">
+    <Link className="underline" href="/weekly">NFL Weekly Center</Link>
     <Link className="underline" href="/research/players">Player directory</Link>
     <Link className="underline" href="/saved">Saved research</Link>
     <Link className="underline" href="/search">Search</Link>

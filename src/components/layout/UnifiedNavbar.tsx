@@ -125,6 +125,7 @@ export default function UnifiedNavbar() {
   const platformLinks = [
     { href: '/', label: 'Home' },
     { href: '/research', label: 'Research' },
+    { href: '/weekly', label: 'NFL Weekly' },
     { href: '/features', label: 'League Websites' },
     { href: '/demo', label: 'Demo' },
     ...(user ? [{ href: '/app', label: 'My Hub' }] : []),

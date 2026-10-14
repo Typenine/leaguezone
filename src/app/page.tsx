@@ -8,6 +8,14 @@ export const dynamic = 'force-dynamic';
 
 const RESEARCH_TOOLS = [
   {
+    number: '00',
+    label: 'Weekly Football Center',
+    title: 'Matchups, weather and the NFL week.',
+    description: 'See the weekly schedule, fantasy points allowed by defense, depth charts, weather forecasts and linked headlines.',
+    href: '/weekly',
+    action: 'Explore this week',
+  },
+  {
     number: '01',
     label: 'Player Statistics',
     title: 'Find the players behind the numbers.',

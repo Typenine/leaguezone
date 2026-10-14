@@ -144,6 +144,7 @@ export default async function AppDashboardPage({
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             {[
+              { href: '/weekly', label: 'Weekly Center', detail: 'NFL schedules, opponent trends, depth charts and kickoff weather.' },
               { href: '/research/stats', label: 'Stat Leaders', detail: 'Filter and compare player production and usage.' },
               { href: '/research/radar', label: 'Opportunity Radar', detail: 'Spot changing roles behind weekly fantasy scores.' },
               { href: '/research/development', label: 'Development Lab', detail: 'Compare player growth across seasons.' },
