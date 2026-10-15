@@ -120,9 +120,7 @@
   function setMessage(text){feedback.textContent=text;}
   function update() {
     var path=location.pathname;
-    var selected=path==='/research'||path==='/research/radar'||path==='/research/decisions'||
-      path==='/research/receipts'||path==='/research/development'?'research':
-      path.startsWith('/research/players')||path==='/research/stats'?'players':'';
+    var selected=path==='/research/development'||path==='/research/receipts'?'tools':'research';
     Array.prototype.forEach.call(nav.querySelectorAll('[data-tab]'),function(a){
       if(a.dataset.tab===selected)a.setAttribute('aria-current','page');
       else a.removeAttribute('aria-current');

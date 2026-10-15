@@ -27,35 +27,46 @@
 <body>
   <header class="site-head">
     <div class="wrap head-inner">
-      <a class="wordmark" href="/" aria-label="LeagueZone home"><span class="brand-icon">LZ</span><span>LeagueZone <small>RESEARCH</small></span></a>
-      <nav aria-label="Site navigation" class="nav">
-        <a href="/">Home</a>
-        <a href="/research/decisions">Fantasy Insights</a>
-        <a href="/research" data-nav="research">Research</a>
-        <a href="/weekly">NFL Weekly</a>
-        <a href="/availability">Injuries</a>
-        <a href="/my-research">My Research</a>
-        <a href="/install" class="install-link">Get the App</a>
-        <a href="/app" class="my-leagues">My Leagues ↗</a>
-      </nav>
+      <a class="wordmark" href="/?view=public" aria-label="LeagueZone home"><span class="brand-icon">LZ</span><span>LeagueZone <small>RESEARCH</small></span></a>
+      <details class="lz-site-navigation">
+        <summary class="lz-nav-toggle">☰ <span>Menu</span></summary>
+        <nav aria-label="LeagueZone navigation" class="lz-site-links">
+        <a class="lz-site-home" href="/?view=public" data-nav-section="home">Home</a>
+        <details class="lz-site-group" data-nav-section="websites">
+          <summary>League Websites<span aria-hidden="true">⌄</span></summary>
+          <div class="lz-site-popover"><a href="/features" data-platform-destination="websites">League Website Features</a><a href="/setup?new=1" data-platform-destination="websites">Create a League Website</a><a href="/app/leagues" data-platform-destination="websites">My League Websites</a><a href="/app#join-league" data-platform-destination="websites">Join a League</a></div>
+        </details>
+        <details class="lz-site-group" data-nav-section="research">
+          <summary>Research<span aria-hidden="true">⌄</span></summary>
+          <div class="lz-site-popover"><a href="/research" data-platform-destination="research">Research Home</a><a href="/research/decisions" data-platform-destination="research">Fantasy Insights</a><a href="/research/players" data-platform-destination="research">Player Research</a><a href="/research/stats" data-platform-destination="research">Stat Leaders</a><a href="/research/radar" data-platform-destination="research">Opportunity Radar</a><a href="/weekly" data-platform-destination="research">NFL Weekly Center</a><a href="/availability" data-platform-destination="research">Injuries & Availability</a></div>
+        </details>
+        <details class="lz-site-group" data-nav-section="tools">
+          <summary>Tools<span aria-hidden="true">⌄</span></summary>
+          <div class="lz-site-popover wide"><a href="/fantasy-tools" data-platform-destination="tools">All Tools</a><a href="/fantasy-tools/start-bench" data-platform-destination="tools">Start / Bench Advisor</a><a href="/fantasy-tools/waivers" data-platform-destination="tools">Waiver & Pickup Finder</a><a href="/fantasy-tools/trade" data-platform-destination="tools">Trade Analyzer</a><a href="/fantasy-tools/roster" data-platform-destination="tools">Improve My Roster</a><a href="/fantasy-tools/rankings" data-platform-destination="tools">Player Rankings</a><a href="/fantasy-tools/taxi" data-platform-destination="tools">Taxi Squad Advisor</a><a href="/fantasy-tools/draft" data-platform-destination="tools">Draft Advisor</a><a href="/fantasy-tools/outlook" data-platform-destination="tools">Season Outlook</a><a href="/research/development" data-platform-destination="tools">Development Lab</a><a href="/research/receipts" data-platform-destination="tools">Prediction Receipts</a></div>
+        </details>
+        <details class="lz-site-group" data-nav-section="demo">
+          <summary>Demo League<span aria-hidden="true">⌄</span></summary>
+          <div class="lz-site-popover"><a href="/demo" data-platform-destination="demo">Visit Demo League</a><a href="/features" data-platform-destination="demo">What League Websites Offer</a></div>
+        </details>
+        <details class="lz-site-group" data-nav-section="hub">
+          <summary>Hub<span aria-hidden="true">⌄</span></summary>
+          <div class="lz-site-popover"><a href="/app" data-platform-destination="hub">My Hub</a><a href="/app/leagues" data-platform-destination="hub">My League Websites</a><a href="/app/connect-sleeper" data-platform-destination="hub">Connect a Sleeper League</a><a href="/my-research" data-platform-destination="hub">My Research & Watchlists</a><a href="/saved" data-platform-destination="hub">Saved Research</a><a href="/profile" data-platform-destination="hub">Account & Profile</a></div>
+        </details>
+        </nav>
+      </details>
     </div>
   </header>
   <div class="lz-research-sections" data-research-section-nav>
     <div class="wrap lz-research-strip-inner">
       <span class="lz-research-label">Research tools</span>
-      <nav aria-label="Research tools" class="lz-research-tool-links">
+      <nav aria-label="Research destinations" class="lz-research-tool-links">
         <a href="/research" data-research-tool="overview">Overview</a>
-        <a href="/weekly" data-research-tool="weekly">Weekly Center</a>
-        <a href="/availability" data-research-tool="availability">Availability</a>
         <a href="/research/decisions" data-research-tool="decisions">Fantasy Insights</a>
         <a href="/research/players" data-research-tool="players">Players</a>
         <a href="/research/stats" data-research-tool="stats">Stat Leaders</a>
         <a href="/research/radar" data-research-tool="radar">Radar</a>
-        <a href="/research/receipts" data-research-tool="receipts">Receipts</a>
-        <a href="/research/development" data-research-tool="development">Development Lab</a>
-        <a href="/my-research" data-research-tool="mine">My Research</a>
-        <a href="/saved" data-research-tool="saved">Saved</a>
-        <a href="/search" data-research-tool="search">Search</a>
+        <a href="/weekly" data-research-tool="weekly">Weekly Center</a>
+        <a href="/availability" data-research-tool="availability">Availability</a>
       </nav>
     </div>
   </div>
@@ -138,10 +149,10 @@
   </main>
   <nav class="lz-research-tabs" aria-label="LeagueZone app navigation">
     <a href="/?view=public" data-tab="home"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8"/></svg><span>Home</span></a>
+    <a href="/features" data-tab="websites"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 21V4h18v17M8 8h2m4 0h2M8 12h2m4 0h2M2 21h20"/></svg><span>Leagues</span></a>
     <a href="/research" data-tab="research"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 6c-3-2-7-2-10-1v15c3-1 7-1 10 1 3-2 7-2 10-1V5c-3-1-7-1-10 1ZM12 6v15"/></svg><span>Research</span></a>
-    <a href="/research/players" data-tab="players"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6M19 14a5 5 0 0 1 2 5v2"/></svg><span>Players</span></a>
-    <a href="/app" data-tab="leagues"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg><span>My Leagues</span></a>
-    <a href="/profile" data-tab="profile"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>Profile</span></a>
+    <a href="/fantasy-tools" data-tab="tools"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 7 3 3M5 19l8-8M3 21l4-1 12-12-3-3L4 17z"/></svg><span>Tools</span></a>
+    <a href="/app" data-tab="hub"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></svg><span>Hub</span></a>
   </nav>
   <footer class="wrap footer"><span>LeagueZone Research</span><details class="data-credit"><summary>Data credits</summary><p>NFL weekly statistics: <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noopener noreferrer">nflverse-data</a> (nflverse contributors), licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>. Fantasy scoring and statistics are calculated by LeagueZone; league-specific settings may vary.</p></details><a href="/">LeagueZone HQ</a></footer>
 </body>
