@@ -153,8 +153,10 @@ export default function PublicFantasyWorkbench({tool,initialLeagueId,initialRost
    </section>}
    {tool==='trade'&&<section className="mt-6 rounded-2xl border border-white/20 bg-white/[0.035] p-4 sm:p-5">
     <h2 className="text-xl font-black">Trade Analyzer: no league required</h2>
-    <p className="mt-2 text-sm text-white/70">Compare players and picks immediately. Connecting a Sleeper roster below adds context about both teams, but is optional.</p>
-    <div className="mt-4 rounded-xl bg-[var(--surface)] text-[var(--text)]"><TradeAnalyzerPage /></div>
+    <p className="mt-2 text-sm text-white/70">Compare players and picks immediately. Connect a Sleeper league below to see the actual owners, players counted toward positional strength, and each roster before and after the same trade. No connection is needed for market values.</p>
+    <div className="mt-4 rounded-xl bg-[var(--surface)] text-[var(--text)]"><TradeAnalyzerPage
+     rosterContext={context?{rosters:context,starterSlots:context.starterSlots,
+      viewerRosterId:context.viewerRosterId,leagueName:context.leagueName,season:Number(context.season)}:undefined}/></div>
    </section>}
    {tool!=='receipts'&&<>
     <section className="mt-6 rounded-2xl border border-white/20 bg-[#102439] p-4 sm:p-6" aria-label="Choose Sleeper league and team">
