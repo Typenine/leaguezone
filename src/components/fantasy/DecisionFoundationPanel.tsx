@@ -30,11 +30,12 @@ export default function DecisionFoundationPanel({endpoint,rosters,teamId,starter
  const [market,setMarket]=useState<MarketIndex>({});
  useEffect(()=>{
   let active=true;
+  if(tool==='waivers'||tool==='trade'||tool==='draft'){setStatus('ready');setLineup(null);return;}
   setStatus('loading');setLineup(null);setError('');
   void load(endpoint).then(v=>{if(active){setLineup(v as unknown as LineupOptimizerResponse);setStatus('ready');}})
    .catch(e=>{if(active){setStatus('error');setError(e instanceof Error?e.message:'Unavailable');}});
   return ()=>{active=false;};
- },[endpoint,retry]);
+ },[endpoint,retry,tool]);
  useEffect(()=>{
   let active=true;
   void load('/api/trade-analyzer/values').then(v=>{

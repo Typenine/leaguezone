@@ -31,7 +31,7 @@ async function get<T>(path:string):Promise<T>{
  const res=await fetch(path,{cache:'no-store'});
  const body=await res.json().catch(()=>({})) as {error?:string};
  if(!res.ok)throw Error(body.error||'Live data unavailable. Try again.');
- return body as T;
+ return body as unknown as T;
 }
 async function researchSnapshot(year:number):Promise<ResearchSnapshot|null>{
  if(!Number.isInteger(year)||year<2017||year>2100)return null;
