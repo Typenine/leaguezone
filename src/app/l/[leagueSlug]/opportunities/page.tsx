@@ -7,6 +7,7 @@ import opportunityEngine from '../../../../../public/research/opportunities.js';
 import decisionEngine from '../../../../../public/research/insights.js';
 import {decisionCandidates,rosterNeeds} from '@/lib/fantasy/personalized-decisions';
 import ActionableDecisions from '@/components/fantasy/ActionableDecisions';
+import DecisionFoundationPanel from '@/components/fantasy/DecisionFoundationPanel';
 import LineupComparison from '@/components/fantasy/LineupComparison';
 import type {LineupOptimizerResponse} from '@/lib/fantasy/lineup-types';
 
@@ -270,6 +271,12 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
         </select></label>
         <div className="text-xs text-[var(--muted)]"><span className="font-bold text-[var(--text)]">{rosters.season} season</span><br/>Research through Week {season.throughWeek}<br/>Updated {season.updated}</div>
       </div>
+      {isMyTeam && view==='brief' && <DecisionFoundationPanel key={slug+':'+teamId}
+       endpoint={'/api/league-opportunities/'+encodeURIComponent(slug||'')+'/lineup'}
+       rosters={rosters} teamId={Number(teamId)} starterSlots={rosters.starterSlots||[]}
+       needs={needs} waiver={personal.waiver} season={season.year}
+       throughWeek={season.throughWeek} source={season._researchSource||'backup'}
+       onSelect={setFocus}/>}
       {rosterContext && <section className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-label="Roster construction">
         <h2 className="mb-2 text-sm font-bold">Your roster construction</h2>
         <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
