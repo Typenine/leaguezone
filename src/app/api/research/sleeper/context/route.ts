@@ -24,7 +24,7 @@ export async function GET(req:NextRequest){
   const data=await researchSleeperRosters({
    sleeperLeagueId:row.sleeper_league_id,sleeperUserId:row.sleeper_user_id,rosterId:row.roster_id});
   return NextResponse.json({...data.rosters,catalog:data.catalog,viewerRosterId:data.viewerRosterId,
-   starterSlots:data.starterSlots,leaguePpr:data.leaguePpr,leagueName:data.leagueName,teamName:data.teamName},{
+   starterSlots:data.starterSlots,taxiContext:data.taxiContext,leaguePpr:data.leaguePpr,leagueName:data.leagueName,teamName:data.teamName},{
    headers});
  }catch(err){
   console.warn('[sleeper-research-context]',err instanceof Error?err.message:'error');

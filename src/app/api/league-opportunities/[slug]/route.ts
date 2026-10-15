@@ -5,7 +5,8 @@ import { getFantasyLeagueSettings } from '@/lib/server/provider-settings';
 import { getCurrentLeagueBySlug } from '@/lib/server/league-context';
 import { getFantasyRostersResult } from '@/lib/server/fantasy-data';
 import { guardPublicDataRequest } from '@/lib/server/public-api-guard';
-import { getAllPlayersCached } from '@/lib/utils/sleeper-api';
+import { getAllPlayersCached,getLeague,getLeagueRosters } from '@/lib/utils/sleeper-api';
+import {taxiContextFromSleeper} from '@/lib/fantasy/taxi-context';
 import { reliabilityResponseHeaders } from '@/lib/server/reliability-cache';
 
 export const dynamic = 'force-dynamic';
@@ -41,7 +42,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ).map(([id, p]) => ({ id, gsisId: p.gsis_id || null,
       name: `${p.first_name} ${p.last_name}`, position: p.position, team: p.team })) : [];
     const settings = await getFantasyLeagueSettings(league.id).catch(() => null);
-    return NextResponse.json({ ...rosters.value, catalog,
+    // Only return taxi data for the authorized member's own current Sleeper roster.
+    // Existing historical taxi audits are EvW-specific and are not reused here.
+    let taxiContext = null;
+    if (rosters.value.provider === 'sleeper' && membership.rosterId != null && league.sleeperLeagueId && all) {
+      const [sleeper,actualRosters]=await Promise.all([
+        getLeague(league.sleeperLeagueId).catch(()=>null),
+        getLeagueRosters(league.sleeperLeagueId).catch(()=>[]),
+      ]);
+      if(sleeper&&String(sleeper.season)===String(rosters.value.season)){
+        taxiContext=taxiContextFromSleeper({
+          season:sleeper.season,
+          roster:actualRosters.find(r=>r.roster_id===membership.rosterId),
+          settings:sleeper.settings as Record<string,unknown>|undefined,
+          rosterPositions:sleeper.roster_positions,playerDirectory:all,
+        });
+      }
+    }
+    return NextResponse.json({ ...rosters.value, catalog,taxiContext,
       viewerRosterId: membership.rosterId,
       leaguePpr: settings?.ppr ?? null,
       starterSlots: settings?.starterSlots ?? [],
