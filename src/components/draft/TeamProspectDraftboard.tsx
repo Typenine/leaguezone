@@ -45,7 +45,7 @@ type SavedBoard = {
   notes?: Record<string, string>;
 };
 
-const INITIAL: BoardPlayer[] = [
+export const PROSPECT_BASELINE_2027: BoardPlayer[] = [
   { id:'jeremiah-smith',tier:1,name:'Jeremiah Smith',pos:'WR',college:'Ohio State',draftRange:'Top 5',trend:'steady',statLine:'2025: 87 rec, 1,243 yds, 12 rec TD · Career: 2,558 rec yds, 27 rec TD',strengths:['Elite size/speed blend','Dominant ball skills and body control','Wins at every level of the field'],concerns:['Very little on-field concern; acquisition cost will be enormous'],fantasy:'The safest elite asset in the class and the current 1.01 favorite even in Superflex.',watch:'How defenses alter coverage around him and whether he maintains elite efficiency under constant attention.' },
   { id:'arch-manning',tier:1,name:'Arch Manning',pos:'QB',college:'Texas',draftRange:'Top 5',trend:'steady',statLine:'2025: 3,163 pass yds, 26 TD, 7 INT · 399 rush yds, 10 rush TD',strengths:['NFL frame and arm talent','Real rushing value','Can attack every area of the field'],concerns:['2025 accuracy and consistency were uneven','Needs a full season of high-end processing'],fantasy:'If he locks down top-five NFL capital, he has a legitimate case for the Superflex 1.01.',watch:'Whether his late-2025 improvement becomes his week-to-week baseline.' },
   { id:'dante-moore',tier:1,name:'Dante Moore',pos:'QB',college:'Oregon',draftRange:'Top 5-10',trend:'steady',statLine:'2025: 3,565 pass yds, 30 TD, 10 INT, 71.8% completions · 30 PFF big-time throws',strengths:['High-end accuracy and touch','Calm pocket movement','Strong creation ability'],concerns:['Decision-making can turn erratic','Needs to trim turnover-worthy stretches'],fantasy:'High-end NFL starter traits plus enough mobility to support an early Superflex rookie pick.',watch:'Whether the explosive throws remain while the risky decisions come down.' },
@@ -104,7 +104,7 @@ const INITIAL: BoardPlayer[] = [
 
 const TIER_LABELS: Record<number,string> = { 1:'Blue-chip', 2:'Early 1st-round core', 3:'1st-round depth', 4:'Day 2 watch', 5:'Developmental watchlist' };
 
-function cloneInitial() { return INITIAL.map((p) => ({ ...p, strengths:[...p.strengths], concerns:[...p.concerns] })); }
+function cloneInitial() { return PROSPECT_BASELINE_2027.map((p) => ({ ...p, strengths:[...p.strengths], concerns:[...p.concerns] })); }
 
 function applySavedBoard(saved: SavedBoard | null): BoardPlayer[] {
   let players = cloneInitial();
