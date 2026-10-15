@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { verifySession } from '@/lib/server/auth';
 import { PLATFORM, PRODUCT_FEATURES } from '@/lib/config/platform';
 import ConnectedLeagueCard from '@/components/fantasy/ConnectedLeagueCard';
@@ -103,14 +102,12 @@ function ProductPreview() {
   );
 }
 
-export default async function RootPage({ searchParams }: { searchParams?: Promise<{view?:string}> }) {
+export default async function RootPage() {
   const cookieJar = await cookies();
   const sessionToken = cookieJar.get('evw_session')?.value || '';
   const claims = sessionToken ? verifySession(sessionToken) : null;
   const signedIn = claims?.type === 'user' && typeof claims.sub === 'string';
-  const params = await searchParams;
-  // Do not bypass a QA public/team perspective by redirecting into the real account dashboard.
-  if(signedIn && !cookieJar.get('lz_qa_session')?.value && params?.view !== 'public') redirect('/app');
+  // Home is the public homepage for signed-in users too. Hub is a separate destination.
 
   return (
     <div className="lz-dark-surface overflow-hidden bg-[var(--brand-ink)] text-white">
