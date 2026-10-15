@@ -42,7 +42,7 @@ export default function LeagueMobileNav({ links }: { links: MobileLink[] }) {
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="League navigation">
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="League navigation">
           <button className="absolute inset-0 bg-black/70" aria-label="Close navigation" onClick={() => setOpen(false)} />
           <section className="absolute inset-x-0 bottom-0 max-h-[78dvh] overflow-y-auto rounded-t-3xl border-t border-[var(--border)] bg-[var(--surface)] px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
@@ -55,7 +55,7 @@ export default function LeagueMobileNav({ links }: { links: MobileLink[] }) {
           </section>
         </div>
       )}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[var(--brand-navy)]/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden" aria-label="Mobile league navigation">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[var(--brand-navy)]/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Mobile league navigation">
         <div className="mx-auto grid max-w-lg grid-cols-5">
           {primary.map((link) => {
             const Icon = itemIcon(link.label);
