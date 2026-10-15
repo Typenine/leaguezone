@@ -75,3 +75,6 @@
 .lz-site-group[data-active="true"]>summary,.lz-site-home[aria-current="page"]{background:rgba(255,255,255,.15);color:#fff}
 .lz-site-popover a[aria-current="page"]{background:rgba(226,188,113,.15);color:#f2d79c}
 @media(max-width:600px){.wordmark{font-size:16px}.brand-image{width:44px;height:44px}}
+
+/* Tools pages have the global Tools menu, not the secondary Research strip. */
+body[data-site-section="tools"] .lz-research-sections{display:none}

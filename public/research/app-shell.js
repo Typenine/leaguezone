@@ -192,16 +192,22 @@
  'use strict';
  // Standalone research paths use the same six-section navigation contract as the main site.
  const groups=document.querySelectorAll('.lz-site-group');
- const current=location.pathname;
- const destination=(current==='/research/development'||current==='/research/receipts')?'tools':
-  current.startsWith('/research')||current==='/weekly'||current==='/availability'?'research':'';
- groups.forEach(group=>{
-  group.dataset.active=String(group.dataset.navSection===destination);
-  group.querySelectorAll('a[href]').forEach(a=>{
-   if(a.getAttribute('href')===current)a.setAttribute('aria-current','page');
-   else a.removeAttribute('aria-current');
+ function update(){
+  const current=location.pathname;
+  const destination=(current==='/research/development'||current==='/research/receipts')?'tools':
+   current.startsWith('/research')||current==='/weekly'||current==='/availability'?'research':'';
+  document.body.dataset.siteSection=destination;
+  groups.forEach(group=>{
+   group.dataset.active=String(group.dataset.navSection===destination);
+   group.querySelectorAll('a[href]').forEach(a=>{
+    if(a.getAttribute('href')===current)a.setAttribute('aria-current','page');
+    else a.removeAttribute('aria-current');
+   });
   });
- });
+ }
+ update();
+ window.addEventListener('leaguezone:routechange',update);
+ window.addEventListener('popstate',update);
  const nav=document.querySelector('.lz-site-navigation');
  if(nav){
   document.addEventListener('pointerdown',event=>{
