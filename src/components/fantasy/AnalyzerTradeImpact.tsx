@@ -37,7 +37,7 @@ export default function AnalyzerTradeImpact({slug,a,b,values,connected}:{
   <h2 className="mb-1 text-lg font-black">Impact on both actual rosters</h2>
   <p className="mb-4 text-sm text-[var(--muted)]">
    {connected?.leagueName?connected.leagueName+' · ':''}
-   The original trade grade uses market values. The calculation below uses the connected league's
+   The original trade grade uses market values. The calculation below uses the connected league&apos;s
    player ownership, complete rosters and fixed starting slots to show changes for each team.
   </p>
   {error&&<p role="status" className="text-sm text-[var(--muted)]">{error}</p>}
