@@ -24,6 +24,9 @@ import ProjectedSeasonMatchups from "@/components/home/ProjectedSeasonMatchups";
 import InSeasonStandings from "@/components/home/InSeasonStandings";
 import PlayoffRacePanel from "@/components/home/PlayoffRacePanel";
 import LeaguePulse from "@/components/home/LeaguePulse";
+import LeagueQuickActions from '@/components/league/LeagueQuickActions';
+import LeagueAdvancedPanel from '@/components/league/LeagueAdvancedPanel';
+import { getLeagueFeatures } from '@/lib/server/league-context';
 import WeeklyLeaders from "@/components/home/WeeklyLeaders";
 import AroundTheLeague from "@/components/home/AroundTheLeague";
 import RecentTransactions from "@/components/home/RecentTransactions";
@@ -244,6 +247,8 @@ export default async function SeasonLaunchHome({
       <div className="container relative z-10 mx-auto px-4 py-6 sm:px-5 sm:py-8">
         <SeasonWeekHeader week={selectedWeek} matchupCount={matchups.length} season={seasonYear} scheduleHref={scheduleHref} />
 
+        <LeagueQuickActions slug={league.slug} features={getLeagueFeatures(league)} rosterId={myTeamData ? rosterId : null} />
+
         {showCountdowns && <HomepageCountdowns cards={getCountdownCards(now, calendar)} />}
 
         {myTeamData && (
@@ -273,17 +278,18 @@ export default async function SeasonLaunchHome({
           standings.length > 0 && <InSeasonStandings standings={standings} basePath={`/l/${league.slug}`} />
         )}
 
-        <LeaguePulse
-          tradeRows={tradeRows}
-          positionCounts={positionCounts}
-          playerPositions={playerPositions}
-          phase={presentationPhase}
-          standings={standings}
-        />
-
         <WeeklyLeaders week={selectedWeek} matchups={matchups} />
         <AroundTheLeague myTeam={teamName ?? null} leagueSlug={league.slug} />
         <RecentTransactions leagueSlug={league.slug} season={seasonYear} />
+        <LeagueAdvancedPanel>
+          <LeaguePulse
+            tradeRows={tradeRows}
+            positionCounts={positionCounts}
+            playerPositions={playerPositions}
+            phase={presentationPhase}
+            standings={standings}
+          />
+        </LeagueAdvancedPanel>
         <Suspense fallback={null}><LeagueHistorySpotlight league={league} /></Suspense>
       </div>
     </div>

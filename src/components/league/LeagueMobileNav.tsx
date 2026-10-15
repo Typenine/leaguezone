@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { CalendarDays, House, Menu, Newspaper, Trophy, X } from 'lucide-react';
+import { CalendarDays, House, Menu, Newspaper, Trophy, Wrench, X } from 'lucide-react';
 
 type MobileLink = { href: string; label: string };
 
 function itemIcon(label: string) {
   const normalized = label.toLowerCase();
+  if (normalized === 'tools') return Wrench;
   if (normalized.includes('standing')) return Trophy;
   if (normalized.includes('calendar') || normalized.includes('schedule')) return CalendarDays;
   if (normalized.includes('news') || normalized.includes('transaction')) return Newspaper;
@@ -16,22 +17,13 @@ function itemIcon(label: string) {
 }
 
 function isPrimaryLink(link: MobileLink): boolean {
-  const label = link.label.toLowerCase();
-  return label === 'dashboard'
-    || label === 'home'
-    || label === 'standings'
-    || label === 'schedule'
-    || label === 'news';
+  return ['home', 'tools', 'schedule', 'standings'].includes(link.label.toLowerCase());
 }
 
 export default function LeagueMobileNav({ links }: { links: MobileLink[] }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const primaryCandidates = links.filter(isPrimaryLink);
-  const hasDashboard = primaryCandidates.some((link) => link.label.toLowerCase() === 'dashboard');
-  const primary = primaryCandidates
-    .filter((link) => !(hasDashboard && link.label.toLowerCase() === 'home'))
-    .slice(0, 4);
+  const primary = links.filter(isPrimaryLink).slice(0, 4);
 
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
@@ -50,7 +42,7 @@ export default function LeagueMobileNav({ links }: { links: MobileLink[] }) {
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="League navigation">
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="League navigation">
           <button className="absolute inset-0 bg-black/70" aria-label="Close navigation" onClick={() => setOpen(false)} />
           <section className="absolute inset-x-0 bottom-0 max-h-[78dvh] overflow-y-auto rounded-t-3xl border-t border-[var(--border)] bg-[var(--surface)] px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
@@ -63,7 +55,7 @@ export default function LeagueMobileNav({ links }: { links: MobileLink[] }) {
           </section>
         </div>
       )}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[var(--brand-navy)]/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden" aria-label="Mobile league navigation">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[var(--brand-navy)]/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Mobile league navigation">
         <div className="mx-auto grid max-w-lg grid-cols-5">
           {primary.map((link) => {
             const Icon = itemIcon(link.label);

@@ -55,7 +55,17 @@ describe('public research database isolation', () => {
     expect(ui).toContain('fetch(localUrl');
     expect(ui).toContain('loadAvailableSeasons()');
     expect(ui).toContain("fetch('/research/data/seasons.json'");
-    expect(ui).not.toMatch(/fetch\s*\(\s*['"\`]\/api\//);
+    // The public, allowlisted research-feed proxy serves immutable R2 objects.
+    // No other API, authenticated endpoint, or database access belongs in this client.
+    expect(ui).toContain("fetch('/api/research-feed/research/v1/catalog.json'");
+    const clientWithoutPublicProxy = ui.replace(
+      "fetch('/api/research-feed/research/v1/catalog.json'",
+      "fetch('/research/public-catalog'"
+    );
+    expect(clientWithoutPublicProxy).not.toMatch(/fetch\s*\(\s*['"`]\/api\//);
+    const proxy = read('src/app/api/research-feed/[...path]/route.ts');
+    expect(proxy).toContain("key!==CATALOG && !OBJECT.test(key)");
+    expect(proxy).not.toMatch(/DATABASE_URL|@neondatabase|\/api\/players/);
     expect(ui).not.toMatch(/fetch\s*\(\s*['"\`]\/l\//);
     expect(ui).not.toMatch(/DATABASE_URL|@neondatabase|sql\`|\/api\/players/);
   });
