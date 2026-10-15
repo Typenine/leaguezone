@@ -8,7 +8,7 @@ import {marketById,type MarketIndex} from '@/lib/fantasy/decision-quality';
 import {adviseLineup,adviseWaivers,type WaiverLead} from '@/lib/fantasy/decision-foundation';
 import LineupComparison from '@/components/fantasy/LineupComparison';
 import TeamManagementAdvisor from '@/components/fantasy/TeamManagementAdvisor';
-import AdvancedDecisionTools,type {DecisionScope} from '@/components/fantasy/AdvancedDecisionTools';
+import AdvancedDecisionTools, {type DecisionScope} from '@/components/fantasy/AdvancedDecisionTools';
 import type {TaxiContext} from '@/lib/fantasy/taxi-context';
 
 type Props={endpoint:string;rosters:Pick<FantasyRostersData,'teams'|'players'>;teamId:number;
