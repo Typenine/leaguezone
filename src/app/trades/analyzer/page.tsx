@@ -822,7 +822,9 @@ function TradeAnalyzerContent({rosterContext}: {rosterContext?:ConnectedTradeRos
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text)]">Trade Analyzer</h1>
-          <p className="text-sm text-[var(--muted)] mt-1">Dynasty · Superflex · 12-Team · PPR</p>
+          <p className="text-sm text-[var(--muted)] mt-1">
+           Dynasty market values{rosterContext?' · Roster impact from '+(rosterContext.leagueName||'connected league')+' ('+rosterContext.rosters.teams.length+' teams)':' · No roster context connected'}
+          </p>
         </div>
         {isAdmin && (
           <div className="flex items-center gap-2">
