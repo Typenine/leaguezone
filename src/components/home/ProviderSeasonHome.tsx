@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import LeagueQuickActions from '@/components/league/LeagueQuickActions';
+import { getLeagueFeatures } from '@/lib/server/league-context';
 import Card, { CardContent } from '@/components/ui/Card';
 import SectionHeader from '@/components/ui/SectionHeader';
 import WeeklyLeaders from '@/components/home/WeeklyLeaders';
@@ -74,6 +76,8 @@ export default async function ProviderSeasonHome({
           <div className="flex flex-wrap gap-2">{Array.from({ length: maxWeeks }, (_, index) => index + 1).map((week) => <Link key={week} href={`/l/${league.slug}?week=${week}`} className={`rounded-md border px-2.5 py-1.5 text-xs font-bold ${week === selectedWeek ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent,#fff)]' : 'border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)]'}`}>{week}</Link>)}</div>
         </div>
       </section>
+
+      <LeagueQuickActions slug={league.slug} features={getLeagueFeatures(league)} rosterId={myTeam?.rosterId ?? null} />
 
       {myTeam && (
         <section className="mb-10">

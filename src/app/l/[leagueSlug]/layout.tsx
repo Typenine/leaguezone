@@ -17,19 +17,6 @@ import ReadOnlyFallbackBanner from '@/components/reliability/ReadOnlyFallbackBan
 
 export const dynamic = 'force-dynamic';
 
-const LEAGUE_SECTION_SEGMENTS = new Set([
-  'teams',
-  'standings',
-  'matchups',
-  'rosters',
-  'calendar',
-  'rulebook',
-  'hall-of-fame',
-]);
-
-const GROUPED_NAV_SEGMENTS = new Set(['history', 'draft', 'trade-block']);
-const STANDALONE_NAV_ORDER = ['news', 'suggestions', 'admin'] as const;
-
 function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
 }
@@ -147,91 +134,47 @@ export default async function LeagueLayout({
     label: item.segment ? item.label : 'Home',
   });
 
-  const homeItem = visibleNavItems.find((item) => item.segment === '');
-  const leagueChildren = visibleNavItems
-    .filter((item) => LEAGUE_SECTION_SEGMENTS.has(item.segment))
-    .map(toNavLink);
-  if (visibleNavItems.some((item) => item.segment === 'rosters')) {
-    leagueChildren.push({ id: 'opportunities', href: leagueUrl(league.slug, 'opportunities'), label: 'Roster Opportunities' });
-  }
-
-  const historyEnabled = visibleNavItems.some((item) => item.segment === 'history');
-  const draftEnabled = visibleNavItems.some((item) => item.segment === 'draft');
-  const tradeBlockEnabled = visibleNavItems.some((item) => item.segment === 'trade-block');
-
-  const historyGroup: LeagueNavLink | null = historyEnabled ? {
-    id: 'history-group',
-    label: 'History',
-    children: [
-      { id: 'history-home', href: leagueUrl(league.slug, 'history'), label: 'History Hub' },
-      { id: 'history-franchises', href: leagueUrl(league.slug, 'history/franchises'), label: 'Franchise History' },
-      { id: 'history-gamebooks', href: leagueUrl(league.slug, 'history/gamebook'), label: 'Weekly Gamebooks' },
-      { id: 'history-milestones', href: leagueUrl(league.slug, 'history/milestones'), label: 'Milestones' },
-      { id: 'history-stats', href: leagueUrl(league.slug, 'history/stats'), label: 'Stats & Records' },
-      { id: 'history-all-league', href: leagueUrl(league.slug, 'history/all-league'), label: 'All-League History' },
-    ],
-  } : null;
-
-  const draftGroup: LeagueNavLink | null = draftEnabled ? {
-    id: 'draft-group',
-    label: 'Draft',
-    children: [
-      { id: 'draft-next', href: leagueUrl(league.slug, 'draft'), label: 'Next Draft' },
-      { id: 'draft-past', href: `${leagueUrl(league.slug, 'draft')}?view=past`, label: 'Previous Drafts' },
-      { id: 'draft-prospects', href: `${leagueUrl(league.slug, 'draft')}?view=team-prospect-draftboard`, label: 'Prospect Board' },
-    ],
-  } : null;
-
-  const transactionChildren: LeagueNavLink[] = [
-    { id: 'transactions-ledger', href: leagueUrl(league.slug, 'transactions'), label: 'Transactions' },
-    { id: 'trades', href: leagueUrl(league.slug, 'trades'), label: 'Trades' },
-    ...(tradeBlockEnabled
-      ? [{ id: 'trade-block', href: leagueUrl(league.slug, 'trade-block'), label: 'Trade Block' }]
-      : []),
+  const selected = (segment: string) => visibleNavItems.find((item) => item.segment === segment);
+  const direct = (segment: string): LeagueNavLink[] => {
+    const item = selected(segment);
+    return item ? [toNavLink(item)] : [];
+  };
+  const moreSegments = ['rosters', 'news', 'calendar', 'draft', 'trade-block', 'rulebook', 'hall-of-fame', 'suggestions'];
+  const moreLinks: LeagueNavLink[] = [
+    ...moreSegments.flatMap(direct),
+    { id: 'transactions', href: leagueUrl(league.slug, 'transactions'), label: 'Transactions' },
+    { id: 'trades', href: leagueUrl(league.slug, 'trades'), label: 'Trade history' },
     { id: 'trade-analyzer', href: leagueUrl(league.slug, 'trades/analyzer'), label: 'Trade Analyzer' },
   ];
-  const transactionsGroup: LeagueNavLink = {
-    id: 'transactions-group',
-    label: 'Transactions',
-    children: transactionChildren,
-  };
-
-  const orderedStandalone = STANDALONE_NAV_ORDER.flatMap((segment) => {
-    const item = visibleNavItems.find((candidate) => candidate.segment === segment);
-    return item ? [toNavLink(item)] : [];
-  });
-
-  const knownStandaloneSegments = new Set<string>(STANDALONE_NAV_ORDER);
-  const additionalStandalone = visibleNavItems
-    .filter(
-      (item) => item.segment
-        && !LEAGUE_SECTION_SEGMENTS.has(item.segment)
-        && !GROUPED_NAV_SEGMENTS.has(item.segment)
-        && !knownStandaloneSegments.has(item.segment),
-    )
-    .map(toNavLink);
+  const historyLinks: LeagueNavLink[] = selected('history') ? [
+    { id: 'history-home', href: leagueUrl(league.slug, 'history'), label: 'History Hub' },
+    { id: 'history-franchises', href: leagueUrl(league.slug, 'history/franchises'), label: 'Franchise History' },
+    { id: 'history-gamebooks', href: leagueUrl(league.slug, 'history/gamebook'), label: 'Weekly Gamebooks' },
+    { id: 'history-milestones', href: leagueUrl(league.slug, 'history/milestones'), label: 'Milestones' },
+    { id: 'history-stats', href: leagueUrl(league.slug, 'history/stats'), label: 'Stats & Records' },
+    { id: 'history-all-league', href: leagueUrl(league.slug, 'history/all-league'), label: 'All-League History' },
+  ] : [];
 
   const navLinks: LeagueNavLink[] = [
-    ...(homeItem ? [toNavLink(homeItem)] : []),
-    ...(leagueChildren.length > 0
-      ? [{ id: 'league', label: 'League', children: leagueChildren }]
-      : []),
-    ...(historyGroup ? [historyGroup] : []),
-    ...(draftGroup ? [draftGroup] : []),
-    transactionsGroup,
-    ...orderedStandalone,
-    ...additionalStandalone,
+    { id: 'home', href: leagueUrl(league.slug), label: 'Home' },
+    { id: 'tools', href: leagueUrl(league.slug, 'tools'), label: 'Tools' },
+    ...direct('matchups'),
+    ...direct('standings'),
+    ...direct('teams'),
+    { id: 'league-more', label: 'League', children: moreLinks },
+    ...(historyLinks.length ? [{ id: 'history-group', label: 'History', children: historyLinks }] : []),
+    ...direct('admin'),
   ];
 
   const brandingHref = `/api/league/select?id=${encodeURIComponent(league.id)}&next=${encodeURIComponent('/settings/branding')}`;
   const mobileLinks = [
+    ...flattenNavLinks(navLinks),
     ...(canOpenDashboard
       ? [
           { href: leagueUrl(league.slug, 'dashboard'), label: 'Dashboard' },
           { href: brandingHref, label: 'Branding' },
         ]
       : []),
-    ...flattenNavLinks(navLinks),
   ];
 
   const legacyPreviousLeagueIds = Object.fromEntries(

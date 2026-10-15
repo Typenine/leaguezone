@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { CalendarDays, House, Menu, Newspaper, Trophy, X } from 'lucide-react';
+import { CalendarDays, House, Menu, Newspaper, Trophy, Wrench, X } from 'lucide-react';
 
 type MobileLink = { href: string; label: string };
 
 function itemIcon(label: string) {
   const normalized = label.toLowerCase();
+  if (normalized === 'tools') return Wrench;
   if (normalized.includes('standing')) return Trophy;
   if (normalized.includes('calendar') || normalized.includes('schedule')) return CalendarDays;
   if (normalized.includes('news') || normalized.includes('transaction')) return Newspaper;
@@ -16,22 +17,13 @@ function itemIcon(label: string) {
 }
 
 function isPrimaryLink(link: MobileLink): boolean {
-  const label = link.label.toLowerCase();
-  return label === 'dashboard'
-    || label === 'home'
-    || label === 'standings'
-    || label === 'schedule'
-    || label === 'news';
+  return ['home', 'tools', 'schedule', 'standings'].includes(link.label.toLowerCase());
 }
 
 export default function LeagueMobileNav({ links }: { links: MobileLink[] }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const primaryCandidates = links.filter(isPrimaryLink);
-  const hasDashboard = primaryCandidates.some((link) => link.label.toLowerCase() === 'dashboard');
-  const primary = primaryCandidates
-    .filter((link) => !(hasDashboard && link.label.toLowerCase() === 'home'))
-    .slice(0, 4);
+  const primary = links.filter(isPrimaryLink).slice(0, 4);
 
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {

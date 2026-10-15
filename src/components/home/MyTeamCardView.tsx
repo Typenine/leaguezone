@@ -117,6 +117,67 @@ export default function MyTeamCardView({ model, basePath = '' }: { model: MyTeam
           </div>
         </div>
 
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Link href={basePath ? `${basePath}${teamPath}` : teamPath} className="rounded-md px-3 py-2 text-xs font-bold" style={{ background: accent, color: '#fff' }}>
+            Open team dashboard
+          </Link>
+          <Link
+            href={`${basePath}/trade-block`}
+            className="rounded-md px-3 py-2 text-xs font-semibold"
+            style={{ background: PANEL.tintMedium, color: PANEL.text, border: `1px solid ${PANEL.hairline}` }}
+          >
+            Edit trade block
+          </Link>
+          <Link
+            href={isPreDraft ? `${basePath}/draft?view=team-prospect-draftboard` : `${basePath}/standings`}
+            className="rounded-md px-3 py-2 text-xs font-semibold"
+            style={{ background: PANEL.tintMedium, color: PANEL.text, border: `1px solid ${PANEL.hairline}` }}
+          >
+            {isPreDraft ? 'Open draft board' : 'League standings'}
+          </Link>
+        </div>
+
+        <MyTeamPhaseFocus
+          dashboard={dashboard}
+          phase={phase}
+          teamName={teamName}
+          accent={accent}
+          fallbackTaxi={taxiCount}
+          fallbackIr={irCount}
+        />
+
+        <MyTeamLineupOptimizer
+          lineup={lineup}
+          loading={lineupLoading}
+          accent={accent}
+        />
+
+
+        {actionableAlerts.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="text-[10px] uppercase tracking-widest font-bold" style={broadcastFaintTextStyle}>
+                Team attention
+              </div>
+              {actionableAlerts.length > 3 && (
+                <span className="text-[10px]" style={broadcastFaintTextStyle}>Top 3 shown</span>
+              )}
+            </div>
+            <div className="grid sm:grid-cols-3 gap-2">
+              {actionableAlerts.slice(0, 3).map((alert, index) => (
+                <TeamAlertRow key={`${alert.title}-${index}`} alert={alert} />
+              ))}
+            </div>
+          </div>
+        )}
+
+
+        <details className="group rounded-xl" style={{ background: PANEL.tintSoft, border: `1px solid ${PANEL.hairline}` }}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-bold" style={broadcastBodyTextStyle}>
+            <span>Roster details & advanced team data</span>
+            <span className="text-xs" style={broadcastMutedTextStyle}>Expand</span>
+          </summary>
+          <div className="space-y-4 border-t px-3 py-4 sm:px-4" style={{ borderColor: PANEL.hairline }}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <TeamStatBox
             value={activeLimit ? `${activeCount}/${activeLimit}` : String(activeCount)}
@@ -145,21 +206,6 @@ export default function MyTeamCardView({ model, basePath = '' }: { model: MyTeam
             warning={(dashboard?.roster.cutsRequired || 0) > 0}
           />
         </div>
-
-        <MyTeamPhaseFocus
-          dashboard={dashboard}
-          phase={phase}
-          teamName={teamName}
-          accent={accent}
-          fallbackTaxi={taxiCount}
-          fallbackIr={irCount}
-        />
-
-        <MyTeamLineupOptimizer
-          lineup={lineup}
-          loading={lineupLoading}
-          accent={accent}
-        />
 
         {dashboard && ranks && (
           <div>
@@ -205,24 +251,6 @@ export default function MyTeamCardView({ model, basePath = '' }: { model: MyTeam
           </div>
         )}
 
-        {actionableAlerts.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <div className="text-[10px] uppercase tracking-widest font-bold" style={broadcastFaintTextStyle}>
-                Team attention
-              </div>
-              {actionableAlerts.length > 3 && (
-                <span className="text-[10px]" style={broadcastFaintTextStyle}>Top 3 shown</span>
-              )}
-            </div>
-            <div className="grid sm:grid-cols-3 gap-2">
-              {actionableAlerts.slice(0, 3).map((alert, index) => (
-                <TeamAlertRow key={`${alert.title}-${index}`} alert={alert} />
-              ))}
-            </div>
-          </div>
-        )}
-
         {dashboard?.roster.corePlayers.length ? (
           <div>
             <div className="text-[10px] uppercase tracking-widest font-bold mb-2" style={broadcastFaintTextStyle}>
@@ -253,25 +281,8 @@ export default function MyTeamCardView({ model, basePath = '' }: { model: MyTeam
           accent={accent}
         />
 
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Link href={basePath ? `${basePath}${teamPath}` : teamPath} className="rounded-md px-3 py-2 text-xs font-bold" style={{ background: accent, color: '#fff' }}>
-            Open team dashboard
-          </Link>
-          <Link
-            href={`${basePath}/trade-block`}
-            className="rounded-md px-3 py-2 text-xs font-semibold"
-            style={{ background: PANEL.tintMedium, color: PANEL.text, border: `1px solid ${PANEL.hairline}` }}
-          >
-            Edit trade block
-          </Link>
-          <Link
-            href={isPreDraft ? `${basePath}/draft?view=team-prospect-draftboard` : `${basePath}/standings`}
-            className="rounded-md px-3 py-2 text-xs font-semibold"
-            style={{ background: PANEL.tintMedium, color: PANEL.text, border: `1px solid ${PANEL.hairline}` }}
-          >
-            {isPreDraft ? 'Open draft board' : 'League standings'}
-          </Link>
-        </div>
+          </div>
+        </details>
       </div>
     </BroadcastPanel>
   );
