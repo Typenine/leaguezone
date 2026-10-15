@@ -142,6 +142,10 @@ export default async function LeagueLayout({
   const moreSegments = ['rosters', 'news', 'calendar', 'draft', 'trade-block', 'rulebook', 'hall-of-fame', 'suggestions'];
   const moreLinks: LeagueNavLink[] = [
     ...moreSegments.flatMap(direct),
+    ...(selected('draft') ? [
+      { id: 'draft-past', href: `${leagueUrl(league.slug, 'draft')}?view=past`, label: 'Previous Drafts' },
+      { id: 'draft-prospects', href: `${leagueUrl(league.slug, 'draft')}?view=team-prospect-draftboard`, label: 'Prospect Board' },
+    ] : []),
     { id: 'transactions', href: leagueUrl(league.slug, 'transactions'), label: 'Transactions' },
     { id: 'trades', href: leagueUrl(league.slug, 'trades'), label: 'Trade history' },
     { id: 'trade-analyzer', href: leagueUrl(league.slug, 'trades/analyzer'), label: 'Trade Analyzer' },
@@ -261,7 +265,7 @@ export default async function LeagueLayout({
         </div>
         <LeagueNav links={navLinks} accent={storedAccent} />
       </header>
-      <div className="flex-grow pb-20 md:pb-0">{children}</div>
+      <div className="flex-grow pb-20 lg:pb-0">{children}</div>
       <LeagueMobileNav links={mobileLinks} />
     </div>
   );
