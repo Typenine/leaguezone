@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {readRememberedLeague,rememberLeague,preferSleeperTeam} from '@/lib/fantasy/remembered-league';
+import {rememberLeague,preferSleeperTeam} from '@/lib/fantasy/remembered-league';
 import ActionableDecisions from '@/components/fantasy/ActionableDecisions';
 import DecisionFoundationPanel from '@/components/fantasy/DecisionFoundationPanel';
 import {rosterNeeds,decisionCandidates} from '@/lib/fantasy/personalized-decisions';
@@ -62,8 +62,7 @@ export default function SleeperResearchBoard({initialLeagueId}:{initialLeagueId:
     if(!active)return;
     const found=Array.isArray(d.connections)?d.connections:[];
     setConnections(found);
-    const chosen=found.find(c=>c.leagueId===initialLeagueId)||
-     found.find(c=>c.leagueId===readRememberedLeague()?.leagueId)||found[0];
+    const chosen=found.find(c=>c.leagueId===initialLeagueId)||found[0];
     if(chosen){setLeagueId(chosen.leagueId);rememberLeague(chosen.leagueId,chosen.rosterId);}
     else{setLeagueId('');setStatus('ready');}
    })

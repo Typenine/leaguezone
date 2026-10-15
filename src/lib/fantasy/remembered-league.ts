@@ -26,8 +26,8 @@ export async function loadSavedSleeperTeams():Promise<{connected:SavedSleeperTea
  return {connected:(Array.isArray(data.connections)?data.connections:[]).filter(c=>valid(c.leagueId)&&Number.isInteger(c.rosterId)&&c.rosterId>0),signedIn:true};
 }
 export function preferredSleeperTeam(connected:SavedSleeperTeam[]):SavedSleeperTeam|null{
- const stored=readRememberedLeague();
- return connected.find(c=>c.leagueId===stored?.leagueId)||connected[0]||null;
+ // The server returns latest-selected first, so account preference wins across devices.
+ return connected[0]||null;
 }
 export async function preferSleeperTeam(leagueId:string){
  const response=await fetch('/api/research/sleeper/connections',{method:'PATCH',credentials:'same-origin',
