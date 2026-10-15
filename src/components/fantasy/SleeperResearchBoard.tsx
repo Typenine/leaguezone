@@ -138,6 +138,7 @@ export default function SleeperResearchBoard({initialLeagueId}:{initialLeagueId:
     rosters={context} teamId={context.viewerRosterId} starterSlots={context.starterSlots}
     needs={report.needs} waiver={report.personal.waiver} season={snapshot.year}
     throughWeek={snapshot.throughWeek} source={snapshot.source} taxiContext={context.taxiContext}
+    scope={{type:'sleeper',id:leagueId}}
     onSelect={f=>{if(f==='waiver')setFocus('waiver');else document.getElementById('read-only-lineup-guide')?.scrollIntoView({behavior:'smooth'});}}/>
    <div className="flex flex-wrap gap-2" role="group" aria-label="Decision category">
     {([['overview','My next moves'],['waiver','Waiver watch'],['trade','Trade targets'],['risk','My roster alerts']] as const)

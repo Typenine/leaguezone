@@ -276,6 +276,7 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
        rosters={rosters} teamId={Number(teamId)} starterSlots={rosters.starterSlots||[]}
        needs={needs} waiver={personal.waiver} season={season.year}
        throughWeek={season.throughWeek} source={season._researchSource||'backup'} taxiContext={rosters.taxiContext}
+       scope={{type:'hosted',id:slug||''}}
        onSelect={setFocus}/>}
       {rosterContext && <section className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-label="Roster construction">
         <h2 className="mb-2 text-sm font-bold">Your roster construction</h2>
