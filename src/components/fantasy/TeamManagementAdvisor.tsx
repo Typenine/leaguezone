@@ -1,6 +1,5 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
-import Link from 'next/link';
 import type {FantasyRostersData} from '@/lib/providers/types';
 import type {LineupOptimizerResponse} from '@/lib/fantasy/lineup-types';
 import type {MarketIndex} from '@/lib/fantasy/decision-quality';

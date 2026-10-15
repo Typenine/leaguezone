@@ -73,7 +73,7 @@ export function personalRankings(args:{
   const p=args.rosters.players[id],v=args.market[id],projection=models.get(id);
   const pos=p?.position||v?.position||projection?.position||'';
   if(!['QB','RB','WR','TE'].includes(pos)||(args.position!=='ALL'&&pos!==args.position))continue;
-  const value=v?.value>0?v.value:null;
+  const value=v&&Number.isFinite(v.value)&&v.value>0?v.value:null;
   const weeklyPoints=projection&&!projection.isBye?projection.projection:null;
   if(args.mode==='weekly'&&(weeklyPoints===null||!owned.has(id)))continue;
   if(args.mode==='dynasty'&&value===null)continue;
