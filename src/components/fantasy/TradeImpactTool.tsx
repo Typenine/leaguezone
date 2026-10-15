@@ -121,7 +121,7 @@ export default function TradeImpactTool({rosters,market,starterSlots,teamId,slug
   {evaluated.valid&&<p className="text-xs text-[var(--muted)]">
    How it is calculated: remove the outgoing players from each actual roster, add the incoming players, then re-rank
    each position by dynasty value. The named players above are those counted toward fixed starting slots, not necessarily
-   the manager's actual lineup. Flex/Superflex slots, weekly projections, draft picks and team strategy are not modeled
+   the manager&apos;s actual lineup. Flex/Superflex slots, weekly projections, draft picks and team strategy are not modeled
    in the positional comparison. No accept or reject recommendation is made.
   </p>}
  </section>;
