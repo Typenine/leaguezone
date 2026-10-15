@@ -12,7 +12,9 @@ describe('fantasy connection and hub navigation',()=>{
   const tools=read('src/components/fantasy/PublicFantasyWorkbench.tsx');
   expect(tools).toContain('loadSavedSleeperTeams()');
   expect(tools).toContain("'/api/research/sleeper/context?leagueId='");
-  expect(tools).toContain("<TradeAnalyzerPage />");
+  expect(tools).toContain('<TradeAnalyzerClient');
+  expect(tools).toContain('rosterContext={context?');
+  expect(read('src/app/trades/analyzer/page.tsx')).toContain('<TradeAnalyzerClient />');
   expect(tools).toContain("tool==='trade'");
   expect(tools).toContain('parseSleeperLeagueInput');
   expect(tools).toContain('setPreview(null);setContext(null)');

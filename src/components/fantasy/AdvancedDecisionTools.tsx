@@ -95,7 +95,9 @@ export default function AdvancedDecisionTools({selectedTool,rosters,teamId,start
     onClick={()=>setTab(key)}>{LABELS[key]}</button>)}
   </div>}
   {tab==='trade'&&<div className="mt-4"><TradeImpactTool rosters={rosters} market={market}
-   teamId={teamId} starterSlots={starterSlots} slug={scope.type==='hosted'?scope.id:undefined}/></div>}
+   teamId={teamId} starterSlots={starterSlots} slug={scope.type==='hosted'?scope.id:undefined}
+   contextUrl={scope.type==='hosted'?undefined:
+    '/fantasy-tools/trade?leagueId='+encodeURIComponent(scope.id)+'&rosterId='+teamId}/></div>}
   {tab==='draft'&&<div className="mt-4">
    {!is2027?<p className="text-sm text-[var(--muted)]">A verified scouting board for the upcoming {season+1} rookie class has not been published here yet. No prospect recommendations are being invented.</p>:<>
     <p className="text-sm text-[var(--muted)]">2027 rookie-class guidance based on the existing scouting board, your actual depth and starting requirements. Changes to the baseline are small and disclosed, not a prediction of NFL draft position.</p>
