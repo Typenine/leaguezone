@@ -123,7 +123,7 @@ export default function PublicFantasyWorkbench({tool,initialLeagueId,initialRost
  const needs=useMemo(()=>context?rosterNeeds(context.teams,context.players,context.viewerRosterId,context.starterSlots):[],[context]);
  const waiver=useMemo(()=>context?waiverSignals(snapshot,context,needs):[],[context,snapshot,needs]);
  function updateSelection(id:string,roster:number|null){
-  setLeagueId(id);setRosterId(roster);setContext(null);setSnapshot(null);setError('');
+  setLeagueId(id);setRosterId(roster);setPreview(null);setContext(null);setSnapshot(null);setError('');
   if(id)rememberLeague(id,roster);
   if(connected.some(c=>c.leagueId===id))void preferSleeperTeam(id).catch(()=>{});
   router.replace(publicToolUrl(tool,id,roster),{scroll:false});

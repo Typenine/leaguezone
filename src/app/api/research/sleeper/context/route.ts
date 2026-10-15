@@ -6,6 +6,7 @@ import {researchSleeperRosters,validLeagueId} from '@/lib/server/sleeper-researc
 import {rateLimitByIpStrict} from '@/lib/server/rate-limit';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
+export const maxDuration=60;
 const headers={'Cache-Control':'private, no-store'};
 export async function GET(req:NextRequest){
  const user=req.cookies.has('lz_qa_session')?null:await requireUser();

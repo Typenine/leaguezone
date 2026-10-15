@@ -3,6 +3,8 @@ import {fetchLeagueContext,researchSleeperRosters,validLeagueId} from '@/lib/ser
 import {rateLimitByIpStrict} from '@/lib/server/rate-limit';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
+// The Sleeper player directory is substantially larger than the league summary.
+export const maxDuration=60;
 const headers={'Cache-Control':'public, max-age=0, s-maxage=90'};
 export async function GET(req:NextRequest){
  const id=req.nextUrl.searchParams.get('leagueId');
@@ -29,7 +31,7 @@ export async function GET(req:NextRequest){
   if(!owner)return NextResponse.json({error:'Sleeper has no assigned owner for that roster. Choose an assigned team.'},{status:422});
   // Only public Sleeper league data. Never retrieve connected-account settings,
   // account-stored notes, prospect boards, private receipts or commissioner data.
-  const context=await researchSleeperRosters({sleeperLeagueId:id,sleeperUserId:owner,rosterId});
+  const context=await researchSleeperRosters({sleeperLeagueId:id,sleeperUserId:owner,rosterId},state);
   return NextResponse.json({...context.rosters,catalog:context.catalog,
    starterSlots:context.starterSlots,taxiContext:context.taxiContext,
    viewerRosterId:rosterId,leaguePpr:context.leaguePpr,leagueName:state.league.name,

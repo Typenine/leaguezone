@@ -15,6 +15,12 @@ describe('fantasy connection and hub navigation',()=>{
   expect(tools).toContain("<TradeAnalyzerPage />");
   expect(tools).toContain("tool==='trade'");
   expect(tools).toContain('parseSleeperLeagueInput');
+  expect(tools).toContain('setPreview(null);setContext(null)');
+  const card=read('src/components/fantasy/ConnectedLeagueCard.tsx');
+  expect(card).toContain("account?'/app/fantasy-team?");
+  expect(card).toContain("publicToolUrl('roster',selected.leagueId,selected.rosterId)");
+  expect(read('src/app/api/public-fantasy/league/route.ts')).toContain('},state)');
+  expect(read('src/app/api/public-fantasy/league/route.ts')).toContain('export const maxDuration=60');
  });
  it('keeps the Hub organized and does not embed the full research dashboard',()=>{
   expect(read('src/app/app/page.tsx')).toContain('<ConnectedLeagueCard />');
@@ -32,5 +38,6 @@ describe('fantasy connection and hub navigation',()=>{
    expect(react).toContain(label);
   }
   expect(research).toContain('brand-image');
+  expect(research).toContain('href="/install" class="btn outline">Get the App</a>');
  });
 });

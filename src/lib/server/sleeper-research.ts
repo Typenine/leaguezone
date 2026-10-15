@@ -57,8 +57,9 @@ export async function previewSleeperTeams(leagueId:string,sleeperUserId:string){
   teams:teams.map(r=>({rosterId:r.roster_id,teamName:nameOf(r)}))};
 }
 type ResearchConnection={sleeperLeagueId:string;sleeperUserId:string;rosterId:number};
-export async function researchSleeperRosters(connection:ResearchConnection){
- const data=await fetchLeagueContext(connection.sleeperLeagueId);
+export async function researchSleeperRosters(connection:ResearchConnection,
+ existingLeague?:Awaited<ReturnType<typeof fetchLeagueContext>>){
+ const data=existingLeague||await fetchLeagueContext(connection.sleeperLeagueId);
  if(!data.rosters.some(r=>r.roster_id===connection.rosterId&&matchesUser(r,connection.sleeperUserId)))
   throw Error('This team is no longer associated with the selected Sleeper username. Reconnect to update it.');
  const all=await getAllPlayersCached();

@@ -75,7 +75,7 @@ for(const theme of ['light','dark'] as const){
 }
 test('public Research shell stays readable independently of the Next.js theme',async({page})=>{
  await page.goto('/research/players');
- await expect(page.getByRole('navigation',{name:'Research tools'})).toBeVisible();
+ await expect(page.getByRole('navigation',{name:'Research destinations'})).toBeVisible();
  const c=await contrast(page,'#position');
  expect(c.ratio,JSON.stringify(c)).toBeGreaterThanOrEqual(4.5);
 });

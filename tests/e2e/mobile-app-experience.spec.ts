@@ -5,11 +5,11 @@ test('mobile bottom navigation connects the platform tools',async({page})=>{
  await page.goto('/search');
  const nav=page.getByRole('navigation',{name:'LeagueZone app navigation'});
  await expect(nav).toBeVisible();
- for(const label of ['Home','Research','Players','My Leagues','Profile'])
+ for(const label of ['Home','Leagues','Research','Tools','Hub'])
   await expect(nav.getByRole('link',{name:label})).toBeVisible();
- await nav.getByRole('link',{name:'Profile'}).click();
- await expect(page).toHaveURL(/\/profile$/);
- await expect(page.getByRole('link',{name:/Saved research/i})).toBeVisible();
+ await nav.getByRole('link',{name:'Tools'}).click();
+ await expect(page).toHaveURL(/\/fantasy-tools$/);
+ await expect(nav.getByRole('link',{name:'Tools'})).toHaveAttribute('aria-current','page');
 });
 
 test('search public backup players without enumerating hosted leagues',async({page})=>{
@@ -53,12 +53,9 @@ test('bottom navigation renders on static Research routes as well as Next pages'
  const nav=page.getByRole('navigation',{name:'LeagueZone app navigation'});
  await expect(nav).toBeVisible();
  await expect(nav.getByRole('link',{name:'Research'})).toHaveAttribute('aria-current','page');
- await nav.getByRole('link',{name:'Players'}).click();
- await expect(page).toHaveURL(/\/research\/players/);
- await expect(nav.getByRole('link',{name:'Players'})).toHaveAttribute('aria-current','page');
- await nav.getByRole('link',{name:'Profile'}).click();
- await expect(page).toHaveURL(/\/profile$/);
- await expect(page.getByRole('navigation',{name:'LeagueZone app navigation'})).toBeVisible();
+ await nav.getByRole('link',{name:'Tools'}).click();
+ await expect(page).toHaveURL(/\/fantasy-tools$/);
+ await expect(page.getByRole('navigation',{name:'LeagueZone app navigation'}).getByRole('link',{name:'Tools'})).toHaveAttribute('aria-current','page');
 });
 
 test('account watchlist survives another browser session',async({page,browser})=>{

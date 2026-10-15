@@ -48,7 +48,7 @@ export default function ConnectedLeagueCard({homepage=false}:{homepage?:boolean}
     </select></label>}
   </div>
   {selected?<div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-   {[{href:'/app/fantasy-team?leagueId='+encodeURIComponent(selected.leagueId),label:'My team decisions'},
+   {[{href:account?'/app/fantasy-team?leagueId='+encodeURIComponent(selected.leagueId):publicToolUrl('roster',selected.leagueId,selected.rosterId),label:'My team decisions'},
     {href:publicToolUrl('start-bench',selected.leagueId,selected.rosterId),label:'Start / Bench'},
     {href:publicToolUrl('waivers',selected.leagueId,selected.rosterId),label:'Waiver Finder'},
     {href:publicToolUrl('trade',selected.leagueId,selected.rosterId),label:'Trade Analyzer'}].map(x=>
