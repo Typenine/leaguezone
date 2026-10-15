@@ -14,6 +14,7 @@ describe('global navigation',()=>{
   expect(getPlatformNavigationSection('/fantasy-tools/trade')).toBe('tools');
   expect(getPlatformNavigationSection('/research/stats')).toBe('research');
   expect(getPlatformNavigationSection('/app/leagues')).toBe('hub');
+  expect(PLATFORM_NAV[0].href).toBe('/?view=public');
  });
  it('keeps the standalone Research header destinations in sync',()=>{
   const html=readFileSync('public/research/index.html','utf8');
@@ -26,6 +27,6 @@ describe('global navigation',()=>{
   const html=readFileSync('public/research/index.html','utf8');
   const strip=html.match(/<nav class="lz-research-tabs"[^>]*>([\s\S]*?)<\/nav>/)?.[1]||'';
   const tabHrefs=[...strip.matchAll(/<a href="([^"]+)" data-tab/g)].map(match=>match[1]);
-  expect(tabHrefs).toEqual(['/','/features','/research','/fantasy-tools','/app']);
+  expect(tabHrefs).toEqual(['/?view=public','/features','/research','/fantasy-tools','/app']);
  });
 });

@@ -4,7 +4,7 @@ export const PLATFORM_NAV = [
   {
     "id": "home",
     "label": "Home",
-    "href": "/",
+    "href": "/?view=public",
     "links": []
   },
   {

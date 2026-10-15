@@ -7,7 +7,7 @@ import {getNavigationSurface} from '@/lib/navigation/surfaces';
 import {getPlatformNavigationSection} from '@/lib/navigation/platform';
 
 const tabs=[
-  {href:'/',label:'Home',key:'home',Icon:Home},
+  {href:'/?view=public',label:'Home',key:'home',Icon:Home},
   {href:'/features',label:'Leagues',key:'websites',Icon:Building2},
   {href:'/research',label:'Research',key:'research',Icon:BookOpen},
   {href:'/fantasy-tools',label:'Tools',key:'tools',Icon:Wrench},

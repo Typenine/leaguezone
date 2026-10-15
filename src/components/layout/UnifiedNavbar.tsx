@@ -119,7 +119,7 @@ export default function UnifiedNavbar() {
   const platform = surface === 'platform';
   const signedIn = Boolean(user) || isAdmin;
   const displayName = user?.displayName || user?.email || (isAdmin ? 'Admin' : 'Account');
-  const brandHref = platform ? '/' : activeTeam ? `/l/${activeTeam.leagueSlug}` : '/app';
+  const brandHref = platform ? '/?view=public' : activeTeam ? `/l/${activeTeam.leagueSlug}` : '/app';
   const brandLabel = platform ? PLATFORM.name : activeTeam?.leagueName || 'League Dashboard';
   const loginHref = getLoginHref(pathname);
 

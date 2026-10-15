@@ -106,8 +106,8 @@ describe('public research database isolation', () => {
     expect(html).toContain('href="/pwa/icon-192.png"');
     expect(html).toContain('rel="manifest" href="/manifest.webmanifest"');
     expect(html).toContain('src="/research/pwa.js"');
-    expect(html).toContain('class="wordmark" href="/"');
-    expect(html).toContain('class="lz-site-home" href="/" data-nav-section="home"');
+    expect(html).toContain('class="wordmark" href="/?view=public"');
+    expect(html).toContain('class="lz-site-home" href="/?view=public" data-nav-section="home"');
     expect(html).toContain('data-nav-section="tools"');
     expect(html).toContain('data-nav-section="hub"');
     expect(html).toContain('<details class="data-credit">');
