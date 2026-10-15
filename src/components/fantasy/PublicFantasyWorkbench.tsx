@@ -198,7 +198,7 @@ export default function PublicFantasyWorkbench({tool,initialLeagueId,initialRost
     {context&&rosterId!==null&&<div className="mt-6">
      <div className="mb-4 rounded-xl border border-white/20 bg-white/[0.04] px-4 py-3 text-sm">
       <strong>{context.teamName}</strong> · {context.leagueName} · {context.season} season
-      {tool==='trade'&&<p className="mt-2 text-sm">This league's rosters are connected to the trade shown above. <a href="#trade-market-and-roster" className="font-bold text-[var(--brand-gold)] underline">View market and roster impact together</a></p>}
+      {tool==='trade'&&<p className="mt-2 text-sm">This league&apos;s rosters are connected to the trade shown above. <a href="#trade-market-and-roster" className="font-bold text-[var(--brand-gold)] underline">View market and roster impact together</a></p>}
       {!snapshot&&<span className="ml-2 text-amber-200">Historical opportunity feed unavailable; trend-based waiver matches may be empty.</span>}
      </div>
      <DecisionFoundationPanel key={leagueId+':'+rosterId+':'+tool}
