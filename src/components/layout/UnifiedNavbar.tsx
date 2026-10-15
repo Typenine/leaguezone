@@ -11,6 +11,7 @@ import { PLATFORM } from '@/lib/config/platform';
 import { getLeagueSwitchDestination } from '@/lib/navigation/league-switch';
 import { getNavigationSurface } from '@/lib/navigation/surfaces';
 import { getLoginHref } from '@/lib/navigation/auth-redirect';
+import { PlatformDesktopNav, PlatformMobileMenu } from '@/components/layout/PlatformNavigation';
 
 type SessionUser = {
   displayName: string | null;
@@ -121,17 +122,6 @@ export default function UnifiedNavbar() {
   const brandHref = platform ? '/' : activeTeam ? `/l/${activeTeam.leagueSlug}` : '/app';
   const brandLabel = platform ? PLATFORM.name : activeTeam?.leagueName || 'League Dashboard';
   const loginHref = getLoginHref(pathname);
-
-  const platformLinks = [
-    { href: '/', label: 'Home' },
-    { href: '/fantasy-tools', label: 'Fantasy Tools' },
-    { href: '/research', label: 'Research' },
-    { href: '/weekly', label: 'NFL Weekly' },
-    { href: '/availability', label: 'Availability' },
-    { href: '/features', label: 'League Websites' },
-    { href: '/demo', label: 'Demo' },
-    ...(user ? [{ href: '/app', label: 'My Hub' }] : []),
-  ];
 
   const leagueLinks = activeTeam ? [
     { href: `/l/${activeTeam.leagueSlug}`, label: 'League Home' },
@@ -294,7 +284,7 @@ export default function UnifiedNavbar() {
     </div>
   );
 
-  const visibleLinks = platform ? platformLinks : leagueLinks;
+  const visibleLinks = leagueLinks;
 
   return (
     <>
@@ -306,8 +296,8 @@ export default function UnifiedNavbar() {
               <img src="/assets/LeagueZone HQ Logo.png" alt="" aria-hidden="true" className="h-12 w-12 shrink-0 rounded-xl object-contain" />
               <span className="truncate text-lg font-black text-white sm:text-xl">{brandLabel}</span>
             </Link>
-            <div className="hidden items-center gap-0.5 md:flex">
-              {visibleLinks.map((item) => (
+            <div className="hidden items-center gap-0.5 xl:flex">
+              {platform ? <PlatformDesktopNav /> : visibleLinks.map((item) => (
                 <Link key={item.href} href={item.href} className={`rounded-md px-3 py-2 text-sm font-semibold ${active(pathname, item.href) ? 'bg-white/20 text-white' : 'text-white/65 hover:bg-white/10 hover:text-white'}`}>
                   {item.label}
                 </Link>
@@ -315,9 +305,8 @@ export default function UnifiedNavbar() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {platform && activeTeam && <a href={dashboardHref} className="hidden rounded-md border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-white/20 sm:inline-flex">League Dashboard</a>}
             <ThemeToggle />
-            <div ref={accountRef} className="relative hidden md:block">
+            <div ref={accountRef} className="relative hidden xl:block">
               {loading ? (
                 <span className="px-2 text-sm text-white/45">Account</span>
               ) : signedIn ? (
@@ -332,21 +321,21 @@ export default function UnifiedNavbar() {
                 </div>
               )}
             </div>
-            <div className="md:hidden">
+            <div className="xl:hidden">
               <Button type="button" variant="ghost" size="sm" className="text-white hover:bg-white/10" onClick={() => setMobileOpen(true)} aria-label="Open navigation menu">☰</Button>
             </div>
           </div>
         </div>
       </nav>
 
-      {mobileOpen && <button type="button" className="fixed inset-0 z-40 bg-black/55 md:hidden" aria-label="Close navigation menu" onClick={() => setMobileOpen(false)} />}
-      <aside className={`fixed inset-y-0 right-0 z-50 flex w-80 max-w-[88vw] flex-col border-l border-[var(--border)] bg-[var(--surface)] shadow-2xl transition-transform md:hidden ${mobileOpen ? 'translate-x-0' : 'translate-x-full'}`} aria-label="Mobile navigation">
+      {mobileOpen && <button type="button" className="fixed inset-0 z-40 bg-black/55 xl:hidden" aria-label="Close navigation menu" onClick={() => setMobileOpen(false)} />}
+      <aside className={`fixed inset-y-0 right-0 z-50 flex w-80 max-w-[88vw] flex-col border-l border-[var(--border)] bg-[var(--surface)] shadow-2xl transition-transform xl:hidden ${mobileOpen ? 'translate-x-0' : 'translate-x-full'}`} aria-label="Mobile navigation">
         <div className="flex h-16 items-center justify-between border-b border-[var(--border)] px-4">
           <span className="truncate text-sm font-bold text-[var(--text)]">{brandLabel}</span>
           <button type="button" onClick={() => setMobileOpen(false)} className="rounded p-2 text-[var(--muted)]" aria-label="Close navigation menu">✕</button>
         </div>
         <div className="flex-1 space-y-1 overflow-y-auto p-3">
-          {visibleLinks.map((item) => (
+          {platform ? <PlatformMobileMenu onNavigate={() => setMobileOpen(false)} /> : visibleLinks.map((item) => (
             <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} className={`block rounded-lg px-3 py-2.5 text-sm font-medium ${active(pathname, item.href) ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'text-[var(--text)] hover:bg-[var(--surface-strong)]'}`}>{item.label}</Link>
           ))}
         </div>
