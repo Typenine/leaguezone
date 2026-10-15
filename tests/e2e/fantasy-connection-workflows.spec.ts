@@ -12,8 +12,11 @@ test('a guest with a remembered Sleeper league opens public decisions, not a log
   localStorage.setItem('leaguezone:remembered-sleeper:v1',JSON.stringify({leagueId,rosterId})),saved);
  await page.route('**/api/research/sleeper/connections',route=>route.fulfill({
   status:401,contentType:'application/json',body:'{"error":"Sign in"}'}));
- await page.route('**/api/public-fantasy/league?*',route=>route.fulfill({
-  status:200,contentType:'application/json',body:JSON.stringify(preview)}));
+ await page.route('**/api/public-fantasy/league?*',route=>{
+  const isContext=new URL(route.request().url()).searchParams.has('rosterId');
+  return route.fulfill(isContext?{status:503,contentType:'application/json',body:'{"error":"Roster data temporarily unavailable"}'}:
+   {status:200,contentType:'application/json',body:JSON.stringify(preview)});
+ });
  await page.goto('/');
  const card=page.getByRole('region',{name:'Current fantasy league'});
  await expect(card).toContainText('Last used Sleeper league');
