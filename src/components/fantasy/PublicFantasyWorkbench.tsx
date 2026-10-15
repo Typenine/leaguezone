@@ -2,6 +2,9 @@
 import Link from 'next/link';
 import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
+import {parseSleeperLeagueInput} from '@/lib/sleeper-research-shared';
+import {readRememberedLeague,rememberLeague,loadSavedSleeperTeams,preferredSleeperTeam,preferSleeperTeam,type SavedSleeperTeam} from '@/lib/fantasy/remembered-league';
+import TradeAnalyzerPage from '@/app/trades/analyzer/page';
 import type {FantasyRostersData} from '@/lib/providers/types';
 import type {TaxiContext} from '@/lib/fantasy/taxi-context';
 import type {Need} from '@/lib/fantasy/personalized-decisions';
@@ -75,27 +78,54 @@ export default function PublicFantasyWorkbench({tool,initialLeagueId,initialRost
  const [status,setStatus]=useState<'idle'|'loading'|'ready'|'error'>('idle');
  const [error,setError]=useState('');
  const [retry,setRetry]=useState(0);
- const previewUrl=leagueId?'/api/public-fantasy/league?leagueId='+encodeURIComponent(leagueId):null;
+ const [connected,setConnected]=useState<SavedSleeperTeam[]>([]);
+ const [connectionStatus,setConnectionStatus]=useState('');
  useEffect(()=>{
+  let live=true;
+  void loadSavedSleeperTeams().then(({connected:items,signedIn})=>{
+   if(!live)return;
+   setConnected(items);
+   if(initialLeagueId)return;
+   const choice=signedIn?preferredSleeperTeam(items):null;
+   const remembered=choice?{leagueId:choice.leagueId,rosterId:choice.rosterId}:readRememberedLeague();
+   if(remembered){setEntry(remembered.leagueId);setLeagueId(remembered.leagueId);setRosterId(remembered.rosterId);}
+  }).catch(e=>{if(live){
+   setConnectionStatus(e instanceof Error?e.message:'Unable to load saved teams');
+   if(!initialLeagueId){const last=readRememberedLeague();if(last){
+    setEntry(last.leagueId);setLeagueId(last.leagueId);setRosterId(last.rosterId);}}
+  }});
+  return ()=>{live=false;};
+ },[initialLeagueId]);
+ const selectedConnection=connected.find(c=>c.leagueId===leagueId)||null;
+ const previewUrl=leagueId&&!selectedConnection?'/api/public-fantasy/league?leagueId='+encodeURIComponent(leagueId):null;
+ useEffect(()=>{
+  if(selectedConnection){
+   setPreview({leagueId,leagueName:selectedConnection.leagueName,season:selectedConnection.season,
+    teams:[{rosterId:selectedConnection.rosterId,teamName:selectedConnection.teamName}]});
+   setRosterId(selectedConnection.rosterId);setStatus('ready');return;
+  }
   if(!previewUrl){setPreview(null);setContext(null);return;}
   let live=true;setStatus('loading');setError('');setContext(null);
-  void get<Preview>(previewUrl).then(v=>{if(live){setPreview(v);setStatus('ready');}})
+  void get<Preview>(previewUrl).then(v=>{if(live){setPreview(v);setStatus('ready');rememberLeague(leagueId,rosterId);}})
    .catch(e=>{if(live){setStatus('error');setError(e instanceof Error?e.message:'Unavailable');}});
   return ()=>{live=false;};
- },[previewUrl,retry]);
+ },[previewUrl,selectedConnection,leagueId,retry]);
  useEffect(()=>{
   if(!leagueId||rosterId===null||!preview?.teams.some(t=>t.rosterId===rosterId)){setContext(null);return;}
   let live=true;setStatus('loading');setError('');setContext(null);setSnapshot(null);
-  const path='/api/public-fantasy/league?leagueId='+encodeURIComponent(leagueId)+'&rosterId='+rosterId;
+  const path=selectedConnection?'/api/research/sleeper/context?leagueId='+encodeURIComponent(leagueId):
+   '/api/public-fantasy/league?leagueId='+encodeURIComponent(leagueId)+'&rosterId='+rosterId;
   void get<Context>(path).then(async ctx=>({ctx,data:await researchSnapshot(Number(ctx.season))}))
    .then(({ctx,data})=>{if(live){setContext(ctx);setSnapshot(data);setStatus('ready');}})
    .catch(e=>{if(live){setStatus('error');setError(e instanceof Error?e.message:'Unable to load this roster');}});
   return ()=>{live=false;};
- },[leagueId,rosterId,preview,retry]);
+ },[leagueId,rosterId,preview,selectedConnection,retry]);
  const needs=useMemo(()=>context?rosterNeeds(context.teams,context.players,context.viewerRosterId,context.starterSlots):[],[context]);
  const waiver=useMemo(()=>context?waiverSignals(snapshot,context,needs):[],[context,snapshot,needs]);
  function updateSelection(id:string,roster:number|null){
-  setLeagueId(id);setRosterId(roster);setContext(null);setSnapshot(null);
+  setLeagueId(id);setRosterId(roster);setContext(null);setSnapshot(null);setError('');
+  if(id)rememberLeague(id,roster);
+  if(connected.some(c=>c.leagueId===id))void preferSleeperTeam(id).catch(()=>{});
   router.replace(publicToolUrl(tool,id,roster),{scroll:false});
  }
  const toolLinks=<nav aria-label="Fantasy advisor tools" className="flex gap-2 overflow-x-auto pb-2">
@@ -121,16 +151,31 @@ export default function PublicFantasyWorkbench({tool,initialLeagueId,initialRost
     <Link href="/research/receipts" className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-[var(--brand-gold)] px-4 font-bold text-[var(--brand-ink)]">View public prediction receipts →</Link>
     <p className="mt-3 text-xs text-white/65">Private start/bench decision history is separately saved to individual accounts. The public research receipts do not imply that a manager followed a recommendation.</p>
    </section>}
+   {tool==='trade'&&<section className="mt-6 rounded-2xl border border-white/20 bg-white/[0.035] p-4 sm:p-5">
+    <h2 className="text-xl font-black">Trade Analyzer: no league required</h2>
+    <p className="mt-2 text-sm text-white/70">Compare players and picks immediately. Connecting a Sleeper roster below adds context about both teams, but is optional.</p>
+    <div className="mt-4 rounded-xl bg-[var(--surface)] text-[var(--text)]"><TradeAnalyzerPage /></div>
+   </section>}
    {tool!=='receipts'&&<>
     <section className="mt-6 rounded-2xl border border-white/20 bg-[#102439] p-4 sm:p-6" aria-label="Choose Sleeper league and team">
-     <h2 className="text-lg font-black">Use with your Sleeper league</h2>
-     <p className="mt-1 text-sm text-white/70">No login, league hosting or commissioner permission. Use the numeric league ID from a Sleeper league URL, then choose a team to evaluate.</p>
-     <form onSubmit={e=>{e.preventDefault();const id=entry.trim();
-      if(!/^[0-9]{7,25}$/.test(id)){setError('Enter a numeric Sleeper league ID (7–25 digits).');return;}
-      updateSelection(id,null);
+     <h2 className="text-lg font-black">{tool==='trade'?'Optional roster-based trade impact':'Your Sleeper league'}</h2>
+     <p className="mt-1 text-sm text-white/70">Your last saved league loads automatically. To analyze a different league, enter a Sleeper league ID or link. No commissioner permission is required.</p>
+     {connected.length>0&&<label className="mt-4 block max-w-lg text-xs font-semibold">Your saved Sleeper teams
+      <select value={selectedConnection?.leagueId||''} onChange={e=>{const item=connected.find(c=>c.leagueId===e.target.value);
+       if(item){setEntry(item.leagueId);updateSelection(item.leagueId,item.rosterId);}}}
+       className="mt-1 block min-h-11 w-full rounded-lg border border-white/30 bg-[#071727] px-3 text-white">
+       <option value="">Another league</option>
+       {connected.map(c=><option key={c.leagueId} value={c.leagueId}>{c.leagueName} · {c.teamName}</option>)}
+      </select></label>}
+     {connectionStatus&&<p role="status" className="mt-2 text-xs text-amber-200">{connectionStatus}</p>
+     <form onSubmit={e=>{e.preventDefault();
+      const id=parseSleeperLeagueInput(entry);
+      if(!id){setError('Enter a valid Sleeper league ID or league URL.');return;}
+      const item=connected.find(c=>c.leagueId===id);
+      updateSelection(id,item?.rosterId||null);
      }} className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
       <label className="flex-1 text-xs font-semibold">Sleeper league ID
-       <input inputMode="numeric" pattern="[0-9]{7,25}" required value={entry} onChange={e=>setEntry(e.target.value)}
+       <input required value={entry} onChange={e=>setEntry(e.target.value)}
         placeholder="Paste league ID" className="mt-1 block min-h-11 w-full rounded-lg border border-white/30 bg-[#071727] px-3 text-base text-white placeholder:text-white/45"/>
       </label>
       <button className="min-h-11 rounded-lg bg-[var(--brand-gold)] px-5 text-sm font-bold text-[var(--brand-ink)]" type="submit">Find teams</button>
@@ -160,11 +205,11 @@ export default function PublicFantasyWorkbench({tool,initialLeagueId,initialRost
       throughWeek={snapshot?.throughWeek||0} source="live" taxiContext={context.taxiContext}
       scope={{type:'guest',id:leagueId}} tool={tool}/>
     </div>}
-    {!context&&status!=='loading'&&<section className="mt-6 rounded-xl border border-white/15 bg-white/[0.035] p-5">
+    {!context&&status!=='loading'&&tool!=='trade'&&<section className="mt-6 rounded-xl border border-white/15 bg-white/[0.035] p-5">
      <h2 className="font-bold">Explore before choosing a team</h2>
-     <p className="mt-2 text-sm text-white/70">The {details.label.toLowerCase()} opens when you select a publicly accessible Sleeper roster. You can also use these public tools immediately:</p>
+     <p className="mt-2 text-sm text-white/70">Roster-specific advice opens once a Sleeper team is selected. You can also use public research immediately:</p>
      <div className="mt-3 flex flex-wrap gap-3 text-sm font-semibold text-[var(--brand-gold)]">
-      <Link href="/trades/analyzer" className="underline">Trade Analyzer</Link>
+      <Link href="/fantasy-tools/trade" className="underline">Trade Analyzer</Link>
       <Link href="/research/players" className="underline">Player research</Link>
       <Link href="/research/stats" className="underline">Stat leaders</Link>
       <Link href="/research/receipts" className="underline">Public prediction receipts</Link>
