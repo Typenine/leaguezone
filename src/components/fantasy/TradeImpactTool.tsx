@@ -11,7 +11,7 @@ type Props={rosters:Pick<FantasyRostersData,'teams'|'players'>;market:MarketInde
 const fmt=(value:number)=>Math.round(value).toLocaleString();
 const signed=(value:number)=>(value>0?'+':'')+fmt(value);
 function assetNames(players:ImpactPlayer[]){
- return players.map(p=>p.name).join(', ')||'None';
+ return players.map(p=>p.name+' ('+(p.value>0?fmt(p.value):'unpriced')+')').join(', ')||'None';
 }
 export default function TradeImpactTool({rosters,market,starterSlots,teamId,slug,contextUrl,fixedAssets}:Props){
  const [other,setOther]=useState<number>(()=>rosters.teams.find(t=>t.rosterId!==teamId)?.rosterId||0);
