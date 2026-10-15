@@ -124,6 +124,7 @@ export default function UnifiedNavbar() {
 
   const platformLinks = [
     { href: '/', label: 'Home' },
+    { href: '/fantasy-tools', label: 'Fantasy Tools' },
     { href: '/research', label: 'Research' },
     { href: '/weekly', label: 'NFL Weekly' },
     { href: '/availability', label: 'Availability' },

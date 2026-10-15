@@ -128,8 +128,8 @@ export default async function RootPage({ searchParams }: { searchParams?: Promis
               {PLATFORM.name} brings fantasy football research and league management together. See useful player insights, understand the trends behind them, and give your league a home that lasts beyond a single season.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/research/decisions" className="inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--brand-gold)] px-6 py-3 text-sm font-black uppercase tracking-wider text-[var(--brand-ink)] transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-                Find Fantasy Insights <span className="ml-2" aria-hidden="true">↗</span>
+              <Link href="/fantasy-tools" className="inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--brand-gold)] px-6 py-3 text-sm font-black uppercase tracking-wider text-[var(--brand-ink)] transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                Open Free Fantasy Tools <span className="ml-2" aria-hidden="true">↗</span>
               </Link>
               <Link href="/features" className="inline-flex min-h-12 items-center justify-center rounded-md border border-white/30 px-6 py-3 text-sm font-bold uppercase tracking-wider text-white transition hover:border-white/70 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                 Explore League Tools
@@ -199,11 +199,11 @@ export default async function RootPage({ searchParams }: { searchParams?: Promis
           </div>
           <div className="mt-5 flex flex-col gap-4 rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <div>
-              <h3 className="font-black uppercase tracking-wide">Roster Opportunity Finder</h3>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-white/70">The next step is bringing player research into your own league to explore who is rostered and which moves might be realistic. League-connected tools are still being refined.</p>
+              <h3 className="font-black uppercase tracking-wide">Real tools for weekly fantasy decisions</h3>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-white/70">Open Start/Bench, Waivers, Trades, Rankings, Taxi and Draft guidance without signing in. Enter a Sleeper league ID and choose any team to see a personalized read-only analysis.</p>
             </div>
-            <Link href={signedIn ? '/app' : '/login?next=%2Fapp'} className="inline-flex shrink-0 items-center justify-center rounded-md border border-white/25 px-5 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-white/10">
-              {signedIn ? 'My Leagues' : 'Sign In to My Leagues'} <span aria-hidden="true" className="ml-2">↗</span>
+            <Link href="/fantasy-tools" className="inline-flex shrink-0 items-center justify-center rounded-md border border-white/25 px-5 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-white/10">
+              Explore Free Tools <span aria-hidden="true" className="ml-2">↗</span>
             </Link>
           </div>
         </div>

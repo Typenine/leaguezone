@@ -10,14 +10,15 @@ import type {TaxiContext} from '@/lib/fantasy/taxi-context';
 import type {NflGame} from '@/lib/weekly-center';
 import {adviseTaxi,personalRankings,restOfSeasonPace,rosterImprovementPlan} from '@/lib/fantasy/decision-phase2';
 
-type Props={rosters:Pick<FantasyRostersData,'teams'|'players'>;teamId:number;
+type Props={selectedTool?:Tab;rosters:Pick<FantasyRostersData,'teams'|'players'>;teamId:number;
  starterSlots:string[];needs:Need[];lineup:LineupOptimizerResponse|null;market:MarketIndex;
  taxiContext:TaxiContext|null;waiver:WaiverLead[];season:number;onSelectWaiver?:()=>void};
 type Tab='plan'|'taxi'|'rankings'|'outlook';
 const labels:Record<Tab,string>={plan:'Improve my team',taxi:'Taxi advisor',rankings:'Player rankings',outlook:'Season outlook'};
-export default function TeamManagementAdvisor({rosters,teamId,starterSlots,needs,lineup,market,
+export default function TeamManagementAdvisor({selectedTool,rosters,teamId,starterSlots,needs,lineup,market,
  taxiContext,waiver,season,onSelectWaiver}:Props){
- const [tab,setTab]=useState<Tab>('plan');
+ const [currentTab,setTab]=useState<Tab>('plan');
+ const tab=selectedTool||currentTab;
  const [mode,setMode]=useState<'weekly'|'dynasty'>('dynasty');
  const [position,setPosition]=useState('ALL');
  const [rankQuery,setRankQuery]=useState('');
@@ -51,11 +52,11 @@ export default function TeamManagementAdvisor({rosters,teamId,starterSlots,needs
    <div><h3 className="text-lg font-black sm:text-xl">Team management and season outlook</h3>
     <p className="mt-1 text-sm text-[var(--muted)]">Choose what you want to decide. Detailed numbers are available inside each tool.</p></div>
   </div>
-  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Decision tools">
+  {!selectedTool&&<div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Decision tools">
    {(Object.keys(labels) as Tab[]).map(key=><button key={key} type="button" aria-pressed={tab===key}
     className={'min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold '+(tab===key?'border-[var(--accent)] bg-[var(--surface-2)] text-[var(--text)]':'border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)]')}
     onClick={()=>setTab(key)}>{labels[key]}</button>)}
-  </div>
+  </div>}
   {tab==='plan'&&<section className="mt-4" aria-label="Roster improvement priorities">
    <p className="mb-3 text-sm text-[var(--muted)]">Priority order is based on your starters, positional depth and verified market coverage. It is not a transaction recommendation.</p>
    {improvements.length===0&&<p className="rounded-lg border border-[var(--border)] p-4 text-sm text-[var(--muted)]">No verified urgent roster weaknesses in the available comparison. Review player health and league trades for additional context.</p>}
