@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import AnalyzerTradeImpact from '@/components/fantasy/AnalyzerTradeImpact';
 import type { TradeValue } from '@/lib/types/trade-analyzer';
 
 type ValueSource = 'avg' | 'ktc' | 'fc';
@@ -689,6 +690,9 @@ function ShareButton({ sideA, sideB }: { sideA: SelectedAsset[]; sideB: Selected
 function TradeAnalyzerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const leagueSlugMatch = pathname.match(/^\/l\/([^/]+)\/trades\/analyzer\/?$/);
+  const leagueSlug = leagueSlugMatch ? decodeURIComponent(leagueSlugMatch[1]) : null;
 
   const [values, setValues] = useState<TradeValue[]>([]);
   const [valuesMap, setValuesMap] = useState<Map<string, TradeValue>>(new Map());
@@ -853,6 +857,9 @@ function TradeAnalyzerContent() {
           {tradeActive && <SourceDisagreementBadge sideA={sideA} sideB={sideB} />}
         </div>
       </div>
+
+      {leagueSlug && tradeActive && <AnalyzerTradeImpact slug={leagueSlug}
+        a={sideA.map(x=>x.key)} b={sideB.map(x=>x.key)} values={values}/>}
 
       {/* Position breakdown */}
       {(sideA.length > 0 || sideB.length > 0) && (
