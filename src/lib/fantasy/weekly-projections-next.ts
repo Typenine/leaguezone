@@ -40,7 +40,7 @@ function buildOptimizerResponse(args: {
   matchup: SleeperMatchup | undefined;
   activePlayerIds: string[];
   projectedPlayers: WeeklyProjectedPlayer[];
-  taxiProjectedPlayers: WeeklyProjectedPlayer[];
+  taxiProjectedPlayers?: WeeklyProjectedPlayer[];
   preseason: boolean;
   plans: Record<string, TeamOpportunityPlan>;
 }): LineupOptimizerResponse {
@@ -83,7 +83,7 @@ function buildOptimizerResponse(args: {
     currentLineup: lineupEntries(starterSlots, currentAssigned, optimalIds),
     optimalLineup: lineupEntries(starterSlots, optimalAssigned, currentIds),
     projectedPlayers: rosterPlayers,
-    taxiProjectedPlayers: args.taxiProjectedPlayers,
+    taxiProjectedPlayers: args.taxiProjectedPlayers || [],
     modelVersion: PROJECTION_MODEL_VERSION,
     projectionPhase: args.preseason ? 'preseason' : 'in_season',
     confidence,

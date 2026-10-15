@@ -67,7 +67,7 @@ export function personalRankings(args:{
  const owned=new Set(roster.players);
  const pool=new Set([...roster.players,...args.waiverIds]);
  const models=new Map(args.weekly.map(p=>[p.id,p]));
- const needy=new Map(args.needs.map(n=>[n.pos,n]));
+ const needy=new Map<string,Need>(args.needs.map(n=>[n.pos,n]));
  const rows:RankedPlayer[]=[];
  for(const id of pool){
   const p=args.rosters.players[id],v=args.market[id],projection=models.get(id);
