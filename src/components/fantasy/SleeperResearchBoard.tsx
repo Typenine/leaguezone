@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import ActionableDecisions from '@/components/fantasy/ActionableDecisions';
+import DecisionFoundationPanel from '@/components/fantasy/DecisionFoundationPanel';
 import {rosterNeeds,decisionCandidates} from '@/lib/fantasy/personalized-decisions';
 import {validateResearchSnapshot,type ResearchSnapshot,type RadarSignal} from '@/lib/research-dashboard';
 import type {FantasyRostersData} from '@/lib/providers/types';
@@ -132,12 +133,18 @@ export default function SleeperResearchBoard({initialLeagueId}:{initialLeagueId:
       <option value="half">Half PPR</option><option value="ppr">Full PPR</option><option value="standard">Standard</option>
      </select></label>
    </div>
+   <DecisionFoundationPanel key={leagueId}
+    endpoint={'/api/research/sleeper/lineup?leagueId='+encodeURIComponent(leagueId)}
+    rosters={context} teamId={context.viewerRosterId} starterSlots={context.starterSlots}
+    needs={report.needs} waiver={report.personal.waiver} season={snapshot.year}
+    throughWeek={snapshot.throughWeek} source={snapshot.source}
+    onSelect={f=>{if(f==='waiver')setFocus('waiver');else document.getElementById('read-only-lineup-guide')?.scrollIntoView({behavior:'smooth'});}}/>
    <div className="flex flex-wrap gap-2" role="group" aria-label="Decision category">
     {([['overview','My next moves'],['waiver','Waiver watch'],['trade','Trade targets'],['risk','My roster alerts']] as const)
     .map(([value,label])=><button type="button" key={value} onClick={()=>setFocus(value)} aria-pressed={focus===value}
      className={'min-h-11 rounded-lg border px-4 text-sm font-bold '+(focus===value?'border-[var(--brand-gold)] bg-white/10':'border-white/20 hover:border-white/50')}>{label}</button>)}
    </div>
-   <div className="rounded-xl border border-white/15 p-4 sm:p-6">
+   <div id="read-only-lineup-guide" className="rounded-xl border border-white/15 p-4 sm:p-6">
     <ActionableDecisions rosters={context} season={snapshot.year} teamId={context.viewerRosterId}
      needs={report.needs} personal={report.personal} focus={focus} onFocus={key=>{if(key!=='lineup')setFocus(key);}}/>
     {focus==='risk'&&<div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -149,7 +156,7 @@ export default function SleeperResearchBoard({initialLeagueId}:{initialLeagueId:
      {!report.personal.risk.length&&<p className="text-sm text-white/70">No verified declining-role signals currently match your roster.</p>}
     </div>}
    </div>
-   <p className="text-xs text-white/65">Research-only mode does not make waiver claims or trades. Starting-lineup optimization currently requires an existing LeagueZone league connection, while waiver and trade research work here without one. Sleeper username ownership is not independently authenticated.</p>
+   <p className="text-xs text-white/65">Research-only mode does not make waiver claims or trades. Weekly lineup recommendations and player comparisons also work without hosting a LeagueZone league. Sleeper username ownership is not independently authenticated.</p>
   </div>}
  </div>;
 }

@@ -27,7 +27,7 @@ export default function DecisionFoundationPanel({endpoint,rosters,teamId,starter
  useEffect(()=>{
   let active=true;
   setStatus('loading');setLineup(null);setError('');
-  void load(endpoint).then(v=>{if(active){setLineup(v as LineupOptimizerResponse);setStatus('ready');}})
+  void load(endpoint).then(v=>{if(active){setLineup(v as unknown as LineupOptimizerResponse);setStatus('ready');}})
    .catch(e=>{if(active){setStatus('error');setError(e instanceof Error?e.message:'Unavailable');}});
   return ()=>{active=false;};
  },[endpoint,retry]);

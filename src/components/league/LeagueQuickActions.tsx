@@ -18,7 +18,9 @@ export function getLeagueActions({ slug, features, rosterId }: Omit<Props, 'full
       ? [{ id: 'my-team', title: 'My team', description: 'See your roster, players and team outlook.', href: url(`teams/${rosterId}`), icon: Users }]
       : []),
     ...(features.rosters
-      ? [{ id: 'opportunities', title: 'Find roster moves', description: 'Explore trade, waiver and lineup opportunities.', href: url('opportunities'), icon: Search }]
+      ? [{ id: 'opportunities', title: rosterId != null ? 'My weekly decisions' : 'Find roster moves',
+        description: rosterId != null ? 'Start/bench advice and waiver options for your team.' : 'Explore trade, waiver and lineup opportunities.',
+        href: url('opportunities'), icon: Search }]
       : []),
     { id: 'trade-analyzer', title: 'Analyze a trade', description: 'Compare players and draft picks before a deal.', href: url('trades/analyzer'), icon: ArrowLeftRight },
     ...(features.tradeBlock

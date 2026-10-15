@@ -105,7 +105,7 @@ function activeIdsForRoster(roster: SleeperRoster, matchup?: SleeperMatchup): st
 }
 
 async function buildFromCurrentContext(args: {
-  context: TradeBlockLeagueContext;
+  context: Pick<TradeBlockLeagueContext,'league'|'leagueId'|'rosters'|'nameMap'>;
   season: string;
   week: number;
   teamNames?: string[];
@@ -272,4 +272,30 @@ export async function getLeagueScoredBaselinesV3(args: {
     last3Avg: player.projection,
     decayedMean: player.projection,
   }]));
+}
+
+/**
+ * Build exactly the same V3 weekly projection and legal lineup optimizer
+ * for a read-only Sleeper connection, without relying on a hosted league.
+ * The calling API must verify the saved user's roster before invoking this.
+ */
+export async function buildResearchSleeperLineupV3(args:{
+ leagueId:string;rosterId:number;teamName:string;
+}):Promise<LineupOptimizerResponse>{
+ const [league,rosters,state]=await Promise.all([
+  getLeague(args.leagueId),getLeagueRosters(args.leagueId),getNFLState(),
+ ]);
+ if(String(league.season)!==String(state.season))
+  throw new Error('Lineup recommendations require a current-season Sleeper league.');
+ const selected=rosters.find(r=>r.roster_id===args.rosterId);
+ if(!selected)throw Error('Connected roster not found');
+ const week=clamp(Number(state.week??state.display_week??1),1,18);
+ const context:Pick<TradeBlockLeagueContext,'league'|'leagueId'|'rosters'|'nameMap'>={
+  leagueId:args.leagueId,league,rosters:[selected],nameMap:new Map([[args.rosterId,args.teamName]]),
+ };
+ const items=await buildFromCurrentContext({
+  context,season:String(league.season),week,teamNames:[args.teamName],saveSnapshots:false,
+ });
+ if(!items.length)throw Error('No projected roster found');
+ return items[0];
 }
