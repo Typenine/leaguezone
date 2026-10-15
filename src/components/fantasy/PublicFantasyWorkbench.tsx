@@ -4,7 +4,7 @@ import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {parseSleeperLeagueInput} from '@/lib/sleeper-research-shared';
 import {readRememberedLeague,rememberLeague,loadSavedSleeperTeams,preferredSleeperTeam,preferSleeperTeam,type SavedSleeperTeam} from '@/lib/fantasy/remembered-league';
-import TradeAnalyzerPage from '@/app/trades/analyzer/page';
+import TradeAnalyzerClient from '@/components/trades/TradeAnalyzerClient';
 import type {FantasyRostersData} from '@/lib/providers/types';
 import type {TaxiContext} from '@/lib/fantasy/taxi-context';
 import type {Need} from '@/lib/fantasy/personalized-decisions';
@@ -154,7 +154,7 @@ export default function PublicFantasyWorkbench({tool,initialLeagueId,initialRost
    {tool==='trade'&&<section className="mt-6 rounded-2xl border border-white/20 bg-white/[0.035] p-4 sm:p-5">
     <h2 className="text-xl font-black">Trade Analyzer: no league required</h2>
     <p className="mt-2 text-sm text-white/70">Compare players and picks immediately. Connect a Sleeper league below to see the actual owners, players counted toward positional strength, and each roster before and after the same trade. No connection is needed for market values.</p>
-    <div id="trade-market-and-roster" className="mt-4 rounded-xl bg-[var(--surface)] text-[var(--text)]"><TradeAnalyzerPage
+    <div id="trade-market-and-roster" className="mt-4 rounded-xl bg-[var(--surface)] text-[var(--text)]"><TradeAnalyzerClient
      rosterContext={context?{rosters:context,starterSlots:context.starterSlots,
       viewerRosterId:context.viewerRosterId,leagueName:context.leagueName,season:Number(context.season)}:undefined}/></div>
    </section>}
