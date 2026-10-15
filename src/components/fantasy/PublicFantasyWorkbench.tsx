@@ -154,7 +154,7 @@ export default function PublicFantasyWorkbench({tool,initialLeagueId,initialRost
    {tool==='trade'&&<section className="mt-6 rounded-2xl border border-white/20 bg-white/[0.035] p-4 sm:p-5">
     <h2 className="text-xl font-black">Trade Analyzer: no league required</h2>
     <p className="mt-2 text-sm text-white/70">Compare players and picks immediately. Connect a Sleeper league below to see the actual owners, players counted toward positional strength, and each roster before and after the same trade. No connection is needed for market values.</p>
-    <div className="mt-4 rounded-xl bg-[var(--surface)] text-[var(--text)]"><TradeAnalyzerPage
+    <div id="trade-market-and-roster" className="mt-4 rounded-xl bg-[var(--surface)] text-[var(--text)]"><TradeAnalyzerPage
      rosterContext={context?{rosters:context,starterSlots:context.starterSlots,
       viewerRosterId:context.viewerRosterId,leagueName:context.leagueName,season:Number(context.season)}:undefined}/></div>
    </section>}
@@ -198,6 +198,7 @@ export default function PublicFantasyWorkbench({tool,initialLeagueId,initialRost
     {context&&rosterId!==null&&<div className="mt-6">
      <div className="mb-4 rounded-xl border border-white/20 bg-white/[0.04] px-4 py-3 text-sm">
       <strong>{context.teamName}</strong> · {context.leagueName} · {context.season} season
+      {tool==='trade'&&<p className="mt-2 text-sm">This league's rosters are connected to the trade shown above. <a href="#trade-market-and-roster" className="font-bold text-[var(--brand-gold)] underline">View market and roster impact together</a></p>}
       {!snapshot&&<span className="ml-2 text-amber-200">Historical opportunity feed unavailable; trend-based waiver matches may be empty.</span>}
      </div>
      <DecisionFoundationPanel key={leagueId+':'+rosterId+':'+tool}
