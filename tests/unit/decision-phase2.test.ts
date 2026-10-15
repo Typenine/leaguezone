@@ -40,7 +40,7 @@ describe('Phase 2 decision logic',()=>{
    {season:2026,week:7,home:'GB',away:'DET',status:'scheduled',kickoff:'2026-10-25T17:00:00Z'},
    {season:2026,week:8,home:'SEA',away:'CHI',status:'scheduled',kickoff:'2026-11-01T17:00:00Z'}] as NflGame[];
   expect(restOfSeasonPace({players:[p('a','WR',10)],schedule:games,week:6,season:2026,
-   now:Date.parse('2026-10-15T12:00:00Z')}))[0]).toMatchObject({games:2,pacePoints:20,byeWeeks:[8]});
+   now:Date.parse('2026-10-15T12:00:00Z')})[0]).toMatchObject({games:2,pacePoints:20,byeWeeks:[8]});
   expect(restOfSeasonPace({players:[p('a','WR',10)],schedule:games,week:6,season:2026,
    now:Date.parse('2026-12-01T12:00:00Z')})).toEqual([]);
  });

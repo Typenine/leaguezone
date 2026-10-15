@@ -69,8 +69,8 @@ export default function TeamManagementAdvisor({rosters,teamId,starterSlots,needs
   {tab==='taxi'&&<section className="mt-4" aria-label="Taxi squad decisions">
    {!taxiContext&&<p className="text-sm text-[var(--muted)]">Verified taxi roster data is unavailable for this provider or season. LeagueZone cannot assess a taxi move.</p>}
    {taxiContext&&<>
-    <p className="text-sm text-[var(--muted)]">On taxi: {taxiContext.used}{taxiContext.maxSlots!==null?' of '+taxiContext.maxSlots+' Sleeper slots':' · Slot limit not available'}. Player placement and return eligibility must be checked against your league's rulebook and transaction history.</p>
-    {!taxi.length&&<p className="mt-3 rounded-lg border border-[var(--border)] p-4 text-sm text-[var(--muted)]">No taxi players are listed in the connected Sleeper roster. Review your league's taxi settings before placing anyone.</p>}
+    <p className="text-sm text-[var(--muted)]">On taxi: {taxiContext.used}{taxiContext.maxSlots!==null?' of '+taxiContext.maxSlots+' Sleeper slots':' · Slot limit not available'}. Player placement and return eligibility must be checked against your league&apos;s rulebook and transaction history.</p>
+    {!taxi.length&&<p className="mt-3 rounded-lg border border-[var(--border)] p-4 text-sm text-[var(--muted)]">No taxi players are listed in the connected Sleeper roster. Review your league&apos;s taxi settings before placing anyone.</p>}
     <div className="mt-3 grid gap-3 md:grid-cols-2">{taxi.map(entry=><article key={entry.player.id}
      className="rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] p-4">
      <div className="flex flex-wrap items-start justify-between gap-2">
@@ -92,7 +92,7 @@ export default function TeamManagementAdvisor({rosters,teamId,starterSlots,needs
     <label className="text-xs font-semibold">Ranking type
      <select className="mt-1 block min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] p-2 text-[var(--text)]"
       value={mode} onChange={e=>{setMode(e.target.value as 'weekly'|'dynasty');setShowAll(false);}}>
-      <option value="dynasty">Dynasty + team fit</option><option value="weekly">This week's projected points</option>
+      <option value="dynasty">Dynasty + team fit</option><option value="weekly">This week&apos;s projected points</option>
      </select></label>
     <label className="text-xs font-semibold">Position
      <select className="mt-1 block min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] p-2 text-[var(--text)]"
@@ -115,7 +115,7 @@ export default function TeamManagementAdvisor({rosters,teamId,starterSlots,needs
     onClick={()=>setShowAll(true)}>Show up to 80 ranked players</button>}
   </section>}
   {tab==='outlook'&&<section className="mt-4" aria-label="Rest-of-season planning outlook">
-   <p className="text-sm text-[var(--muted)]">A planning baseline, not a rest-of-season prediction. Each player's current-week projection is held constant for their remaining scheduled NFL games; this does not model future injuries, usage shifts, opponent changes, or playoff odds.</p>
+   <p className="text-sm text-[var(--muted)]">A planning baseline, not a rest-of-season prediction. Each player&apos;s current-week projection is held constant for their remaining scheduled NFL games; this does not model future injuries, usage shifts, opponent changes, or playoff odds.</p>
    {scheduleError&&<p role="status" className="mt-3 text-sm text-[var(--muted)]">{scheduleError} No extrapolated totals are shown.</p>}
    {!schedule&&!scheduleError&&<p role="status" className="mt-3 text-sm text-[var(--muted)]">Checking the published NFL schedule…</p>}
    {schedule&&(!lineup||pace.length===0)&&<p className="mt-3 text-sm text-[var(--muted)]">No remaining-game pace estimate is available for this roster and season.</p>}
@@ -128,7 +128,7 @@ export default function TeamManagementAdvisor({rosters,teamId,starterSlots,needs
      {item.byeWeeks.length>0&&<p className="mt-1 text-xs text-[var(--muted)]">Bye / no remaining game: Week {item.byeWeeks.join(', ')}</p>}
     </article>)}
    </div>}
-   <p className="mt-3 text-xs text-[var(--muted)]">Source: NFL schedule and LeagueZone's existing current-week V3 projections. Totals are uncalibrated pace scenarios, not a modeled future schedule forecast.</p>
+   <p className="mt-3 text-xs text-[var(--muted)]">Source: NFL schedule and LeagueZone&apos;s existing current-week V3 projections. Totals are uncalibrated pace scenarios, not a modeled future schedule forecast.</p>
   </section>}
  </div>;
 }
