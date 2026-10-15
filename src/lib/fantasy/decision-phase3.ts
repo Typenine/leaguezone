@@ -1,17 +1,37 @@
 import type {FantasyRostersData} from '@/lib/providers/types';
 import type {MarketIndex} from '@/lib/fantasy/decision-quality';
 import type {Need} from '@/lib/fantasy/personalized-decisions';
+
 const POS=['QB','RB','WR','TE'] as const;
 type Rosters=Pick<FantasyRostersData,'teams'|'players'>;
-export type TeamImpact={teamId:number;name:string;marketDelta:number;coverage:number;
- positional:Array<{position:string;before:number;after:number;playersBefore:number;playersAfter:number}>};
+export type ImpactPlayer={id:string;name:string;position:string;value:number};
+export type PositionImpact={
+ position:string;fixedSlots:number;before:number;after:number;
+ playersBefore:number;playersAfter:number;
+ countedBefore:ImpactPlayer[];countedAfter:ImpactPlayer[];
+};
+export type TeamImpact={
+ teamId:number;name:string;marketDelta:number;coverage:number;
+ rosterBefore:number;rosterAfter:number;
+ sent:ImpactPlayer[];received:ImpactPlayer[];
+ positional:PositionImpact[];
+};
 export type TradeImpact={valid:boolean;reason:string|null;teams:TeamImpact[];valueDifference:number|null};
+function player(id:string,r:Rosters,market:MarketIndex):ImpactPlayer{
+ return {id,name:r.players[id]?.fullName||market[id]?.name||id,
+  position:(r.players[id]?.position||market[id]?.position||'').toUpperCase(),
+  value:market[id]?.value||0};
+}
 function profile(ids:string[],r:Rosters,market:MarketIndex,slots:string[]){
- const players=ids.map(id=>({pos:(r.players[id]?.position||market[id]?.position||'').toUpperCase(),value:market[id]?.value||0}));
+ const players=ids.map(id=>player(id,r,market));
  const positional=POS.map(position=>{
-  const list=players.filter(x=>x.pos===position).sort((a,b)=>b.value-a.value);
-  const required=Math.max(1,slots.filter(s=>s===position).length);
-  return {position,count:list.length,value:list.slice(0,required).reduce((sum,x)=>sum+x.value,0)};
+  const list=players.filter(x=>x.position===position).sort((a,b)=>b.value-a.value||a.id.localeCompare(b.id));
+  // Only actual fixed starter slots count as top-slot market exposure. Flex and
+  // Superflex are not optimized by this market-only comparison.
+  const fixedSlots=slots.filter(s=>s.toUpperCase()===position).length;
+  const counted=list.filter(x=>x.value>0).slice(0,fixedSlots);
+  return {position,count:list.length,fixedSlots,counted,
+   value:counted.reduce((sum,x)=>sum+x.value,0)};
  });
  return {total:players.reduce((sum,x)=>sum+x.value,0),
   coverage:ids.length?players.filter(x=>x.value>0).length/ids.length:0,positional};
@@ -31,16 +51,26 @@ export function tradeTeamImpact(args:{rosters:Rosters;market:MarketIndex;starter
   return fail('All exchanged players need verified market values; unpriced trades cannot be evaluated.');
  const afterA=[...a.players.filter(id=>!args.sendsA.includes(id)),...args.sendsB];
  const afterB=[...b.players.filter(id=>!args.sendsB.includes(id)),...args.sendsA];
- const impact=(team:typeof a,after:string[]):TeamImpact=>{
-  const before=profile(team.players,rosters,market,starterSlots),next=profile(after,rosters,market,starterSlots);
+ const impact=(team:typeof a,after:string[],sentIds:string[],receivedIds:string[]):TeamImpact=>{
+  const before=profile(team.players,rosters,market,starterSlots);
+  const next=profile(after,rosters,market,starterSlots);
   return {teamId:team.rosterId,name:team.teamName,marketDelta:next.total-before.total,
-   coverage:Math.min(before.coverage,next.coverage),positional:before.positional.map((p,i)=>({
-    position:p.position,before:p.value,after:next.positional[i].value,
-    playersBefore:p.count,playersAfter:next.positional[i].count}))};
+   coverage:Math.min(before.coverage,next.coverage),
+   rosterBefore:team.players.length,rosterAfter:after.length,
+   sent:sentIds.map(id=>player(id,rosters,market)),
+   received:receivedIds.map(id=>player(id,rosters,market)),
+   positional:before.positional.map((p,i)=>({
+    position:p.position,fixedSlots:p.fixedSlots,
+    before:p.value,after:next.positional[i].value,
+    playersBefore:p.count,playersAfter:next.positional[i].count,
+    countedBefore:p.counted,countedAfter:next.positional[i].counted
+   }))};
  };
  const aValue=args.sendsA.reduce((s,id)=>s+market[id].value,0);
  const bValue=args.sendsB.reduce((s,id)=>s+market[id].value,0);
- return {valid:true,reason:null,teams:[impact(a,afterA),impact(b,afterB)],valueDifference:bValue-aValue};
+ return {valid:true,reason:null,
+  teams:[impact(a,afterA,args.sendsA,args.sendsB),impact(b,afterB,args.sendsB,args.sendsA)],
+  valueDifference:bValue-aValue};
 }
 export type Prospect={id:string;name:string;pos:'QB'|'RB'|'WR'|'TE';tier:number;
  college:string;draftRange:string;strengths:string[];concerns:string[];trend:string;
