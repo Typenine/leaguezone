@@ -20,6 +20,31 @@ describe('Phase 3 verified trade impact',()=>{
   expect(result.teams.map(t=>t.marketDelta)).toEqual([-1000,1000]);
   expect(result.teams[0].positional.find(p=>p.position==='RB')?.after).toBe(2000);
  });
+ it('shows which actual roster players are counted before and after',()=>{
+  const result=tradeTeamImpact(args);
+  expect(result.valid).toBe(true);
+  const alpha=result.teams[0];
+  expect(alpha).toMatchObject({
+   rosterBefore:2,rosterAfter:2,
+   sent:[{id:'a1',name:'WR A',position:'WR',value:3000}],
+   received:[{id:'b1',name:'RB B',position:'RB',value:2000}]
+  });
+  const rb=alpha.positional.find(p=>p.position==='RB')!;
+  expect(rb.fixedSlots).toBe(1);
+  expect(rb.countedBefore.map(p=>p.name)).toEqual(['RB A']);
+  expect(rb.countedAfter.map(p=>p.name)).toEqual(['RB B']);
+  expect(rb.after-rb.before).toBe(1000);
+  const wr=alpha.positional.find(p=>p.position==='WR')!;
+  expect(wr.countedBefore.map(p=>p.name)).toEqual(['WR A']);
+  expect(wr.countedAfter).toEqual([]);
+ });
+ it('never fabricates a top player at a position with no fixed starting slot',()=>{
+  const result=tradeTeamImpact({...args,starterSlots:['RB','WR','SUPER_FLEX','FLEX']});
+  const qb=result.teams[0].positional.find(p=>p.position==='QB')!;
+  const te=result.teams[0].positional.find(p=>p.position==='TE')!;
+  expect(qb).toMatchObject({fixedSlots:0,before:0,after:0,countedBefore:[]});
+  expect(te).toMatchObject({fixedSlots:0,before:0,after:0,countedAfter:[]});
+ });
  it('rejects unowned and unpriced assets rather than fabricating a grade',()=>{
   expect(tradeTeamImpact({...args,sendsB:['a2']}).valid).toBe(false);
   expect(tradeTeamImpact({...args,sendsB:['unknown']}).valid).toBe(false);
