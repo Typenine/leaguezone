@@ -77,8 +77,8 @@ export async function GET(req:NextRequest){
   for(const row of rows){
    let status=row.status,actualGain=row.actual_gain;
    const complete=currentSeason>row.season||(currentSeason===row.season&&currentWeek>row.week);
-   if(status==='pending'&&complete&&row.provider_league_id===scope.leagueId){
-    const matchups=await getLeagueMatchups(scope.leagueId,row.week).catch(()=>[]);
+   if(status==='pending'&&complete&&validLeagueId(row.provider_league_id)){
+    const matchups=await getLeagueMatchups(row.provider_league_id,row.week).catch(()=>[]);
     const own=matchups.find(x=>x.roster_id===row.roster_id);
     const result=evaluateReceipt({start:row.suggested_start,bench:row.suggested_bench,
      predictedGain:row.predicted_gain},own?.players_points||null,complete);
@@ -116,14 +116,25 @@ export async function POST(req:NextRequest){
   const week=Number(state.week??state.display_week);
   if(existing.some(x=>x.season===scope.season&&x.week===week))return NextResponse.json({recorded:true,existing:true},{headers});
   const schedule=await loadScheduleWeek(String(scope.season),week).catch(()=>null);
-  const kickoff=schedule?.earliestKickoff?Date.parse(schedule.earliestKickoff):NaN;
-  if(!schedule?.hasGames||!schedule.seasonValidated||!Number.isFinite(kickoff)||Date.now()>=kickoff)
-   return NextResponse.json({error:'The verified pregame recording window is closed or unavailable.'},{status:409,headers});
+  if(!schedule?.hasGames||!schedule.seasonValidated)
+   return NextResponse.json({error:'A verified NFL kickoff schedule is required before recording.'},{status:409,headers});
   const lineup=await buildResearchSleeperLineupV3({leagueId:scope.leagueId,rosterId:scope.rosterId,teamName:scope.teamName});
   if(lineup.week!==week||Number(lineup.season)!==scope.season)
    return NextResponse.json({error:'The current projection is out of sync with the schedule.'},{status:409,headers});
   const recommended=adviseLineup(lineup);
   if(!recommended)return NextResponse.json({recorded:false,reason:'No eligible lineup change was recommended.'},{headers});
+  // Thursday games must not block a truthful Sunday decision receipt.
+  // Every player actually compared must still be pre-kickoff; bye weeks are
+  // known before scoring and remain allowed.
+  const now=Date.now();
+  const compared=[...recommended.start,...recommended.bench];
+  const eligible=compared.every(player=>{
+    if(player.isBye)return true;
+    const kickoff=player.nflTeam?schedule.kickoffByTeam[player.nflTeam]:null;
+    const when=kickoff?Date.parse(kickoff):NaN;
+    return Number.isFinite(when)&&when>now;
+  });
+  if(!eligible)return NextResponse.json({error:'One or more compared players have already started or lack a verified kickoff. This would not be a genuine pregame receipt.'},{status:409,headers});
   const start=recommended.start.map(p=>p.id),bench=recommended.bench.map(p=>p.id);
   await getDb().execute(sql`INSERT INTO fantasy_decision_receipts
     (user_id,scope_key,provider_league_id,roster_id,season,week,model_version,predicted_gain,suggested_start,suggested_bench)
