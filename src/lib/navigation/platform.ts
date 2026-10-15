@@ -172,6 +172,9 @@ function matches(pathname: string, href: string): boolean {
 /** Prefer specific destinations so Development Lab is highlighted under Tools,
  * rather than the broader /research parent. */
 export function getPlatformNavigationSection(pathname: string): string {
+  // Pages shared by the League Websites and Hub menus belong to their actual section.
+  if (pathname === '/app' || pathname.startsWith('/app/')) return 'hub';
+  if (pathname === '/features' || pathname.startsWith('/features/')) return 'websites';
   let best = { id: 'home', length: pathname === '/' ? 1 : -1 };
   for (const section of PLATFORM_NAV) {
     for (const href of [section.href, ...section.links.map(link => link.href)]) {
