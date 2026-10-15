@@ -8,11 +8,12 @@ import {marketById,type MarketIndex} from '@/lib/fantasy/decision-quality';
 import {adviseLineup,adviseWaivers,type WaiverLead} from '@/lib/fantasy/decision-foundation';
 import LineupComparison from '@/components/fantasy/LineupComparison';
 import TeamManagementAdvisor from '@/components/fantasy/TeamManagementAdvisor';
+import AdvancedDecisionTools, {type DecisionScope} from '@/components/fantasy/AdvancedDecisionTools';
 import type {TaxiContext} from '@/lib/fantasy/taxi-context';
 
 type Props={endpoint:string;rosters:Pick<FantasyRostersData,'teams'|'players'>;teamId:number;
  starterSlots:string[];needs:Need[];waiver:WaiverLead[];season:number;throughWeek:number;
- source:'live'|'backup';taxiContext?:TaxiContext|null;onSelect?:(which:'waiver'|'lineup')=>void};
+ source:'live'|'backup';taxiContext?:TaxiContext|null;scope?:DecisionScope;onSelect?:(which:'waiver'|'lineup')=>void};
 async function load(url:string){
  const res=await fetch(url,{credentials:'same-origin',cache:'no-store'});
  const body=await res.json().catch(()=>({})) as {error?:string;values?:MarketIndex};
@@ -20,7 +21,7 @@ async function load(url:string){
  return body;
 }
 export default function DecisionFoundationPanel({endpoint,rosters,teamId,starterSlots,needs,waiver,
- season,throughWeek,source,taxiContext,onSelect}:Props){
+ season,throughWeek,source,taxiContext,scope,onSelect}:Props){
  const [lineup,setLineup]=useState<LineupOptimizerResponse|null>(null);
  const [status,setStatus]=useState<'loading'|'ready'|'error'>('loading');
  const [error,setError]=useState('');
@@ -94,6 +95,8 @@ export default function DecisionFoundationPanel({endpoint,rosters,teamId,starter
   <TeamManagementAdvisor rosters={rosters} teamId={teamId} starterSlots={starterSlots}
     needs={needs} lineup={lineup} market={market} taxiContext={taxiContext||null}
     waiver={waiver} season={season} onSelectWaiver={onSelect?()=>onSelect('waiver'):undefined}/>
+  {scope&&<AdvancedDecisionTools rosters={rosters} teamId={teamId} starterSlots={starterSlots}
+   needs={needs} market={market} lineup={lineup} season={season} scope={scope}/>}
   <p className="mt-4 text-xs text-[var(--muted)]">Decisions are read-only. Availability, roster rules and lineup locks must be checked before acting. Market values measure dynasty assets, not weekly fantasy points.</p>
  </section>;
 }
