@@ -117,25 +117,14 @@ export default async function AppDashboardPage({
             {activeLeague ? (
               <ActiveLeagueCard league={activeLeague} />
             ) : (
-              <div className="border border-dashed border-white/20 bg-white/[0.025] p-6">
-                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--brand-gold)]">No league website linked</p>
-                <h2 className="mt-2 text-2xl font-black uppercase text-white">Choose your next step</h2>
-                <p className="mt-2 text-sm leading-6 text-white/65">
-                  Continue with your saved Sleeper team below, join a hosted league website, or create one you will manage.
-                </p>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Link href="/app/fantasy-team" className="bg-[var(--brand-gold)] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-[var(--brand-ink)]">My Sleeper Team</Link>
-                  <a href="#join-league" className="bg-[var(--brand-gold)] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-[var(--brand-ink)]">Join a League</a>
-                  <Link href="/setup?new=1" className="border border-white/20 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white">Create League</Link>
-                </div>
-              </div>
+              <ConnectedLeagueCard />
             )}
           </div>
         </div>
       </section>
 
       <div className="container mx-auto space-y-12 px-4 py-10 sm:py-12">
-        <ConnectedLeagueCard />
+        {activeLeague && <ConnectedLeagueCard />}
         <section aria-labelledby="research-shortcuts-heading">
           <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>
