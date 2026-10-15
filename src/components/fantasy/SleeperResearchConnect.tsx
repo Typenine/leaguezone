@@ -1,8 +1,9 @@
 'use client';
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
-import {useRouter} from 'next/navigation';
+import {useRouter,useSearchParams} from 'next/navigation';
 import {parseSleeperLeagueInput} from '@/lib/sleeper-research-shared';
+import {rememberLeague,forgetRememberedLeague} from '@/lib/fantasy/remembered-league';
 
 type League={leagueId:string;name:string;season:number;lrosters:number|null};
 type Team={rosterId:number;teamName:string};
@@ -15,6 +16,9 @@ async function json(url:string,init?:RequestInit){
 }
 export default function SleeperResearchConnect(){
  const router=useRouter();
+ const params=useSearchParams();
+ const requested=params?.get('next');
+ const returnTo=requested?.startsWith('/')&&!requested.startsWith('//')&&!requested.startsWith('/api/')?requested:null;
  const [username,setUsername]=useState('');
  const [manual,setManual]=useState('');
  const [leagues,setLeagues]=useState<League[]>([]);
@@ -58,7 +62,8 @@ export default function SleeperResearchConnect(){
    const data=await json('/api/research/sleeper/connections',{method:'POST',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({
      leagueId:selected,sleeperUserId:userId,rosterId:Number(choice)})});
-   router.push('/app/fantasy-team?leagueId='+encodeURIComponent(data.leagueId));
+   rememberLeague(data.leagueId,Number(choice));
+   router.push(returnTo||'/app/fantasy-team?leagueId='+encodeURIComponent(data.leagueId));
   }catch(e){setError(e instanceof Error?e.message:'Unable to save connection');}
   finally{setLoading('');}
  }
@@ -68,6 +73,7 @@ export default function SleeperResearchConnect(){
   try{
    await json('/api/research/sleeper/connections?leagueId='+encodeURIComponent(id),{method:'DELETE'});
    setSaved(current=>current.filter(x=>x.leagueId!==id));
+   forgetRememberedLeague(id);
    setCompleted('Research connection removed.');
   }catch(e){setError(e instanceof Error?e.message:'Unable to disconnect');}
   finally{setLoading('');}

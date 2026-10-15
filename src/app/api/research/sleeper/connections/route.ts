@@ -83,3 +83,21 @@ export async function DELETE(req:NextRequest){
   return NextResponse.json({disconnected:true},{headers});
  }catch{return fail('Unable to disconnect right now.',503);}
 }
+
+// Selecting a connected team updates display order across devices without changing membership.
+export async function PATCH(req:NextRequest){
+ if(req.headers.get('origin')!==req.nextUrl.origin)return fail('Invalid origin.',403);
+ const user=await account(req);if(!user)return fail('Sign in to save your preferred team.',401);
+ let leagueId:unknown;
+ try{const raw=await req.text();if(raw.length>200)return fail('Request too large.',413);
+  leagueId=(JSON.parse(raw) as {leagueId?:unknown}).leagueId;
+ }catch{return fail('Invalid request.',400);}
+ if(!validLeagueId(leagueId))return fail('Invalid league ID.',400);
+ try{
+  const rows=await getDb().execute(sql`UPDATE leaguezone_sleeper_research_connections SET added_at=now()
+   WHERE user_id=${user.userId}::uuid AND sleeper_league_id=${leagueId}
+   RETURNING sleeper_league_id`);
+  if(!rowsOf(rows).length)return fail('Connect this team before selecting it.',404);
+  return NextResponse.json({selected:true,leagueId},{headers});
+ }catch{return fail('Unable to save preferred team.',503);}
+}

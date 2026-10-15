@@ -8,7 +8,9 @@ export async function GET(req:NextRequest){
  const id=req.nextUrl.searchParams.get('leagueId');
  if(!validLeagueId(id))return NextResponse.json({error:'Enter a valid numeric Sleeper league ID.'},{status:400});
  const ip=req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'unknown';
- const rate=await rateLimitByIpStrict(ip,'public-fantasy-league',{maxRequests:28,windowSeconds:300});
+ const raw=req.nextUrl.searchParams.get('rosterId');
+ const rate=await rateLimitByIpStrict(ip,raw===null?'public-fantasy-preview':'public-fantasy-context',
+  {maxRequests:raw===null?60:30,windowSeconds:300});
  if(!rate.allowed)return NextResponse.json({error:'Too many requests. Try again in a few minutes.'},{status:429});
  try{
   const state=await fetchLeagueContext(id);
@@ -18,7 +20,6 @@ export async function GET(req:NextRequest){
    return user?.metadata?.team_name||user?.display_name||'Roster '+rosterId;
   };
   const teams=state.rosters.map(r=>({rosterId:r.roster_id,teamName:teamName(r.roster_id)}));
-  const raw=req.nextUrl.searchParams.get('rosterId');
   if(raw===null)return NextResponse.json({leagueId:id,leagueName:state.league.name,
    season:Number(state.league.season),teams},{headers});
   const rosterId=Number(raw);
@@ -35,6 +36,9 @@ export async function GET(req:NextRequest){
    teamName:teamName(rosterId),teams}, {headers});
  }catch(err){
   console.warn('[public-fantasy-league]',err instanceof Error?err.message:'unknown');
-  return NextResponse.json({error:'Sleeper league data is currently unavailable. Verify the ID and retry.'},{status:502});
+  const message=err instanceof Error?err.message:'';
+  return NextResponse.json({error:message.includes('could not find')?
+   'Sleeper could not find that league. Check the ID or league link.':
+   'Sleeper could not load this league right now. Check the ID and retry.'},{status:message.includes('could not find')?404:502});
  }
 }

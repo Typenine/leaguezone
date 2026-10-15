@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
+import {rememberLeague,preferSleeperTeam} from '@/lib/fantasy/remembered-league';
 import ActionableDecisions from '@/components/fantasy/ActionableDecisions';
 import DecisionFoundationPanel from '@/components/fantasy/DecisionFoundationPanel';
 import {rosterNeeds,decisionCandidates} from '@/lib/fantasy/personalized-decisions';
@@ -57,10 +58,17 @@ export default function SleeperResearchBoard({initialLeagueId}:{initialLeagueId:
  useEffect(()=>{
   let active=true;
   get<{connections:Connection[]}>('/api/research/sleeper/connections')
-   .then(d=>{if(active){setConnections(d.connections);if(!leagueId&&d.connections.length)setLeagueId(d.connections[0].leagueId);}})
+   .then(d=>{
+    if(!active)return;
+    const found=Array.isArray(d.connections)?d.connections:[];
+    setConnections(found);
+    const chosen=found.find(c=>c.leagueId===initialLeagueId)||found[0];
+    if(chosen){setLeagueId(chosen.leagueId);rememberLeague(chosen.leagueId,chosen.rosterId);}
+    else{setLeagueId('');setStatus('ready');}
+   })
    .catch(e=>{if(active){setError(e instanceof Error?e.message:'Unable to load connections');setStatus('error');}});
   return ()=>{active=false;};
- },[leagueId]);
+ },[initialLeagueId]);
  useEffect(()=>{
   if(!leagueId)return;
   let active=true;
@@ -90,7 +98,9 @@ export default function SleeperResearchBoard({initialLeagueId}:{initialLeagueId:
   }catch{return null;}
  },[snapshot,context,scoring]);
  function changeLeague(next:string){
-  setLeagueId(next);setFocus('overview');
+  const selected=connections.find(c=>c.leagueId===next);if(!selected)return;
+  setLeagueId(next);setFocus('overview');rememberLeague(next,selected.rosterId);
+  void preferSleeperTeam(next).catch(()=>{});
   router.replace('/app/fantasy-team?leagueId='+encodeURIComponent(next),{scroll:false});
  }
  return <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 text-white">

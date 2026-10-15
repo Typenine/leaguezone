@@ -1,4 +1,5 @@
 import {redirect} from 'next/navigation';
+import {Suspense} from 'react';
 import {requireUser} from '@/lib/server/session';
 import SleeperResearchConnect from '@/components/fantasy/SleeperResearchConnect';
 
@@ -7,5 +8,5 @@ export const metadata={title:'Connect a Sleeper Team | LeagueZone',robots:{index
 export default async function Page(){
  const user=await requireUser();
  if(!user)redirect('/login?next=%2Fapp%2Fconnect-sleeper');
- return <main className="min-h-screen bg-[var(--brand-ink)]"><SleeperResearchConnect/></main>;
+ return <main className="min-h-screen bg-[var(--brand-ink)]"><Suspense fallback={null}><SleeperResearchConnect/></Suspense></main>;
 }

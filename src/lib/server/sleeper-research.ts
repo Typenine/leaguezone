@@ -18,17 +18,27 @@ export function matchesUser(roster:SleeperRoster,userId:string):boolean{
  return roster.owner_id===userId||Boolean(roster.co_owners?.includes(userId));
 }
 async function endpoint<T>(path:string):Promise<T>{
- const result=await fetch('https://api.sleeper.app/v1/'+path,{
-  signal:AbortSignal.timeout(9000),next:{revalidate:120},headers:{Accept:'application/json'}});
- if(!result.ok)throw Error(result.status===404?'Sleeper league was not found.':'Sleeper is temporarily unavailable.');
- return result.json() as Promise<T>;
+ let last:unknown;
+ for(let attempt=0;attempt<2;attempt++){
+  try{
+   const result=await fetch('https://api.sleeper.app/v1/'+path,{
+    signal:AbortSignal.timeout(11000),next:{revalidate:120},headers:{Accept:'application/json'}});
+   if(result.status===404)throw Error('Sleeper could not find that league. Check the ID or league link.');
+   if(!result.ok)throw Error('Sleeper API returned '+result.status+' for '+path);
+   return await result.json() as T;
+  }catch(error){last=error;
+   if(error instanceof Error&&error.message.startsWith('Sleeper could not find'))throw error;
+  }
+ }
+ throw last instanceof Error?last:Error('Sleeper is temporarily unavailable.');
 }
 export async function fetchLeagueContext(id:string){
  if(!validLeagueId(id))throw Error('Invalid Sleeper league ID.');
  const [league,rosters,users]=await Promise.all([
   endpoint<SleeperLeague>('league/'+id),
   endpoint<SleeperRoster[]>('league/'+id+'/rosters'),
-  endpoint<SleeperUser[]>('league/'+id+'/users')]);
+  // A temporary /users failure must not make basic roster discovery impossible.
+  endpoint<SleeperUser[]>('league/'+id+'/users').catch(()=>[] as SleeperUser[])]);
  if(league?.league_id!==id||league.sport!=='nfl'||!Array.isArray(rosters)||!Array.isArray(users))
   throw Error('Sleeper returned incomplete NFL league information.');
  const valid=rosters.filter(r=>Number.isInteger(r.roster_id)&&r.roster_id>0&&
