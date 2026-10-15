@@ -56,7 +56,7 @@ export function adviseTaxi(context:TaxiContext|null,projection:LineupOptimizerRe
   (b.action==='consider promotion'?0:b.action==='review status'?2:1));
 }
 export type RankedPlayer={id:string;name:string;position:string;value:number|null;weeklyPoints:number|null;
- fitBoost:number;owned:boolean;rankScore:number;source:'weekly'|'dynasty'};
+ fitBoost:number;owned:boolean;rosteredBy:string|null;rankScore:number;source:'weekly'|'dynasty'};
 export function personalRankings(args:{
  rosters:Pick<FantasyRostersData,'teams'|'players'>;teamId:number;
  market:MarketIndex;weekly:WeeklyProjectedPlayer[];waiverIds:string[];needs:Need[];
@@ -65,7 +65,8 @@ export function personalRankings(args:{
  const roster=args.rosters.teams.find(t=>t.rosterId===args.teamId);
  if(!roster)return [];
  const owned=new Set(roster.players);
- const pool=new Set([...roster.players,...args.waiverIds]);
+ const owners=new Map(args.rosters.teams.flatMap(team=>team.players.map(id=>[id,team.teamName] as const)));
+ const pool=new Set([...Object.keys(args.rosters.players),...args.waiverIds]);
  const models=new Map(args.weekly.map(p=>[p.id,p]));
  const needy=new Map<string,Need>(args.needs.map(n=>[n.pos,n]));
  const rows:RankedPlayer[]=[];
@@ -81,7 +82,7 @@ export function personalRankings(args:{
   const fitBoost=need?.shortage?0.12:need?.belowMedian?0.06:0;
   const rankScore=args.mode==='weekly'?weeklyPoints!:(value!*(1+fitBoost));
   rows.push({id,name:p?.fullName||v?.name||projection?.name||id,position:pos,
-   value,weeklyPoints,fitBoost:args.mode==='dynasty'?fitBoost:0,owned:owned.has(id),
+   value,weeklyPoints,fitBoost:args.mode==='dynasty'?fitBoost:0,owned:owned.has(id),rosteredBy:owners.get(id)||null,
    rankScore,source:args.mode});
  }
  return rows.sort((a,b)=>b.rankScore-a.rankScore||a.name.localeCompare(b.name));

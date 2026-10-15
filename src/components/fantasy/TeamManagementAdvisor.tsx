@@ -20,6 +20,7 @@ export default function TeamManagementAdvisor({rosters,teamId,starterSlots,needs
  const [tab,setTab]=useState<Tab>('plan');
  const [mode,setMode]=useState<'weekly'|'dynasty'>('dynasty');
  const [position,setPosition]=useState('ALL');
+ const [rankQuery,setRankQuery]=useState('');
  const [showAll,setShowAll]=useState(false);
  const [schedule,setSchedule]=useState<NflGame[]|null>(null);
  const [scheduleError,setScheduleError]=useState('');
@@ -41,6 +42,7 @@ export default function TeamManagementAdvisor({rosters,teamId,starterSlots,needs
  const ranking=useMemo(()=>personalRankings({rosters,teamId,market,weekly:lineup?.projectedPlayers||[],
   waiverIds:waiver.map(w=>w.providerId).filter((v):v is string=>!!v),needs,mode,position}),
   [rosters,teamId,market,lineup,waiver,needs,mode,position]);
+ const filteredRanks=useMemo(()=>ranking.filter(item=>item.name.toLowerCase().includes(rankQuery.toLowerCase().trim())),[ranking,rankQuery]);
  const pace=useMemo(()=>schedule&&lineup?restOfSeasonPace({
   players:lineup.projectedPlayers,schedule,week:lineup.week,season,now:Date.now()}):[],
   [schedule,lineup,season]);
@@ -99,19 +101,23 @@ export default function TeamManagementAdvisor({rosters,teamId,starterSlots,needs
       value={position} onChange={e=>{setPosition(e.target.value);setShowAll(false);}}>
       {['ALL','QB','RB','WR','TE'].map(p=><option key={p} value={p}>{p==='ALL'?'All positions':p}</option>)}
      </select></label>
+    <label className="text-xs font-semibold">Find a player
+     <input type="search" value={rankQuery} onChange={e=>{setRankQuery(e.target.value);setShowAll(false);}}
+      placeholder="Search rankings" className="mt-1 block min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] p-2 text-[var(--text)]"/>
+    </label>
    </div>
    <p className="mt-3 text-sm text-[var(--muted)]">{mode==='weekly'?
     'Ranks your active roster by existing league-scoring projections for the current week. Taxi players are excluded.':
-    'Ranks your roster and verified rising-usage unrostered candidates using existing dynasty market prices. A 6% or 12% team-need adjustment favors thin or short positions. Market source format may differ from your league; this is a value reference, not an exact league-calibrated valuation.'}</p>
-   {!ranking.length&&<p className="mt-3 text-sm text-[var(--muted)]">{mode==='weekly'?'No verified current-week player projections are available.':'Market prices or matched player identifiers are unavailable.'}</p>}
-   <div className="mt-3 space-y-2">{ranking.slice(0,showAll?80:16).map((item,i)=><div key={item.id}
+    'Ranks all priced players on connected league rosters plus verified rising-usage unrostered candidates using existing dynasty market prices. A 6% or 12% team-need adjustment favors thin or short positions. Market source format may differ from your league; this is a value reference, not an exact league-calibrated valuation.'}</p>
+   {!filteredRanks.length&&<p className="mt-3 text-sm text-[var(--muted)]">{mode==='weekly'?'No verified current-week player projections are available.':'Market prices or matched player identifiers are unavailable.'}</p>}
+   <div className="mt-3 space-y-2">{filteredRanks.slice(0,showAll?80:16).map((item,i)=><div key={item.id}
     className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] p-3">
     <div className="min-w-0"><p className="font-semibold">{i+1}. {item.name}</p>
-     <p className="text-xs text-[var(--muted)]">{item.position} · {item.owned?'Your roster':'Unrostered in snapshot'}
+     <p className="text-xs text-[var(--muted)]">{item.position} · {item.owned?'Your roster':item.rosteredBy?'Rostered by '+item.rosteredBy:'Unrostered in snapshot'}
       {item.fitBoost>0?' · Need adjustment +'+Math.round(item.fitBoost*100)+'%':''}</p></div>
     <strong className="shrink-0 text-sm">{mode==='weekly'?item.weeklyPoints?.toFixed(1)+' pts':Math.round(item.rankScore).toLocaleString()}</strong>
    </div>)}</div>
-   {ranking.length>16&&!showAll&&<button type="button" className="mt-3 text-sm font-bold text-[var(--accent)] underline"
+   {filteredRanks.length>16&&!showAll&&<button type="button" className="mt-3 text-sm font-bold text-[var(--accent)] underline"
     onClick={()=>setShowAll(true)}>Show up to 80 ranked players</button>}
   </section>}
   {tab==='outlook'&&<section className="mt-4" aria-label="Rest-of-season planning outlook">
