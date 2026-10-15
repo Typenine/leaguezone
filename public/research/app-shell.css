@@ -54,7 +54,7 @@
 .lz-site-popover a{padding:11px 12px;border-radius:7px;color:#e1e9f5;font-size:13px;font-weight:650;line-height:1.3}
 .lz-site-popover a:hover,.lz-site-popover a:focus-visible{color:#f2d79c;background:rgba(226,188,113,.15)}
 .lz-site-navigation a:focus-visible,.lz-site-navigation summary:focus-visible{outline:2px solid #e2bc71;outline-offset:2px}
-@media(max-width:1199px){
+@media(max-width:1279px){
  .head-inner{display:flex;align-items:center;min-height:72px;justify-content:space-between}
  .wordmark{margin:0}
  .lz-site-navigation>.lz-nav-toggle{display:flex;gap:8px;align-items:center;padding:10px 14px;border:1px solid #536680;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer}

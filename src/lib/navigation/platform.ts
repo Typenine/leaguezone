@@ -26,7 +26,7 @@ export const PLATFORM_NAV = [
       },
       {
         "label": "Join a League",
-        "href": "/join"
+        "href": "/app#join-league"
       }
     ]
   },
