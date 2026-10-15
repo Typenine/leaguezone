@@ -24,7 +24,7 @@ export function adviseWaivers(args:{leads:WaiverLead[];needs:Need[];
  rosters:Pick<FantasyRostersData,'teams'|'players'>;teamId:number;market:MarketIndex;}):WaiverAdvice[]{
  const team=args.rosters.teams.find(t=>t.rosterId===args.teamId);
  if(!team)return [];
- const needMap=new Map(args.needs.map(n=>[n.pos,n]));
+ const needMap=new Map<string,Need>(args.needs.map(n=>[n.pos,n]));
  return args.leads.flatMap(lead=>{
   if(!lead.providerId||!['QB','RB','WR','TE'].includes(lead.signal.pos))return [];
   const pos=lead.signal.pos;
