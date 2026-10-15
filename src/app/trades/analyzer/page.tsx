@@ -823,7 +823,7 @@ function TradeAnalyzerContent({rosterContext}: {rosterContext?:ConnectedTradeRos
         <div>
           <h1 className="text-2xl font-bold text-[var(--text)]">Trade Analyzer</h1>
           <p className="text-sm text-[var(--muted)] mt-1">
-           Dynasty market values{rosterContext?' · Roster impact from '+(rosterContext.leagueName||'connected league')+' ('+rosterContext.rosters.teams.length+' teams)':' · No roster context connected'}
+           Dynasty market values{rosterContext?' · Roster impact from '+(rosterContext.leagueName||'connected league')+' ('+rosterContext.rosters.teams.length+' teams)':leagueSlug?' · Hosted league roster impact available below':' · No roster context connected'}
           </p>
         </div>
         {isAdmin && (
