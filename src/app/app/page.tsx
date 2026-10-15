@@ -6,7 +6,7 @@ import { getUserById, getUserLeagues, type UserLeague } from '@/lib/server/user-
 import { PLATFORM, leagueUrl } from '@/lib/config/platform';
 import MyLeaguesGrid from '@/components/dashboard/MyLeaguesGrid';
 import LeagueWebsiteSearch from '@/components/LeagueWebsiteSearch';
-import MyResearchDashboard from '@/components/research/MyResearchDashboard';
+import ConnectedLeagueCard from '@/components/fantasy/ConnectedLeagueCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,7 +103,7 @@ export default async function AppDashboardPage({
               <p className="mt-4 max-w-xl text-base leading-7 text-white/70 sm:text-lg">
                 {activeLeague
                   ? 'Pick up with your league or jump into player research, all from your LeagueZone home.'
-                  : 'Explore player research, join a league with an invite, or create a new league site to get started.'}
+                  : 'Your Sleeper team and hosted league websites are separate connections. Continue below with your saved fantasy team.'}
               </p>
               <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold uppercase tracking-wider">
                 <Link href="/setup?new=1" className="text-[var(--brand-gold)] hover:underline">Create League</Link>
@@ -121,10 +121,10 @@ export default async function AppDashboardPage({
                 <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--brand-gold)]">No league linked yet</p>
                 <h2 className="mt-2 text-2xl font-black uppercase text-white">Choose your next step</h2>
                 <p className="mt-2 text-sm leading-6 text-white/65">
-                  Connect a Sleeper team for personalized research, join a hosted league, or create a league website you will manage.
+                  Continue with your saved Sleeper team below, join a hosted league website, or create one you will manage.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <Link href="/app/connect-sleeper" className="bg-[var(--brand-gold)] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-[var(--brand-ink)]">Connect Sleeper for Research</Link>
+                  <Link href="/app/fantasy-team" className="bg-[var(--brand-gold)] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-[var(--brand-ink)]">My Sleeper Team</Link>
                   <a href="#join-league" className="bg-[var(--brand-gold)] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-[var(--brand-ink)]">Join a League</a>
                   <Link href="/setup?new=1" className="border border-white/20 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white">Create League</Link>
                 </div>
@@ -135,13 +135,13 @@ export default async function AppDashboardPage({
       </section>
 
       <div className="container mx-auto space-y-12 px-4 py-10 sm:py-12">
-        <MyResearchDashboard initialUserId={userId} initialLeagues={userLeagues} embedded />
+        <ConnectedLeagueCard />
         <section aria-labelledby="research-shortcuts-heading">
           <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>
               <p className="eyebrow">Player research</p>
               <h2 id="research-shortcuts-heading" className="mt-2 text-3xl font-black uppercase tracking-tight text-white">Explore the NFL</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">Dive into player statistics, opportunity trends and career development outside your league pages.</p>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">Explore focused sections without scrolling through a giant dashboard. Your saved player research remains available under My Research.</p>
             </div>
             <Link href="/research" className="text-xs font-black uppercase tracking-wider text-[var(--brand-gold)] hover:underline">Research Home ↗</Link>
           </div>
@@ -179,7 +179,9 @@ export default async function AppDashboardPage({
           </section>
         )}
 
-        <section id="join-league" aria-labelledby="join-league-heading">
+        <details id="join-league" className="rounded-xl border border-white/15 bg-white/[0.035] p-5">
+          <summary className="cursor-pointer text-base font-black">Find or join a league website</summary>
+          <section className="mt-5" aria-labelledby="join-league-heading">
           <div className="mb-5">
             <p className="eyebrow">League access</p>
             <h2 id="join-league-heading" className="mt-2 text-2xl font-black uppercase tracking-tight text-white">
@@ -190,7 +192,8 @@ export default async function AppDashboardPage({
             </p>
           </div>
           <LeagueWebsiteSearch />
-        </section>
+          </section>
+        </details>
 
         {userLeagues.length === 0 && (
           <section aria-labelledby="onboarding-heading">

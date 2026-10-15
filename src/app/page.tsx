@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { verifySession } from '@/lib/server/auth';
 import { PLATFORM, PRODUCT_FEATURES } from '@/lib/config/platform';
+import ConnectedLeagueCard from '@/components/fantasy/ConnectedLeagueCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -146,6 +147,7 @@ export default async function RootPage({ searchParams }: { searchParams?: Promis
         </div>
       </section>
 
+      <div className="container mx-auto max-w-7xl px-4 pt-9"><ConnectedLeagueCard homepage /></div>
       <section id="explore" aria-labelledby="explore-title" className="container mx-auto max-w-7xl px-4 py-16 sm:py-20">
         <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[var(--brand-gold)]">Pick your starting point</p>
         <h2 id="explore-title" className="mt-3 max-w-3xl text-3xl font-black uppercase tracking-tight sm:text-5xl">Everything you need, wherever you play.</h2>
