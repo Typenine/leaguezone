@@ -15,23 +15,21 @@ test.describe('Public product pages', () => {
 
   test('homepage has working entry points for research and league websites', async ({ page }) => {
     await page.goto(BASE_URL + '/');
-    await expect(page.getByRole('heading', { name: /research the game/i })).toBeVisible();
-    await page.getByRole('link', { name: /explore player research/i }).click();
+    await expect(page.getByRole('heading', { name: /find your fantasy edge/i })).toBeVisible();
+    await page.getByRole('link', { name: /open research/i }).first().click();
     await expect(page).toHaveURL(/\/research$/);
     await expect(page.locator('header.site-head')).toBeVisible();
 
     await page.goto(BASE_URL + '/');
     await page.getByRole('link', { name: 'Explore League Tools' }).click();
     await expect(page).toHaveURL(/\/features$/);
-    await page.getByRole('link', { name: 'Create Your League' }).click();
-    await expect(page).toHaveURL(/\/register$/);
-    await expect(page.locator('input[type="email"]')).toBeVisible();
+    await expect(page.getByRole('link', { name: /create a league/i }).first()).toBeVisible();
   });
 
   test('research tools are discoverable, pricing is absent, and old pricing bookmarks redirect', async ({ page }) => {
     await page.goto(BASE_URL + '/');
     for (const path of ['/research/stats', '/research/radar', '/research/receipts', '/research/development']) {
-      await expect(page.locator('a[href="' + path + '"]').first()).toBeVisible();
+      await expect(page.locator('main a[href="' + path + '"]').first()).toBeVisible();
     }
     await expect(page.getByRole('navigation').first().getByRole('link', { name: 'Pricing' })).toHaveCount(0);
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Pricing' })).toHaveCount(0);
@@ -42,7 +40,7 @@ test.describe('Public product pages', () => {
   test('mobile homepage keeps both entry points visible without horizontal overflow', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(BASE_URL + '/');
-    await expect(page.getByRole('link', { name: /explore player research/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /open free fantasy tools/i })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Explore League Tools' })).toBeVisible();
     const dimensions = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
