@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
-import {Home,BookOpen,Users,LayoutDashboard,UserRound} from 'lucide-react';
+import {Home,BookOpen,Wrench,LayoutDashboard,UserRound} from 'lucide-react';
 
 const tabs=[
   {href:'/?view=public',label:'Home',Icon:Home},
   {href:'/research',label:'Research',Icon:BookOpen},
-  {href:'/research/players',label:'Players',Icon:Users},
+  {href:'/fantasy-tools',label:'Tools',Icon:Wrench},
   {href:'/app',label:'My Leagues',Icon:LayoutDashboard},
   {href:'/profile',label:'Profile',Icon:UserRound},
 ] as const;
@@ -22,7 +22,7 @@ export default function MobileAppTabs(){
       const selected=label==='Home'?pathname==='/' :
         label==='Research'?['/research','/weekly','/availability','/my-research','/saved','/search'].includes(pathname)||
           ['/research/radar','/research/receipts','/research/development'].some(p=>pathname.startsWith(p)) :
-        label==='Players'?pathname.startsWith('/research/players')||pathname==='/research/stats' :
+        label==='Tools'?pathname.startsWith('/fantasy-tools') :
         label==='My Leagues'?pathname==='/app'||pathname.startsWith('/app/')||pathname.startsWith('/l/') :
         pathname==='/profile'||pathname.startsWith('/profile/');
       return <Link key={label} href={href} aria-current={selected?'page':undefined}

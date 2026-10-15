@@ -12,6 +12,7 @@ const PLATFORM_PREFIXES = [
   '/pricing',
   '/register',
   '/research',
+  '/fantasy-tools',
   '/my-research',
   '/weekly',
   '/availability',
