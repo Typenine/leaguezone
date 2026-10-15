@@ -9,8 +9,8 @@ import {adviseLineup} from '@/lib/fantasy/decision-foundation';
 import {rankProspects,type Prospect} from '@/lib/fantasy/decision-phase3';
 import {PROSPECT_BASELINE_2027} from '@/components/draft/TeamProspectDraftboard';
 import TradeImpactTool from '@/components/fantasy/TradeImpactTool';
-export type DecisionScope={type:'hosted'|'sleeper';id:string};
-type Props={rosters:Pick<FantasyRostersData,'teams'|'players'>;teamId:number;
+export type DecisionScope={type:'hosted'|'sleeper'|'guest';id:string};
+type Props={selectedTool?:Tab;rosters:Pick<FantasyRostersData,'teams'|'players'>;teamId:number;
  starterSlots:string[];needs:Need[];market:MarketIndex;
  lineup:LineupOptimizerResponse|null;season:number;scope:DecisionScope};
 type BoardSave={boardVersion?:string;orderIds?:string[];target?:Record<string,boolean>;
@@ -20,8 +20,9 @@ type Receipt={id:number;season:number;week:number;modelVersion:string;status:str
 type Summary={evaluated:number;improved:number;accuracy:number|null};
 type Tab='trade'|'draft'|'receipts';
 const LABELS:Record<Tab,string>={trade:'Trade impact',draft:'Draft advisor',receipts:'Prediction receipts'};
-export default function AdvancedDecisionTools({rosters,teamId,starterSlots,needs,market,lineup,season,scope}:Props){
- const [tab,setTab]=useState<Tab>('trade');
+export default function AdvancedDecisionTools({selectedTool,rosters,teamId,starterSlots,needs,market,lineup,season,scope}:Props){
+ const [currentTab,setTab]=useState<Tab>('trade');
+ const tab=selectedTool||currentTab;
  const [saved,setSaved]=useState<BoardSave|null>(null);
  const [boardState,setBoardState]=useState('Using existing scouting baseline');
  const [receipts,setReceipts]=useState<Receipt[]>([]);
@@ -60,6 +61,7 @@ export default function AdvancedDecisionTools({rosters,teamId,starterSlots,needs
  const endpoint='/api/decision-receipts?type='+encodeURIComponent(scope.type)+'&id='+encodeURIComponent(scope.id);
  const currentAdvice=adviseLineup(lineup);
  useEffect(()=>{
+  if(scope.type==='guest')return;
   let active=true;
   setReceiptState('Checking saved predictions…');setReceiptError('');
   const run=async()=>{
@@ -87,11 +89,11 @@ export default function AdvancedDecisionTools({rosters,teamId,starterSlots,needs
  return <section className="mt-5 border-t border-[var(--border)] pt-5" aria-label="Advanced decision tools">
   <h3 className="text-lg font-black sm:text-xl">Trade, draft and prediction tools</h3>
   <p className="mt-1 text-sm text-[var(--muted)]">Research the impact of your next move and review how earlier recommendations performed.</p>
-  <div className="mt-4 grid grid-cols-3 gap-2" role="group" aria-label="Advanced decisions">
+  {!selectedTool&&<div className="mt-4 grid grid-cols-3 gap-2" role="group" aria-label="Advanced decisions">
    {(Object.keys(LABELS) as Tab[]).map(key=><button key={key} type="button" aria-pressed={tab===key}
     className={'min-h-11 rounded-lg border p-2 text-xs font-bold sm:text-sm '+(tab===key?'border-[var(--accent)] bg-[var(--surface-strong)]':'border-[var(--border)] text-[var(--muted)]')}
     onClick={()=>setTab(key)}>{LABELS[key]}</button>)}
-  </div>
+  </div>}
   {tab==='trade'&&<div className="mt-4"><TradeImpactTool rosters={rosters} market={market}
    teamId={teamId} starterSlots={starterSlots} slug={scope.type==='hosted'?scope.id:undefined}/></div>}
   {tab==='draft'&&<div className="mt-4">

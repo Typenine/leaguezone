@@ -10,10 +10,11 @@ import LineupComparison from '@/components/fantasy/LineupComparison';
 import TeamManagementAdvisor from '@/components/fantasy/TeamManagementAdvisor';
 import AdvancedDecisionTools, {type DecisionScope} from '@/components/fantasy/AdvancedDecisionTools';
 import type {TaxiContext} from '@/lib/fantasy/taxi-context';
+import type {PublicToolKey} from '@/lib/fantasy/public-tools';
 
 type Props={endpoint:string;rosters:Pick<FantasyRostersData,'teams'|'players'>;teamId:number;
  starterSlots:string[];needs:Need[];waiver:WaiverLead[];season:number;throughWeek:number;
- source:'live'|'backup';taxiContext?:TaxiContext|null;scope?:DecisionScope;onSelect?:(which:'waiver'|'lineup')=>void};
+ source:'live'|'backup';taxiContext?:TaxiContext|null;scope?:DecisionScope;tool?:PublicToolKey;onSelect?:(which:'waiver'|'lineup')=>void};
 async function load(url:string){
  const res=await fetch(url,{credentials:'same-origin',cache:'no-store'});
  const body=await res.json().catch(()=>({})) as {error?:string;values?:MarketIndex};
@@ -21,7 +22,7 @@ async function load(url:string){
  return body;
 }
 export default function DecisionFoundationPanel({endpoint,rosters,teamId,starterSlots,needs,waiver,
- season,throughWeek,source,taxiContext,scope,onSelect}:Props){
+ season,throughWeek,source,taxiContext,scope,tool,onSelect}:Props){
  const [lineup,setLineup]=useState<LineupOptimizerResponse|null>(null);
  const [status,setStatus]=useState<'loading'|'ready'|'error'>('loading');
  const [error,setError]=useState('');
@@ -41,19 +42,23 @@ export default function DecisionFoundationPanel({endpoint,rosters,teamId,starter
   }).catch(()=>{});
   return ()=>{active=false;};
  },[]);
+ const showStart=!tool||tool==='start-bench';
+ const showWaiver=!tool||tool==='waivers';
+ const teamTool=tool==='roster'?'plan':tool==='taxi'?'taxi':tool==='rankings'?'rankings':tool==='outlook'?'outlook':null;
+ const advancedTool=tool==='trade'?'trade':tool==='draft'?'draft':null;
  const advice=useMemo(()=>adviseLineup(lineup),[lineup]);
  const waiverRows=useMemo(()=>adviseWaivers({leads:waiver,needs,rosters,teamId,market}).slice(0,3),
   [waiver,needs,rosters,teamId,market]);
  return <section aria-label="My decisions this week"
   className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-[var(--text)] sm:p-6">
   <div className="flex flex-wrap justify-between gap-3">
-   <div><p className="text-xs font-black uppercase tracking-wide text-[var(--accent)]">Your decision dashboard</p>
-    <h2 className="mt-1 text-xl font-black sm:text-2xl">My decisions this week</h2>
+   <div><p className="text-xs font-black uppercase tracking-wide text-[var(--accent)]">{tool?'Free roster decision tool':'Your decision dashboard'}</p>
+    <h2 className="mt-1 text-xl font-black sm:text-2xl">{tool?'Advice for the selected team':'My decisions this week'}</h2>
     <p className="mt-1 text-sm text-[var(--muted)]">Prioritized lineup and roster questions, using your connected league.</p></div>
    <p className="text-xs text-[var(--muted)]">{season} stats through Week {throughWeek}{source==='backup'?' · Backup':''}</p>
   </div>
   <div className="mt-4 grid gap-4 lg:grid-cols-2">
-   <article className="rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] p-4">
+   {showStart&&<article className="rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] p-4">
     <h3 className="font-black">Start / Bench</h3>
     {status==='loading'&&<p role="status" className="mt-3 text-sm text-[var(--muted)]">Checking the current lineup and projections…</p>}
     {status==='error'&&<div className="mt-3 text-sm text-[var(--muted)]">{error} <button type="button" className="font-bold text-[var(--accent)] underline" onClick={()=>setRetry(i=>i+1)}>Retry</button></div>}
@@ -73,8 +78,8 @@ export default function DecisionFoundationPanel({endpoint,rosters,teamId,starter
     </details>}
     {onSelect&&<button type="button" onClick={()=>onSelect('lineup')}
      className="mt-3 text-sm font-bold text-[var(--accent)] underline">See lineup details →</button>}
-   </article>
-   <article className="rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] p-4">
+   </article>}
+   {showWaiver&&<article className="rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] p-4">
     <h3 className="font-black">Pickup opportunities</h3>
     <p className="mt-1 text-xs text-[var(--muted)]">Unrostered in the latest Sleeper snapshot; waiver eligibility must still be checked.</p>
     {waiverRows.length===0&&<p className="mt-3 text-sm text-[var(--muted)]">No verified unrostered players currently meet the rising-usage threshold.</p>}
@@ -90,12 +95,12 @@ export default function DecisionFoundationPanel({endpoint,rosters,teamId,starter
     </div>
     {onSelect&&<button type="button" onClick={()=>onSelect('waiver')}
      className="mt-3 text-sm font-bold text-[var(--accent)] underline">Explore waiver research →</button>}
-   </article>
+   </article>}
   </div>
-  <TeamManagementAdvisor rosters={rosters} teamId={teamId} starterSlots={starterSlots}
+  {(!tool||teamTool)&&<TeamManagementAdvisor selectedTool={teamTool||undefined} rosters={rosters} teamId={teamId} starterSlots={starterSlots}
     needs={needs} lineup={lineup} market={market} taxiContext={taxiContext||null}
-    waiver={waiver} season={season} onSelectWaiver={onSelect?()=>onSelect('waiver'):undefined}/>
-  {scope&&<AdvancedDecisionTools rosters={rosters} teamId={teamId} starterSlots={starterSlots}
+    waiver={waiver} season={season} onSelectWaiver={onSelect?()=>onSelect('waiver'):undefined}/>}
+  {scope&&(!tool||advancedTool)&&<AdvancedDecisionTools selectedTool={advancedTool||undefined} rosters={rosters} teamId={teamId} starterSlots={starterSlots}
    needs={needs} market={market} lineup={lineup} season={season} scope={scope}/>}
   <p className="mt-4 text-xs text-[var(--muted)]">Decisions are read-only. Availability, roster rules and lineup locks must be checked before acting. Market values measure dynasty assets, not weekly fantasy points.</p>
  </section>;
