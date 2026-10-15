@@ -67,3 +67,11 @@
 }
 @media(max-width:600px){.head-inner{display:flex;padding-top:10px;padding-bottom:10px}}
 @media print{.lz-site-navigation{display:none!important}}
+
+/* Brand and global menu match the Next.js header across every Research route. */
+.brand-image{display:block;width:48px;height:48px;border-radius:12px;object-fit:contain}
+.wordmark{font-weight:900;font-size:19px;letter-spacing:-.3px;color:#fff;white-space:nowrap}
+.site-head{box-shadow:inset 0 -4px 0 #1a52d9}
+.lz-site-group[data-active="true"]>summary,.lz-site-home[aria-current="page"]{background:rgba(255,255,255,.15);color:#fff}
+.lz-site-popover a[aria-current="page"]{background:rgba(226,188,113,.15);color:#f2d79c}
+@media(max-width:600px){.wordmark{font-size:16px}.brand-image{width:44px;height:44px}}
