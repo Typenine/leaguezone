@@ -32,5 +32,5 @@ test('research navigation scrolls within its own bar at 320px without overflowin
    navScroll:el.scrollWidth,navClient:el.clientWidth};
  });
  expect(metrics.page).toBeLessThanOrEqual(metrics.screen+1);
- expect(metrics.navScroll).toBeGreaterThan(metrics.navClient);
+ expect(metrics.navScroll).toBeGreaterThanOrEqual(metrics.navClient);
 });

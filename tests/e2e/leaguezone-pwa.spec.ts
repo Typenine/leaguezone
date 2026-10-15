@@ -31,7 +31,7 @@ test.describe('LeagueZone app install', () => {
     await expect(page).toHaveURL(/\/install$/);
     await expect(page.getByRole('heading', { name: 'Install LeagueZone' })).toBeVisible();
     await expect(page.getByText(/browser menu/i)).toBeVisible();
-    await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/manifest.webmanifest');
+    await expect(page.locator('link[rel="manifest"]').first()).toHaveAttribute('href', '/manifest.webmanifest');
   });
 
   test('installation uses the browser event only when actually offered', async ({ page }) => {

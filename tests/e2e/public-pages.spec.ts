@@ -16,7 +16,7 @@ test.describe('Public product pages', () => {
   test('homepage has working entry points for research and league websites', async ({ page }) => {
     await page.goto(BASE_URL + '/');
     await expect(page.getByRole('heading', { name: /find your fantasy edge/i })).toBeVisible();
-    await page.getByRole('link', { name: 'Research Home', exact: true }).first().click();
+    await page.getByRole('link', { name: /open research/i }).first().click();
     await expect(page).toHaveURL(/\/research$/);
     await expect(page.locator('header.site-head')).toBeVisible();
 
