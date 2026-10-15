@@ -10,8 +10,9 @@ const nav=[
  {href:'/app/leagues',label:'League Websites'},
  {href:'/app/connect-sleeper',label:'Connections'},
 ] as const;
-export default function HubSectionNav(){
+export default function HubSectionNav({outsideApp=false}:{outsideApp?:boolean}){
  const pathname=usePathname()||'/app';
+ if(outsideApp&&!['/my-research','/saved'].some(p=>pathname===p||pathname.startsWith(p+'/')))return null;
  return <nav aria-label="Hub sections" className="border-b border-white/15 bg-[#0d1a2c] text-white">
   <div className="container mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 py-2 [scrollbar-width:thin]">
    {nav.map(item=><Link key={item.href} href={item.href} aria-current={pathname===item.href?'page':undefined}

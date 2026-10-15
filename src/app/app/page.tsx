@@ -118,7 +118,7 @@ export default async function AppDashboardPage({
               <ActiveLeagueCard league={activeLeague} />
             ) : (
               <div className="border border-dashed border-white/20 bg-white/[0.025] p-6">
-                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--brand-gold)]">No league linked yet</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--brand-gold)]">No league website linked</p>
                 <h2 className="mt-2 text-2xl font-black uppercase text-white">Choose your next step</h2>
                 <p className="mt-2 text-sm leading-6 text-white/65">
                   Continue with your saved Sleeper team below, join a hosted league website, or create one you will manage.
