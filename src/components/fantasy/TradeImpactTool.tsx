@@ -6,14 +6,14 @@ import type {MarketIndex} from '@/lib/fantasy/decision-quality';
 import {tradeTeamImpact,type TradeImpact,type ImpactPlayer} from '@/lib/fantasy/decision-phase3';
 
 type Props={rosters:Pick<FantasyRostersData,'teams'|'players'>;market:MarketIndex;
- starterSlots:string[];teamId:number;slug?:string;
+ starterSlots:string[];teamId:number;slug?:string;contextUrl?:string;
  fixedAssets?:{sideA:string[];sideB:string[]}};
 const fmt=(value:number)=>Math.round(value).toLocaleString();
 const signed=(value:number)=>(value>0?'+':'')+fmt(value);
 function assetNames(players:ImpactPlayer[]){
  return players.map(p=>p.name).join(', ')||'None';
 }
-export default function TradeImpactTool({rosters,market,starterSlots,teamId,slug,fixedAssets}:Props){
+export default function TradeImpactTool({rosters,market,starterSlots,teamId,slug,contextUrl,fixedAssets}:Props){
  const [other,setOther]=useState<number>(()=>rosters.teams.find(t=>t.rosterId!==teamId)?.rosterId||0);
  const [outgoing,setOutgoing]=useState<string[]>([]);
  const [incoming,setIncoming]=useState<string[]>([]);
@@ -38,7 +38,8 @@ export default function TradeImpactTool({rosters,market,starterSlots,teamId,slug
   const setter=side==='out'?setOutgoing:setIncoming;
   setter(old=>old.includes(id)?old.filter(x=>x!==id):old.length<4?[...old,id]:old);
  };
- const link=(slug?'/l/'+encodeURIComponent(slug):'')+'/trades/analyzer?a='+
+ const base=contextUrl||(slug?'/l/'+encodeURIComponent(slug)+'/trades/analyzer':'/trades/analyzer');
+ const link=base+(base.includes('?')?'&':'?')+'a='+
   encodeURIComponent(assets.sideA.join(','))+'&b='+encodeURIComponent(assets.sideB.join(','));
  return <section aria-label="Trade impact on both teams" className="space-y-4">
   <div>
