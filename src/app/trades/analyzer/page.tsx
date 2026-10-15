@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import AnalyzerTradeImpact from '@/components/fantasy/AnalyzerTradeImpact';
+import AnalyzerTradeImpact, {type ConnectedTradeRosterContext} from '@/components/fantasy/AnalyzerTradeImpact';
 import type { TradeValue } from '@/lib/types/trade-analyzer';
 
 type ValueSource = 'avg' | 'ktc' | 'fc';
@@ -672,7 +672,8 @@ function ShareButton({ sideA, sideB }: { sideA: SelectedAsset[]; sideB: Selected
   const [copied, setCopied] = useState(false);
   if (!sideA.length && !sideB.length) return null;
   async function copy() {
-    const p = new URLSearchParams();
+    const p = new URLSearchParams(window.location.search);
+    p.delete('a'); p.delete('b');
     if (sideA.length) p.set('a', sideA.map((x) => x.key).join(','));
     if (sideB.length) p.set('b', sideB.map((x) => x.key).join(','));
     await navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?${p}`).catch(() => {});
@@ -687,7 +688,7 @@ function ShareButton({ sideA, sideB }: { sideA: SelectedAsset[]; sideB: Selected
 
 // --- Main content (needs Suspense for useSearchParams) ---
 
-function TradeAnalyzerContent() {
+function TradeAnalyzerContent({rosterContext}: {rosterContext?:ConnectedTradeRosterContext}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -745,11 +746,13 @@ function TradeAnalyzerContent() {
 
   useEffect(() => {
     if (!urlInitialized.current) return;
-    const p = new URLSearchParams();
+    const p = new URLSearchParams(window.location.search);
+    // Do not discard the league and roster selection when trade assets change.
+    p.delete('a'); p.delete('b');
     if (sideA.length) p.set('a', sideA.map((x) => x.key).join(','));
     if (sideB.length) p.set('b', sideB.map((x) => x.key).join(','));
     const qs = p.toString();
-    router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false });
+    router.replace(window.location.pathname + (qs ? '?' + qs : ''), { scroll: false });
   }, [sideA, sideB, router]);
 
   const excluded = useMemo(() => { const s = new Set<string>(); for (const a of [...sideA, ...sideB]) s.add(a.key); return s; }, [sideA, sideB]);
@@ -858,7 +861,8 @@ function TradeAnalyzerContent() {
         </div>
       </div>
 
-      {leagueSlug && tradeActive && <AnalyzerTradeImpact slug={leagueSlug}
+      {tradeActive && (leagueSlug || rosterContext) && <AnalyzerTradeImpact
+        slug={leagueSlug||undefined} connected={rosterContext}
         a={sideA.map(x=>x.key)} b={sideB.map(x=>x.key)} values={values}/>}
 
       {/* Position breakdown */}
@@ -970,7 +974,7 @@ function TradeAnalyzerContent() {
   );
 }
 
-export default function TradeAnalyzerPage() {
+export default function TradeAnalyzerPage({rosterContext}: {rosterContext?:ConnectedTradeRosterContext}={}) {
   return (
     <Suspense fallback={
       <div className="container mx-auto px-4 py-8">
@@ -979,7 +983,7 @@ export default function TradeAnalyzerPage() {
         </div>
       </div>
     }>
-      <TradeAnalyzerContent />
+      <TradeAnalyzerContent rosterContext={rosterContext}/>
     </Suspense>
   );
 }
