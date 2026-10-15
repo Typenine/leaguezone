@@ -167,7 +167,7 @@ export default function PublicFantasyWorkbench({tool,initialLeagueId,initialRost
        <option value="">Another league</option>
        {connected.map(c=><option key={c.leagueId} value={c.leagueId}>{c.leagueName} · {c.teamName}</option>)}
       </select></label>}
-     {connectionStatus&&<p role="status" className="mt-2 text-xs text-amber-200">{connectionStatus}</p>
+     {connectionStatus&&<p role="status" className="mt-2 text-xs text-amber-200">{connectionStatus}</p>}
      <form onSubmit={e=>{e.preventDefault();
       const id=parseSleeperLeagueInput(entry);
       if(!id){setError('Enter a valid Sleeper league ID or league URL.');return;}
