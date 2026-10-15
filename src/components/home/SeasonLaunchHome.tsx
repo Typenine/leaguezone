@@ -278,6 +278,9 @@ export default async function SeasonLaunchHome({
           standings.length > 0 && <InSeasonStandings standings={standings} basePath={`/l/${league.slug}`} />
         )}
 
+        <WeeklyLeaders week={selectedWeek} matchups={matchups} />
+        <AroundTheLeague myTeam={teamName ?? null} leagueSlug={league.slug} />
+        <RecentTransactions leagueSlug={league.slug} season={seasonYear} />
         <LeagueAdvancedPanel>
           <LeaguePulse
             tradeRows={tradeRows}
@@ -287,10 +290,6 @@ export default async function SeasonLaunchHome({
             standings={standings}
           />
         </LeagueAdvancedPanel>
-
-        <WeeklyLeaders week={selectedWeek} matchups={matchups} />
-        <AroundTheLeague myTeam={teamName ?? null} leagueSlug={league.slug} />
-        <RecentTransactions leagueSlug={league.slug} season={seasonYear} />
         <Suspense fallback={null}><LeagueHistorySpotlight league={league} /></Suspense>
       </div>
     </div>
