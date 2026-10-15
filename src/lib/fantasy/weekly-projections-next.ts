@@ -40,6 +40,7 @@ function buildOptimizerResponse(args: {
   matchup: SleeperMatchup | undefined;
   activePlayerIds: string[];
   projectedPlayers: WeeklyProjectedPlayer[];
+  taxiProjectedPlayers?: WeeklyProjectedPlayer[];
   preseason: boolean;
   plans: Record<string, TeamOpportunityPlan>;
 }): LineupOptimizerResponse {
@@ -82,6 +83,7 @@ function buildOptimizerResponse(args: {
     currentLineup: lineupEntries(starterSlots, currentAssigned, optimalIds),
     optimalLineup: lineupEntries(starterSlots, optimalAssigned, currentIds),
     projectedPlayers: rosterPlayers,
+    taxiProjectedPlayers: args.taxiProjectedPlayers || [],
     modelVersion: PROJECTION_MODEL_VERSION,
     projectionPhase: args.preseason ? 'preseason' : 'in_season',
     confidence,
@@ -98,7 +100,7 @@ function buildOptimizerResponse(args: {
 
 function activeIdsForRoster(roster: SleeperRoster, matchup?: SleeperMatchup): string[] {
   const source = matchup?.players?.length ? matchup.players : roster.players || [];
-  if (matchup?.players?.length) return source.filter((id) => id && id !== '0');
+  if (matchup?.players?.length) return source.filter((id) => id && id !== '0' && !(roster.taxi||[]).includes(id) && !(roster.reserve||[]).includes(id));
   const taxi = new Set((roster.taxi || []).filter(Boolean));
   const reserve = new Set((roster.reserve || []).filter(Boolean));
   return source.filter((id) => id && id !== '0' && !taxi.has(id) && !reserve.has(id));
@@ -124,6 +126,7 @@ async function buildFromCurrentContext(args: {
     const ids = activeIdsForRoster(roster, matchup);
     activeByRoster.set(roster.roster_id, ids);
     ids.forEach((id) => allIds.add(id));
+    for(const id of roster.taxi||[])if(id)allIds.add(id);
   }
   const projection = await projectWeeklyPlayersV3({
     season: args.season,
@@ -147,6 +150,7 @@ async function buildFromCurrentContext(args: {
       matchup: matchups.find((entry) => entry.roster_id === roster.roster_id),
       activePlayerIds: ids,
       projectedPlayers: ids.map((id) => projectedById.get(id)).filter((player): player is WeeklyProjectedPlayer => Boolean(player)),
+      taxiProjectedPlayers: (roster.taxi||[]).map(id=>projectedById.get(id)).filter((player):player is WeeklyProjectedPlayer=>Boolean(player)),
       preseason: projection.preseason,
       plans: projection.plans,
     });

@@ -21,7 +21,7 @@ type ResearchPlayer = { id: string; n: string; team: string; pos: string; ryr: n
   u?: Array<{ week: number; team: string; att: number }> };
 type Season = { year: number; throughWeek: number; updated: string; schema: number; players: ResearchPlayer[]; _researchSource?: 'live'|'backup' };
 type CatalogPlayer = { id: string; gsisId: string | null; name: string; position: string; team: string };
-type LeagueRosters = FantasyRostersData & { catalog: CatalogPlayer[]; viewerRosterId: number | null; leaguePpr: number | null; starterSlots: string[]; superflex:boolean|null; scoringIsCustom?:boolean };
+type LeagueRosters = FantasyRostersData & { catalog: CatalogPlayer[]; viewerRosterId: number | null; leaguePpr: number | null; starterSlots: string[]; superflex:boolean|null; scoringIsCustom?:boolean;taxiContext?:import('@/lib/fantasy/taxi-context').TaxiContext|null };
 type Ownership = { player: ResearchPlayer; owner: FantasyRostersData['teams'][number] | null;
   providerId: string | null; match: 'catalog' | 'roster' | 'unmatched' };
 type OpportunityEngine = {
@@ -275,7 +275,7 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
        endpoint={'/api/league-opportunities/'+encodeURIComponent(slug||'')+'/lineup'}
        rosters={rosters} teamId={Number(teamId)} starterSlots={rosters.starterSlots||[]}
        needs={needs} waiver={personal.waiver} season={season.year}
-       throughWeek={season.throughWeek} source={season._researchSource||'backup'}
+       throughWeek={season.throughWeek} source={season._researchSource||'backup'} taxiContext={rosters.taxiContext}
        onSelect={setFocus}/>}
       {rosterContext && <section className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-label="Roster construction">
         <h2 className="mb-2 text-sm font-bold">Your roster construction</h2>

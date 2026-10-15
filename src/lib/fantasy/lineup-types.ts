@@ -118,6 +118,7 @@ export type LineupOptimizerResponse = {
   currentLineup: WeeklyLineupEntry[];
   optimalLineup: WeeklyLineupEntry[];
   projectedPlayers: WeeklyProjectedPlayer[];
+  taxiProjectedPlayers?: WeeklyProjectedPlayer[];
   modelVersion: string;
   projectionPhase: ProjectionPhase;
   confidence: ProjectionConfidence;

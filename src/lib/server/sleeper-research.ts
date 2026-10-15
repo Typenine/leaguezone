@@ -1,5 +1,6 @@
 import {getAllPlayersCached} from '@/lib/utils/sleeper-api';
 import type {FantasyRostersData,FantasyPlayer} from '@/lib/providers/types';
+import {taxiContextFromSleeper} from '@/lib/fantasy/taxi-context';
 
 const ID=/^[0-9]{7,25}$/;
 const USER=/^[0-9]+$/;
@@ -10,8 +11,8 @@ export function validSleeperUserId(id:unknown):id is string{
  return typeof id==='string'&&USER.test(id);
 }
 export type SleeperLeague={league_id:string;name:string;season:string;roster_positions:string[];
- scoring_settings:Record<string,number>;sport:string};
-export type SleeperRoster={roster_id:number;owner_id:string|null;co_owners?:string[];players:string[]|null};
+ scoring_settings:Record<string,number>;settings?:Record<string,unknown>;sport:string};
+export type SleeperRoster={roster_id:number;owner_id:string|null;co_owners?:string[];players:string[]|null;taxi?:string[]|null;reserve?:string[]|null};
 export type SleeperUser={user_id:string;display_name:string;metadata?:{team_name?:string}};
 export function matchesUser(roster:SleeperRoster,userId:string):boolean{
  return roster.owner_id===userId||Boolean(roster.co_owners?.includes(userId));
@@ -82,6 +83,9 @@ export async function researchSleeperRosters(connection:ResearchConnection){
  const ppr=Number(data.league.scoring_settings?.rec);
  return {rosters:{provider:'sleeper' as const,season:data.league.season,players:normalized,teams},
   catalog,viewerRosterId:connection.rosterId,starterSlots:slots,
+  taxiContext:taxiContextFromSleeper({season:data.league.season,
+   roster:data.rosters.find(r=>r.roster_id===connection.rosterId),
+   settings:data.league.settings,rosterPositions:data.league.roster_positions,playerDirectory:all}),
   leaguePpr:Number.isFinite(ppr)?ppr:null,leagueName:data.league.name,
   teamName:teams.find(t=>t.rosterId===connection.rosterId)?.teamName||'My team'};
 }
