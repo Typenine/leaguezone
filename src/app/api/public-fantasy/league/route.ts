@@ -35,7 +35,7 @@ export async function GET(req:NextRequest){
   return NextResponse.json({...context.rosters,catalog:context.catalog,
    starterSlots:context.starterSlots,taxiContext:context.taxiContext,
    viewerRosterId:rosterId,leaguePpr:context.leaguePpr,leagueName:state.league.name,
-   teamName:teamName(rosterId),teams}, {headers});
+   teamName:teamName(rosterId)}, {headers});
  }catch(err){
   console.warn('[public-fantasy-league]',err instanceof Error?err.message:'unknown');
   const message=err instanceof Error?err.message:'';
