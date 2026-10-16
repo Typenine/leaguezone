@@ -26,6 +26,9 @@ describe('public league crawler shield', () => {
     const middleware = readFileSync(new URL('../../src/middleware.ts', import.meta.url), 'utf8');
     expect(middleware).toContain("'/l/:path*'");
     expect(middleware).toContain("'/demo'");
+    expect(middleware).toContain("'/fantasy-tools/:path*'");
+    expect(middleware).toContain('publicFantasyToolPage');
+    expect(middleware).toContain("response.cookies.set('lz_public_browser', '1'");
     expect(middleware).toContain('crawlerShieldResponse(req)');
     expect(middleware).toContain('X-LeagueZone-Crawler-Shield');
     expect(middleware).toContain('publicBrowserGateResponse(req)');

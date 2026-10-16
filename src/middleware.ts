@@ -235,6 +235,22 @@ export async function middleware(req: NextRequest) {
     return publicBrowserGateResponse(req);
   }
 
+  // Standalone fantasy advisors are intentionally usable without signing in
+  // or visiting a hosted league first. Establish the same public-browser
+  // session on this surface so its protected market-value endpoint works.
+  // Automated clients do not receive a cookie and remain blocked at the API.
+  const publicFantasyToolPage = pathname === '/fantasy-tools' || pathname.startsWith('/fantasy-tools/');
+  if ((requestMethod === 'GET' || requestMethod === 'HEAD') && publicFantasyToolPage
+    && !hasAuthenticatedViewer && !isAdmin && !qaSession
+    && !isAutomatedPublicClient(req.headers.get('user-agent'))
+    && req.cookies.get('lz_public_browser')?.value !== '1') {
+    const response = NextResponse.next();
+    response.cookies.set('lz_public_browser', '1', {
+      path: '/', sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 604800,
+    });
+    return response;
+  }
+
   const anonymousPublicDataRequest =
     (requestMethod === 'GET' || requestMethod === 'HEAD')
     && isPublicDataApi(pathname)
@@ -318,6 +334,7 @@ export const config = {
     '/newsletter/:path*',
     '/demo',
     '/l/:path*',
+    '/fantasy-tools/:path*',
     '/history/:path*',
     '/players/:path*',
     '/teams/:path*',
