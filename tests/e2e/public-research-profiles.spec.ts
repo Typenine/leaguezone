@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './research-test';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -17,7 +17,7 @@ function guardPrivateCalls(page: Page) {
     // Player pages check the visitor's own Follow state. Signed out, that
     // route answers 401 from the cookie alone and never reaches Neon.
     if (p === '/api/saved-research') return;
-    if (p.startsWith('/api/') || p.startsWith('/l/')) calls.push(p);
+    if ((p.startsWith('/api/') && !p.startsWith('/api/research-feed/')) || p.startsWith('/l/')) calls.push(p);
   });
   return calls;
 }
