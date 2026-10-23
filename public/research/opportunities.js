@@ -116,7 +116,7 @@
     var newSnap=snapWindow(p,recentGames.slice(2));
     var snapChange=oldSnap&&newSnap?newSnap.pct-oldSnap.pct:null;
     var absChange=Math.abs(s.change), growing=s.direction==='rising';
-    var teammateChanges=[];
+    var teammateChanges=[],confirmedOut=[];
     if (!s.teamChanged && recentGames.length===4) {
       (players||[]).forEach(function(t){
         if(t.id===p.id || t.pos!==p.pos || !t.c || !t.c.length) return;
@@ -129,6 +129,10 @@
         if (old.every(Boolean) && mean(old,function(r){return r[2];})>=40 &&
             now.every(function(r){return !r || r[2]<=5;})) {
           teammateChanges.push(t.n);
+          var out=(t.i||[]).filter(function(row){
+            return recentGames.slice(2).some(function(g){return row[0]===g[0] && row[1]==='OUT';});
+          });
+          if (out.length) confirmedOut.push(t.n+' (Week '+out.map(function(r){return r[0];}).join(', ')+')');
         }
       });
     }
@@ -140,7 +144,9 @@
       (s.pos==='QB'?s.baseline>=25:s.pos==='RB'?s.baseline>=10:s.baseline>=5);
     var risk=[];
     if (s.teamChanged) risk.push('Changed NFL teams during the comparison');
-    if (teammateChanges.length) risk.push('Established same-position teammates lost their prior snap role: '+teammateChanges.slice(0,2).join(', ')+'. This does not establish an injury');
+    if (teammateChanges.length) risk.push('Established same-position teammates lost their prior snap role: '+teammateChanges.slice(0,2).join(', ')+'. '+(confirmedOut.length?
+      'Official injury reports listed OUT: '+confirmedOut.slice(0,2).join(', ')+'. That supports an absence, not proof it caused the workload change':
+      'No confirmed cause is established by snap data alone; do not assume injury'));
     if (newSnap&&newSnap.largeMargins) risk.push('Final margin reached 21+ points in '+newSnap.largeMargins+' of the recent games; garbage-time attribution is unverified');
     if (!oldSnap||!newSnap) risk.push('Verified offensive snap participation is incomplete');
     if (s.shareChange==null) risk.push('Comparable team opportunity share is unavailable');
@@ -164,6 +170,7 @@
       snapChange:snapChange==null?null:round(snapChange),
       gameScriptRisk:newSnap?newSnap.largeMargins:0,
       teammatesMissingRole:teammateChanges.slice(0,3),
+      teammatesReportedOut:confirmedOut.slice(0,3),
       riskFlags:risk,verdict:verdict,
       supported:verdict==='supported',priority:round(score),
       evidence:{materialVolume:material,teamShare:shareEvidence,snapShare:snapEvidence}
