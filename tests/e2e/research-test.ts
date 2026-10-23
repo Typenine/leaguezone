@@ -12,6 +12,9 @@ import { test as base, expect } from '@playwright/test';
 
 export const test = base.extend({
   page: async ({ page }, use) => {
+    // Also prevent Next.js search and other pages from fetching the live gateway.
+    // Tests of the gateway can register a more specific route afterward.
+    await page.route('**/api/research-feed/**', route => route.abort());
     await page.route('**/research/data-source.json', route => route.fulfill({
       status: 200,
       contentType: 'application/json',
