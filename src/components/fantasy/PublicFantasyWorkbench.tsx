@@ -58,7 +58,7 @@ async function researchSnapshot(year:number):Promise<ResearchSnapshot|null>{
   const info=index.datasets?.usage?.files?.[String(year)];
   if(index.datasets?.usage?.schema===1 && info &&
      info.throughWeek===base.throughWeek && info.baseUpdated===base.updated &&
-     /^research\\/v1\\/objects\\/20\\d\\d-[a-f0-9]{64}\\.json$/.test(info.key)) {
+     /^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key)) {
    try{metrics.attachUsage(base.players,await get<unknown>('/api/research-feed/'+info.key));}
    catch{/* Missing advanced evidence must lower confidence, never create guessed metrics. */}
   }
