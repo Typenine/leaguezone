@@ -46,6 +46,11 @@ def verify(year):
         # Optional independently sourced snap evidence must never be guessed.
         # It can cover a player-week absent from box-score activity.
         context = p.get("c", [])
+        injury_rows = p.get("i", [])
+        injury_weeks = [row[0] for row in injury_rows]
+        assert injury_weeks == sorted(set(injury_weeks)), (year,p["n"],"duplicate injury weeks")
+        assert all(len(row)==2 and 1 <= row[0] <= d["throughWeek"] and row[1]=="OUT"
+                   for row in injury_rows), (year,p["n"],"invalid official report")
         ctx_weeks = [row[0] for row in context]
         assert ctx_weeks == sorted(set(ctx_weeks)), (year,p["n"],"snap duplicate")
         for row in context:
