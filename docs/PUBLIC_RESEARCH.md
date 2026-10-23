@@ -148,10 +148,12 @@
 - Custom league scoring, proprietary fantasy projections, comprehensive
   route charts, and verified historical playoff stats are not included.
 - NFL injury causation is not inferred from missing snaps. Same-position
-  teammate participation dropping to near zero is treated as a *possible*
-  temporary opening until independent injury or transaction reports confirm
-  the reason. Large final-score margins indicate possible game-script
-  distortion, not proof that a specific snap was garbage time.
+  teammate participation dropping to near zero is treated as a possible
+  temporary opening. A matching official game-status OUT entry from nflverse
+  can corroborate the absence, but does not establish causation or guarantee
+  the player stays out. Missing reports never imply healthy/injured.
+  Large final-score margins indicate possible game-script distortion, not
+  proof that a specific snap was garbage time.
 
 ## Metric definitions
 All calculations live in public/research/metrics.js, a pure helper loaded by the
