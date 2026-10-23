@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import radarEngine from '../../public/research/opportunities.js';
 
-type Player = {id:string;n:string;pos:string;team:string;w:unknown[][];u?:Record<string,unknown>[];c?:unknown[][]};
+type Player = {id:string;n:string;pos:string;team:string;w:unknown[][];u?:Record<string,unknown>[];c?:unknown[][];i?:unknown[][]};
 const O=radarEngine as {radar:(data:{throughWeek:number;players:Player[]},format:string)=>any[]};
 function fixture(options:{low?:boolean;teammate?:boolean;blowout?:boolean;noSnaps?:boolean}={}) {
  const {low=false,teammate=false,blowout=false,noSnaps=false}=options;
@@ -38,7 +38,15 @@ describe('Opportunity Radar v2 evidence quality',()=>{
   const [s]=O.radar(fixture({teammate:true}),'half');
   expect(s.verdict).toBe('context-dependent');
   expect(s.teammatesMissingRole).toEqual(['Runner B']);
-  expect(s.riskFlags.join(' ')).toContain('does not establish an injury');
+  expect(s.riskFlags.join(' ')).toContain('do not assume injury');
+ });
+ it('uses an official OUT report only to corroborate a missing teammate, not prove causation',()=>{
+  const data=fixture({teammate:true});
+  data.players[1].i=[[3,'OUT']];
+  const [s]=O.radar(data,'half');
+  expect(s.teammatesReportedOut).toEqual(['Runner B (Week 3)']);
+  expect(s.riskFlags.join(' ')).toContain('Official injury reports listed OUT');
+  expect(s.verdict).toBe('context-dependent');
  });
  it('treats lopsided final scores as uncertain game script, not proven garbage time',()=>{
   const [s]=O.radar(fixture({blowout:true}),'half');
