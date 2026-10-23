@@ -7,6 +7,9 @@ test('Radar shows verified role context and filters without treating points as o
   await page.goto('/research?season=2025');
   await expect(page.locator('.tool-discovery a[href="/research/radar"]')).toBeVisible();
   await page.locator('.tool-discovery a[href="/research/radar"]').click();
+  // Tool links do not preserve the overview query: select the archived season
+  // explicitly rather than presenting intentionally stale current data.
+  await page.locator('#tool-year').selectOption('2025');
   await expect(page.locator('#tool-panel')).toContainText('signals through Week');
   await expect(page.locator('#tool-panel')).toContainText('observed usage');
   const cards = page.locator('#tool-panel .tool-card');
