@@ -144,7 +144,13 @@
     if (newSnap&&newSnap.largeMargins) risk.push('Final margin reached 21+ points in '+newSnap.largeMargins+' of the recent games; garbage-time attribution is unverified');
     if (!oldSnap||!newSnap) risk.push('Verified offensive snap participation is incomplete');
     if (s.shareChange==null) risk.push('Comparable team opportunity share is unavailable');
-    var backed=material && absChange>=3 && shareEvidence && snapEvidence;
+    // A full-time receiver can earn a larger target share without taking
+    // more snaps. Require a substantial current role plus growing team share
+    // OR gaining snaps, not simultaneous gains in both.
+    var establishedSnap=newSnap && newSnap.pct >=
+      (s.pos==='QB'?65:s.pos==='RB'?30:s.pos==='WR'?55:45);
+    var backed=material && absChange>=3 && establishedSnap &&
+      (shareEvidence || snapEvidence);
     var verdict=backed&&risk.length===0?'supported':
       backed&&risk.length?'context-dependent':
       !material?'low-volume':'unverified';
