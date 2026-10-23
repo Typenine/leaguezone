@@ -105,7 +105,8 @@ def dst_points(row: dict, allowed: int) -> float:
 
 
 def build_season(season: int, stats: list[dict], teams: list[dict], schedule: list[dict], stamp: str, player_meta: dict | None = None,
-                 snap_rows: list[dict] | None = None, pfr_to_gsis: dict | None = None) -> dict:
+                 snap_rows: list[dict] | None = None, pfr_to_gsis: dict | None = None,
+                 injury_rows: list[dict] | None = None) -> dict:
     through = completed_weeks(schedule, season)
     by_id: dict[str, dict] = {}
     player_meta = player_meta or {}
@@ -305,7 +306,28 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
         if pct > 100.1 or snaps != int(snaps):
             raise ValueError(f"Invalid snap fraction/count for {pid} week {week}")
         player.setdefault("c", []).append([week, team, round(pct, 1), int(snaps), margins[(week, team)]])
+    # Only confirmed game-status OUT reports are recorded. Practice DNP,
+    # questionable status and an absence of a report are not injury proof.
+    reports = {}
+    for entry in injury_rows or []:
+        if (int(entry.get("season") or 0) != season or
+                entry.get("season_type") != "REG"):
+            continue
+        week = int(entry.get("week") or 0)
+        pid = str(entry.get("gsis_id") or "")
+        status = str(entry.get("report_status") or "").strip().upper()
+        if pid not in mapped or not 1 <= week <= through or not status:
+            continue
+        key = (pid, week)
+        stamp = str(entry.get("date_modified") or "")
+        if key not in reports or stamp >= reports[key][0]:
+            reports[key] = (stamp, status)
+    for (pid, week), (_, status) in reports.items():
+        if status == "OUT":
+            mapped[pid].setdefault("i", []).append([week, "OUT"])
     for player in mapped.values():
+        if "i" in player:
+            player["i"].sort(key=lambda row: row[0])
         if "c" in player:
             player["c"].sort(key=lambda row: row[0])
     people.sort(key=lambda p: (-p["p"], p["n"], p["id"]))
@@ -374,8 +396,13 @@ def main() -> None:
             # evidence of a breakout or block independently validated stats.
             print(f"Offensive snap source unavailable for {season}: {type(error).__name__}", flush=True)
             snap_rows = []
+        try:
+            injury_rows = nfl.load_injuries(season).to_dicts()
+        except Exception as error:
+            print(f"Official injury report source unavailable for {season}: {type(error).__name__}", flush=True)
+            injury_rows = []
         snapshot = build_season(season, stats, teams, schedule, stamp,
-                                player_meta, snap_rows, pfr_to_gsis)
+                                player_meta, snap_rows, pfr_to_gsis, injury_rows)
         old = json.loads(path.read_text()) if path.exists() else None
         guard_previous(old, snapshot)
         if old and {k:v for k,v in old.items() if k != "updated"} == {k:v for k,v in snapshot.items() if k != "updated"}:
