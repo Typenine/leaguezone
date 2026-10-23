@@ -97,10 +97,11 @@ async function attachPassAttempts(data: Season): Promise<void> {
     const base = String(config.publicBase || '').replace(/\/+$/, '');
     let advancedUrl: string | null = null;
     if (/^https:\/\/[^/]+$/i.test(base)) {
-      const catalog = await json<{schema:number; files:Record<string,{throughWeek:number;updated:string}>;
-        datasets?:{usage?:{schema:number;files:Record<string,{key:string;throughWeek:number;baseUpdated:string}>}}}>(
-        base + '/research/v1/catalog.json',
-      );
+      type UsageCatalog={schema:number; files:Record<string,{throughWeek:number;updated:string}>;
+        datasets?:{usage?:{schema:number;files:Record<string,{key:string;throughWeek:number;baseUpdated:string}>}}};
+      let catalog:UsageCatalog;
+      try{catalog=await json<UsageCatalog>('/api/research-feed/research/v1/catalog.json');}
+      catch{catalog=await json<UsageCatalog>(base+'/research/v1/catalog.json');}
       const baseInfo = catalog.files?.[String(data.year)];
       const info = catalog.datasets?.usage?.files?.[String(data.year)];
       if (catalog.schema===1 && catalog.datasets?.usage?.schema===1 && baseInfo &&
