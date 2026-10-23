@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './research-test';
 import { readFileSync } from 'node:fs';
 
 // Expectations are computed here from the raw published files (not through

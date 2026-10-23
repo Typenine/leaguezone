@@ -23,7 +23,7 @@ test.describe('Public product pages', () => {
     await page.goto(BASE_URL + '/');
     await page.getByRole('link', { name: 'Explore League Tools' }).click();
     await expect(page).toHaveURL(/\/features$/);
-    await expect(page.getByRole('link', { name: /create a league/i }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: /create (your|a) league/i }).first()).toBeVisible();
   });
 
   test('research tools are discoverable, pricing is absent, and old pricing bookmarks redirect', async ({ page }) => {

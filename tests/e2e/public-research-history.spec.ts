@@ -1,11 +1,11 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './research-test';
 
 test.describe('LeagueZone research, static data only', () => {
   test('loads historical leaders, verifies scoring and never calls Neon APIs', async ({ page }) => {
     const privateCalls: string[] = [];
     page.on('request', req => {
       const pathname = new URL(req.url()).pathname;
-      if (pathname.startsWith('/api/') || pathname.startsWith('/l/')) privateCalls.push(pathname);
+      if ((pathname.startsWith('/api/') && !pathname.startsWith('/api/research-feed/')) || pathname.startsWith('/l/')) privateCalls.push(pathname);
     });
     await page.goto('/research/stats?season=2025');
     await expect(page.locator('#data-stamp')).toContainText('2025 Season');
@@ -106,8 +106,8 @@ test.describe('Research site navigation and branding', () => {
     await page.goto('/research/players?season=2025');
     await expect(page.locator('#data-stamp')).toContainText('2025 Season');
     await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/pwa/icon-192.png');
-    await expect(page.locator('.site-head .wordmark')).toHaveAttribute('href', '/');
-    await expect(page.locator('.site-head a[href="/"]')).toHaveCount(2);
+    await expect(page.locator('.site-head .wordmark')).toHaveAttribute('href', '/?view=public');
+    await expect(page.locator('.site-head a[href="/?view=public"]')).toHaveCount(2);
     await expect(page.locator('.meta-note')).toHaveCount(0);
     await expect(page.locator('.source-note')).toHaveCount(0);
     await expect(page.locator('.data-credit summary')).toBeVisible();
@@ -115,7 +115,7 @@ test.describe('Research site navigation and branding', () => {
     await page.locator('.data-credit summary').click();
     await expect(page.locator('.data-credit')).toContainText('CC BY 4.0');
     await page.locator('.site-head .wordmark').click();
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/\?view=public$/);
   });
 });
 
@@ -129,6 +129,15 @@ test.describe('R2 data delivery without Vercel deployments', () => {
     await page.route('**/research/data-source.json',route=>route.fulfill({
       status:200,contentType:'application/json',
       body:JSON.stringify({schema:1,publicBase:'https://data.example.test'})
+    }));
+    // The app reads the same-origin research gateway before the external R2 fallback.
+    // Mock the primary gateway too, so the test actually exercises the new season.
+    await page.route('**/api/research-feed/research/v1/catalog.json',route=>route.fulfill({
+      status:200,contentType:'application/json',
+      body:JSON.stringify({schema:1,years:[2027],files:{2027:{key,sha256:digest,throughWeek:4}}})
+    }));
+    await page.route('**/api/research-feed/'+key,route=>route.fulfill({
+      status:200,contentType:'application/json',body:JSON.stringify(future)
     }));
     await page.route('https://data.example.test/research/v1/catalog.json',route=>route.fulfill({
       status:200,contentType:'application/json',

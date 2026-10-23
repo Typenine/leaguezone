@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './research-test';
 import { readFileSync } from 'node:fs';
 
 // The site worker answers /research/data requests; page.route cannot see
@@ -105,6 +105,12 @@ test.describe('red zone', () => {
     await page.route('**/research/data-source.json',r=>r.fulfill({json:{
       schema:1,publicBase:'https://mock-research.example.com'
     }}));
+    // Same-origin gateway now takes priority over the external R2 URL.
+    // Mock that gateway so the mismatched remote base truly reaches the UI.
+    await page.route('**/api/research-feed/research/v1/catalog.json',r=>r.fulfill({json:{
+      schema:1,years:[2025],files:{'2025':{key,updated:updatedBase.updated,throughWeek:18}}
+    }}));
+    await page.route('**/api/research-feed/'+key,r=>r.fulfill({json:updatedBase}));
     await page.route('https://mock-research.example.com/research/v1/catalog.json',r=>r.fulfill({json:{
       schema:1,years:[2025],files:{'2025':{key,updated:updatedBase.updated,throughWeek:18}}
     }}));
