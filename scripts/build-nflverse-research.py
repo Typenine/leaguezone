@@ -312,7 +312,7 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
     reports = {}
     for entry in injury_rows or []:
         if (int(entry.get("season") or 0) != season or
-                entry.get("season_type") != "REG"):
+                entry.get("game_type", entry.get("season_type")) != "REG"):
             continue
         week = int(entry.get("week") or 0)
         pid = str(entry.get("gsis_id") or "")
