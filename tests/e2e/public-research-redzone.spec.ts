@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './research-test';
 import { readFileSync } from 'node:fs';
 
 // The site worker answers /research/data requests; page.route cannot see
