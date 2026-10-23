@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './research-test';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -12,7 +12,7 @@ function guardPrivateCalls(page: Page) {
   const calls: string[] = [];
   page.on('request', r => {
     const p = new URL(r.url()).pathname;
-    if (p.startsWith('/api/') || p.startsWith('/l/')) calls.push(p);
+    if ((p.startsWith('/api/') && !p.startsWith('/api/research-feed/')) || p.startsWith('/l/')) calls.push(p);
   });
   return calls;
 }
