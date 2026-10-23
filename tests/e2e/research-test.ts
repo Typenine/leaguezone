@@ -21,4 +21,8 @@ export const test = base.extend({
   },
 });
 
+// Service workers can intercept requests before Playwright's route mocks.
+// Blocking them is necessary for deterministic archived-data and failure tests.
+test.use({ serviceWorkers: 'block' });
+
 export { expect };
