@@ -43,6 +43,18 @@ def verify(year):
             assert 1920 <= p["ryr"] <= year, (year,p["n"],p["ryr"])
         indices = [w[0] for w in p["w"]]
         assert indices == sorted(set(indices)), (year,p["n"],indices)
+        # Optional independently sourced snap evidence must never be guessed.
+        # It can cover a player-week absent from box-score activity.
+        context = p.get("c", [])
+        ctx_weeks = [row[0] for row in context]
+        assert ctx_weeks == sorted(set(ctx_weeks)), (year,p["n"],"snap duplicate")
+        for row in context:
+            assert len(row) == 5, (year,p["n"],"context schema",row)
+            week, team, pct, snaps, margin = row
+            assert 1 <= week <= d["throughWeek"] and isinstance(team,str) and team, (year,p["n"],row)
+            assert isinstance(pct,(int,float)) and math.isfinite(pct) and 0 <= pct <= 100.1, (year,p["n"],row)
+            assert isinstance(snaps,int) and snaps >= 0, (year,p["n"],row)
+            assert isinstance(margin,int) and abs(margin) <= 100, (year,p["n"],row)
         assert all(1 <= w <= d["throughWeek"] for w in indices)
         assert math.isfinite(p["p"]) and abs(p["p"]-sum(w[2] for w in p["w"])) < .025
         for w in p["w"]:

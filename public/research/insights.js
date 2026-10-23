@@ -49,15 +49,21 @@
     return O.radar(data, scoring || 'half').map(function (signal) {
       var detail = classify(signal);
       if (!detail) return null;
-      // Use observed movement, never score as an asserted win probability.
-      var weight = Math.min(80, Math.abs(signal.relativeChange || 0)) +
-        Math.min(30, Math.abs(signal.change || 0) * 3) +
-        (detail.category === 'watch' ? 8 : 0) -
-        (signal.teamChanged ? 12 : 0);
-      return Object.assign({}, detail, {
-        id: signal.id, name: signal.name, team: signal.team, pos: signal.pos,
-        week: signal.week, signal: signal, order: Math.round(weight * 10) / 10,
-        context: signal.teamChanged ? 'NFL team changed during this four-game sample; context may be different.' : ''
+      // Fantasy findings are ranked by verified role evidence, not percent
+      // jumps from tiny workloads. Raw low-volume spikes remain in Radar.
+      if (signal.verdict==='low-volume') return null;
+      var dependent=signal.verdict==='context-dependent';
+      var supported=signal.verdict==='supported';
+      var title=dependent?'Situation-dependent opportunity':supported?
+        'Role growth supported by snaps and team share':null;
+      return Object.assign({},detail,{
+        id:signal.id,name:signal.name,team:signal.team,pos:signal.pos,
+        week:signal.week,signal:signal,order:signal.priority,
+        label:dependent?'Needs situational review':supported?'Supported role change':detail.label,
+        heading:title && signal.direction==='rising'?title:detail.heading,
+        why:dependent?'Workload rose with a possible playing-time or game-script dependency. The underlying cause has not been verified.':detail.why,
+        next:dependent?'Review teammate availability and next-game snap allocation before treating this as a breakout.':detail.next,
+        context:(signal.riskFlags||[]).join(' · ')
       });
     }).filter(Boolean).sort(function (a, b) {
       return b.order - a.order || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);

@@ -103,7 +103,7 @@ class ResearchPublisherTests(unittest.TestCase):
         self.assertEqual(len(entries),1)
         self.assertEqual(entries[0]["week"],expected_week)
         self.assertEqual(entries[0]["recordedAt"],timestamp)
-        self.assertEqual(entries[0]["modelVersion"],"radar-v1")
+        self.assertEqual(entries[0]["modelVersion"],"radar-v2")
         self.assertEqual(len(uploads),13)
         record=json.loads(uploads[-1][1])
         self.assertEqual(record["year"],2026)

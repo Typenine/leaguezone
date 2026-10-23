@@ -7,7 +7,7 @@
   else root.LZOpportunities = api;
 })(typeof self !== 'undefined' ? self : this, function () {
   var POSITIONS = ['QB', 'RB', 'WR', 'TE'];
-  var MODEL_VERSION = 'radar-v1';
+  var MODEL_VERSION = 'radar-v2';
   var round = function (n) { return Math.round(n * 10) / 10; };
   var mean = function (rows, fn) { return rows.reduce(function (sum, row) { return sum + fn(row); }, 0) / rows.length; };
   function gameVolume(player, row) {
@@ -97,11 +97,80 @@
       redzoneRecent:afterRz==null?null:round(afterRz),
       redzoneChange:beforeRz==null||afterRz==null?null:round(afterRz-beforeRz)};
   }
+  // Snap rows [week, team, offensivePct, offensiveSnaps, finalTeamMargin]
+  // are from verified PFR IDs matched to GSIS IDs, not display names.
+  // A final-score margin flags *possible* game-script distortion. It cannot
+  // prove whether a specific opportunity happened during garbage time.
+  function snapWindow(player, games) {
+    var rows = games.map(function (g) {
+      return (player.c || []).find(function (r) { return r[0]===g[0] && r[1]===g[1]; });
+    });
+    if (rows.some(function (r) {return !r || !Number.isFinite(r[2]);})) return null;
+    return {pct:mean(rows,function(r){return r[2];}),
+      count:mean(rows,function(r){return r[3];}),
+      largeMargins:rows.filter(function(r){return Math.abs(r[4])>=21;}).length};
+  }
+  function changeContext(s, p, players) {
+    var recentGames=weeks(p,s.week).slice(-4);
+    var oldSnap=snapWindow(p,recentGames.slice(0,2));
+    var newSnap=snapWindow(p,recentGames.slice(2));
+    var snapChange=oldSnap&&newSnap?newSnap.pct-oldSnap.pct:null;
+    var absChange=Math.abs(s.change), growing=s.direction==='rising';
+    var teammateChanges=[];
+    if (!s.teamChanged && recentGames.length===4) {
+      (players||[]).forEach(function(t){
+        if(t.id===p.id || t.pos!==p.pos || !t.c || !t.c.length) return;
+        var old=recentGames.slice(0,2).map(function(g){
+          return t.c.find(function(r){return r[0]===g[0] && r[1]===s.team;});
+        });
+        var now=recentGames.slice(2).map(function(g){
+          return t.c.find(function(r){return r[0]===g[0] && r[1]===s.team;});
+        });
+        if (old.every(Boolean) && mean(old,function(r){return r[2];})>=40 &&
+            now.every(function(r){return !r || r[2]<=5;})) {
+          teammateChanges.push(t.n);
+        }
+      });
+    }
+    // Team/opportunity share beats a percentage increase from a tiny baseline.
+    // These are independent pieces of evidence, never injury attribution.
+    var shareEvidence=s.shareChange!=null && (growing?s.shareChange>=3:s.shareChange<=-3);
+    var snapEvidence=snapChange!=null && (growing?snapChange>=8:snapChange<=-8);
+    var material=growing?(s.pos==='QB'?s.recent>=25:s.pos==='RB'?s.recent>=10:s.recent>=5):
+      (s.pos==='QB'?s.baseline>=25:s.pos==='RB'?s.baseline>=10:s.baseline>=5);
+    var risk=[];
+    if (s.teamChanged) risk.push('Changed NFL teams during the comparison');
+    if (teammateChanges.length) risk.push('Established same-position teammates lost their prior snap role: '+teammateChanges.slice(0,2).join(', ')+'. This does not establish an injury');
+    if (newSnap&&newSnap.largeMargins) risk.push('Final margin reached 21+ points in '+newSnap.largeMargins+' of the recent games; garbage-time attribution is unverified');
+    if (!oldSnap||!newSnap) risk.push('Verified offensive snap participation is incomplete');
+    if (s.shareChange==null) risk.push('Comparable team opportunity share is unavailable');
+    var backed=material && absChange>=3 && shareEvidence && snapEvidence;
+    var verdict=backed&&risk.length===0?'supported':
+      backed&&risk.length?'context-dependent':
+      !material?'low-volume':'unverified';
+    var score=Math.min(42,absChange*5)+Math.min(25,(growing?s.recent:s.baseline)*1.4)+
+      Math.min(18,Math.max(0,(growing?s.shareChange:-s.shareChange)||0)*1.5)+
+      Math.min(15,Math.max(0,(growing?snapChange:-snapChange)||0)*0.7)+
+      (backed?14:0) - (risk.length*9) - (!material?22:0) - (s.teamChanged?10:0);
+    return Object.assign({},s,{
+      snapBefore:oldSnap?round(oldSnap.pct):null,
+      snapRecent:newSnap?round(newSnap.pct):null,
+      snapChange:snapChange==null?null:round(snapChange),
+      gameScriptRisk:newSnap?newSnap.largeMargins:0,
+      teammatesMissingRole:teammateChanges.slice(0,3),
+      riskFlags:risk,verdict:verdict,
+      supported:verdict==='supported',priority:round(score),
+      evidence:{materialVolume:material,teamShare:shareEvidence,snapShare:snapEvidence}
+    });
+  }
   function radar(data, format, asOf) {
     var week = asOf == null ? data.throughWeek : asOf;
-    return (data.players || []).map(function (p) { return signal(p,week,format); })
-      .filter(function (s) { return s && s.direction !== 'steady'; })
-      .sort(function (a,b) { return b.relativeChange-a.relativeChange || Math.abs(b.change)-Math.abs(a.change) || a.name.localeCompare(b.name); });
+    var players=data.players||[];
+    return players.map(function(p) {
+        var s=signal(p,week,format);
+        return s && s.direction!=='steady'?changeContext(s,p,players):null;
+      }).filter(Boolean)
+      .sort(function(a,b) {return b.priority-a.priority || Math.abs(b.change)-Math.abs(a.change) || a.name.localeCompare(b.name);});
   }
   // An as-of-week historical replay. Signals cannot see a later game; a
   // resolved receipt compares the NEXT two recorded games against the two
@@ -163,7 +232,7 @@
     return unique.map(function (entry) {
       var p=(data.players||[]).find(function (candidate) {return candidate.id===entry.signal.id;});
       // Grading rules are versioned; an unknown model is never graded by this one.
-      var gradable=entry.modelVersion===MODEL_VERSION;
+      var gradable=entry.modelVersion==='radar-v1' || entry.modelVersion===MODEL_VERSION;
       var s=entry.signal, follow=p&&gradable?weeks(p,data.throughWeek).filter(function (w) {
         return w[0]>s.week && w[0]<=s.week+3;
       }).slice(0,2):[];

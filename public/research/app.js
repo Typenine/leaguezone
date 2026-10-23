@@ -1011,7 +1011,7 @@
       year:state.year,years:state.years,throughWeek:state.throughWeek,players:state.players,
       data:state.cache.get(state.year),loadData:loadData,ensureUsage:ensureUsage,usageStatus:state.usageStatus,
       ensureRedzone:ensureRedzone,rzStatus:state.rzStatus,remoteBase:state.remoteBase,remoteCatalog:state.remoteCatalog,
-      navigate:navigate
+      navigate:navigate,updated:state.updated,source:state.sourceMode,stale:state.stale
     });
     document.title=(tool?$('page-title').textContent+' | ':p?p.n+' Stats | ':'Fantasy Research | ')+'LeagueZone';
     window.dispatchEvent(new Event('leaguezone:routechange'));
@@ -1051,6 +1051,15 @@
       if (token!==state.requestId) return;
       state.players=data.players;state.byId=new Map(data.players.map(function (p) {return [p.id,p];}));
       state.throughWeek=data.throughWeek;
+      state.updated=data.updated;
+      state.sourceMode=data._researchSource;
+      // A stale fallback is acceptable for historical research, never for
+      // current-season opportunity advice. Compare the selected NFL season,
+      // not merely the calendar year during January.
+      var today=new Date(), activeYear=today.getUTCMonth()===0?
+        today.getUTCFullYear()-1:today.getUTCMonth()>=8?today.getUTCFullYear():null;
+      var stamp=Date.parse(String(data.updated||'')+'T23:59:59Z');
+      state.stale=year===activeYear&&(!Number.isFinite(stamp)||Date.now()-stamp>8*86400000);
       // The bundled backup can lag the weekly R2 refresh; never present it as current.
       $('data-stamp').textContent=year+' Season · Through Week '+data.throughWeek+' · Updated '+data.updated+
         (data._researchSource==='backup'?' · Backup copy'+(navigator.onLine===false?' (offline)':'')+' — may not include the latest week':'');
