@@ -16,7 +16,7 @@ type Signal = {
   id: string; name: string; team: string; pos: string; week: number;
   baseline: number; recent: number; change: number; direction: 'rising' | 'falling'; metric: string;
   scoringBefore: number; scoringRecent: number; scoringChange: number; relativeChange?: number;
-  priority?:number;verdict?:string;snapBefore?:number|null;snapRecent?:number|null;
+  priority?:number;verdict?:'supported'|'context-dependent'|'low-volume'|'unverified';snapBefore?:number|null;snapRecent?:number|null;
   snapChange?:number|null;riskFlags?:string[];
 };
 type ResearchPlayer = { id: string; n: string; team: string; pos: string; ryr: number | null;
