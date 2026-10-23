@@ -302,7 +302,8 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
         pct, snaps = float(snap["offense_pct"]), float(snap["offense_snaps"])
         if not math.isfinite(pct) or not math.isfinite(snaps) or pct < 0 or snaps < 0:
             raise ValueError(f"Invalid offensive snaps for {pid} week {week}")
-        pct = pct * 100 if pct <= 1 else pct
+        # nflverse/PFR offense_pct is already on the 0..100 scale.
+        # In particular 1.0 means one percent, not 100 percent.
         if pct > 100.1 or snaps != int(snaps):
             raise ValueError(f"Invalid snap fraction/count for {pid} week {week}")
         player.setdefault("c", []).append([week, team, round(pct, 1), int(snaps), margins[(week, team)]])
