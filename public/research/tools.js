@@ -85,10 +85,15 @@
         signal.airYardsBefore.toFixed(1)+' → '+signal.airYardsRecent.toFixed(1)+'.</p>')+
       (signal.redzoneChange==null?'':'<p class="subdued">Red-zone opportunities/game: '+
         signal.redzoneBefore.toFixed(1)+' → '+signal.redzoneRecent.toFixed(1)+'.</p>')+
+      '<p class="subdued"><strong>Role evidence: '+esc({'supported':'Snap and team usage support this change','context-dependent':'Situational risk','low-volume':'Small workload','unverified':'Breakout not verified'}[signal.verdict]||'Unverified')+'</strong></p>'+
+      (signal.snapChange==null?'<p class="subdued">Verified offensive snaps unavailable</p>':
+        '<p class="subdued">Offensive snap share: '+signal.snapBefore.toFixed(1)+'% to '+signal.snapRecent.toFixed(1)+'% ('+signed(signal.snapChange)+' percentage points)</p>')+
+      (signal.riskFlags||[]).map(function(flag){return '<p class="season-note">'+esc(flag)+'</p>';}).join('')+
       (signal.teamChanged?'<p class="season-note">NFL team changed in this window; compare roles cautiously.</p>':'')+
       '<p class="subdued">Weeks '+signal.baselineWeeks.join(', ')+' vs. '+signal.recentWeeks.join(', ')+'</p></article>';
   }
   function radar(ctx) {
+    if(ctx.stale) return controls(ctx)+'<p role="alert" class="season-note">Research is outdated (through Week '+ctx.throughWeek+', updated '+esc(ctx.updated||'unknown')+'). Opportunity findings are paused until current data is available.</p>';
     var signals=O.radar({players:ctx.players,throughWeek:ctx.throughWeek},scoring);
     var selected=signals.filter(function (s) {return (filter==='all'||s.direction===filter) &&
       (radarPosition==='ALL'||s.pos===radarPosition) &&
