@@ -104,7 +104,9 @@ def dst_points(row: dict, allowed: int) -> float:
         + pa_bonus, 2)
 
 
-def build_season(season: int, stats: list[dict], teams: list[dict], schedule: list[dict], stamp: str, player_meta: dict | None = None) -> dict:
+def build_season(season: int, stats: list[dict], teams: list[dict], schedule: list[dict], stamp: str, player_meta: dict | None = None,
+                 snap_rows: list[dict] | None = None, pfr_to_gsis: dict | None = None,
+                 injury_rows: list[dict] | None = None) -> dict:
     through = completed_weeks(schedule, season)
     by_id: dict[str, dict] = {}
     player_meta = player_meta or {}
@@ -266,6 +268,69 @@ def build_season(season: int, stats: list[dict], teams: list[dict], schedule: li
     is_previous_season_still_finishing = season == today.year - 1 and today.month <= 2
     if season < today.year and through < 18 and not is_previous_season_still_finishing:
         raise ValueError(f"Historical season {season} is not complete")
+    # Pro Football Reference game-level snap reports are matched through the
+    # verified nflverse PFR-to-GSIS player directory, never name guesses.
+    # Record snaps even in games where the player has zero box-score activity.
+    # This matters when an established teammate disappears from the lineup.
+    mapped = {p["id"]: p for p in people if p["pos"] in {"QB", "RB", "WR", "TE"}}
+    margins = {}
+    for game in schedule:
+        if int(game.get("season") or 0) != season or game.get("game_type") != "REG":
+            continue
+        week = int(game.get("week") or 0)
+        if not 1 <= week <= through or game.get("home_score") is None or game.get("away_score") is None:
+            continue
+        home, away = str(game.get("home_team")), str(game.get("away_team"))
+        diff = int(game["home_score"]) - int(game["away_score"])
+        margins[(week, home)] = diff
+        margins[(week, away)] = -diff
+    seen_snap = set()
+    for snap in snap_rows or []:
+        if snap.get("game_type") != "REG" or int(snap.get("season") or 0) != season:
+            continue
+        week, team = int(snap.get("week") or 0), str(snap.get("team") or "").upper()
+        if not 1 <= week <= through or (week, team) not in margins:
+            continue
+        pid = (pfr_to_gsis or {}).get(str(snap.get("pfr_player_id") or ""))
+        player = mapped.get(pid)
+        if not player or snap.get("offense_pct") is None or snap.get("offense_snaps") is None:
+            continue
+        key = (pid, week)
+        if key in seen_snap:
+            raise ValueError(f"Duplicate verified snap entry for {pid} week {week}")
+        seen_snap.add(key)
+        pct, snaps = float(snap["offense_pct"]), float(snap["offense_snaps"])
+        if not math.isfinite(pct) or not math.isfinite(snaps) or pct < 0 or snaps < 0:
+            raise ValueError(f"Invalid offensive snaps for {pid} week {week}")
+        # nflverse/PFR offense_pct is already on the 0..100 scale.
+        # In particular 1.0 means one percent, not 100 percent.
+        if pct > 100.1 or snaps != int(snaps):
+            raise ValueError(f"Invalid snap fraction/count for {pid} week {week}")
+        player.setdefault("c", []).append([week, team, round(pct, 1), int(snaps), margins[(week, team)]])
+    # Only confirmed game-status OUT reports are recorded. Practice DNP,
+    # questionable status and an absence of a report are not injury proof.
+    reports = {}
+    for entry in injury_rows or []:
+        if (int(entry.get("season") or 0) != season or
+                entry.get("game_type", entry.get("season_type")) != "REG"):
+            continue
+        week = int(entry.get("week") or 0)
+        pid = str(entry.get("gsis_id") or "")
+        status = str(entry.get("report_status") or "").strip().upper()
+        if pid not in mapped or not 1 <= week <= through or not status:
+            continue
+        key = (pid, week)
+        stamp = str(entry.get("date_modified") or "")
+        if key not in reports or stamp >= reports[key][0]:
+            reports[key] = (stamp, status)
+    for (pid, week), (_, status) in reports.items():
+        if status == "OUT":
+            mapped[pid].setdefault("i", []).append([week, "OUT"])
+    for player in mapped.values():
+        if "i" in player:
+            player["i"].sort(key=lambda row: row[0])
+        if "c" in player:
+            player["c"].sort(key=lambda row: row[0])
     people.sort(key=lambda p: (-p["p"], p["n"], p["id"]))
     return {
         "year": season, "throughWeek": through, "updated": stamp,
@@ -296,9 +361,15 @@ def main() -> None:
         now = datetime.now(timezone.utc)
         args.seasons = [now.year if now.month >= 9 else now.year - 1]
     import nflreadpy as nfl
-    metadata = nfl.load_players().select(["gsis_id", "rookie_season"]).to_dicts()
+    metadata = nfl.load_players().select(["gsis_id", "rookie_season", "pfr_id"]).to_dicts()
     player_meta = {}
+    pfr_to_gsis = {}
     for entry in metadata:
+        if entry.get("gsis_id") and entry.get("pfr_id"):
+            key = str(entry["pfr_id"])
+            if key in pfr_to_gsis and pfr_to_gsis[key] != str(entry["gsis_id"]):
+                raise ValueError(f"Ambiguous PFR mapping {key}")
+            pfr_to_gsis[key] = str(entry["gsis_id"])
         raw_year = entry.get("rookie_season")
         if not entry.get("gsis_id") or raw_year is None:
             continue
@@ -319,7 +390,20 @@ def main() -> None:
             # no existing snapshot to protect. Later runs pick it up automatically.
             print(f"Season {season} has no completed regular-season week yet; skipping", flush=True)
             continue
-        snapshot = build_season(season, stats, teams, schedule, stamp, player_meta)
+        try:
+            snap_rows = nfl.load_snap_counts(season).to_dicts()
+        except Exception as error:
+            # Optional source: missing or late PFR snaps must NEVER fabricate
+            # evidence of a breakout or block independently validated stats.
+            print(f"Offensive snap source unavailable for {season}: {type(error).__name__}", flush=True)
+            snap_rows = []
+        try:
+            injury_rows = nfl.load_injuries(season).to_dicts()
+        except Exception as error:
+            print(f"Official injury report source unavailable for {season}: {type(error).__name__}", flush=True)
+            injury_rows = []
+        snapshot = build_season(season, stats, teams, schedule, stamp,
+                                player_meta, snap_rows, pfr_to_gsis, injury_rows)
         old = json.loads(path.read_text()) if path.exists() else None
         guard_previous(old, snapshot)
         if old and {k:v for k,v in old.items() if k != "updated"} == {k:v for k,v in snapshot.items() if k != "updated"}:

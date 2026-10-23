@@ -6,7 +6,8 @@ export type RosterPlayer = {position:string|null};
 export type Need = {pos:FocusPosition; mine:number; median:number; required:number;
   shortage:number; belowMedian:number; level:'urgent'|'thin'|'balanced'; explanation:string};
 export type CandidateSignal = {id:string;pos:string;direction:'rising'|'falling';
-  change:number;relativeChange?:number;scoringChange:number;teamChanged?:boolean};
+  change:number;relativeChange?:number;scoringChange:number;teamChanged?:boolean;
+  priority?:number;verdict?:'supported'|'context-dependent'|'low-volume'|'unverified'};
 export type OwnedCandidate<T extends CandidateSignal=CandidateSignal> = {
   signal:T; owner:RosterTeam|null; match:'catalog'|'roster'|'unmatched';
 };
@@ -41,16 +42,18 @@ export function decisionCandidates<T extends OwnedCandidate<CandidateSignal>>(
  const priority=new Map<string,number>(needs.map((need)=>[need.pos,need.shortage*50+need.belowMedian*18]));
  return rows.filter(item=>{
   if(item.match==='unmatched')return false;
+  if(category!=='my-roster'&&['low-volume','unverified'].includes(item.signal.verdict||''))return false;
   if(category==='waiver')return provider==='sleeper'&&item.match==='catalog'&&!item.owner&&item.signal.direction==='rising';
   if(category==='trade')return Boolean(item.owner&&item.owner.rosterId!==teamId&&item.signal.direction==='rising');
   return Boolean(item.owner&&item.owner.rosterId===teamId&&item.signal.direction==='falling');
  }).sort((a,b)=>{
   const grade=(item:T)=>
     (category==='my-roster'?0:(priority.get(item.signal.pos)||0))+
-    Math.min(40,Math.abs(item.signal.change)*3)+
-    Math.min(30,Math.max(0,item.signal.relativeChange||0))/2+
-    (item.signal.direction==='rising'&&item.signal.scoringChange<2?12:0)-
-    (item.signal.teamChanged?18:0);
+    (item.signal.priority!=null?item.signal.priority:
+      Math.min(40,Math.abs(item.signal.change)*3)+
+      Math.min(30,Math.max(0,item.signal.relativeChange||0))/2+
+      (item.signal.direction==='rising'&&item.signal.scoringChange<2?12:0)-
+      (item.signal.teamChanged?18:0));
   return grade(b)-grade(a)||a.signal.id.localeCompare(b.signal.id);
  });
 }

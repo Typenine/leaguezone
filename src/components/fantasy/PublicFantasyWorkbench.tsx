@@ -14,6 +14,7 @@ import DecisionFoundationPanel from '@/components/fantasy/DecisionFoundationPane
 import {FANTASY_TOOLS,publicToolUrl,type PublicToolKey} from '@/lib/fantasy/public-tools';
 import {PROSPECT_BASELINE_2027} from '@/components/draft/TeamProspectDraftboard';
 import opportunityEngine from '../../../public/research/opportunities.js';
+import researchMetrics from '../../../public/research/metrics.js';
 import decisionEngine from '../../../public/research/insights.js';
 
 type Team={rosterId:number;teamName:string};
@@ -26,6 +27,7 @@ type Signal=Omit<RadarSignal,'direction'>&{direction:'rising'|'falling';change:n
 type Ownership={player:ResearchSnapshot['players'][number];providerId:string|null;
  owner:FantasyRostersData['teams'][number]|null;match:'catalog'|'roster'|'unmatched'};
 type Decision={heading:string;why:string;next:string;category:string}|null;
+const metrics=researchMetrics as {attachUsage:(players:ResearchSnapshot['players'],data:unknown)=>void};
 const engine=opportunityEngine as {radar:(d:ResearchSnapshot,scoring:string)=>Signal[];
  ownership:(players:ResearchSnapshot['players'],teams:FantasyRostersData['teams'],
  providers:FantasyRostersData['players'],catalog:Context['catalog'])=>Ownership[]};
@@ -36,15 +38,36 @@ async function get<T>(path:string):Promise<T>{
  if(!res.ok)throw Error(body.error||'Live data unavailable. Try again.');
  return body as unknown as T;
 }
+function currentResearchSeason():number|null {
+ const now=new Date(),month=now.getUTCMonth();
+ return month===0?now.getUTCFullYear()-1:month>=8?now.getUTCFullYear():null;
+}
+function freshEnough(data:ResearchSnapshot):boolean {
+ if(data.year!==currentResearchSeason())return true;
+ const stamp=Date.parse(String(data.updated||'')+'T23:59:59Z');
+ return Number.isFinite(stamp)&&Date.now()-stamp<=8*86400000;
+}
 async function researchSnapshot(year:number):Promise<ResearchSnapshot|null>{
  if(!Number.isInteger(year)||year<2017||year>2100)return null;
  try{
-  const index=await get<{schema:number;files:Record<string,{key:string}>}>('/api/research-feed/research/v1/catalog.json');
+  const index=await get<{schema:number;files:Record<string,{key:string;updated?:string}>;datasets?:{usage?:{schema:number;files:Record<string,{key:string;throughWeek:number;baseUpdated:string}>}}}>('/api/research-feed/research/v1/catalog.json');
   const key=index.files?.[String(year)]?.key;
   if(index.schema!==1||!key||!/^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(key))throw Error('No live object');
-  return validateResearchSnapshot(await get<unknown>('/api/research-feed/'+key),year);
+  const base=validateResearchSnapshot(await get<unknown>('/api/research-feed/'+key),year);
+  base.source='live';
+  const info=index.datasets?.usage?.files?.[String(year)];
+  if(index.datasets?.usage?.schema===1 && info &&
+     info.throughWeek===base.throughWeek && info.baseUpdated===base.updated &&
+     /^research\/v1\/objects\/20\d\d-[a-f0-9]{64}\.json$/.test(info.key)) {
+   try{metrics.attachUsage(base.players,await get<unknown>('/api/research-feed/'+info.key));}
+   catch{/* Missing advanced evidence must lower confidence, never create guessed metrics. */}
+  }
+  return freshEnough(base)?base:null;
  }catch{
-  try{return validateResearchSnapshot(await get<unknown>('/research/data/'+year+'.json'),year);}
+  try{
+   const backup=validateResearchSnapshot(await get<unknown>('/research/data/'+year+'.json'),year);
+   return freshEnough(backup)?backup:null;
+  }
   catch{return null;}
  }
 }

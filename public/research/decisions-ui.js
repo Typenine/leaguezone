@@ -22,6 +22,8 @@
       '<div><span>Fantasy points/game</span>'+
       '<strong>'+s.scoringBefore.toFixed(1)+' to '+s.scoringRecent.toFixed(1)+'</strong>'+
       '<small>'+signed(s.scoringChange)+' per game</small></div></div>'+
+      (s.snapChange==null?'<p class="subdued">Offensive snap participation not verified</p>':
+        '<p class="subdued">Snap share '+s.snapBefore.toFixed(1)+'% to '+s.snapRecent.toFixed(1)+'% ('+signed(s.snapChange)+' pts)</p>')+
       (d.context?'<p class="decision-warning">'+esc(d.context)+'</p>':'')+
       '<p class="decision-next"><strong>Before acting:</strong> '+esc(d.next)+'</p>'+
       '<div class="decision-card-links"><a href="'+playerUrl(d,year)+'">See supporting stats</a>'+
@@ -29,6 +31,7 @@
   }
   function markup(ctx) {
     if (!D || !ctx.players) return '<p class="empty">Decision research is unavailable right now.</p>';
+    if(ctx.stale) return '<p role="alert" class="season-note">Research is outdated (through Week '+ctx.throughWeek+', updated '+esc(ctx.updated||'unknown')+'). Current-season insights are temporarily disabled.</p>';
     var all=D.build({players:ctx.players,throughWeek:ctx.throughWeek},scoring);
     var search=query.trim().toLowerCase();
     var matches=all.filter(function(d) {

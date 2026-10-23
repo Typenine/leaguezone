@@ -172,7 +172,7 @@ describe('Prediction receipt integrity', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].recordedAt).toBe('2026-10-09T12:00:00Z');
     expect(rows[0].signal.baseline).toBe(5);
-    expect(rows[0].modelVersion).toBe('radar-v1');
+    expect(rows[0].modelVersion).toBe('radar-v2');
   });
 
   it('grades only with stored values, so later stat corrections cannot rewrite the signal', () => {
@@ -196,7 +196,7 @@ describe('Prediction receipt integrity', () => {
     expect(O.resolveRecorded([entry],{year:2026,players:[bye],throughWeek:6})[0].status).toBe('unresolved');
     const missingVersion={...entry,modelVersion:undefined};
     expect(O.resolveRecorded([missingVersion],{year:2026,players:[player('p1',[5,5,10,10,9,9])],throughWeek:6})[0].status).toBe('unresolved');
-    const future={...entry,modelVersion:'radar-v2'};
+    const future={...entry,modelVersion:'radar-v3'};
     expect(O.resolveRecorded([future],{year:2026,players:[player('p1',[5,5,10,10,9,9])],throughWeek:6})[0].status).toBe('unresolved');
     expect(O.resolveRecorded([entry],{year:2025,players:[p],throughWeek:18})).toEqual([]);
   });

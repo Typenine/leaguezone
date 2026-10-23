@@ -186,7 +186,7 @@ def build_catalog(data_dir: Path, old_catalog: dict | None = None, observation: 
                 if (payload.get("schema") != 1 or payload.get("year") != season or
                         payload.get("throughWeek") != week or
                         payload.get("recordedAt") != observation or
-                        payload.get("modelVersion") != "radar-v1" or
+                        payload.get("modelVersion") != "radar-v2" or
                         not isinstance(payload.get("signals"), list)):
                     raise ValueError("Malformed forward signal observation")
                 checksum = digest(payload)

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FantasyRostersData } from '@/lib/providers/types';
 import opportunityEngine from '../../../../../public/research/opportunities.js';
 import decisionEngine from '../../../../../public/research/insights.js';
+import researchMetrics from '../../../../../public/research/metrics.js';
 import {decisionCandidates,rosterNeeds} from '@/lib/fantasy/personalized-decisions';
 import ActionableDecisions from '@/components/fantasy/ActionableDecisions';
 import DecisionFoundationPanel from '@/components/fantasy/DecisionFoundationPanel';
@@ -15,6 +16,8 @@ type Signal = {
   id: string; name: string; team: string; pos: string; week: number;
   baseline: number; recent: number; change: number; direction: 'rising' | 'falling'; metric: string;
   scoringBefore: number; scoringRecent: number; scoringChange: number; relativeChange?: number;
+  priority?:number;verdict?:'supported'|'context-dependent'|'low-volume'|'unverified';snapBefore?:number|null;snapRecent?:number|null;
+  snapChange?:number|null;riskFlags?:string[];
 };
 type ResearchPlayer = { id: string; n: string; team: string; pos: string; ryr: number | null;
   w: Array<[number, string, number, number, number, number, number, ...number[]]>;
@@ -32,6 +35,14 @@ type OpportunityEngine = {
 // This is the exact same deterministic engine as the public Radar. The module
 // also runs without a DOM in Vitest and in the static research application.
 const engine = opportunityEngine as OpportunityEngine;
+const metrics=researchMetrics as {attachUsage:(players:ResearchPlayer[],dataset:unknown)=>void};
+function isStaleResearch(data:Season):boolean {
+  const now=new Date(),month=now.getUTCMonth();
+  const activeYear=month===0?now.getUTCFullYear()-1:month>=8?now.getUTCFullYear():null;
+  if(data.year!==activeYear)return false;
+  const stamp=Date.parse(String(data.updated||'')+'T23:59:59Z');
+  return !Number.isFinite(stamp)||Date.now()-stamp>8*86400000;
+}
 type Decision = {category:'watch'|'momentum'|'risk'; label:string; heading:string; why:string; next:string}|null;
 const decisionModel = decisionEngine as {classify:(signal:Signal)=>Decision};
 
@@ -80,17 +91,17 @@ async function researchSeason(year: number): Promise<Season> {
 async function attachPassAttempts(data: Season): Promise<void> {
   // The base R2 snapshot is authoritative. Optional attempts must match its
   // exact season, week and data version before being attached to a QB.
-  const qbs = data.players.filter((p) => p.pos === 'QB');
-  if (qbs.every((qb) => qb.w.every((row) => Number.isInteger(row[15]) && row[15] >= 0))) return;
+  // Advanced usage is relevant to all positions, even if QB attempts are in core logs.
   try {
     const config = await json<{publicBase?: string}>('/research/data-source.json');
     const base = String(config.publicBase || '').replace(/\/+$/, '');
     let advancedUrl: string | null = null;
     if (/^https:\/\/[^/]+$/i.test(base)) {
-      const catalog = await json<{schema:number; files:Record<string,{throughWeek:number;updated:string}>;
-        datasets?:{usage?:{schema:number;files:Record<string,{key:string;throughWeek:number;baseUpdated:string}>}}}>(
-        base + '/research/v1/catalog.json',
-      );
+      type UsageCatalog={schema:number; files:Record<string,{throughWeek:number;updated:string}>;
+        datasets?:{usage?:{schema:number;files:Record<string,{key:string;throughWeek:number;baseUpdated:string}>}}};
+      let catalog:UsageCatalog;
+      try{catalog=await json<UsageCatalog>('/api/research-feed/research/v1/catalog.json');}
+      catch{catalog=await json<UsageCatalog>(base+'/research/v1/catalog.json');}
       const baseInfo = catalog.files?.[String(data.year)];
       const info = catalog.datasets?.usage?.files?.[String(data.year)];
       if (catalog.schema===1 && catalog.datasets?.usage?.schema===1 && baseInfo &&
@@ -107,10 +118,7 @@ async function attachPassAttempts(data: Season): Promise<void> {
     catch {usage = await json<typeof usage>(local);}
     if (usage.schema!==1 || usage.year!==data.year || usage.throughWeek!==data.throughWeek ||
         usage.baseUpdated!==data.updated) return;
-    for (const player of qbs) {
-      if (player.w.every((row) => Number.isInteger(row[15]) && row[15] >= 0)) continue;
-      player.u = (usage.players[player.id] || []).map((row) => ({week:row[0],team:row[1],att:row[2]}));
-    }
+    metrics.attachUsage(data.players,usage);
   } catch { /* No reliable attempts: QB signals remain omitted, never guessed. */ }
 }
 
@@ -131,6 +139,8 @@ function GuidedCard({item,season,slug,kind}:{
    <p className="mt-1 text-sm text-[var(--muted)]">{decision?.why||'Review the observed workload before acting.'}</p>
    <p className="mt-2 text-xs text-[var(--muted)]">Opportunity per game: {signal.baseline.toFixed(1)} → {signal.recent.toFixed(1)}
      {' · '}Fantasy points per game: {signal.scoringBefore.toFixed(1)} → {signal.scoringRecent.toFixed(1)}</p>
+   {signal.snapChange!=null&&<p className="mt-1 text-xs text-[var(--muted)]">Offensive snaps {signal.snapBefore?.toFixed(1)}% to {signal.snapRecent?.toFixed(1)}%</p>}
+   {signal.riskFlags?.map((flag,i)=><p key={i} className="mt-1 text-xs text-[var(--muted)]">{flag}</p>)}
    {owner&&<p className="mt-2 text-xs text-[var(--muted)]">Rostered by {owner.teamName}</p>}
    <div className="mt-3 flex flex-wrap gap-3 text-xs font-semibold text-accent underline">
     <Link href={`/research/players/${encodeURIComponent(signal.id)}?season=${season}`}>Research player</Link>
@@ -186,6 +196,8 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
 
   const report = useMemo(() => {
     if (!season || !rosters) return null;
+    // Do not issue actionable league advice from the bundled Week 4 fallback.
+    if(isStaleResearch(season))return {signals:[],unmatched:0};
     const signals = engine.radar(season, scoring);
     const owners = engine.ownership(signals.map((s) => season.players.find((p) => p.id === s.id)!),
       rosters.teams, rosters.players, rosters.catalog || []);
@@ -200,8 +212,8 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
     if (category === 'roster') return Boolean(owner && String(owner.rosterId) === teamId);
     // Yahoo does not expose a complete authoritative free-agent player pool here.
     return sleeperRoster && !owner && match === 'catalog';
-  }).sort((a, b) => (b.signal.relativeChange || 0) - (a.signal.relativeChange || 0)
-    || Math.abs(b.signal.change) - Math.abs(a.signal.change)) || [];
+  }).sort((a,b)=>(b.signal.priority||0)-(a.signal.priority||0)
+    || Math.abs(b.signal.change)-Math.abs(a.signal.change)) || [];
   }, [report, category, position, teamId, rosters]);
 
 
@@ -304,6 +316,7 @@ export default function RosterOpportunitiesPage({ params }: { params: Promise<{l
               className={`rounded-lg border px-3 py-2 text-sm font-bold ${view==='finder'?'border-[var(--accent)] bg-accent-soft text-accent':'border-[var(--border)] text-[var(--text)]'}`}>Advanced Finder</button>
           </div>
         </div>
+        {isStaleResearch(season) && <p role="alert" className="mt-4 rounded-lg border border-amber-500/50 p-3 text-sm text-[var(--text)]">Current-season research is outdated. Opportunity findings are paused, but lineup and league features remain available.</p>}
         {season._researchSource==='backup' && <p role="status" className="mt-4 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-[var(--text)]">Live research is unavailable. This is the archived Week {season.throughWeek} copy from {season.updated}; newer published results may exist. Do not treat this as the current week.</p>}
         {view==='brief' && <>
           {!teamId?<p className="mt-5 rounded-xl border border-[var(--border)] p-4 text-sm text-[var(--muted)]">Select a team above to see personalized findings. Only your assigned team can display private lineup projections.</p>:<>

@@ -137,14 +137,23 @@
   profiles, mobile player cards and static data access without authorization.
 
 ## Known limitations
-- nflverse weekly player stats do not supply verified offensive snap counts in
-  this feed. The research UI does not show guessed snap shares.
+- The latest Radar can use PFR offensive snap counts through nflverse, matched
+  by published PFR-to-GSIS IDs. Snap reports may lag or lack a player-week; in
+  those cases the model explicitly marks snap evidence unavailable and never
+  labels it a verified role-growth signal.
 - Default DST scoring does not exactly reproduce every fantasy provider's
   treatment of return touchdowns, blocked kicks, and other rare events.
 - Historical R2 snapshots are only as current as the last successful uploader;
   2023–2026 are the current archived seasons, and injuries are not live.
 - Custom league scoring, proprietary fantasy projections, comprehensive
-  snap/route charts, and verified historical playoff stats are not included.
+  route charts, and verified historical playoff stats are not included.
+- NFL injury causation is not inferred from missing snaps. Same-position
+  teammate participation dropping to near zero is treated as a possible
+  temporary opening. A matching official game-status OUT entry from nflverse
+  can corroborate the absence, but does not establish causation or guarantee
+  the player stays out. Missing reports never imply healthy/injured.
+  Large final-score margins indicate possible game-script distortion, not
+  proof that a specific snap was garbage time.
 
 ## Metric definitions
 All calculations live in public/research/metrics.js, a pure helper loaded by the
@@ -380,18 +389,30 @@ landing pages, while robots.txt continues excluding private league URLs.
   and WR/TE targets 3. These eligibility cutoffs keep tiny roles out.
   Fantasy scoring is displayed separately; scoring never decides a volume signal.
   Volume can change because team plays change even if player share is flat.
+- Radar v2 weights actual opportunity changes, team workload share and verified
+  offensive snap share rather than ranking percentage changes from tiny roles
+  first. The four-game volume test remains an initial eligibility filter.
+  Results are marked supported, context-dependent, low-volume, or unverified.
+  A supported trend is not a guarantee of future production. The PFR optional
+  weekly context is built offline inside the current-season base snapshot
+  with verified ID joins and final game margins. It is not fetched per visitor.
+  If the source is unavailable, snapshot publication remains possible but
+  Radar loses the evidence required to call a role change supported.
+- Current-season research becomes non-actionable when the last published
+  update is older than eight days. Historical seasons remain browsable. A
+  bundled backup cannot silently provide current waiver or Radar advice.
 - Prediction Receipts has two distinct cohorts. Historical replay uses each
   week's available games and evaluates two later games within three weeks.
   Signals for the same player are spaced three weeks apart. Confirmation means
   the future opportunity average remains above/below the pre-signal baseline
   by the same thresholds. The replay is descriptive, reconstructed after the
   fact, and must not be called forward predictive accuracy.
-- A separate device-local forward ledger locks current-season Radar signals,
-  their observation date, format and baseline, then scores them after two
-  eligible games arrive. It is idempotent and survives refreshes in that
-  browser. Clearing browser storage deletes it. It is not a durable,
-  system-wide ledger; do not advertise a global accuracy rate until an
-  append-only shared publication path has been designed and validated.
+- Current-season forward observations are versioned, immutable R2 objects
+  published through the offline GitHub workflow. The v1 ledger remains
+  gradable under its original rules; v2 uses its own model version. Historical
+  replay is displayed separately and is never misrepresented as forward
+  accuracy. Confirmation measures subsequent workload persistence, not
+  accuracy of a player's fantasy-scoring or breakout forecast.
 - Development Lab loads available season snapshots lazily, shows per-game
   trajectories and verified career year, and finds same-position completed
   historical seasons at the same career year by proximity of FP/game. With

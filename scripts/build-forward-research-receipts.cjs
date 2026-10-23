@@ -20,10 +20,10 @@ function attach(kind) {
   else M.attachRedzone(base.players,data);
 }
 attach('usage');attach('redzone');
-const signals=O.radar(base,'half').map(s=>({...s,modelVersion:'radar-v1'}));
+const signals=O.radar(base,'half').map(s=>({...s,modelVersion:'radar-v2'}));
 const record={
   schema:1,year:base.year,throughWeek:base.throughWeek,recordedAt:observedAt,
-  modelVersion:'radar-v1',format:'half',
+  modelVersion:'radar-v2',format:'half',
   sourceUpdated:base.updated,signals
 };
 process.stdout.write(JSON.stringify(record)+'\n');
