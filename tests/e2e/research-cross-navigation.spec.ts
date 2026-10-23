@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './research-test';
 test.use({serviceWorkers:'block'});
 test('connects the Next.js Weekly Center and static Radar pages',async({page})=>{
  await page.goto('/weekly');
@@ -23,7 +23,7 @@ test('connects saved, my research and player hub without relying on back',async(
 test('research navigation scrolls within its own bar at 320px without overflowing the page',async({page})=>{
  await page.setViewportSize({width:320,height:720});
  await page.goto('/weekly');
- const nav=page.getByRole('navigation',{name:'Research tools'});
+ const nav=page.getByRole('navigation',{name:'Research',exact:true});
  await expect(nav).toBeVisible();
  await expect(nav.getByRole('link',{name:'Weekly Center'})).toBeVisible();
  const metrics=await page.evaluate(()=>{
