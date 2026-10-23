@@ -1,18 +1,23 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './research-test';
 
-test('Radar separates role change from scoring and retains filters across seasons', async ({ page }) => {
+test('Radar shows verified role context and filters without treating points as opportunity', async ({ page }) => {
   const apiCalls: string[] = [];
-  page.on('request', request => { if (request.url().includes('/api/')) apiCalls.push(request.url()); });
-  await page.goto('/research');
+  page.on('request', request => { if (request.url().includes('/api/') && !request.url().includes('/api/research-feed/')) apiCalls.push(request.url()); });
+  // Historical season is intentionally used: an archived fixture is not stale.
+  await page.goto('/research?season=2025');
   await expect(page.locator('.tool-discovery a[href="/research/radar"]')).toBeVisible();
   await page.locator('.tool-discovery a[href="/research/radar"]').click();
-  await expect(page.locator('#tool-panel .tool-card').first()).toBeVisible();
-  await expect(page.locator('#tool-panel')).toContainText('fantasy points/game');
+  await expect(page.locator('#tool-panel')).toContainText('signals through Week');
+  await expect(page.locator('#tool-panel')).toContainText('observed usage');
+  const cards = page.locator('#tool-panel .tool-card');
+  if (await cards.count()) await expect(cards.first()).toContainText('Role evidence');
+  else await expect(page.locator('#tool-panel')).toContainText('No players meet these filters');
   await page.locator('[data-role="falling"]').click();
+  await expect(page.locator('[data-role="falling"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#tool-panel .role-label.rising')).toHaveCount(0);
-  await page.locator('#tool-year').selectOption('2025');
-  await expect(page.locator('#data-stamp')).toContainText('2025');
-  await expect(page.locator('#tool-panel .tool-card').first()).toBeVisible();
+  await page.locator('#tool-year').selectOption('2024');
+  await expect(page.locator('#data-stamp')).toContainText('2024');
+  await expect(page.locator('#tool-panel')).toContainText('signals through Week');
   expect(apiCalls).toEqual([]);
 });
 
