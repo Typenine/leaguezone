@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validLeagueId } from '@/lib/server/sleeper-research';
 import {deriveTradeValueFormat} from '@/lib/fantasy/trade-value-format';
 import type { TradeValue } from '@/lib/types/trade-analyzer';
-import { getObjectText } from '@/server/storage/r2';
+import { getObjectText, putObjectText } from '@/server/storage/r2';
+import { getKV } from '@/lib/server/kv';
 import { getCurrentLeague } from '@/lib/server/league-context';
 import { getLeague } from '@/lib/utils/sleeper-api';
 
@@ -139,26 +140,63 @@ async function scrapeKTCLive(format: ValueFormat): Promise<KTCPlayer[]> {
 
 // Read KTC from R2 (written by scripts/refresh-ktc.ts on a residential IP).
 // Falls back to live scraping if R2 is unavailable or stale.
+/**
+ * Reuse R2 across regions and cold starts instead of re-scraping ten
+ * rankings pages whenever the 24-hour snapshot becomes stale.
+ * Superflex and 1-QB values MUST use different cache objects.
+ */
 async function fetchKTC(format: ValueFormat): Promise<KTCPlayer[]> {
-  // The uploaded snapshot is generated in Superflex format. One-QB leagues must use live values.
-  if (!format.superflex) return scrapeKTCLive(format);
+  const key = format.superflex ? KTC_R2_KEY : 'trade-analyzer/ktc-1qb.json';
+  const retryKey = 'leaguezone:ktc:next-scrape:' + (format.superflex ? 'sf' : '1qb');
+  let lastStored: KTCPlayer[] = [];
+
   try {
-    const text = await getObjectText({ key: KTC_R2_KEY });
+    const text = await getObjectText({ key });
     if (text) {
-      const stored = JSON.parse(text) as { players: KTCPlayer[]; updatedAt: string };
-      if (stored.players?.length > 0) {
-        const age = Date.now() - new Date(stored.updatedAt).getTime();
-        if (age < KTC_R2_TTL_MS) {
-          console.log(`[trade-analyzer] KTC from R2: ${stored.players.length} players, age ${Math.round(age / 3600000)}h`);
-          return stored.players;
-        }
-        console.log('[trade-analyzer] KTC R2 data is stale, falling back to live scrape');
+      const stored = JSON.parse(text) as { players?: KTCPlayer[]; updatedAt?: string };
+      if (Array.isArray(stored.players) && stored.players.length > 0) {
+        lastStored = stored.players;
+        const age = Date.now() - Date.parse(stored.updatedAt || '');
+        if (Number.isFinite(age) && age >= 0 && age < KTC_R2_TTL_MS) return lastStored;
       }
     }
-  } catch (e) {
-    console.warn('[trade-analyzer] R2 read failed, falling back to live scrape:', e);
+  } catch (error) {
+    console.warn('[trade-analyzer] No current stored KTC data:', error);
   }
-  return scrapeKTCLive(format);
+
+  let kv: Awaited<ReturnType<typeof getKV>> = null;
+  if (lastStored.length) {
+    try {
+      kv = await getKV();
+      const nextRetry = kv ? Number(await kv.get(retryKey)) : 0;
+      if (Number.isFinite(nextRetry) && nextRetry > Date.now()) return lastStored;
+      if (kv) {
+        await kv.set(retryKey, String(Date.now() + 60 * 60 * 1000));
+        if (kv.expire) await kv.expire(retryKey, 3600);
+      }
+    } catch {
+      // A missing KV connection is not allowed to break the trade analyzer.
+    }
+  }
+
+  const live = await scrapeKTCLive(format);
+  if (lastStored.length && live.length < lastStored.length * 0.75) {
+    console.warn('[trade-analyzer] Incomplete KTC scrape; keeping last saved values');
+    return lastStored;
+  }
+  if (live.length > 0) {
+    try {
+      await putObjectText({
+        key,
+        text: JSON.stringify({ updatedAt: new Date().toISOString(), players: live }),
+      });
+      if (kv) await kv.del(retryKey).catch(() => undefined);
+    } catch (error) {
+      console.warn('[trade-analyzer] Could not store updated KTC values:', error);
+    }
+    return live;
+  }
+  return lastStored;
 }
 
 // --- Helpers ---
